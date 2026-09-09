@@ -139,7 +139,7 @@ test('POS topbar fullscreen toggle stays synchronized with native window state',
 });
 
 test('native window lifecycle is observable through the Electron boundary', async () => {
-  test.skip(!['darwin', 'win32', 'linux'].includes(process.platform), 'FloCafe native window lifecycle is unsupported on this platform');
+  test.skip(!['darwin', 'win32', 'linux'].includes(process.platform), 'Order It Up native window lifecycle is unsupported on this platform');
   test.skip(process.platform === 'linux', 'Linux CI uses Xvfb without a window manager, so native minimize/restore is not observable');
   await harness.app.evaluate(({ app, BrowserWindow }) => {
     app.focus({ steal: true });

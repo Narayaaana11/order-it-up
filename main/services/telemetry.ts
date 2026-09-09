@@ -39,7 +39,7 @@ async function sendEventImpl(eventType: string, payload?: Record<string, unknown
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         anon_id: anonId,
-        app: 'flocafe',
+        app: 'orderitup',
         app_version: app.getVersion(),
         event_type: eventType,
         platform: process.platform,

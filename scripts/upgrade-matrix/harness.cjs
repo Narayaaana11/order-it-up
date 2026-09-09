@@ -1,7 +1,7 @@
 /**
  * Shared driver for the runtime upgrade test matrix (#468).
  *
- * Drives a real installed FloCafe build through an in-app N -> N+1 upgrade:
+ * Drives a real installed Order It Up build through an in-app N -> N+1 upgrade:
  *
  *   install N -> seed identifiable data via the local Express API ->
  *   opt into the update channel -> wait for `ready-to-install` ->

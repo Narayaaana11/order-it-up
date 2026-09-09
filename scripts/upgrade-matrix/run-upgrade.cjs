@@ -57,7 +57,7 @@ function parseArgs(argv) {
 
 async function phaseSeed(args) {
   const seedsPath = path.resolve(args['seed-file']);
-  const email = args.email || 'matrix-bot@flocafe.invalid';
+  const email = args.email || 'matrix-bot@orderitup.invalid';
   const password = args.password;
   const masterPin = args.pin;
   const channel = args.channel || 'beta';
