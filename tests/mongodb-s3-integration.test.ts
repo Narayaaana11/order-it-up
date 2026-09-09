@@ -21,8 +21,7 @@ Module._load = function (requestName: string, parent: unknown, isMain: boolean) 
   return originalLoad.apply(this, arguments as any);
 };
 
-import { startServer, stopServer, getServerPort } from '../main/server';
-import { initDatabase, closeDatabase, getDatabase } from '../main/db';
+
 
 async function run() {
   console.log('Testing MongoDB and Amazon S3 Integration Endpoints...');
@@ -32,6 +31,9 @@ async function run() {
       throw new Error(`Assertion failed: ${msg}`);
     }
   };
+
+  const { initDatabase, closeDatabase, getDatabase } = await import('../main/db');
+  const { startServer, stopServer, getServerPort } = await import('../main/server');
 
   initDatabase();
   await startServer();
