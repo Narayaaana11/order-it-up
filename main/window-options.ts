@@ -52,7 +52,7 @@ export function createMainWindow(
     height: 900,
     minWidth: 1024,
     minHeight: 768,
-    title: 'Flo',
+    title: 'Order It Up',
     titleBarStyle: platform === 'darwin' ? 'hiddenInset' : 'hidden',
     ...(resolvedTitleBarMode === 'native-overlay'
       ? {
