@@ -1,5 +1,5 @@
 /**
- * Fixed FloCafe role definitions and authorization groups.
+ * Fixed Order It Up role definitions and authorization groups.
  *
  * Backend route gates import ROLE_ACCESS from this module. The renderer uses
  * PERMISSION_CAPABILITIES to render the read-only matrix, so the matrix stays

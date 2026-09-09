@@ -20,7 +20,7 @@ type DraftLine = { product: Product; quantity: number; note: string };
 
 type ServerAppKey = keyof AppConfig['Messages']['serverApp'];
 
-const TOKEN_KEY = 'flocafe:server-app-token';
+const TOKEN_KEY = 'orderitup:server-app-token';
 
 function createApi(): AxiosInstance {
   const api = axios.create({ baseURL: window.location.origin, timeout: 10000 });

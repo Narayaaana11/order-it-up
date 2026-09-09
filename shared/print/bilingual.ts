@@ -26,7 +26,7 @@ export const INLINE_SEPARATOR_COLUMNS = 2;
 /**
  * Visible width of a label in printer columns. v1 measures UTF-16 code units
  * (thermal fonts are effectively monospaced for Latin and Persian/Arabic at
- * the code points FloCafe prints today); renderers may pre-shape text before
+ * the code points Order It Up prints today); renderers may pre-shape text before
  * applying these strategies. Keep pure: no Intl, no DOM measurement.
  */
 export function labelWidth(text: string): number {

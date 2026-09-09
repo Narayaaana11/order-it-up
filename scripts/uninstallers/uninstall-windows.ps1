@@ -1,10 +1,10 @@
 <#
 .SYNOPSIS
-  Flo Cafe -- standalone Windows uninstaller.
+  Order It Up -- standalone Windows uninstaller.
 
 .DESCRIPTION
-  Removes the Flo Cafe app, its shortcuts, and its registry uninstall entry.
-  The Keep/Delete decision is made before Flo Cafe is closed so an active
+  Removes the Order It Up app, its shortcuts, and its registry uninstall entry.
+  The Keep/Delete decision is made before Order It Up is closed so an active
   database write is never interrupted before the user chooses what to do with
   their data. The app is asked to close gracefully before a bounded force
   escalation. Cleanup is verified and the script reports partial cleanup when
@@ -23,9 +23,7 @@
   Show what would be removed without touching anything.
 
 .EXAMPLE
-  Download and run directly, no need to clone the repo:
-    irm https://github.com/FreeOpenSourcePOS/FloCafe/releases/latest/download/uninstall-windows.ps1 -OutFile uninstall-windows.ps1
-    powershell -ExecutionPolicy Bypass -File .\uninstall-windows.ps1
+  powershell -ExecutionPolicy Bypass -File .\uninstall-windows.ps1
 
 .EXAMPLE
   .\uninstall-windows.ps1 -PurgeData
@@ -37,7 +35,7 @@ param(
 )
 
 $ErrorActionPreference = 'Stop'
-$script:AppName = 'Flo Cafe'
+$script:AppName = 'Order It Up'
 $script:AppProcessName = 'Flo Cafe'
 $script:RemovalAttempts = 6
 $script:RemovalRetryDelayMilliseconds = 500

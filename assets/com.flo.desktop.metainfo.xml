@@ -29,8 +29,8 @@
 
   <launchable type="desktop-id">order-it-up.desktop</launchable>
 
-  <url type="homepage">https://github.com/FreeOpenSourcePOS/FloCafe</url>
-  <url type="bugtracker">https://github.com/FreeOpenSourcePOS/FloCafe/issues</url>
+  <url type="homepage">https://orderitup.local</url>
+  <url type="bugtracker">https://orderitup.local/support</url>
 
   <screenshots>
     <screenshot type="default">

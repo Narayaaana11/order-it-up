@@ -1,14 +1,13 @@
 #!/bin/bash
-# Flo Cafe — standalone macOS uninstaller
+# Order It Up — standalone macOS uninstaller
 #
-# Removes the Flo Cafe app and its support files (preferences, caches, logs,
+# Removes the Order It Up app and its support files (preferences, caches, logs,
 # auto-update state). Your business data (SQLite database, backups, Master
 # PIN) is only deleted if you say so: interactively, you'll be asked
 # Delete or Keep; non-interactively, pass --purge-data to delete it or
 # leave it out to keep it.
 #
-# Download and run directly, no need to clone the repo:
-#   curl -fsSL https://github.com/FreeOpenSourcePOS/FloCafe/releases/latest/download/uninstall-macos.sh -o uninstall-macos.sh
+# Download and run directly:
 #   chmod +x uninstall-macos.sh
 #   ./uninstall-macos.sh
 #
@@ -19,8 +18,8 @@
 
 set -euo pipefail
 
-APP_NAME="Flo Cafe"
-BUNDLE_ID="com.flo.desktop"
+APP_NAME="Order It Up"
+BUNDLE_ID="com.orderitup.pos"
 PURGE_DATA=0
 DRY_RUN=0
 

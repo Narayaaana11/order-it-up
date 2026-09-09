@@ -5,9 +5,9 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$ROOT_DIR"
 
-echo "FloCafe - restarting development app"
+echo "Order It Up - restarting development app"
 
-# kill-ports.js scopes termination to FloCafe listeners; do not kill by generic
+# kill-ports.js scopes termination to Order It Up listeners; do not kill by generic
 # process names such as electron, next, or node.
 node kill-ports.js 3000 3001 3002 3003 3088
 

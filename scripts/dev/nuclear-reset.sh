@@ -6,7 +6,7 @@ ROOT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$ROOT_DIR"
 
 if [ ! -f "$ROOT_DIR/package.json" ]; then
-  echo "Error: nuclear-reset.sh must run from a FloCafe checkout." >&2
+  echo "Error: nuclear-reset.sh must run from an Order It Up checkout." >&2
   exit 1
 fi
 
@@ -133,11 +133,11 @@ if [ "$CONFIRMED" = "false" ]; then
 fi
 
 echo -e "${BLUE}========================================${NC}"
-echo -e "${BLUE}    FloCafe - Development Reset         ${NC}"
+echo -e "${BLUE}    Order It Up - Development Reset     ${NC}"
 echo -e "${BLUE}========================================${NC}"
 echo ""
 
-echo -e "${BLUE}Step 1: Killing Flo processes${NC}"
+echo -e "${BLUE}Step 1: Killing Order It Up processes${NC}"
 echo "----------------------------------------"
 
 if [ "$DRY_RUN" = "true" ]; then

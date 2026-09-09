@@ -5076,7 +5076,7 @@ export default function SettingsPage() {
         <TabsContent value="about">
           <div className="pb-6 max-w-3xl space-y-6">
             <div className="bg-card rounded-xl border border-border p-6">
-              <h2 className="font-semibold text-foreground mb-4">{t('aboutFloCafe')}</h2>
+              <h2 className="font-semibold text-foreground mb-4">About Order It Up</h2>
               <p className="text-sm text-muted-foreground mb-6">
                 {t('aboutDescription')}
               </p>
