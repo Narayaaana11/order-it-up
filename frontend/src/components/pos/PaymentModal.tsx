@@ -18,7 +18,7 @@ import { useCurrencyUnitAdapter } from '@/hooks/useCurrencyUnitAdapter';
 import { getCountryByCode, getCurrencyMinorUnitFactor } from '@/lib/countries';
 import { getDiscountInputStep, normalizeFixedDiscountValue } from '@/lib/currency-input';
 import { useWhatsAppReady } from '@/hooks/useWhatsAppReady';
-import { sendBillViaFlo, shareBillViaWhatsApp } from '@/lib/whatsapp-share';
+import { sendBillViaOTU, shareBillViaWhatsApp } from '@/lib/whatsapp-share';
 import { useAuthStore } from '@/store/auth';
 import { CurrencyTouchNumberPad } from '@/components/pos/TouchNumberPad';
 import {
@@ -69,7 +69,7 @@ export default function PaymentModal({ bill, currency, onClose, onPaid, onBillUp
   const tReceipt = useTranslations('receipt');
   const tWhatsappSend = useTranslations('whatsapp.send');
 
-  // sendBillViaFlo (shared with OrdersPage) takes a translator callback;
+  // sendBillViaOTU (shared with OrdersPage) takes a translator callback;
   // bridge the typed `whatsapp.send` namespace to that contract.
   const whatsappSendT = (key: string): string =>
     tWhatsappSend(
@@ -423,7 +423,7 @@ export default function PaymentModal({ bill, currency, onClose, onPaid, onBillUp
     }
     setSendingWa(true);
     try {
-      await sendBillViaFlo(bill, phone, tenantForShare, whatsappSendT, { pointsEarned }, locale);
+      await sendBillViaOTU(bill, phone, tenantForShare, whatsappSendT, { pointsEarned }, locale);
     } finally {
       setSendingWa(false);
     }

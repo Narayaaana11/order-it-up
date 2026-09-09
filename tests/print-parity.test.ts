@@ -153,7 +153,7 @@ export function buildParityFixtures() {
   bill.order = order;
 
   const business: any = {
-    name: 'Flo Parity Cafe',
+    name: 'OTU Parity Cafe',
     address: '12 Marina Boulevard',
     phone: '9876543210',
     taxRegistrationNumber: 'GSTIN123456',
@@ -177,7 +177,7 @@ export function buildParityFixtures() {
   };
 
   const tenant = {
-    business_name: 'Flo Parity Cafe',
+    business_name: 'OTU Parity Cafe',
     currency: 'INR',
     country: 'IN',
     timezone: 'Asia/Kolkata',
@@ -341,7 +341,7 @@ function run(): void {
     discount: 120,
     total: 1117,
     payments: ['Cash', 'Card'],
-    businessName: 'Flo Parity Cafe',
+    businessName: 'OTU Parity Cafe',
     truncationMarker: true,
   };
 
@@ -450,17 +450,17 @@ function run(): void {
       payment_details: [{ method: 'cash', amount: 74 }],
       order: quantityOrder,
     };
-    const quantityBusiness = { ...business, name: 'Flo Parity Cafe' };
+    const quantityBusiness = { ...business, name: 'OTU Parity Cafe' };
     const backendOutputs = ['classic', 'compact'].map((template) => escPosToText(
       formatReceipt(quantityOrder, quantityBill, quantityBusiness, template, 48, true, false, 'full', []),
     ));
     const frontendText = new TextDecoder().decode(
-      fe.receiptEncoder.buildClassicReceiptBytes(quantityBill as any, { ...tenant, business_name: 'Flo Parity Cafe' } as any, { paperWidth: 80, useUnicode: true }, []),
+      fe.receiptEncoder.buildClassicReceiptBytes(quantityBill as any, { ...tenant, business_name: 'OTU Parity Cafe' } as any, { paperWidth: 80, useUnicode: true }, []),
     );
     const browserHtml = fe.webPrint.generateBillHtml(
       quantityBill as any,
-      { ...tenant, business_name: 'Flo Parity Cafe' } as any,
-      { paperSize: 'thermal80', businessName: 'Flo Parity Cafe' },
+      { ...tenant, business_name: 'OTU Parity Cafe' } as any,
+      { paperSize: 'thermal80', businessName: 'OTU Parity Cafe' },
     );
 
     for (const [renderer, text] of [['backend/classic', backendOutputs[0]], ['backend/compact', backendOutputs[1]], ['frontend/webusb/classic', frontendText]] as const) {
@@ -490,7 +490,7 @@ function run(): void {
       ['frontend/webusb/classic', fe.receiptEncoder.buildClassicReceiptBytes],
       ['frontend/webusb/compact', fe.receiptEncoder.buildCompactReceiptBytes],
     ] as const) {
-      const zeroText = new TextDecoder().decode(build(zeroChargeBill as any, { ...tenant, business_name: 'Flo Parity Cafe' } as any, { paperWidth: 80, useUnicode: true }, []));
+      const zeroText = new TextDecoder().decode(build(zeroChargeBill as any, { ...tenant, business_name: 'OTU Parity Cafe' } as any, { paperWidth: 80, useUnicode: true }, []));
       const zeroRows = zeroText.split(/\r?\n/);
       warn(
         !zeroRows.some((row) => row.includes('Service Charge') || row.includes('Delivery') || row.includes('Packaging')),
@@ -512,9 +512,9 @@ function run(): void {
         },
       };
       try {
-        fe.receiptEncoder.buildClassicReceiptBytes(malformedBill as any, { ...tenant, business_name: 'Flo Parity Cafe' } as any, { paperWidth: 80 }, []);
-        fe.receiptEncoder.buildCompactReceiptBytes(malformedBill as any, { ...tenant, business_name: 'Flo Parity Cafe' } as any, { paperWidth: 80 }, []);
-        fe.webPrint.generateBillHtml(malformedBill as any, { ...tenant, business_name: 'Flo Parity Cafe' } as any, { paperSize: 'thermal80' });
+        fe.receiptEncoder.buildClassicReceiptBytes(malformedBill as any, { ...tenant, business_name: 'OTU Parity Cafe' } as any, { paperWidth: 80 }, []);
+        fe.receiptEncoder.buildCompactReceiptBytes(malformedBill as any, { ...tenant, business_name: 'OTU Parity Cafe' } as any, { paperWidth: 80 }, []);
+        fe.webPrint.generateBillHtml(malformedBill as any, { ...tenant, business_name: 'OTU Parity Cafe' } as any, { paperSize: 'thermal80' });
       } catch {
         malformedPrintSucceeded = false;
       }

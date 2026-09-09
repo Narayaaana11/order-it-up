@@ -48,7 +48,7 @@ async function setLanguage(page: Page, token: string, value: string): Promise<vo
 test('Batch 5D: KDS and Server App render and function correctly in English and Persian (RTL)', async ({ page }) => {
   // 1. Setup session & seed data
   const token = getE2eToken();
-  const serverToken = getE2eToken('e2e-server', 'server@flo.local', 'server');
+  const serverToken = getE2eToken('e2e-server', 'server@otu.local', 'server');
 
   // Create table if not present
   await page.request.post(`${BASE_API}/api/tables`, {
@@ -128,7 +128,7 @@ test('Batch 5D: KDS and Server App render and function correctly in English and 
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
   await expect(page.getByRole('heading', { level: 1 })).toHaveText('Server App');
   await expect(page.getByText('Tableside ordering for service staff')).toBeVisible();
-  await expect(page.getByPlaceholder('server@flo.local')).toBeVisible();
+  await expect(page.getByPlaceholder('server@otu.local')).toBeVisible();
   await expect(page.getByPlaceholder('Password')).toBeVisible();
   await expect(page.getByText('Keep me logged in')).toBeVisible();
   await expect(page.getByRole('button', { name: 'Sign In' })).toBeVisible();
@@ -223,7 +223,7 @@ test('Batch 5D: KDS and Server App render and function correctly in English and 
     await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
     await expect(page.getByRole('heading', { level: 1 })).toHaveText('برنامه سرور');
     await expect(page.getByText('ثبت سفارش کنار میز برای کارکنان خدمات')).toBeVisible();
-    await expect(page.getByPlaceholder('server@flo.local')).toBeVisible();
+    await expect(page.getByPlaceholder('server@otu.local')).toBeVisible();
     await expect(page.getByPlaceholder('گذرواژه')).toBeVisible();
     await expect(page.getByText('ورود من را به یاد بسپار')).toBeVisible();
     await expect(page.getByRole('button', { name: 'ورود' })).toBeVisible();

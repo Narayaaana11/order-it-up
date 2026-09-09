@@ -101,7 +101,7 @@ console.log('\n▶ Block construction (fixture bill)');
   ok('canonical ordered blocks');
 
   const header = blockOf(document, 'business-header');
-  assert.equal(header.name?.text, 'Flo Parity Cafe');
+  assert.equal(header.name?.text, 'OTU Parity Cafe');
   assert.equal(header.address?.text, '12 Marina Boulevard');
   assert.equal(header.taxId?.value.text, 'GSTIN123456');
   assert.equal(header.taxId?.label.primary, 'GSTIN', 'tax id label comes from the country profile');

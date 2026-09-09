@@ -8,7 +8,7 @@ import { CreditCard, Trash2, RotateCcw, Clock, MessageCircle, Printer, XCircle, 
 import toast from 'react-hot-toast';
 import PaymentModal from '@/components/pos/PaymentModal';
 import CreateCustomerModal from '@/components/pos/CreateCustomerModal';
-import { shareBillViaWhatsApp, sendBillViaFlo } from '@/lib/whatsapp-share';
+import { shareBillViaWhatsApp, sendBillViaOTU } from '@/lib/whatsapp-share';
 import { useConfirm } from '@/hooks/use-confirm';
 import type { OrderItem, Table, Product, Customer } from '@/lib/types';
 import type { Order, Bill } from '@/lib/types';
@@ -133,7 +133,7 @@ export default function OrdersPage() {
   const tNav = useTranslations('nav');
   const tWhatsappSend = useTranslations('whatsapp.send');
 
-  // sendBillViaFlo (shared with PaymentModal) takes a translator callback;
+  // sendBillViaOTU (shared with PaymentModal) takes a translator callback;
   // bridge the typed `whatsapp.send` namespace to that contract.
   const whatsappSendT = (key: string): string =>
     tWhatsappSend(
@@ -718,7 +718,7 @@ export default function OrdersPage() {
     }
     setSendingWaOrderId(order.id);
     try {
-      await sendBillViaFlo(
+      await sendBillViaOTU(
         order.bill,
         order.customer.phone,
         {

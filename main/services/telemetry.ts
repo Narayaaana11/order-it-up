@@ -50,13 +50,13 @@ async function sendEventImpl(eventType: string, payload?: Record<string, unknown
     });
     const ok = response.ok;
     if (!ok) {
-      log.debug(`[Flo] telemetry rejected with HTTP ${response.status}`);
+      log.debug(`[OTU] telemetry rejected with HTTP ${response.status}`);
     }
     await response.body?.cancel().catch(() => {});
     return ok;
   } catch (e) {
     // Telemetry must never disrupt the app or surface to the user.
-    log.debug('[Flo] telemetry send failed (non-fatal):', e);
+    log.debug('[OTU] telemetry send failed (non-fatal):', e);
     return false;
   }
 }

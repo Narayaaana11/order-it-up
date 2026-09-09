@@ -532,9 +532,9 @@ function frFallbackErrors(frFlat: Record<string, string>, enFlat: Record<string,
 
 const TR_INTENTIONAL_IDENTICAL = new Set<string>([
   'settings.paymentMethodUpi', // technical acronym (payment rail name)
-  'common.appTitle', // brand name "Flo"
-  'common.brandName', // brand name "Flo Cafe"
-  'common.logoAlt', // brand name "Flo Cafe"
+  'common.appTitle', // brand name "OTU" / "Order It Up"
+  'common.brandName', // brand name "Order It Up"
+  'common.logoAlt', // brand name "Order It Up"
   'nav.portLabel', // technical term "Port"
   'nav.whatsapp', // product name "WhatsApp"
   'pos.addonPrice', // pure format "+{currency}{price}"

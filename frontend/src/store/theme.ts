@@ -2,7 +2,7 @@ import { create } from 'zustand';
 
 export type ThemeMode = 'light' | 'dark' | 'system';
 
-export const THEME_REHYDRATION_EVENT = 'flo:auth-changed';
+export const THEME_REHYDRATION_EVENT = 'otu:auth-changed';
 
 interface ThemeState {
   mode: ThemeMode;

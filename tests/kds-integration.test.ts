@@ -112,7 +112,7 @@ async function run() {
 
     db.prepare(`
       INSERT INTO users (id, name, email, password, role, is_active)
-      VALUES ('user-server-1', 'Server User', 'server@flo.local', ?, 'server', 1)
+      VALUES ('user-server-1', 'Server User', 'server@otu.local', ?, 'server', 1)
     `).run(hashedPass);
 
     // 1. Missing credentials returns 400
@@ -128,7 +128,7 @@ async function run() {
     // 3. Non-kitchen staff role (server) returns 403 Forbidden
     const res3 = await request(`http://127.0.0.1:${port}`)
       .post('/api/auth/login')
-      .send({ email: 'server@flo.local', password: 'KitchenPass123!' });
+      .send({ email: 'server@otu.local', password: 'KitchenPass123!' });
     assert(res3.status === 403, 'Should deny access (403) to non-kitchen roles');
 
     // 4. Kitchen staff role (chef) succeeds

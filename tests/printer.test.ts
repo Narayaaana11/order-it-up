@@ -269,7 +269,7 @@ const fixtureBill = {
 };
 
 const fixtureBusiness = {
-  name: 'Flo Test Cafe',
+  name: 'OTU Test Cafe',
   address: '42 MG Road, Bengaluru 560001',
   phone: '+91 98765 43210',
   taxRegistrationNumber: 'TAXID-0001',
@@ -714,7 +714,7 @@ console.log('\n✅ Test 2: Compact receipt (80mm, 48 cols)');
   const buf = formatReceipt(fixtureOrder, fixtureBill, fixtureBusiness, 'compact', 48, true);
   const text = buf.toString('utf8');
 
-  assert('renders business name', text.includes('Flo Test Cafe'));
+  assert('renders business name', text.includes('OTU Test Cafe'));
   assert('renders bill number', text.includes('INV-20260421-0001'));
   assert('renders Cheeseburger row', text.includes('Cheeseburger'));
   assert('renders addon "Extra Cheese"', text.includes('Extra Cheese'));
@@ -729,7 +729,7 @@ console.log('\n✅ Test 2: Compact receipt (80mm, 48 cols)');
   assert('renders Cash payment', text.includes('Cash') && text.includes('₹500.00'));
   assert('renders UPI payment', text.includes('UPI') && text.includes('₹450.00'));
   assert('renders tax registration number', text.includes('TAXID-0001'));
-  assert('renders non-configurable FloPOS footer', text.includes('Powered by FloPOS') && text.includes('(flopos.com)'));
+  assert('renders non-configurable Order It Up footer', text.includes('Powered by Order It Up'));
   const rowLines = visiblePreview(buf, 48).split('\n');
   const longRowIndex = rowLines.findIndex((l) => l.includes('Very Long Product Name That'));
   assert('long product name wraps cleanly onto multiple lines', longRowIndex >= 0 && rowLines[longRowIndex + 1]?.includes('Truncated By Formatter'));
@@ -748,7 +748,7 @@ console.log('\n✅ Test 3: Compact receipt on 58mm paper (32 cols)');
   const buf = formatReceipt(fixtureOrder, fixtureBill, fixtureBusiness, 'compact', 32, true);
   const text = buf.toString('utf8');
 
-  assert('still renders business name', text.includes('Flo Test Cafe'));
+  assert('still renders business name', text.includes('OTU Test Cafe'));
   assert('still renders TOTAL', text.includes('TOTAL'));
 
   const textLines = visiblePreview(buf, 32).split('\n').slice(1, -1);
@@ -811,9 +811,9 @@ console.log('\n✅ Test 4: Classic receipt template');
   const buf = formatReceipt(fixtureOrder, fixtureBill, fixtureBusiness, 'classic', 48, true);
   const text = buf.toString('utf8');
 
-  assert('renders business name', text.includes('Flo Test Cafe'));
+  assert('renders business name', text.includes('OTU Test Cafe'));
   assert('renders item and total', text.includes('Cheeseburger') && text.includes('₹950.00'));
-  assert('renders non-configurable FloPOS footer', text.includes('Powered by FloPOS') && text.includes('(flopos.com)'));
+  assert('renders non-configurable Order It Up footer', text.includes('Powered by Order It Up'));
   assert('ends with cut', bytesContain(buf, [GS, 0x56, 0x00]));
 
   console.log('\n   — Rendered classic —');
@@ -827,7 +827,7 @@ console.log('\n✅ Test 5: Tax-specific labels fall back to the default template
 
   assert('legacy detailed label renders the default classic receipt', text.includes('Invoice #:'));
   assert('legacy detailed label does not render the GST-style tax invoice', !text.includes('TAX INVOICE'));
-  assert('renders non-configurable FloPOS footer', text.includes('Powered by FloPOS') && text.includes('(flopos.com)'));
+  assert('renders non-configurable Order It Up footer', text.includes('Powered by Order It Up'));
 
   console.log('\n   — Rendered detailed fallback —');
   console.log(visiblePreview(buf, 48));
@@ -918,7 +918,7 @@ console.log('\n✅ Test 5d: Bill content toggles are optional and never block pr
     const hidden = formatReceipt(fixtureOrder, fixtureBill, hiddenBusiness, template, 48, true);
     const text = hidden.toString('utf8');
     assert(`${template}: hidden optional fields stay hidden`,
-      !text.includes('Flo Test Cafe')
+      !text.includes('OTU Test Cafe')
       && !text.includes('42 MG Road')
       && !text.includes('+91 98765')
       && !text.includes('TAXID-0001')
@@ -967,8 +967,8 @@ console.log('\n✅ Test 7: Test page builder');
   const buf80 = buildTestPage('80mm');
   const buf58 = buildTestPage('58mm');
   const xprinter = buildTestPage('80mm', 'partial');
-  assert('80mm test page renders title', buf80.toString('utf8').includes('Flo Printer Test'));
-  assert('58mm test page renders title', buf58.toString('utf8').includes('Flo Printer Test'));
+  assert('80mm test page renders title', buf80.toString('utf8').includes('Order It Up Printer Test'));
+  assert('58mm test page renders title', buf58.toString('utf8').includes('Order It Up Printer Test'));
   assert('80mm test page reports correct column width', buf80.toString('utf8').includes('Columns: 48'));
   assert('58mm test page reports correct column width', buf58.toString('utf8').includes('Columns: 32'));
   assert('test page includes a ruler and edge probe', buf58.toString('utf8').includes('1234567890') && buf58.toString('utf8').includes('XXXXXXXXXXXXXXXX'));
@@ -1030,7 +1030,7 @@ console.log('\n✅ Test 11: IR country thermal receipt financial-line preservati
   assert('real production IR setup produces ریال currency symbol', realIrCurrencySymbol === 'ریال');
 
   const irBusiness = {
-    name: 'Flo Cafe Tehran',
+    name: 'OTU Cafe Tehran',
     country: 'IR',
     currency: 'IRR',
     currency_symbol: realIrCurrencySymbol,
@@ -1152,7 +1152,7 @@ console.log('\n✅ Test 11: IR country thermal receipt financial-line preservati
   const { generateBillHtml } = frontendModules.webPrint;
 
   const frontendTenant = {
-    business_name: 'Flo Cafe Tehran',
+    business_name: 'OTU Cafe Tehran',
     country: 'IR',
     currency: 'IRR',
   };

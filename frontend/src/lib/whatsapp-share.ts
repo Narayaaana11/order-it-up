@@ -141,7 +141,7 @@ function formatItemsList(order: Bill['order'], currencyCode: string, locale: str
 }
 
 /** Sends paid bill receipt through connected WhatsApp session. */
-export async function sendBillViaFlo(
+export async function sendBillViaOTU(
   bill: Bill,
   customerPhone: string,
   tenant: Pick<Tenant, 'business_name' | 'currency' | 'country'>,

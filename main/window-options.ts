@@ -118,7 +118,7 @@ export function getPopupWindowOptions(isBlank: boolean): BrowserWindowConstructo
   return {
     width: isBlank ? 800 : 1280,
     height: isBlank ? 600 : 800,
-    title: isBlank ? 'Print Receipt' : 'Flo - Kitchen Display',
+    title: isBlank ? 'Print Receipt' : 'OTU - Kitchen Display',
     autoHideMenuBar: isBlank,
     webPreferences: {
       contextIsolation: true,
@@ -131,7 +131,7 @@ export function getKdsWindowOptions(): BrowserWindowConstructorOptions {
   return {
     width: 1200,
     height: 800,
-    title: 'Flo - Kitchen Display',
+    title: 'OTU - Kitchen Display',
     webPreferences: {
       contextIsolation: true,
       nodeIntegration: false,

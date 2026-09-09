@@ -673,9 +673,9 @@ function createWindow(): void {
     if (localWindowResponse) return localWindowResponse;
 
     if (isSafeExternalUrl(url)) {
-      shell.openExternal(url).catch((err) => console.warn('[Flo] Failed to open external URL:', err?.message || err));
+      shell.openExternal(url).catch((err) => console.warn('[OTU] Failed to open external URL:', err?.message || err));
     } else {
-      console.warn('[Flo] Blocked unsafe external URL scheme:', url);
+      console.warn('[OTU] Blocked unsafe external URL scheme:', url);
     }
     return { action: 'deny' };
   });
@@ -1173,13 +1173,13 @@ async function initialize(): Promise<void> {
   log.info('[Lifecycle] Runtime is starting');
   try {
     if (isShutdownRequested()) return;
-    console.log('[Flo] Initializing...');
+    console.log('[OTU] Initializing...');
 
-    console.log('[Flo] Initializing database...');
+    console.log('[OTU] Initializing database...');
     initDatabase();
     if (isShutdownRequested()) return;
 
-    console.log('[Flo] Starting local server...');
+    console.log('[OTU] Starting local server...');
     await startServer();
     if (isShutdownRequested()) return;
 
@@ -1189,29 +1189,29 @@ async function initialize(): Promise<void> {
     void mongoSyncService.initFromSettings();
     amazonS3Service.initFromSettings();
 
-    console.log('[Flo] Starting KDS server on port 3002...');
+    console.log('[OTU] Starting KDS server on port 3002...');
     await startKdsServer();
     if (isShutdownRequested()) return;
 
-    console.log('[Flo] Starting Server App on port 3003...');
+    console.log('[OTU] Starting Server App on port 3003...');
     await startServerApp();
     if (isShutdownRequested()) return;
 
-    console.log('[Flo] Initializing WhatsApp service...');
+    console.log('[OTU] Initializing WhatsApp service...');
     initWhatsAppFromDb();
 
     // Native E2E owns an offline fixture; optional LAN discovery must not
     // contend with a developer session or keep the test process alive.
     if (process.env.FLO_E2E_SKIP_OPTIONAL_NETWORK !== '1') {
-      console.log('[Flo] Starting mDNS advertisement...');
+      console.log('[OTU] Starting mDNS advertisement...');
       startMdns();
     }
 
-    console.log('[Flo] Initializing printer...');
+    console.log('[OTU] Initializing printer...');
     await initPrinter();
     if (isShutdownRequested()) return;
 
-    console.log('[Flo] Registering IPC handlers...');
+    console.log('[OTU] Registering IPC handlers...');
     registerIpcHandlers(shutdownSignal, () => mainWindow, showMainWindow, () => currentEffectiveIsDark);
 
     ipcMain.handle('get-update-status', () =>
@@ -1307,7 +1307,7 @@ async function initialize(): Promise<void> {
       }
       return { success: true };
     });
-    console.log('[Flo] Creating window...');
+    console.log('[OTU] Creating window...');
     createWindow();
     registerPowerMonitorRecovery();
     registerChildProcessCrashTelemetry();
@@ -1327,11 +1327,11 @@ async function initialize(): Promise<void> {
       setTimeout(() => { void checkTaxPackUpdatesOnStartup(); }, 5000);
     }
 
-    console.log('[Flo] Ready!');
+    console.log('[OTU] Ready!');
   } catch (error) {
     runtimeState = 'failed';
     log.error('[Lifecycle] Runtime initialization failed:', error);
-    console.error('[Flo] Initialization error:', error);
+    console.error('[OTU] Initialization error:', error);
     const errorDetails = error as { code?: unknown; name?: unknown } | null;
     const expectedShutdownCancellation = errorDetails?.code === 'ERR_SHUTDOWN_ABORTED'
       || errorDetails?.code === 'ABORT_ERR'
@@ -1341,7 +1341,7 @@ async function initialize(): Promise<void> {
       try {
         await runCleanup();
       } catch (cleanupError) {
-        console.error('[Flo] Cleanup after interrupted initialization failed:', cleanupError);
+        console.error('[OTU] Cleanup after interrupted initialization failed:', cleanupError);
       }
       return;
     }
@@ -1358,14 +1358,14 @@ async function initialize(): Promise<void> {
       }
       await sendTelemetryEvent('startup_failed', payload);
     } catch (telemetryError) {
-      console.error('[Flo] Failed to report startup error via telemetry:', telemetryError);
+      console.error('[OTU] Failed to report startup error via telemetry:', telemetryError);
     }
 
     isQuitting = true;
     try {
       await runCleanup();
     } catch (cleanupError) {
-      console.error('[Flo] Cleanup after initialization failure failed:', cleanupError);
+      console.error('[OTU] Cleanup after initialization failure failed:', cleanupError);
     }
     // Cleanup has settled (or reported its bounded failure) before exiting.
     app.exit(1);
@@ -1450,14 +1450,14 @@ const { runCleanup, isShutdownRequested, shutdownSignal } = createShutdownEntryp
   process: process as unknown as ShutdownEntrypointProcess,
   cleanup: async () => {
     log.info('[Lifecycle] Cleanup started');
-    console.log('[Flo] Running cleanup...');
+    console.log('[OTU] Running cleanup...');
     try {
       await cleanupCoordinator();
       log.info('[Lifecycle] Cleanup completed');
-      console.log('[Flo] Goodbye!');
+      console.log('[OTU] Goodbye!');
     } catch (error) {
       log.error('[Lifecycle] Cleanup failed:', error);
-      console.error('[Flo] Cleanup failed:', error);
+      console.error('[OTU] Cleanup failed:', error);
       throw error;
     }
   },
@@ -1471,15 +1471,15 @@ const { runCleanup, isShutdownRequested, shutdownSignal } = createShutdownEntryp
   },
   isInstallingUpdate: () => isInstallingUpdate,
   reportFailure: (context, error) => {
-    console.error(`[Flo] Cleanup failed before ${context}:`, error);
+    console.error(`[OTU] Cleanup failed before ${context}:`, error);
   },
   getSignalExitCode: () => startupFailure ? 1 : 0,
   getQuitExitCode: () => startupFailure ? 1 : 0,
 });
 
 process.on('uncaughtException', (error) => {
-  log.error('[Flo] Uncaught exception:', error);
-  console.error('[Flo] Uncaught exception:', error);
+  log.error('[OTU] Uncaught exception:', error);
+  console.error('[OTU] Uncaught exception:', error);
   void sendTelemetryEvent('main_uncaught_exception', {
     message: error?.message?.slice(0, 500),
     stack: error?.stack?.slice(0, 4000),
@@ -1487,8 +1487,8 @@ process.on('uncaughtException', (error) => {
 });
 
 process.on('unhandledRejection', (reason) => {
-  log.error('[Flo] Unhandled rejection:', reason);
-  console.error('[Flo] Unhandled rejection:', reason);
+  log.error('[OTU] Unhandled rejection:', reason);
+  console.error('[OTU] Unhandled rejection:', reason);
   const message = reason instanceof Error ? reason.message : String(reason);
   const stack = reason instanceof Error ? reason.stack : undefined;
   void sendTelemetryEvent('main_unhandled_rejection', {
