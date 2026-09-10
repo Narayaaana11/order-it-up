@@ -551,7 +551,7 @@ export default function ProductsPage() {
                 ? (matchedTaxCategory ? taxCategoryOptionLabel(matchedTaxCategory) : product.tax_category_id)
                 : '—';
               return (
-              <tr key={product.id} className="hover:bg-muted">
+              <tr key={product.id} className="hover:bg-muted/50 transition-colors">
                 <td className="p-4 max-w-[220px]">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-lg overflow-hidden shrink-0 relative flex items-center justify-center">
@@ -604,7 +604,7 @@ export default function ProductsPage() {
                   )}
                 </td>
                 <td className="p-4 text-end">
-                  <p className="font-medium">{fmt(Number(product.price))}</p>
+                  <p className="font-bold text-foreground">{fmt(Number(product.price))}</p>
                   {product.cost_price != null && product.cost_price > 0 && <p className="text-xs text-gray-400">{t('costLabel', { value: fmt(Number(product.cost_price)) })}</p>}
                 </td>
                 <td className="p-4 text-sm text-muted-foreground">
@@ -629,11 +629,28 @@ export default function ProductsPage() {
                   </td>
                 )}
                 <td className="p-4 text-center">
-                  {product.track_inventory ? (
-                    <span className={`text-sm font-medium ${product.stock_quantity <= (product.low_stock_threshold || 0) ? 'text-red-600' : 'text-foreground'}`}>
-                      {product.stock_quantity <= 0 ? tPos('outOfStock') : product.stock_quantity}
-                    </span>
-                  ) : (
+                  {product.track_inventory ? (() => {
+                    const qty = product.stock_quantity;
+                    const low = product.low_stock_threshold || 0;
+                    if (qty <= 0) return (
+                      <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-bold bg-red-100 text-red-700">
+                        <span className="w-1.5 h-1.5 rounded-full bg-red-500" />
+                        {tPos('outOfStock')}
+                      </span>
+                    );
+                    if (qty <= low) return (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-amber-100 text-amber-700">
+                        <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+                        {qty} {t('columnStock')}
+                      </span>
+                    );
+                    return (
+                      <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold bg-emerald-50 text-emerald-700">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                        {qty}
+                      </span>
+                    );
+                  })() : (
                     <span className="text-gray-400 text-sm">—</span>
                   )}
                 </td>

@@ -2,7 +2,6 @@
 
 import { PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom';
 import { DragDropProvider, useDraggable, type DragEndEvent } from '@dnd-kit/react';
-import { Clock } from 'lucide-react';
 import { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import { ElapsedTime } from '@/components/kds/ElapsedTime';
@@ -206,38 +205,38 @@ function KanbanOrderCard({
     <div
       ref={ref}
       className={`select-none cursor-grab active:cursor-grabbing transition ${
-        isDragging ? 'opacity-40' : ''
+        isDragging ? 'opacity-40 scale-95' : ''
       } ${busy ? 'pointer-events-none opacity-60' : ''}`}
     >
-      <div className={`rounded-xl border-2 ${config.border} bg-card p-3 flex flex-col shadow-sm`}>
-        <div className="flex justify-between items-center mb-2 gap-2">
-          <div className="flex items-center gap-1.5 min-w-0 flex-wrap">
-            <Ltr as="span" className="font-bold text-sm shrink-0">#{order.order_number}</Ltr>
+      <div className={`rounded-xl border-2 ${config.border} bg-card flex flex-col shadow-md overflow-hidden`}>
+        {/* Card header */}
+        <div className={`flex justify-between items-center px-3 py-2.5 ${config.bg} gap-2`}>
+          <div className="flex items-center gap-2 min-w-0 flex-wrap">
+            <Ltr as="span" className={`font-black text-xl shrink-0 ${config.text}`}>#{order.order_number}</Ltr>
             <Badge
               variant="outline"
-              className={ORDER_TYPE_BADGE_STYLES[order.type] || 'bg-muted text-foreground border-border'}
+              className={`text-xs font-semibold ${ORDER_TYPE_BADGE_STYLES[order.type] || 'bg-muted text-foreground border-border'}`}
             >
               {ORDER_TYPE_LABEL_KEYS[order.type as OrderType]
                 ? tOrders(ORDER_TYPE_LABEL_KEYS[order.type as OrderType])
                 : order.type}
             </Badge>
             {order.table?.name && (
-              <Badge variant="secondary">{t('tableLabel', { name: order.table.name })}</Badge>
+              <Badge variant="secondary" className="text-xs font-semibold">{t('tableLabel', { name: order.table.name })}</Badge>
             )}
           </div>
-          <div className="flex items-center gap-1 text-sm text-gray-400 font-mono shrink-0">
-            <Clock size={12} />
-            <Ltr><ElapsedTime dateStr={order.created_at} /></Ltr>
-          </div>
+          {/* Timer — large and urgent-colored when old */}
+          <ElapsedTimeBadge dateStr={order.created_at} />
         </div>
 
         {order.special_instructions && (
-          <p className="mb-2 px-2 py-1 bg-amber-50 border border-amber-200 rounded text-sm text-amber-700 font-medium break-words">
+          <p className="mx-3 mt-2 px-2 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 rounded-lg text-sm text-amber-800 dark:text-amber-200 font-semibold break-words">
             📝 {order.special_instructions}
           </p>
         )}
 
-        <div className="space-y-1">
+        {/* Item list */}
+        <div className="p-2 space-y-1.5">
           {items.map((item) => (
             <button
               key={item.id}
@@ -247,17 +246,17 @@ function KanbanOrderCard({
                 e.stopPropagation();
                 onItemOpen(item);
               }}
-              className={`w-full text-start rounded-lg border ${config.border} ${config.bg} px-2 py-1.5 hover:brightness-95 active:scale-[0.98] transition`}
+              className={`w-full text-start rounded-xl border-2 ${config.border} ${config.bg} px-3 py-2.5 hover:brightness-95 active:scale-[0.98] transition`}
             >
-              <div className="flex items-center gap-2">
-                <span className={`text-base font-bold w-6 shrink-0 ${config.text}`}>{item.quantity}×</span>
-                <span className="text-lg text-foreground font-medium flex-1 truncate">{item.product_name}</span>
+              <div className="flex items-center gap-3">
+                <span className={`text-2xl font-black shrink-0 ${config.text}`}>{item.quantity}×</span>
+                <span className="text-xl text-foreground font-bold flex-1 leading-tight">{item.product_name}</span>
                 {item.addons && item.addons.length > 0 && (
-                  <span className="text-[10px] text-blue-600">+{item.addons.length}</span>
+                  <span className="text-xs font-semibold text-blue-600 bg-blue-100 dark:bg-blue-900/30 px-1.5 py-0.5 rounded-full shrink-0">+{item.addons.length} add-on</span>
                 )}
               </div>
               {item.special_instructions && (
-                <p className="ms-[26px] text-sm text-red-600 italic mt-0.5 font-medium break-words">
+                <p className="ms-[44px] text-sm text-red-600 dark:text-red-400 italic mt-1 font-semibold break-words">
                   {`"${item.special_instructions}"`}
                 </p>
               )}
@@ -266,6 +265,28 @@ function KanbanOrderCard({
         </div>
       </div>
     </div>
+  );
+}
+
+// Urgency-aware elapsed time badge — turns amber after 10 min, red after 20 min.
+function ElapsedTimeBadge({ dateStr }: { dateStr: string }) {
+  const start = new Date(dateStr).getTime();
+  const now = Date.now();
+  const minutes = Math.floor((now - start) / 60000);
+  const display = minutes < 60
+    ? `${minutes}m`
+    : `${Math.floor(minutes / 60)}h ${minutes % 60}m`;
+
+  const urgencyClass = minutes >= 20
+    ? 'bg-red-500 text-white'
+    : minutes >= 10
+    ? 'bg-amber-400 text-amber-900'
+    : 'bg-black/10 dark:bg-white/10 text-foreground/70';
+
+  return (
+    <span className={`text-base font-black font-mono px-2.5 py-1 rounded-lg shrink-0 tabular-nums ${urgencyClass}`}>
+      {display}
+    </span>
   );
 }
 

@@ -5,7 +5,7 @@ import { readCountryProvenance } from './country-provenance';
 import log from 'electron-log';
 import { ensureTelemetryAnonId, isTelemetryEnabled, getSettingValue, parseDbTimestamp, upsertTelemetryLastPing } from '../db';
 
-export const TELEMETRY_URL = 'https://telemetry.flopos.com/collect';
+export const TELEMETRY_URL = process.env.OIU_TELEMETRY_URL || '';
 
 const REQUEST_TIMEOUT_MS = 8_000;
 const DAILY_PING_INTERVAL_MS = 60 * 60_000; // check hourly, send at most once/24h
@@ -27,7 +27,7 @@ function trackTelemetry<T>(operation: Promise<T>): Promise<T> {
 }
 
 async function sendEventImpl(eventType: string, payload?: Record<string, unknown>): Promise<boolean> {
-  if (matrixOffline() || !isTelemetryEnabled()) return false;
+  if (matrixOffline() || !isTelemetryEnabled() || !TELEMETRY_URL) return false;
 
   try {
     const anonId = ensureTelemetryAnonId();

@@ -12,7 +12,7 @@ fi
 exit_code=$?
 
 if [ "$exit_code" -eq 77 ]; then
-  echo "  ⏭ Skipped (ABI mismatch)"
+  echo "  â­ Skipped (ABI mismatch)"
   exit 0
 fi
 

@@ -76,7 +76,9 @@
     "signInTitle": "Melden Sie sich an, um Ihr Geschäft zu verwalten",
     "signingIn": "Anmeldung läuft…",
     "storageUnavailable": "Sitzung konnte nicht gespeichert werden. Ihr Browser blockiert möglicherweise Cookies oder den Webspeicher.",
-    "yourName": "Ihr Name"
+    "yourName": "Ihr Name",
+    "newBusinessLabel": "Neues Unternehmen?",
+    "createNewAccount": "Neues Konto einrichten ?"
   },
   "backup": {
     "creating": "Sicherung wird erstellt…",

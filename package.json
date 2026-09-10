@@ -51,6 +51,7 @@
     "test:cors": "ts-node --transpile-only -P tests/tsconfig.json tests/cors-security.test.ts",
     "test:csp-lan": "ts-node --transpile-only -P tests/tsconfig.json tests/csp-lan-header.test.ts",
     "test:smoke": "node tests/run-electron-node-test.cjs tests/smoke-test.test.ts",
+    "test:forbidden-legacy-scan": "ts-node --transpile-only -P tests/tsconfig.json tests/forbidden-legacy-scan.test.ts",
     "test:server-port-collision": "node tests/run-electron-node-test.cjs tests/server-port-collision.test.ts",
     "test:payment-methods-split": "node tests/run-electron-node-test.cjs tests/payment-methods-split-checks.test.ts",
     "test:kds-integration": "node tests/run-electron-node-test.cjs tests/kds-integration.test.ts",
@@ -284,7 +285,10 @@
       "node_modules/**/*",
       "!**/better-sqlite3/build/Release/test_extension.node"
     ],
-    "publish": null,
+    "publish": {
+      "provider": "github",
+      "channel": "latest"
+    },
     "detectUpdateChannel": false,
     "generateUpdatesFilesForAllChannels": true,
     "extraResources": [
@@ -346,21 +350,20 @@
       ],
       "icon": "assets/icon.icns",
       "category": "public.app-category.business",
-      "identity": "Codify Apps Private Limited (BKDY677XJA)",
+      "identity": null,
       "entitlements": "build/entitlements.plist",
       "entitlementsInherit": "build/entitlements.plist",
       "hardenedRuntime": true,
       "gatekeeperAssess": false,
-      "notarize": true,
+      "notarize": false,
       "artifactName": "order-it-up-${version}-mac-${arch}.${ext}"
     },
     "mas": {
       "category": "public.app-category.business",
-      "identity": "Codify Apps Private Limited (BKDY677XJA)",
+      "identity": null,
       "entitlements": "build/entitlements.mas.plist",
       "entitlementsInherit": "build/entitlements.mas.inherit.plist",
       "entitlementsLoginHelper": "build/entitlements.mas.loginhelper.plist",
-      "provisioningProfile": "build/flo.provisionprofile",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "type": "distribution",
@@ -376,11 +379,11 @@
       "x64ArchFiles": "**/*.node"
     },
     "masDev": {
-      "identity": "Apple Development: Codify Apps Private Limited (BKDY677XJA)"
+      "identity": null
     },
     "linux": {
-      "synopsis": "Self-hosted Point of Sale for cafes and restaurants",
-      "description": "Flo is a free, open-source point-of-sale system for cafes, restaurants, and small kitchens. Local-first, offline-capable, no cloud lock-in, no per-seat fees.",
+      "synopsis": "Commercial offline-first POS & billing for restaurants and cafes",
+      "description": "Order It Up is a commercial point-of-sale and restaurant billing management system for cafes, restaurants, cloud kitchens, and QSRs in India. Offline-first operations with cloud synchronization.",
       "target": [
         {
           "target": "AppImage",
@@ -417,8 +420,8 @@
       "artifactName": "order-it-up-${version}-linux.${ext}",
       "extraFiles": [
         {
-          "from": "assets/com.flo.desktop.metainfo.xml",
-          "to": "usr/share/metainfo/com.flo.desktop.metainfo.xml"
+          "from": "assets/com.orderitup.pos.metainfo.xml",
+          "to": "usr/share/metainfo/com.orderitup.pos.metainfo.xml"
         },
         {
           "from": "assets/icons",

@@ -1,0 +1,68 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.orderitup.pos</id>
+  <name>Order It Up</name>
+  <summary>Commercial offline-first POS &amp; billing for restaurants and cafes</summary>
+  <developer id="com.orderitup">
+    <name>Order It Up</name>
+  </developer>
+
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>Proprietary</project_license>
+
+  <description>
+    <p>
+      Order It Up (OIU) is a commercial, offline-first Point of Sale and billing
+      system built for cafes, restaurants, cloud kitchens, and food businesses.
+      It runs reliably on your local machine with cloud synchronization.
+    </p>
+    <p>Features include:</p>
+    <ul>
+      <li>Fast order entry with multiple order types (dine-in, takeaway, delivery)</li>
+      <li>Kitchen Display System (KDS) with real-time updates</li>
+      <li>Thermal receipt printing via ESC/POS (USB and network)</li>
+      <li>Table management and staff roles</li>
+      <li>Indian GST-compliant tax invoicing and sales reports</li>
+      <li>Works offline — reliable local operations with cloud subscription management</li>
+    </ul>
+  </description>
+
+  <launchable type="desktop-id">order-it-up.desktop</launchable>
+
+  <url type="homepage">https://orderitup.in</url>
+  <url type="bugtracker">https://orderitup.in/support</url>
+
+  <screenshots>
+    <screenshot type="default">
+      <image>https://orderitup.in/screenshot.png</image>
+      <caption>Point of Sale interface</caption>
+    </screenshot>
+  </screenshots>
+
+  <content_rating type="oars-1.1" />
+
+  <releases>
+    <release version="1.0.0" date="2026-09-09">
+      <description>
+        <p>Initial commercial release of Order It Up: Indian GST engine, offline SQLite core, cloud sync, KDS, tableside ordering, and multi-platform packaging.</p>
+      </description>
+    </release>
+  </releases>
+
+  <supports>
+    <control>pointing</control>
+    <control>keyboard</control>
+  </supports>
+
+  <keywords>
+    <keyword>pos</keyword>
+    <keyword>point of sale</keyword>
+    <keyword>restaurant</keyword>
+    <keyword>cafe</keyword>
+    <keyword>billing</keyword>
+    <keyword>invoice</keyword>
+    <keyword>thermal printer</keyword>
+    <keyword>kitchen display</keyword>
+    <keyword>gst</keyword>
+  </keywords>
+</component>

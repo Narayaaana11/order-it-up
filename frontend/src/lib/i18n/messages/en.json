@@ -590,6 +590,7 @@
     "menuLoadFailed": "Failed to load menu data",
     "methodCard": "Card",
     "methodCash": "Cash",
+    "methodUpi": "UPI",
     "methodWallet": "Wallet",
     "nameAutoFills": "Name auto-fills",
     "nameRequired": "Name is required",

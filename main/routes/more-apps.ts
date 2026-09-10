@@ -17,12 +17,12 @@ type AppEntry = {
 const MORE_APPS: AppEntry[] = [];
 
 const REVFLO_APP: AppEntry = {
-  id: 'revflo',
-  name: 'RevFlo',
+  id: 'oiu-companion',
+  name: 'OIU Companion',
   tagline: 'See live sales, daily summaries, and reports for your store from your phone.',
   iosUrl: null,
   androidUrl: null,
-  landingUrl: 'https://flopos.com',
+  landingUrl: process.env.OIU_WEB_URL || null,
 };
 
 async function toAppResponse(app: AppEntry) {

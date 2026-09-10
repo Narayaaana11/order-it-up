@@ -1,7 +1,8 @@
-import { Banknote, CreditCard } from 'lucide-react';
+import { Banknote, CreditCard, QrCode } from 'lucide-react';
 
 export const PAYMENT_METHODS = Object.freeze([
   { key: 'cash' as const, labelKey: 'pos.methodCash', icon: Banknote },
+  { key: 'upi' as const, labelKey: 'pos.methodUpi', icon: QrCode },
   { key: 'card' as const, labelKey: 'pos.methodCard', icon: CreditCard },
 ]);
 

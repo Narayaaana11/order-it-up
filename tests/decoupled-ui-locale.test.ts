@@ -60,7 +60,7 @@ React.useSyncExternalStore = function (subscribe: any, getSnapshot: any, getServ
 const { IntlProvider, useLocale } = frontendRequire('use-intl');
 const { formatDateForTenant, getCountryByCode } = require('../main/countries');
 const { generateBillHtml } = require('../frontend/src/lib/printer/web-print');
-const { getWhatsAppMessage, getWhatsAppShareUrl, sendBillViaFlo } = require('../frontend/src/lib/whatsapp-share');
+const { getWhatsAppMessage, getWhatsAppShareUrl, sendBillViaOTU } = require('../frontend/src/lib/whatsapp-share');
 const whatsappApi = frontendRequire('./src/lib/api').default;
 const { LANGUAGES } = require('../frontend/src/lib/i18n/languages');
 const { useFormatDate } = require('../frontend/src/hooks/useFormatDate');
@@ -322,7 +322,7 @@ async function runTests() {
     return { data: { ok: false } };
   };
   try {
-    await sendBillViaFlo(
+    await sendBillViaOTU(
       mockBill as any,
       '+541155551234',
       mockArgentinaTenant,

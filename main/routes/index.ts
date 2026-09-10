@@ -35,6 +35,8 @@ import { whatsappRoutes } from './whatsapp';
 import { supportTicketRoutes } from './support-ticket';
 import { mongodbRoutes } from './mongodb';
 import { amazonS3Routes } from './amazon-s3';
+import { subscriptionRoutes } from './subscription';
+import { adminRoutes } from '../admin/routes';
 import { getDatabase, now, parseItemJson, attachEffectiveAddons, withTxn, getSettingValue, getCachedPairingCode, setCachedPairingCode, verifyPin } from '../db';
 import { checkPinRateLimit } from './orders';
 import { getCurrencyFractionDigits, getCurrencyMinorUnitFactor } from '../countries';
@@ -110,6 +112,8 @@ export function registerRoutes(app: Express): void {
   app.use('/api/support-ticket', supportTicketRoutes);
   app.use('/api/mongodb', mongodbRoutes);
   app.use('/api/s3', amazonS3Routes);
+  app.use('/api/subscription', subscriptionRoutes);
+  app.use('/api/admin', adminRoutes);
 
   // Tax preview
   app.post('/api/tax/preview', asyncHandler(async (req, res) => {

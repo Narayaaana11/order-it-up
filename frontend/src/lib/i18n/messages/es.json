@@ -76,7 +76,9 @@
     "signInTitle": "Iniciá sesión para administrar tu negocio",
     "signingIn": "Iniciando sesión...",
     "storageUnavailable": "No se pudo guardar tu sesión. Tu navegador puede estar bloqueando el almacenamiento (modo privado o cookies deshabilitadas).",
-    "yourName": "Tu nombre"
+    "yourName": "Tu nombre",
+    "newBusinessLabel": "�Nuevo negocio?",
+    "createNewAccount": "Crear una nueva cuenta ?"
   },
   "backup": {
     "creating": "Creando respaldo...",

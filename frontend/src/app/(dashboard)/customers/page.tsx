@@ -160,13 +160,18 @@ export default function CustomersPage() {
         <Button onClick={openAdd}><Plus size={16} className="me-1" /> {tCustomer('add')}</Button>
       </div>
 
-      <div className="relative mb-4">
-        <Search size={18} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />
+      <div className="relative mb-5">
+        <Search size={20} className="absolute start-4 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           type="text" value={search} onChange={(e) => setSearch(e.target.value)}
           placeholder={tCustomer('search')}
-          className="w-full ps-10 pe-4 py-2.5 bg-card border border-border rounded-lg focus:ring-2 focus:ring-brand outline-none"
+          className="w-full ps-12 pe-4 py-3 bg-card border-2 border-border rounded-xl focus:ring-2 focus:ring-brand focus:border-brand outline-none text-base shadow-sm"
         />
+        {search && (
+          <button onClick={() => setSearch('')} className="absolute end-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-foreground">
+            <X size={16} />
+          </button>
+        )}
       </div>
 
       <div className="bg-card rounded-xl border border-border overflow-hidden">
@@ -196,11 +201,20 @@ export default function CustomersPage() {
             </tr>
           </thead>
           <tbody className="divide-y divide-border">
-            {customers.map((c) => (
-              <tr key={c.id} className="hover:bg-muted">
+            {customers.map((c) => {
+              const initials = c.name.trim().split(/\s+/).map((w: string) => w[0]).join('').slice(0, 2).toUpperCase();
+              return (
+              <tr key={c.id} className="hover:bg-muted/50 transition-colors group">
                 <td className="p-4">
-                  <p className="font-medium text-foreground">{c.name}</p>
-                  <p className="text-xs text-muted-foreground">{c.email || '—'}</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-9 h-9 rounded-full bg-brand/10 text-brand flex items-center justify-center text-sm font-bold shrink-0">
+                      {initials}
+                    </div>
+                    <div>
+                      <p className="font-semibold text-foreground">{c.name}</p>
+                      <p className="text-xs text-muted-foreground">{c.email || '—'}</p>
+                    </div>
+                  </div>
                 </td>
                 <td className="p-4 text-sm text-muted-foreground">
                   <div className="flex items-center gap-2">
@@ -217,11 +231,15 @@ export default function CustomersPage() {
                 <td className="p-4 text-center text-sm text-muted-foreground whitespace-nowrap">
                   {c.last_visit_at ? formatDate(c.last_visit_at) : '—'}
                 </td>
-                <td className="p-4 text-center text-sm">{c.visits_count}</td>
-                <td className="p-4 text-end font-medium">{fmt(Number(c.total_spent))}</td>
+                <td className="p-4 text-center">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-full bg-blue-50 text-blue-700 text-sm font-bold">
+                    {c.visits_count}
+                  </span>
+                </td>
+                <td className="p-4 text-end font-bold text-foreground">{fmt(Number(c.total_spent))}</td>
                 <td className="p-4 text-end">
                   {Number(c.wallet_balance) > 0 ? (
-                    <span className="inline-flex items-center gap-1 text-purple-700 font-semibold text-sm">
+                    <span className="inline-flex items-center gap-1 text-purple-700 font-semibold text-sm bg-purple-50 px-2 py-1 rounded-lg">
                       <Wallet size={13} />
                       {fmtNum(Number(c.wallet_balance))} {tCustomer('ptsSuffix')}
                     </span>
@@ -240,7 +258,8 @@ export default function CustomersPage() {
                   </Button>
                 </td>
               </tr>
-            ))}
+              );
+            })}
           </tbody>
         </table>
         {customers.length === 0 && <p className="text-center text-muted-foreground py-12">{tCustomers('empty')}</p>}

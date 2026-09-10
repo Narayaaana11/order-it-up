@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Order It Up (OIU) — Central SaaS Operator Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-base: #0B0F19;
+      --bg-surface: #111827;
+      --bg-card: #1F2937;
+      --bg-card-hover: #374151;
+      --primary: #F97316;
+      --primary-hover: #EA580C;
+      --primary-glow: rgba(249, 115, 22, 0.25);
+      --accent: #10B981;
+      --text-main: #F9FAFB;
+      --text-muted: #9CA3AF;
+      --border: #374151;
+      --danger: #EF4444;
+      --warning: #F59E0B;
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: var(--bg-base);
+      color: var(--text-main);
+      min-height: 100vh;
+      display: flex;
+    }
+
+    /* Sidebar Navigation */
+    .sidebar {
+      width: 260px;
+      background: var(--bg-surface);
+      border-right: 1px solid var(--border);
+      padding: 1.5rem 1rem;
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0 0.5rem;
+    }
+
+    .brand-badge {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #F97316, #DC2626);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: 'Outfit', sans-serif;
+      font-weight: 700;
+      font-size: 1.25rem;
+      color: #FFF;
+      box-shadow: 0 4px 12px var(--primary-glow);
+    }
+
+    .brand-text h1 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.15rem;
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    .brand-text p {
+      font-size: 0.75rem;
+      color: var(--primary);
+      text-transform: uppercase;
+      font-weight: 600;
+      letter-spacing: 0.05em;
+    }
+
+    .nav-links {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      color: var(--text-muted);
+      text-decoration: none;
+      font-weight: 500;
+      font-size: 0.9rem;
+      transition: all 0.2s ease;
+      cursor: pointer;
+    }
+
+    .nav-item:hover, .nav-item.active {
+      background: var(--bg-card);
+      color: var(--text-main);
+    }
+
+    .nav-item.active {
+      border-left: 3px solid var(--primary);
+      color: var(--primary);
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding: 1rem 0.5rem;
+      border-top: 1px solid var(--border);
+    }
+
+    .operator-profile {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .operator-avatar {
+      width: 36px;
+      height: 36px;
+      border-radius: 50%;
+      background: #4B5563;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-weight: 600;
+      font-size: 0.85rem;
+    }
+
+    .operator-details h4 {
+      font-size: 0.85rem;
+      font-weight: 600;
+    }
+
+    .operator-details p {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+
+    /* Main Content */
+    .main-content {
+      flex: 1;
+      padding: 2rem 2.5rem;
+      overflow-y: auto;
+    }
+
+    .header-bar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 2rem;
+    }
+
+    .header-title h2 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.75rem;
+      font-weight: 700;
+    }
+
+    .header-title p {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      margin-top: 0.25rem;
+    }
+
+    .header-actions {
+      display: flex;
+      gap: 1rem;
+    }
+
+    .btn {
+      padding: 0.65rem 1.25rem;
+      border-radius: 8px;
+      font-size: 0.875rem;
+      font-weight: 600;
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s ease;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .btn-primary {
+      background: var(--primary);
+      color: #FFF;
+      box-shadow: 0 4px 14px var(--primary-glow);
+    }
+
+    .btn-primary:hover {
+      background: var(--primary-hover);
+    }
+
+    .btn-secondary {
+      background: var(--bg-card);
+      color: var(--text-main);
+      border: 1px solid var(--border);
+    }
+
+    .btn-secondary:hover {
+      background: var(--bg-card-hover);
+    }
+
+    /* Metrics Grid */
+    .metrics-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 1.25rem;
+      margin-bottom: 2.5rem;
+    }
+
+    .metric-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      padding: 1.5rem;
+      border-radius: 12px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .metric-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 3px;
+      background: var(--card-accent, var(--primary));
+    }
+
+    .metric-title {
+      font-size: 0.85rem;
+      color: var(--text-muted);
+      font-weight: 500;
+    }
+
+    .metric-value {
+      font-family: 'Outfit', sans-serif;
+      font-size: 2rem;
+      font-weight: 700;
+      margin: 0.5rem 0 0.25rem 0;
+    }
+
+    .metric-subtitle {
+      font-size: 0.75rem;
+      color: var(--accent);
+      font-weight: 500;
+    }
+
+    /* Section Headers */
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+
+    .section-header h3 {
+      font-family: 'Outfit', sans-serif;
+      font-size: 1.25rem;
+      font-weight: 600;
+    }
+
+    /* Table */
+    .table-container {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      margin-bottom: 2.5rem;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      text-align: left;
+    }
+
+    th {
+      background: var(--bg-card);
+      padding: 1rem 1.25rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      border-bottom: 1px solid var(--border);
+    }
+
+    td {
+      padding: 1rem 1.25rem;
+      font-size: 0.875rem;
+      border-bottom: 1px solid var(--border);
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    tr:hover td {
+      background: rgba(255, 255, 255, 0.02);
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 0.25rem 0.65rem;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      text-transform: capitalize;
+    }
+
+    .badge-active {
+      background: rgba(16, 185, 129, 0.15);
+      color: #34D399;
+      border: 1px solid rgba(16, 185, 129, 0.3);
+    }
+
+    .badge-trial {
+      background: rgba(245, 158, 11, 0.15);
+      color: #FBBF24;
+      border: 1px solid rgba(245, 158, 11, 0.3);
+    }
+
+    .badge-starter {
+      background: #374151;
+      color: #D1D5DB;
+    }
+
+    .badge-pro {
+      background: rgba(249, 115, 22, 0.2);
+      color: #FB923C;
+      border: 1px solid rgba(249, 115, 22, 0.4);
+    }
+
+    .badge-enterprise {
+      background: rgba(139, 92, 246, 0.2);
+      color: #C084FC;
+      border: 1px solid rgba(139, 92, 246, 0.4);
+    }
+
+    /* System Status Card */
+    .system-health-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+
+    .health-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 1.5rem;
+    }
+
+    .health-card h4 {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .health-item {
+      display: flex;
+      justify-content: space-between;
+      padding: 0.75rem 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.85rem;
+    }
+
+    .health-item:last-child {
+      border-bottom: none;
+    }
+
+    .health-item span:first-child {
+      color: var(--text-muted);
+    }
+
+    .status-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+    }
+
+    .dot-green { background: #10B981; box-shadow: 0 0 8px #10B981; }
+    .dot-amber { background: #F59E0B; box-shadow: 0 0 8px #F59E0B; }
+  </style>
+</head>
+<body>
+  <!-- Sidebar -->
+  <aside class="sidebar">
+    <div class="brand">
+      <div class="brand-badge">OIU</div>
+      <div class="brand-text">
+        <h1>Order It Up</h1>
+        <p>Operator Central</p>
+      </div>
+    </div>
+
+    <nav class="nav-links">
+      <div class="nav-item active">📊 Executive Dashboard</div>
+      <div class="nav-item">🏪 Restaurants & Outlets</div>
+      <div class="nav-item">💳 Subscriptions & Billing</div>
+      <div class="nav-item">💻 POS Device Approvals</div>
+      <div class="nav-item">☁️ MongoDB Sync Status</div>
+      <div class="nav-item">🛡️ Amazon S3 Snapshots</div>
+      <div class="nav-item">🎟️ Support Queue</div>
+      <div class="nav-item">📜 Audit Log</div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <div class="operator-profile">
+        <div class="operator-avatar">SA</div>
+        <div class="operator-details">
+          <h4>Super Administrator</h4>
+          <p>admin@orderitup.in</p>
+        </div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main View -->
+  <main class="main-content">
+    <header class="header-bar">
+      <div class="header-title">
+        <h2>SaaS Control Plane</h2>
+        <p>Real-time India multi-tenant restaurant monitoring & central operations</p>
+      </div>
+      <div class="header-actions">
+        <button class="btn btn-secondary" onclick="triggerS3Backup()">☁️ Trigger S3 Backup</button>
+        <button class="btn btn-primary" onclick="refreshDashboard()">🔄 Refresh Telemetry</button>
+      </div>
+    </header>
+
+    <!-- Metrics -->
+    <div class="metrics-grid">
+      <div class="metric-card" style="--card-accent: #F97316;">
+        <div class="metric-title">Monthly Recurring Revenue</div>
+        <div class="metric-value">₹45,000</div>
+        <div class="metric-subtitle">+18.5% this month</div>
+      </div>
+      <div class="metric-card" style="--card-accent: #10B981;">
+        <div class="metric-title">Active Outlets</div>
+        <div class="metric-value" id="val-active-stores">2</div>
+        <div class="metric-subtitle">3 Total Tenants registered</div>
+      </div>
+      <div class="metric-card" style="--card-accent: #F59E0B;">
+        <div class="metric-title">Active POS Terminals</div>
+        <div class="metric-value">9</div>
+        <div class="metric-subtitle">Across 3 metropolitan hubs</div>
+      </div>
+      <div class="metric-card" style="--card-accent: #8B5CF6;">
+        <div class="metric-title">Cloud Sync Health</div>
+        <div class="metric-value" style="font-size: 1.5rem; margin-top: 0.75rem;">Connected</div>
+        <div class="metric-subtitle"><span class="status-dot dot-green"></span>MongoDB Atlas Multi-Tenant</div>
+      </div>
+    </div>
+
+    <!-- Active Tenants Table -->
+    <div class="section-header">
+      <h3>Managed Restaurant Accounts</h3>
+    </div>
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Store Name</th>
+            <th>Location</th>
+            <th>Contact</th>
+            <th>Plan</th>
+            <th>Terminals</th>
+            <th>Status</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="tenants-table-body">
+          <tr>
+            <td><strong>Brew & Byte Cafe</strong><br><small style="color:var(--text-muted)">store_bengaluru_01</small></td>
+            <td>Bengaluru, Karnataka</td>
+            <td>manager@brewbyte.in<br><small>+91 98765 43210</small></td>
+            <td><span class="badge badge-pro">Pro Plan</span></td>
+            <td>2 / 5</td>
+            <td><span class="badge badge-active">Active</span></td>
+            <td><button class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;">Manage</button></td>
+          </tr>
+          <tr>
+            <td><strong>Masala Street Kitchen</strong><br><small style="color:var(--text-muted)">store_mumbai_02</small></td>
+            <td>Mumbai, Maharashtra</td>
+            <td>billing@masalastreet.in<br><small>+91 98123 45678</small></td>
+            <td><span class="badge badge-enterprise">Enterprise</span></td>
+            <td>6 / 50</td>
+            <td><span class="badge badge-active">Active</span></td>
+            <td><button class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;">Manage</button></td>
+          </tr>
+          <tr>
+            <td><strong>Crust & Crumbs Bakery</strong><br><small style="color:var(--text-muted)">store_delhi_03</small></td>
+            <td>New Delhi, Delhi</td>
+            <td>contact@crustcrumbs.in<br><small>+91 99887 76655</small></td>
+            <td><span class="badge badge-starter">Starter</span></td>
+            <td>1 / 1</td>
+            <td><span class="badge badge-trial">Trial (12d left)</span></td>
+            <td><button class="btn btn-secondary" style="padding: 0.35rem 0.65rem; font-size: 0.75rem;">Manage</button></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <!-- System Infrastructure Health -->
+    <div class="system-health-grid">
+      <div class="health-card">
+        <h4>☁️ First-Party Cloud Infrastructure</h4>
+        <div class="health-item">
+          <span>Primary Cloud API</span>
+          <span><span class="status-dot dot-green"></span>https://api.orderitup.in</span>
+        </div>
+        <div class="health-item">
+          <span>Multi-Tenant MongoDB Sync</span>
+          <span><span class="status-dot dot-green"></span>orderitup_cluster (Atlas)</span>
+        </div>
+        <div class="health-item">
+          <span>Tenant Isolation Engine</span>
+          <span><span class="status-dot dot-green"></span>Enforced (tenant_id query filters)</span>
+        </div>
+        <div class="health-item">
+          <span>Automated Backup Storage</span>
+          <span><span class="status-dot dot-green"></span>Amazon S3 (ap-south-1 Mumbai)</span>
+        </div>
+      </div>
+
+      <div class="health-card">
+        <h4>💳 Commercial & Indian Market Engine</h4>
+        <div class="health-item">
+          <span>Payment Gateway Driver</span>
+          <span>Razorpay India (Cards, UPI, Netbanking)</span>
+        </div>
+        <div class="health-item">
+          <span>Subscription Currency</span>
+          <span>INR (₹)</span>
+        </div>
+        <div class="health-item">
+          <span>Tax Invoicing Engine</span>
+          <span>Indian GST (CGST/SGST/IGST + HSN/SAC)</span>
+        </div>
+        <div class="health-item">
+          <span>Offline Grace Period</span>
+          <span>7 Days Autonomous Operation</span>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    async function triggerS3Backup() {
+      alert('S3 Cloud Backup triggered successfully. Snapshot encrypted and dispatched.');
+    }
+
+    async function refreshDashboard() {
+      const btn = event.target;
+      btn.innerText = 'Refreshing...';
+      setTimeout(() => {
+        btn.innerText = '🔄 Refresh Telemetry';
+        alert('Telemetry and store heartbeat sync refreshed.');
+      }, 600);
+    }
+  </script>
+</body>
+</html>

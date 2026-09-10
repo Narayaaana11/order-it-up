@@ -254,7 +254,7 @@ async function run() {
 
     const service = cloudSync as any;
     service.settings = {
-      server_url: 'https://blue.flopos.com/',
+      server_url: 'https://api.orderitup.in',
       api_key: 'registered-api-key',
       pos_hash: 'registered-pos-hash',
       command_polling_enabled: false,
@@ -317,7 +317,7 @@ async function run() {
       cloud_sync_enabled: '0',
     });
     service.settings = {
-      server_url: 'https://blue.flopos.com/',
+      server_url: 'https://api.orderitup.in',
       api_key: 'registered-api-key',
       pos_hash: 'registered-pos-hash',
       command_polling_enabled: true,

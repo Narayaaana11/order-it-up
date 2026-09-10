@@ -9,7 +9,7 @@ import { nameToColor } from '@/lib/image-utils';
 import TagBadge from './DietaryBadge';
 import api from '@/lib/api';
 import { useTranslations } from 'use-intl';
-import { parseDbTimestamp } from '@/lib/utils';
+import { parseDbTimestamp, cn } from '@/lib/utils';
 import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import { resolveScannedProduct } from '@/lib/scale-barcode';
 
@@ -52,7 +52,7 @@ interface Props {
 
 export default function ProductGrid({
   categories, products, selectedCategory, setSelectedCategory,
-  search, setSearch, onProductClick, sidebarOpen = true,
+  search, onProductClick, sidebarOpen = true,
 }: Props) {
   const cart = useCartStore();
   const { showProductImages } = usePosSettingsStore();
@@ -73,81 +73,63 @@ export default function ProductGrid({
   });
 
   return (
-    <div data-testid="pos-product-grid" className="flex-1 flex flex-col min-w-0 h-full overflow-hidden">
-      <div className="shrink-0 mb-3">
-        <div className="relative mb-2">
-          <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
-          <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key !== 'Enter') return;
-              // Typed or pasted barcode, not just a scanner — a dedicated
-              // action into this field works regardless of typing speed.
-              const trimmed = search.trim();
-              if (!trimmed) return;
-              const match = resolveScannedProduct(trimmed, products);
-              if (match) {
-                if (match.scaleBarcode) cart.addItem(match.product, match.quantity);
-                else onProductClick(match.product);
-                setSearch('');
-              }
-            }}
-            placeholder={t('searchProducts')}
-            className="w-full ps-9 pe-4 py-2 bg-card border border-border rounded-xl focus:border-brand outline-none transition-colors text-sm"
-          />
-        </div>
-        <div className="flex flex-wrap gap-2 pb-1">
-          <button
-            onClick={() => setSelectedCategory(null)}
-            className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-              !selectedCategory ? 'bg-brand text-white' : 'bg-card text-foreground border border-border hover:bg-muted'
-            }`}
-          >
-            {t('allCategories')}
-          </button>
-          {categories.filter((cat) => cat.id != null).map((cat) => {
-            const colorClasses = getCategoryColorClasses(cat.color);
-            const isSelected = selectedCategory === cat.id;
-            return (
-              <button
-                key={cat.id}
-                onClick={() => setSelectedCategory(cat.id)}
-                className={`px-4 py-2 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${
-                  isSelected
-                    ? colorClasses
-                      ? `${colorClasses.activeBg} ${colorClasses.activeText}`
-                      : 'bg-brand text-white'
-                    : colorClasses
-                      ? `${colorClasses.bg} ${colorClasses.text} border ${colorClasses.border} hover:opacity-80`
-                      : 'bg-card text-foreground border border-border hover:bg-muted'
-                }`}
-              >
-                {cat.name}
-              </button>
-            );
-          })}
-        </div>
+    <div data-testid="pos-product-grid" className="flex-1 flex min-w-0 h-full overflow-hidden bg-background">
+      
+      {/* Left Sidebar: Categories */}
+      <div className="w-24 md:w-32 lg:w-48 shrink-0 border-r border-border h-full overflow-y-auto bg-card hide-scrollbar flex flex-col gap-2 p-3">
+        <button
+          onClick={() => setSelectedCategory(null)}
+          className={cn(
+            "w-full px-3 py-3 rounded-xl text-sm font-semibold transition-all text-start leading-tight",
+            !selectedCategory 
+              ? "bg-brand text-white shadow-md shadow-brand/20" 
+              : "bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
+          )}
+        >
+          {t('allCategories')}
+        </button>
+        
+        {categories.filter((cat) => cat.id != null).map((cat) => {
+          const colorClasses = getCategoryColorClasses(cat.color);
+          const isSelected = selectedCategory === cat.id;
+          return (
+            <button
+              key={cat.id}
+              onClick={() => setSelectedCategory(cat.id)}
+              className={cn(
+                "w-full px-3 py-3 rounded-xl text-sm font-semibold transition-all text-start leading-tight",
+                isSelected
+                  ? colorClasses
+                    ? `${colorClasses.activeBg} ${colorClasses.activeText} shadow-md`
+                    : 'bg-brand text-white shadow-md shadow-brand/20'
+                  : colorClasses
+                    ? `${colorClasses.bg} ${colorClasses.text} hover:opacity-80`
+                    : 'bg-transparent text-muted-foreground hover:bg-muted hover:text-foreground'
+              )}
+            >
+              {cat.name}
+            </button>
+          );
+        })}
       </div>
 
-      <div className="flex-1 overflow-y-auto pb-20 md:pb-0">
+      {/* Right Area: Products */}
+      <div className="flex-1 overflow-y-auto p-4 bg-muted/20">
         <div className={`grid gap-3 ${
           sidebarOpen 
-            ? 'grid-cols-4' 
-            : 'grid-cols-5'
+            ? 'grid-cols-2 sm:grid-cols-3 lg:grid-cols-4' 
+            : 'grid-cols-3 sm:grid-cols-4 lg:grid-cols-5'
         }`}>
           {filtered.map((product) => {
             const inCartQty = cartQuantities.get(product.id) || 0;
             
-
             return (
               <button
                 key={product.id}
                 data-testid="pos-product-card"
                 type="button"
                 onClick={() => onProductClick(product)}
-                className="min-h-36 bg-card rounded-xl p-2.5 border border-border hover:border-brand/40 active:border-brand active:bg-muted/40 hover:shadow-md transition-all text-start relative cursor-pointer overflow-hidden touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                className="min-h-[140px] bg-card rounded-2xl p-3 border border-border/60 hover:border-brand/40 active:border-brand active:bg-brand/5 active:scale-[0.98] hover:shadow-lg hover:shadow-brand/5 transition-all text-start relative cursor-pointer overflow-hidden touch-manipulation focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand flex flex-col group"
               >
                 {!!product.track_inventory && (
                   <>
@@ -163,16 +145,16 @@ export default function ProductGrid({
                   </>
                 )}
                 {inCartQty > 0 && (
-                  <span className="absolute top-0 end-0 bg-brand text-white text-xs w-6 h-6 rounded-es-lg flex items-center justify-center font-bold z-10">
+                  <span className="absolute top-0 end-0 bg-brand text-white text-xs w-7 h-7 rounded-es-2xl flex items-center justify-center font-bold z-10 shadow-sm">
                     {inCartQty}
                   </span>
                 )}
 
                 {showProductImages && (
-                  <div className="w-full aspect-square rounded-lg mb-3 relative overflow-hidden">
+                  <div className="w-full aspect-[4/3] rounded-xl mb-3 relative overflow-hidden bg-muted/50">
                     {/* Always-visible background tile — no flash when image loads */}
                     <div
-                      className="absolute inset-0 flex items-center justify-center"
+                      className="absolute inset-0 flex items-center justify-center transition-transform group-hover:scale-105"
                       style={{ backgroundColor: nameToColor(product.name) }}
                     >
                       <span className="text-2xl font-bold text-white/80">
@@ -185,7 +167,7 @@ export default function ProductGrid({
                       <img
                         src={`${api.defaults.baseURL}/products/${product.id}/image?t=${product.updated_at ? parseDbTimestamp(product.updated_at).getTime() : 0}`}
                         alt={product.name}
-                        className="absolute inset-0 w-full h-full object-cover rounded-lg"
+                        className="absolute inset-0 w-full h-full object-cover transition-transform group-hover:scale-105"
                         onError={(e) => {
                           (e.target as HTMLImageElement).style.display = 'none';
                         }}
@@ -193,34 +175,35 @@ export default function ProductGrid({
                     )}
 
                     {product.tags && product.tags.length > 0 && (
-                      <span className="absolute bottom-1.5 end-1.5 z-10">
+                      <span className="absolute bottom-2 end-2 z-10">
                         <TagBadge tag={product.tags[0]} />
                       </span>
                     )}
                   </div>
                 )}
 
-                <h3 className="font-medium text-foreground text-sm line-clamp-2 leading-snug">{product.name}</h3>
-                <div className="flex items-center justify-between mt-1">
-                  <p className="text-brand font-bold">
-                    {fmt(Number(product.price))}
-                  </p>
-                  <div className="flex items-center gap-1 shrink-0">
-                    {!showProductImages && product.tags && product.tags.length > 0 && (
-                      <TagBadge tag={product.tags[0]} />
-                    )}
-                    {product.addon_groups && product.addon_groups.length > 0 && (
-                      <span
-                        className="touch-target -me-2 -my-2 rounded-lg text-gray-400"
-                        title={t('customisable')}
-                        aria-label={t('customisable')}
-                      >
-                        <SlidersHorizontal size={16} />
-                      </span>
-                    )}
+                <div className="mt-auto w-full">
+                  <h3 className="font-semibold text-foreground text-sm line-clamp-2 leading-tight mb-1.5">{product.name}</h3>
+                  <div className="flex items-center justify-between w-full">
+                    <p className="text-brand font-bold text-base">
+                      {fmt(Number(product.price))}
+                    </p>
+                    <div className="flex items-center gap-1 shrink-0">
+                      {!showProductImages && product.tags && product.tags.length > 0 && (
+                        <TagBadge tag={product.tags[0]} />
+                      )}
+                      {product.addon_groups && product.addon_groups.length > 0 && (
+                        <span
+                          className="touch-target -me-2 -my-2 rounded-lg text-muted-foreground/60"
+                          title={t('customisable')}
+                          aria-label={t('customisable')}
+                        >
+                          <SlidersHorizontal size={14} />
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
-
               </button>
             );
           })}

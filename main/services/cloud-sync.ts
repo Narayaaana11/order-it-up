@@ -9,7 +9,7 @@ import { getDatabase, now, parseItemJson, attachEffectiveAddons, ensureCloudIden
 import { getTenantCurrency } from './refund';
 import { getCurrencyMinorUnitFactor } from '../countries';
 
-export const DEFAULT_CLOUD_SERVER_URL = 'https://blue.flopos.com/';
+export const DEFAULT_CLOUD_SERVER_URL = process.env.OIU_CLOUD_API_URL || 'https://api.orderitup.in';
 
 const HEARTBEAT_INTERVAL_MS = 5 * 60_000;
 const OUTBOX_INTERVAL_MS = 15_000;
@@ -139,7 +139,9 @@ function isLocalDevUrl(url: URL): boolean {
 }
 
 export function normalizeCloudServerUrl(raw?: string | null): string {
-  const url = new URL(raw && raw.trim() ? raw.trim() : DEFAULT_CLOUD_SERVER_URL);
+  const candidate = raw && raw.trim() ? raw.trim() : DEFAULT_CLOUD_SERVER_URL;
+  if (!candidate) return '';
+  const url = new URL(candidate);
   if (url.protocol !== 'https:' && !(url.protocol === 'http:' && isLocalDevUrl(url))) {
     throw new Error('Cloud server URL must use HTTPS');
   }
@@ -154,6 +156,7 @@ function apiPath(pathname: string): string {
 }
 
 function endpoint(serverUrl: string, pathname: string): URL {
+  if (!serverUrl) throw new Error('Cloud server URL is not configured');
   const base = new URL(serverUrl);
   const basePath = base.pathname.replace(/\/+$/g, '');
   // Strip query string before pathname assignment to avoid percent-encoding '?'.
@@ -457,6 +460,9 @@ export class CloudSyncService {
     }
     const { posHash, deviceSecret } = ensureCloudIdentity();
     const serverUrl = normalizeCloudServerUrl(settings.cloud_server_url || DEFAULT_CLOUD_SERVER_URL);
+    if (!serverUrl) {
+      throw new Error('Cloud server URL is not configured');
+    }
     const owner = db.prepare(
       "SELECT name FROM users WHERE role = 'owner' AND is_active = 1 ORDER BY created_at ASC LIMIT 1"
     ).get() as { name?: string } | undefined;
@@ -843,7 +849,7 @@ export class CloudSyncService {
     const run = this.withDatabaseRequest(async () => {
     if (this.cloudDeletionInProgress || this.shutdownRequested) return;
     const cfg = this.settings ?? this.loadSettings();
-    if (!cfg?.sync_enabled || !cfg.api_key || this.supportFlushing) return;
+    if (!cfg?.sync_enabled || !cfg.api_key || !cfg.server_url || this.supportFlushing) return;
     this.supportFlushing = true;
     try {
     const db = getDatabase();
@@ -1293,6 +1299,7 @@ export class CloudSyncService {
     } catch {
       return;
     }
+    if (!settings.cloud_server_url && !DEFAULT_CLOUD_SERVER_URL) return;
     if (this.cloudDeletionInProgress || isCloudDeletionBlocking(settings.cloud_deletion_status)
       || settings.cloud_sync_enabled !== '1' || settings.cloud_services_disabled_by_user === 'true') return;
     if (this.autoRegisterTimer || this.autoRegisterInFlight) return;

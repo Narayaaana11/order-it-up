@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuthStore } from '@/store/auth';
@@ -157,7 +157,7 @@ function sanitizeStoredNumberPrefix(value: string | null | undefined): string {
 
 
 function SettingsNavItem({
-  label, value, active, onClick, indent, attention,
+  label, value, active, onClick, indent, attention, icon: Icon,
 }: {
   label: string;
   value: string;
@@ -165,21 +165,23 @@ function SettingsNavItem({
   onClick: (v: string) => void;
   indent?: boolean;
   attention?: boolean;
+  icon?: React.ElementType;
 }) {
   const isActive = active === value;
   return (
     <button
       onClick={() => onClick(value)}
       className={[
-        'flex items-center w-full min-w-0 text-start text-sm rounded-md py-1.5 transition-colors',
+        'flex items-center gap-2.5 w-full min-w-0 text-start text-sm rounded-xl py-2 transition-all',
         indent ? 'ps-5 pe-2 border-s-2 ms-1 text-xs md:ms-0' : 'px-3',
         isActive
-          ? 'bg-brand/10 text-brand font-semibold' + (indent ? ' border-brand' : '')
+          ? 'bg-brand/10 text-brand font-bold' + (indent ? ' border-brand' : '')
           : 'text-muted-foreground hover:bg-muted hover:text-foreground' + (indent ? ' border-transparent' : ''),
       ].join(' ')}
     >
+      {Icon && <Icon size={15} className={isActive ? 'text-brand' : 'text-muted-foreground'} />}
       <span className="min-w-0 truncate">{label}</span>
-      {attention && <span className="ms-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white" aria-label="Action required">1</span>}
+      {attention && <span className="ms-auto rounded-full bg-red-500 px-1.5 py-0.5 text-[10px] font-bold text-white" aria-label="Action required">!</span>}
     </button>
   );
 }
@@ -217,10 +219,10 @@ function KdsDefaultViewCard() {
   }
 
   return (
-    <div className="bg-card rounded-xl border border-border p-6">
+    <div className="bg-card rounded-2xl border-2 border-border p-6">
       <div className="flex items-center gap-2 mb-4">
         <Monitor size={20} className="text-muted-foreground" />
-        <h2 className="font-semibold text-foreground">{t('kdsDefaultView')}</h2>
+        <h2 className="font-bold text-foreground">{t('kdsDefaultView')}</h2>
       </div>
       <p className="text-sm text-muted-foreground mb-5">{t('kdsDefaultViewHint')}</p>
 
@@ -2440,8 +2442,10 @@ export default function SettingsPage() {
         {/* Settings sidebar nav */}
         <div className="w-full md:w-40 md:min-w-[10rem] shrink-0 md:h-full md:min-h-0 md:flex md:flex-col">
           <div className="flex items-center gap-3 mb-6 shrink-0">
-            <Settings size={28} className="text-brand" />
-            <h1 className="text-2xl font-bold text-foreground">{t('title')}</h1>
+            <div className="w-10 h-10 rounded-xl bg-brand/10 flex items-center justify-center">
+              <Settings size={20} className="text-brand" />
+            </div>
+            <h1 className="text-xl font-black text-foreground">{t('title')}</h1>
           </div>
 
            <nav className="flex md:flex-col gap-0.5 overflow-x-auto md:flex-1 md:min-h-0 md:overflow-x-hidden md:overflow-y-auto md:overscroll-contain border-b md:border-b-0 md:border-e border-border pb-2 md:pb-0 md:pe-2">
@@ -2450,52 +2454,52 @@ export default function SettingsPage() {
             <div className="hidden md:block px-3 pt-3 pb-2 mt-2 mb-1 border-b border-border">
               <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">{t('navGroupGeneral')}</p>
             </div>
-            <SettingsNavItem label={t('storeDetails')} value="store" active={activeTab} onClick={handleSettingsTabChange} />
-            <SettingsNavItem label={t('tabPrinters')} value="receipts-printers" active={activeTab} onClick={handleSettingsTabChange} />
-            <SettingsNavItem label={t('paymentMethods')} value="payments" active={activeTab} onClick={handleSettingsTabChange} />
+            <SettingsNavItem label={t('storeDetails')} value="store" active={activeTab} onClick={handleSettingsTabChange} icon={Building2} />
+            <SettingsNavItem label={t('tabPrinters')} value="receipts-printers" active={activeTab} onClick={handleSettingsTabChange} icon={Printer} />
+            <SettingsNavItem label={t('paymentMethods')} value="payments" active={activeTab} onClick={handleSettingsTabChange} icon={CreditCard} />
             {isAdmin && (
-              <SettingsNavItem label={t('tabAppearance')} value="appearance" active={activeTab} onClick={handleSettingsTabChange} />
+              <SettingsNavItem label={t('tabAppearance')} value="appearance" active={activeTab} onClick={handleSettingsTabChange} icon={SunMoon} />
             )}
             {canViewTaxConfiguration && (
-              <SettingsNavItem label={t('taxConfiguration')} value="tax" active={activeTab} onClick={handleSettingsTabChange} />
+              <SettingsNavItem label={t('taxConfiguration')} value="tax" active={activeTab} onClick={handleSettingsTabChange} icon={Percent} />
             )}
 
             {/* Operations group */}
             <div className="hidden md:block px-3 pt-4 pb-2 mt-3 mb-1 border-b border-border">
               <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">{t('navGroupOperations')}</p>
             </div>
-            <SettingsNavItem label={t('posWorkflow')} value="pos" active={activeTab} onClick={handleSettingsTabChange} />
-            <SettingsNavItem label={t('tabKds')} value="kds" active={activeTab} onClick={handleSettingsTabChange} />
-            <SettingsNavItem label={t('tablesideOrdering')} value="server-app" active={activeTab} onClick={handleSettingsTabChange} />
+            <SettingsNavItem label={t('posWorkflow')} value="pos" active={activeTab} onClick={handleSettingsTabChange} icon={Monitor} />
+            <SettingsNavItem label={t('tabKds')} value="kds" active={activeTab} onClick={handleSettingsTabChange} icon={ChefHat} />
+            <SettingsNavItem label={t('tablesideOrdering')} value="server-app" active={activeTab} onClick={handleSettingsTabChange} icon={Smartphone} />
             {/* WhatsApp opt-in lives under Operations because the receive-bill
                 workflow is what the cashier touches every time a customer pays. */}
-            <SettingsNavItem label={t('tabWhatsapp')} value="whatsapp" active={activeTab} onClick={handleSettingsTabChange} />
+            <SettingsNavItem label={t('tabWhatsapp')} value="whatsapp" active={activeTab} onClick={handleSettingsTabChange} icon={Share2} />
 
             {/* Customers group */}
             <div className="hidden md:block px-3 pt-4 pb-2 mt-3 mb-1 border-b border-border">
               <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">{t('navGroupCustomers')}</p>
             </div>
-            <SettingsNavItem label={t('loyalty')} value="loyalty" active={activeTab} onClick={handleSettingsTabChange} />
-            <SettingsNavItem label={t('discounts')} value="discounts" active={activeTab} onClick={handleSettingsTabChange} />
+            <SettingsNavItem label={t('loyalty')} value="loyalty" active={activeTab} onClick={handleSettingsTabChange} icon={Gift} />
+            <SettingsNavItem label={t('discounts')} value="discounts" active={activeTab} onClick={handleSettingsTabChange} icon={Percent} />
 
             {/* Integrations group (formerly "Data") */}
             <div className="hidden md:block px-3 pt-4 pb-2 mt-3 mb-1 border-b border-border">
               <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">{t('navGroupData')}</p>
             </div>
-            <SettingsNavItem label={t('tabMobileAccess')} value="mobile-access" active={activeTab} onClick={handleSettingsTabChange} />
-            <SettingsNavItem label={t('tabBackupData')} value="data" active={activeTab} onClick={handleSettingsTabChange} />
-            <SettingsNavItem label="MongoDB Cloud Sync" value="mongodb" active={activeTab} onClick={handleSettingsTabChange} />
-            <SettingsNavItem label="Amazon S3 Backup" value="s3" active={activeTab} onClick={handleSettingsTabChange} />
-            <SettingsNavItem label={t('tabOrderflow')} value="orderflow" active={activeTab} onClick={handleSettingsTabChange} />
+            <SettingsNavItem label={t('tabMobileAccess')} value="mobile-access" active={activeTab} onClick={handleSettingsTabChange} icon={Smartphone} />
+            <SettingsNavItem label={t('tabBackupData')} value="data" active={activeTab} onClick={handleSettingsTabChange} icon={HardDrive} />
+            <SettingsNavItem label="Cloud Sync" value="mongodb" active={activeTab} onClick={handleSettingsTabChange} icon={Cloud} />
+            <SettingsNavItem label="S3 Backup" value="s3" active={activeTab} onClick={handleSettingsTabChange} icon={UploadCloud} />
+            <SettingsNavItem label={t('tabOrderflow')} value="orderflow" active={activeTab} onClick={handleSettingsTabChange} icon={Zap} />
 
             {/* Account group */}
             <div className="hidden md:block px-3 pt-4 pb-2 mt-3 mb-1 border-b border-border">
               <p className="text-[11px] font-bold uppercase tracking-widest text-gray-400">{t('navGroupAccount')}</p>
             </div>
-            <SettingsNavItem label={t('account')} value="account" active={activeTab} onClick={handleSettingsTabChange} attention={cloudDeletionNeedsAction || (cloudAccountAvailable && Boolean(cloudAccount?.email && !cloudAccount?.verified))} />
-            <SettingsNavItem label={t('privacy')} value="privacy" active={activeTab} onClick={handleSettingsTabChange} />
-            <SettingsNavItem label={t('tabUpdates')} value="updates" active={activeTab} onClick={handleSettingsTabChange} />
-            <SettingsNavItem label={t('tabAbout')} value="about" active={activeTab} onClick={handleSettingsTabChange} />
+            <SettingsNavItem label={t('account')} value="account" active={activeTab} onClick={handleSettingsTabChange} icon={Users} attention={cloudDeletionNeedsAction || (cloudAccountAvailable && Boolean(cloudAccount?.email && !cloudAccount?.verified))} />
+            <SettingsNavItem label={t('privacy')} value="privacy" active={activeTab} onClick={handleSettingsTabChange} icon={Lock} />
+            <SettingsNavItem label={t('tabUpdates')} value="updates" active={activeTab} onClick={handleSettingsTabChange} icon={RefreshCw} />
+            <SettingsNavItem label={t('tabAbout')} value="about" active={activeTab} onClick={handleSettingsTabChange} icon={Settings} />
 
           </nav>
         </div>
@@ -2505,10 +2509,10 @@ export default function SettingsPage() {
         <TabsContent value="store">
           <div className="pb-6 max-w-3xl space-y-6">
             {/* Store Details — editable for admin, readonly otherwise */}
-            <div className="lg:col-span-2 bg-card rounded-xl border border-border p-6">
+            <div className="lg:col-span-2 bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Building2 size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('storeDetails')}</h2>
+                <h2 className="font-bold text-foreground">{t('storeDetails')}</h2>
                 {!isAdmin && (
                   <span className="ms-auto flex items-center gap-1 text-xs text-gray-400">
                     <Lock size={12} /> {t('adminOnly')}
@@ -2725,10 +2729,10 @@ export default function SettingsPage() {
             </div>
 
             {/* Number Formats */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Hash size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('orderNumberFormat')}</h2>
+                <h2 className="font-bold text-foreground">{t('orderNumberFormat')}</h2>
                 {!isAdmin && (
                   <span className="ms-auto flex items-center gap-1 text-xs text-gray-400">
                     <Lock size={12} /> {t('adminOnly')}
@@ -2884,10 +2888,10 @@ export default function SettingsPage() {
 
 
             {/* Subscription */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <CreditCard size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('subscription')}</h2>
+                <h2 className="font-bold text-foreground">{t('subscription')}</h2>
               </div>
               <div className="space-y-3">
                 <div>
@@ -2932,10 +2936,10 @@ export default function SettingsPage() {
         {isAdmin && (
         <TabsContent value="appearance">
           <div className="pb-6 max-w-3xl space-y-6">
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <SunMoon size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('themeTitle')}</h2>
+                <h2 className="font-bold text-foreground">{t('themeTitle')}</h2>
               </div>
               <div
                 className="flex gap-3"
@@ -2988,10 +2992,10 @@ export default function SettingsPage() {
         <TabsContent value="pos">
           <div className="pb-6 max-w-3xl space-y-6">
             {/* POS Display */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Monitor size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('posDisplay')}</h2>
+                <h2 className="font-bold text-foreground">{t('posDisplay')}</h2>
               </div>
               <div className="flex items-center justify-between gap-4">
                 <div className="flex-1 min-w-0">
@@ -3006,10 +3010,10 @@ export default function SettingsPage() {
             </div>
 
             {/* POS Workflow */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Users size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('posWorkflow')}</h2>
+                <h2 className="font-bold text-foreground">{t('posWorkflow')}</h2>
               </div>
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-4">
@@ -3037,10 +3041,10 @@ export default function SettingsPage() {
             </div>
 
             {/* Add a cashier — pair another device onto the same POS over the local network */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Smartphone size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('posPairing')}</h2>
+                <h2 className="font-bold text-foreground">{t('posPairing')}</h2>
               </div>
               <p className="text-sm text-muted-foreground mb-5">
                 {t('posPairingHint')}
@@ -3146,7 +3150,7 @@ export default function SettingsPage() {
         <TabsContent value="kds">
           <div className="pb-6 max-w-3xl space-y-6">
             {/* Kitchen Display System enable toggle */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-foreground">{t('kdsEnabledToggle')}</p>
@@ -3171,10 +3175,10 @@ export default function SettingsPage() {
             )}
 
             {kdsEnabledSetting && (
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <ChefHat size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('kds')}</h2>
+                <h2 className="font-bold text-foreground">{t('kds')}</h2>
               </div>
               <p className="text-sm text-muted-foreground mb-5">
                 {t('kdsPairingHint')}
@@ -3275,11 +3279,11 @@ export default function SettingsPage() {
             </div>
             )}
 
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <ChefHat size={20} className="text-muted-foreground" />
-                  <h2 className="font-semibold text-foreground">{t('kitchenStations')}</h2>
+                  <h2 className="font-bold text-foreground">{t('kitchenStations')}</h2>
                 </div>
                 <button onClick={openAddStation}
                   className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-brand text-white rounded-lg hover:opacity-90 font-medium">
@@ -3413,7 +3417,7 @@ export default function SettingsPage() {
 
         <TabsContent value="server-app">
           <div className="pb-6 max-w-3xl space-y-6">
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center justify-between gap-4">
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-foreground">{t('serverApp')}</p>
@@ -3432,10 +3436,10 @@ export default function SettingsPage() {
             )}
 
             {serverAppEnabledSetting && (
-              <div className="bg-card rounded-xl border border-border p-6">
+              <div className="bg-card rounded-2xl border-2 border-border p-6">
                 <div className="flex items-center gap-2 mb-4">
                   <Smartphone size={20} className="text-muted-foreground" />
-                  <h2 className="font-semibold text-foreground">{t('tablesideOrdering')}</h2>
+                  <h2 className="font-bold text-foreground">{t('tablesideOrdering')}</h2>
                 </div>
                 <p className="text-sm text-muted-foreground mb-5">
                   {t('serverAppPairingHint')}
@@ -3535,10 +3539,10 @@ export default function SettingsPage() {
         <TabsContent value="loyalty">
           <div className="pb-6 max-w-3xl space-y-6">
             {/* Loyalty */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Gift size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('loyaltyProgram')}</h2>
+                <h2 className="font-bold text-foreground">{t('loyaltyProgram')}</h2>
               </div>
               <div className="space-y-5">
                 {/* Enable toggle */}
@@ -3609,10 +3613,10 @@ export default function SettingsPage() {
         <TabsContent value="discounts">
           <div className="pb-6 max-w-3xl space-y-6">
             {/* Discount Limits */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Percent size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('discountLimits')}</h2>
+                <h2 className="font-bold text-foreground">{t('discountLimits')}</h2>
               </div>
               <div className="space-y-5">
                 {/* Discount mode */}
@@ -3679,7 +3683,7 @@ export default function SettingsPage() {
         <TabsContent value="account">
           <div className="pb-6 max-w-3xl space-y-6">
             {/* Account */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <h2 className="font-semibold text-foreground mb-4">{t('account')}</h2>
               <div className="space-y-3">
                 <div>
@@ -3700,7 +3704,7 @@ export default function SettingsPage() {
               <div className={`rounded-xl border p-6 ${cloudAccountAvailable && cloudAccount?.email && !cloudAccount.verified ? 'border-red-200 bg-red-50/40' : 'border-border bg-card'}`}>
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="font-semibold text-foreground">{t('contactEmailTitle')}</h2>
+                    <h2 className="font-bold text-foreground">{t('contactEmailTitle')}</h2>
                     <p className="mt-1 text-sm text-muted-foreground">{cloudAccountLoadFailed ? t('cloudAccountLoadFailed') : cloudAccountAvailable ? <Ltr>{cloudAccount?.email || user?.email || t('noCloudContactEmail')}</Ltr> : t('cloudAccountUnavailable')}</p>
                   </div>
                   <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${!cloudAccountAvailable ? 'bg-muted text-muted-foreground' : cloudAccount?.verified ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`}>
@@ -3736,11 +3740,11 @@ export default function SettingsPage() {
         {/* Privacy — anonymous telemetry (from the old Integrations tab) + cloud privacy controls (from Account) */}
         <TabsContent value="privacy">
           <div className="pb-6 max-w-3xl space-y-6">
-            <div className="bg-card rounded-xl border border-border p-6 space-y-4">
+            <div className="bg-card rounded-2xl border-2 border-border p-6 space-y-4">
               <div className="flex items-center gap-2">
                 <Lock size={20} className="text-muted-foreground" />
                 <div>
-                  <h2 className="font-semibold text-foreground">{t('privacy')}</h2>
+                  <h2 className="font-bold text-foreground">{t('privacy')}</h2>
                 </div>
               </div>
 
@@ -3773,7 +3777,7 @@ export default function SettingsPage() {
 
             {isOwner && (
               <div className="rounded-xl border border-border bg-card p-6">
-                <h2 className="font-semibold text-foreground">{t('cloudPrivacyControls')}</h2>
+                <h2 className="font-bold text-foreground">{t('cloudPrivacyControls')}</h2>
                 <p className="mt-2 text-sm text-muted-foreground">{t('cloudStopReversible')}</p>
                 {cloudAccount?.deletion_request && (
                   <div className={`mt-4 rounded-lg border p-3 text-sm ${cloudAccount.deletion_request.status === 'pending' || cloudAccount.deletion_request.status === 'processing' ? 'border-amber-200 bg-amber-50 text-amber-900' : cloudAccount.deletion_request.status === 'approved' || cloudAccount.deletion_request.status === 'completed' || cloudAccount.deletion_request.status === 'deleted' ? 'border-green-200 bg-green-50 text-green-800' : cloudAccount.deletion_request.status === 'failed' ? 'border-red-200 bg-red-50 text-red-800' : 'border-border bg-muted text-foreground'}`}>
@@ -3830,11 +3834,11 @@ export default function SettingsPage() {
         <TabsContent value="receipts-printers">
           <div className="pb-6 max-w-6xl space-y-6">
             <div className="space-y-6">
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Printer size={20} className="text-muted-foreground" />
-                  <h2 className="font-semibold text-foreground">{t('printers')}</h2>
+                  <h2 className="font-bold text-foreground">{t('printers')}</h2>
                 </div>
                 {!showPrinterForm && (
                   <div className="flex items-center gap-2">
@@ -4069,10 +4073,10 @@ export default function SettingsPage() {
               <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">{t('tabPrinting')}</h2>
             </div>
 
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Printer size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('printing')}</h2>
+                <h2 className="font-bold text-foreground">{t('printing')}</h2>
               </div>
               <div className="space-y-4">
                 <div className="flex items-center justify-between gap-4">
@@ -4311,10 +4315,10 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Share2 size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('whatsappSharing')}</h2>
+                <h2 className="font-bold text-foreground">{t('whatsappSharing')}</h2>
               </div>
               <div className="flex items-center justify-between">
                 <div>
@@ -4327,10 +4331,10 @@ export default function SettingsPage() {
           </div>
 
             <div className="space-y-6">
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <FileText size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('billTemplate')}</h2>
+                <h2 className="font-bold text-foreground">{t('billTemplate')}</h2>
               </div>
               <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
                 {billTemplateCards.map((card) => {
@@ -4375,10 +4379,10 @@ export default function SettingsPage() {
             <div className="space-y-6">
             <h2 className="text-lg font-semibold text-foreground">{t('tabBackupData')}</h2>
             {/* Database Export */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <FileText size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('exportDatabase')}</h2>
+                <h2 className="font-bold text-foreground">{t('exportDatabase')}</h2>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
                 {t('exportDatabaseHint')}
@@ -4411,7 +4415,7 @@ export default function SettingsPage() {
             <div className="bg-card rounded-xl border border-blue-100 bg-blue-50/30 p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Database size={20} className="text-blue-600" />
-                <h2 className="font-semibold text-foreground">{t('createBackup')}</h2>
+                <h2 className="font-bold text-foreground">{t('createBackup')}</h2>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
                 {t('createBackupHint')}
@@ -4433,11 +4437,11 @@ export default function SettingsPage() {
             </div>
 
             {/* Backup History */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Database size={20} className="text-muted-foreground" />
-                  <h2 className="font-semibold text-foreground">{t('backupHistory')}</h2>
+                  <h2 className="font-bold text-foreground">{t('backupHistory')}</h2>
                 </div>
                 <button
                   onClick={fetchBackups}
@@ -4501,11 +4505,11 @@ export default function SettingsPage() {
             </div>
 
             {/* Google Drive — automated off-device backups (#129) */}
-            <div className="bg-card rounded-xl border border-border p-6 space-y-4">
+            <div className="bg-card rounded-2xl border-2 border-border p-6 space-y-4">
               <div className="flex items-center gap-2">
                 <HardDrive size={20} className="text-muted-foreground" />
                 <div>
-                  <h2 className="font-semibold text-foreground">{t('googleDrive')}</h2>
+                  <h2 className="font-bold text-foreground">{t('googleDrive')}</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">{t('googleDriveHint')}</p>
                 </div>
               </div>
@@ -4632,10 +4636,10 @@ export default function SettingsPage() {
             </div>
 
             {/* Database Import */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <FileText size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('importDatabase')}</h2>
+                <h2 className="font-bold text-foreground">{t('importDatabase')}</h2>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
                 {t('importDatabaseHint')}
@@ -4697,10 +4701,10 @@ export default function SettingsPage() {
             </div>
 
             {/* Database Info */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Database size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('databaseInformation')}</h2>
+                <h2 className="font-bold text-foreground">{t('databaseInformation')}</h2>
               </div>
               <button
                 onClick={async () => {
@@ -4720,10 +4724,10 @@ export default function SettingsPage() {
             </div>
 
             {/* Database Health Check */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Wrench size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('databaseHealthCheck')}</h2>
+                <h2 className="font-bold text-foreground">{t('databaseHealthCheck')}</h2>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
                 {t('databaseHealthCheckDescription')}
@@ -4737,10 +4741,10 @@ export default function SettingsPage() {
             </div>
 
             {/* Master PIN */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <KeyRound size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('masterPin')}</h2>
+                <h2 className="font-bold text-foreground">{t('masterPin')}</h2>
               </div>
               <p className="text-sm text-muted-foreground mb-4">
                 {t('masterPinDataDescription')}
@@ -4788,7 +4792,7 @@ export default function SettingsPage() {
             {!whatsappEnabled ? (
               <WhatsAppEnableCard />
             ) : (
-              <div className="bg-card rounded-xl border border-border p-6 flex items-center justify-between gap-4">
+              <div className="bg-card rounded-2xl border-2 border-border p-6 flex items-center justify-between gap-4">
                 <div>
                   <p className="font-semibold text-foreground">{tWhatsappSettings('enabled')}</p>
                   <p className="text-xs text-muted-foreground mt-0.5">{tWhatsappSettings('enabledHint')}</p>
@@ -4807,11 +4811,11 @@ export default function SettingsPage() {
             <h2 className="text-lg font-semibold text-foreground">{t('tabMobileAccess')}</h2>
 
             {/* FloAdmin — reporting sync */}
-            <div className="bg-card rounded-xl border border-border p-6 space-y-5">
+            <div className="bg-card rounded-2xl border-2 border-border p-6 space-y-5">
               <div className="flex items-center gap-2">
                 <Cloud size={20} className="text-brand" />
                 <div>
-                  <h2 className="font-semibold text-foreground">{t('floadminSalesReporting')}</h2>
+                  <h2 className="font-bold text-foreground">{t('floadminSalesReporting')}</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">{t('floadminSalesReportingHint')}</p>
                 </div>
               </div>
@@ -4903,11 +4907,11 @@ export default function SettingsPage() {
             </div>
 
             {/* RevFlo — consolidated: download/QR + app (pairing) code + paired devices */}
-            <div className="bg-card rounded-xl border border-border p-6 space-y-5">
+            <div className="bg-card rounded-2xl border-2 border-border p-6 space-y-5">
               <div className="flex items-center gap-2">
                 <Smartphone size={20} className="text-muted-foreground" />
                 <div>
-                  <h2 className="font-semibold text-foreground">{revflo?.name || t('revflo')}</h2>
+                  <h2 className="font-bold text-foreground">{revflo?.name || t('revflo')}</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">{revflo?.tagline || t('revfloHint')}</p>
                 </div>
               </div>
@@ -5040,11 +5044,11 @@ export default function SettingsPage() {
             <h2 className="text-lg font-semibold text-foreground">{t('tabOrderflow')}</h2>
 
             {/* OrderFlow — online orders */}
-            <div className="bg-card rounded-xl border border-border p-6 space-y-4">
+            <div className="bg-card rounded-2xl border-2 border-border p-6 space-y-4">
               <div className="flex items-center gap-2">
                 <Zap size={20} className="text-amber-500" />
                 <div>
-                  <h2 className="font-semibold text-foreground">{t('orderflowOnlineOrders')}</h2>
+                  <h2 className="font-bold text-foreground">{t('orderflowOnlineOrders')}</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">{t('orderflowOnlineOrdersHint')}</p>
                 </div>
               </div>
@@ -5075,7 +5079,7 @@ export default function SettingsPage() {
         {/* About tab */}
         <TabsContent value="about">
           <div className="pb-6 max-w-3xl space-y-6">
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <h2 className="font-semibold text-foreground mb-4">About Order It Up</h2>
               <p className="text-sm text-muted-foreground mb-6">
                 {t('aboutDescription')}
@@ -5093,10 +5097,10 @@ export default function SettingsPage() {
             </div>
 
             {/* More Apps — moved here from the old Integrations tab */}
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Smartphone size={20} className="text-muted-foreground" />
-                <h2 className="font-semibold text-foreground">{t('moreApps')}</h2>
+                <h2 className="font-bold text-foreground">{t('moreApps')}</h2>
               </div>
               <p className="text-sm text-muted-foreground mb-5">
                 {t('moreAppsHint')}
@@ -5157,10 +5161,10 @@ export default function SettingsPage() {
         {/* Software Updates tab */}
         <TabsContent value="updates">
           <div className="pb-6 max-w-3xl space-y-6">
-            <div className="bg-card rounded-xl border border-border p-6">
+            <div className="bg-card rounded-2xl border-2 border-border p-6">
             <div className="flex items-center gap-2 mb-4">
               <RefreshCw size={20} className="text-muted-foreground" />
-              <h2 className="font-semibold text-foreground">{t('updates')}</h2>
+              <h2 className="font-bold text-foreground">{t('updates')}</h2>
             </div>
             <p className="text-sm text-muted-foreground mb-6">
               {!isElectron

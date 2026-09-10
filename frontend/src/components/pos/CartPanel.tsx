@@ -71,38 +71,15 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
         ? 'flex flex-col w-full'
         : 'w-full h-full bg-card rounded-xl border border-border dark:border-border flex flex-col shadow-sm'
     }>
-      {/* Order Type */}
-      <div className="p-4 border-b border-border dark:border-border space-y-2">
-        <div className="flex gap-1 bg-muted rounded-lg p-1">
-          {(['dine_in', 'takeaway', 'delivery', 'online'] as const)
-            .filter((type) => isRestaurant || type !== 'dine_in')
-            .map((type) => {
-              const Icon = orderTypeIcons[type];
-              const label = type === 'dine_in' ? t('orderTypeDineIn') : type === 'takeaway' ? t('orderTypeTakeaway') : type === 'delivery' ? t('orderTypeDelivery') : t('orderTypeOnline');
-              return (
-                <button
-                  key={type}
-                  onClick={() => cart.setOrderType(type)}
-                  className={`touch-target flex-1 gap-1 px-2 rounded-md text-xs font-medium transition-colors ${
-                    cart.orderType === type
-                      ? 'bg-card text-brand shadow-sm'
-                      : 'text-muted-foreground hover:text-foreground'
-                  }`}
-                >
-                  <Icon size={14} />
-                  {label}
-                </button>
-              );
-            })}
-        </div>
-
+      {/* Order Type specifics (Pax, Address, Online fields) */}
+      <div className="p-3 border-b border-border dark:border-border space-y-3 bg-muted/20">
         {cart.orderType === 'dine_in' && (
-          <div className="flex items-center justify-between rounded-lg border border-border bg-card px-3 py-2">
-            <div className="flex items-center gap-2 text-sm text-muted-foreground"><Users size={15} /><span>{t('pax')}</span></div>
+          <div className="flex items-center justify-between rounded-xl border border-border bg-card px-3 py-2 shadow-sm">
+            <div className="flex items-center gap-2 text-sm text-muted-foreground"><Users size={16} /><span>{t('pax')}</span></div>
             <div className="flex items-center gap-2">
-              <button type="button" aria-label={t('decreasePax')} onClick={() => cart.setGuestCount(Math.max(1, cart.guestCount - 1))} className="touch-target rounded-full bg-muted"><Minus size={15} /></button>
-              <input aria-label={t('pax')} inputMode="numeric" type="number" min="1" max="99" value={cart.guestCount} onChange={(e) => cart.setGuestCount(Math.min(99, Math.max(1, Number(e.target.value) || 1)))} className="w-12 text-center text-base font-semibold border-0 outline-none bg-transparent" />
-              <button type="button" aria-label={t('increasePax')} onClick={() => cart.setGuestCount(Math.min(99, cart.guestCount + 1))} className="touch-target rounded-full bg-muted"><Plus size={15} /></button>
+              <button type="button" aria-label={t('decreasePax')} onClick={() => cart.setGuestCount(Math.max(1, cart.guestCount - 1))} className="touch-target rounded-full bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"><Minus size={16} /></button>
+              <input aria-label={t('pax')} inputMode="numeric" type="number" min="1" max="99" value={cart.guestCount} onChange={(e) => cart.setGuestCount(Math.min(99, Math.max(1, Number(e.target.value) || 1)))} className="w-10 text-center text-base font-semibold border-0 outline-none bg-transparent" />
+              <button type="button" aria-label={t('increasePax')} onClick={() => cart.setGuestCount(Math.min(99, cart.guestCount + 1))} className="touch-target rounded-full bg-muted text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors"><Plus size={16} /></button>
             </div>
           </div>
         )}

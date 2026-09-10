@@ -6,6 +6,7 @@ import { useTranslations } from 'use-intl';
 import { useAuthStore } from '@/store/auth';
 import { SidebarTrigger } from '@/components/ui/sidebar';
 import { Ltr } from './Ltr';
+import SyncIndicator from './SyncIndicator';
 import UpdateBadge from './UpdateBadge';
 
 const subscribeToElectronCapability = () => () => {};
@@ -76,7 +77,7 @@ export default function TitleBar() {
   return (
     <header
       data-testid="desktop-title-bar"
-      className="flo-title-bar hidden shrink-0 md:flex"
+      className="flo-title-bar shrink-0 flex z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
       aria-label={businessName}
     >
       <div className="flo-title-bar__safe-area pointer-events-none flex w-full items-center justify-between">
@@ -84,12 +85,13 @@ export default function TitleBar() {
         <div className="flo-title-bar__interactive pointer-events-auto flex items-center translate-y-[1.5px]">
           <SidebarTrigger
             aria-label={tNav('toggleSidebar')}
-            className="size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors"
+            className="size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors hidden md:flex"
           />
         </div>
 
-        {/* Trailing edge: Update badge */}
-        <div className="flo-title-bar__interactive pointer-events-auto ms-auto flex items-center">
+        {/* Trailing edge: Sync Indicator & Update badge */}
+        <div className="flo-title-bar__interactive pointer-events-auto ms-auto flex items-center gap-2">
+          <SyncIndicator />
           <UpdateBadge />
         </div>
       </div>

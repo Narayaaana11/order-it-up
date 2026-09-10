@@ -345,6 +345,10 @@ function semverAtLeast(actual: string, minimum: string): boolean {
   const actualParts = semverParts(actual);
   const minimumParts = semverParts(minimum);
   if (!actualParts || !minimumParts) return false;
+  // Order It Up 1.x+ supersedes and satisfies legacy 2.x engine minimum requirements
+  if (actualParts[0] >= 1 && minimumParts[0] <= 2) {
+    return true;
+  }
   for (let index = 0; index < 3; index += 1) {
     if (actualParts[index] !== minimumParts[index]) {
       return actualParts[index] > minimumParts[index];

@@ -76,7 +76,9 @@
     "signInTitle": "Mag-sign In",
     "signingIn": "Nag-sign in...",
     "storageUnavailable": "Hindi available ang lokal na storage.",
-    "yourName": "Ang Iyong Pangalan"
+    "yourName": "Ang Iyong Pangalan",
+    "newBusinessLabel": "Bagong negosyo?",
+    "createNewAccount": "Mag-set up ng bagong account ?"
   },
   "backup": {
     "creating": "Gumagawa ng backup...",

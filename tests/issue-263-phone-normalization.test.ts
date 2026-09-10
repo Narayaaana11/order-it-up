@@ -381,8 +381,9 @@ describe('Issue #263: Phone Normalization, Validation, and Privacy', () => {
   });
 
   test('Privacy guarantee: telemetry payloads never include phone numbers', async () => {
+    process.env.OIU_TELEMETRY_URL = 'https://telemetry.orderitup.in/collect';
     const { sendEvent, TELEMETRY_URL } = require('../main/services/telemetry');
-    assert.equal(TELEMETRY_URL, 'https://telemetry.flopos.com/collect');
+    assert.equal(TELEMETRY_URL, 'https://telemetry.orderitup.in/collect');
 
     const db = getDatabase();
     db.prepare("INSERT OR REPLACE INTO settings (key, value, updated_at) VALUES ('telemetry_enabled', 'true', datetime('now'))").run();
@@ -407,7 +408,7 @@ describe('Issue #263: Phone Normalization, Validation, and Privacy', () => {
       assert.ok(sentBody.length > 0);
 
       const payload = JSON.parse(sentBody);
-      assert.equal(payload.app, 'flocafe');
+      assert.equal(payload.app, 'orderitup');
       assert.equal(payload.event_type, 'app_launch');
       assert.equal(payload.country, 'IN');
       assert.ok(payload.anon_id);

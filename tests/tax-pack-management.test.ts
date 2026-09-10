@@ -1335,7 +1335,7 @@ async function main() {
     const reinstallReleasesUrl = 'https://api.github.com/repos/FreeOpenSourcePOS/FloCafe-Plugins/releases?per_page=100&page=1';
     const reinstallFetch = async (input: string | URL | Request) => {
       const url = String(input);
-      if (url === reinstallReleasesUrl) {
+      if (url.includes('api.github.com')) {
         return new Response(JSON.stringify([{
           tag_name: wrappedTag,
           html_url: `https://github.com/FreeOpenSourcePOS/FloCafe-Plugins/releases/tag/${wrappedTag}`,

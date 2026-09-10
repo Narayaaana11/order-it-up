@@ -7,7 +7,7 @@
 :root {
   --font-sans: "Geist", system-ui, sans-serif;
   --font-mono: "Geist Mono", monospace;
-  --radius: 0.625rem;
+  --radius: 0.75rem;
   --background: oklch(1 0 0);
   --foreground: oklch(0.145 0 0);
   --card: oklch(1 0 0);
@@ -33,12 +33,12 @@
   --chart-5: oklch(0.769 0.188 70.08);
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: #3248FF;
+  --sidebar-primary: #F07928;
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: #e8ebff;
-  --sidebar-accent-foreground: #3248FF;
+  --sidebar-accent: #FFF3E8;
+  --sidebar-accent-foreground: #D96A1A;
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: #3248FF;
+  --sidebar-ring: #F07928;
 
   /* Hoisted to :root so fixed app chrome can offset below the title bar;
    * consumed by both .flo-title-bar and the sidebar inset rules below. */
@@ -228,7 +228,7 @@ html[data-flo-desktop-titlebar='true'] {
   inset-inline-start: 0;
   inline-size: 100%;
   block-size: 2.5px;
-  background-color: var(--sidebar-primary, #3248FF);
+  background-color: var(--sidebar-primary, #F07928);
   transform-origin: left center;
   animation-name: flo-toast-drain;
   animation-timing-function: linear;
@@ -255,7 +255,7 @@ div:hover > .flo-toast-drain,
 }
 
 .flo-toast-drain--blank {
-  background-color: var(--sidebar-primary, #3248FF);
+  background-color: var(--sidebar-primary, #F07928);
 }
 
 
@@ -318,11 +318,11 @@ div:hover > .flo-toast-drain,
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Brand colors */
-  --color-brand: #3248FF;
-  --color-brand-light: #e8ebff;
-  --color-brand-hover: #2538d4;
-  --color-brand-ring: #3248FF80;
+  /* Brand colors — Saffron Orange palette */
+  --color-brand: #F07928;
+  --color-brand-light: #FFF3E8;
+  --color-brand-hover: #D96A1A;
+  --color-brand-ring: #F0792840;
   --color-success: #00cc61;
   --color-success-light: #dcfce7;
   --color-success-hover: #00b355;
@@ -354,12 +354,12 @@ div:hover > .flo-toast-drain,
   --chart-5: oklch(0.645 0.246 16.439);
   --sidebar: oklch(0.205 0 0);
   --sidebar-foreground: oklch(0.985 0 0);
-  --sidebar-primary: #3248FF;
+  --sidebar-primary: #F07928;
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: #3248FF;
+  --sidebar-ring: #F07928;
 }
 
 @layer base {

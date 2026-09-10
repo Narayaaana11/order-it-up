@@ -1,14 +1,8 @@
 blank_issues_enabled: false
 contact_links:
-  - name: Download FloCafe
-    url: https://flopos.com/download
-    about: Get the latest packaged release before reporting an issue.
-  - name: FloCafe documentation
-    url: https://flopos.com/documentation
-    about: Setup, installation, printers, backups, and operating guidance.
-  - name: Architecture & general discussions
-    url: https://github.com/FreeOpenSourcePOS/FloCafe/discussions
-    about: Propose architecture changes, ask questions, or discuss early ideas.
-  - name: Report a security vulnerability
-    url: https://github.com/FreeOpenSourcePOS/FloCafe/security/advisories/new
+  - name: Order It Up Documentation
+    url: https://github.com/orderitup/pos#readme
+    about: Operating guidance, configuration, printers, and Indian GST workflows.
+  - name: Order It Up Security
+    url: https://github.com/orderitup/pos/security
     about: Report potential vulnerabilities privately per SECURITY.md.

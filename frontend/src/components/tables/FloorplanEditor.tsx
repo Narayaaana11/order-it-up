@@ -12,6 +12,7 @@ import { useTranslations } from 'use-intl';
 import { TABLE_STATUS_LABEL_KEYS } from '@/lib/i18n';
 import { TableTurnoverBadge } from '@/components/tables/TableTurnoverBadge';
 import { Ltr } from '@/components/layout/Ltr';
+import { useLongPress } from '@/hooks/useLongPress';
 
 type XY = { x: number; y: number } | null;
 
@@ -174,7 +175,7 @@ function saveSavedCanvasSize(floor: string, size: SavedCanvasSize): void {
   } catch { /* quota / private mode — fail silently */ }
 }
 
-export default function FloorplanEditor({ mode, canManage = false, tables, ordersByTable, onSaved, onReserve, onViewOrder }: {
+export default function FloorplanEditor({ mode, canManage = false, tables, ordersByTable, onSaved, onReserve, onViewOrder, onTapOrder }: {
   mode: 'edit' | 'service';
   canManage?: boolean;
   tables: Table[];
@@ -182,6 +183,7 @@ export default function FloorplanEditor({ mode, canManage = false, tables, order
   onSaved?: () => void;
   onReserve?: (tb: Table) => void;
   onViewOrder?: () => void;
+  onTapOrder?: (tb: Table) => void;
 }) {
   const edit = mode === 'edit' && canManage;
   const t = useTranslations('tables');
@@ -398,8 +400,16 @@ export default function FloorplanEditor({ mode, canManage = false, tables, order
     }));
   };
 
+  const longPressTimerRef = useRef<NodeJS.Timeout | null>(null);
+
   const startDrag = (tb: Table, centerOnPointer = false) => (e: React.PointerEvent<HTMLElement>) => {
-    if (!edit) return;
+    if (!edit) {
+      longPressTimerRef.current = setTimeout(() => {
+        setActionTable(tb);
+        longPressTimerRef.current = null;
+      }, 500);
+      return;
+    }
     if (e.pointerType === 'mouse' && e.button !== 0) return;
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -422,6 +432,14 @@ export default function FloorplanEditor({ mode, canManage = false, tables, order
   };
 
   const onDragMove = (e: React.PointerEvent<HTMLElement>) => {
+    if (!edit) {
+      // cancel long press if they start dragging fingers
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+      }
+      return;
+    }
     const d = dragRef.current;
     if (!d) return;
     if (!d.moved) {
@@ -443,7 +461,18 @@ export default function FloorplanEditor({ mode, canManage = false, tables, order
     clamp(d.id, x, y, d.halfX, d.halfY);
   };
 
-  const endDrag = () => {
+  const endDrag = (tb?: Table) => {
+    if (!edit) {
+      if (longPressTimerRef.current) {
+        clearTimeout(longPressTimerRef.current);
+        longPressTimerRef.current = null;
+        if (tb) {
+           if (onTapOrder) onTapOrder(tb);
+           else setActionTable(tb);
+        }
+      }
+      return;
+    }
     const d = dragRef.current;
     dragRef.current = null;
     setDragId(null);
@@ -453,8 +482,8 @@ export default function FloorplanEditor({ mode, canManage = false, tables, order
       return;
     }
     if (edit && d && !d.moved) {
-      const tb = byId(d.id);
-      if (tb) openEdit(tb);
+      const tb2 = byId(d.id);
+      if (tb2) openEdit(tb2);
     }
   };
 
@@ -744,10 +773,17 @@ export default function FloorplanEditor({ mode, canManage = false, tables, order
         title={t('floorplanEditHint')}
         onPointerDown={startDrag(tb)}
         onPointerMove={onDragMove}
-        onPointerUp={endDrag}
-        onPointerCancel={endDrag}
+        onPointerUp={() => endDrag(tb)}
+        onPointerCancel={() => endDrag()}
+        onContextMenu={(e) => {
+          if (!edit) {
+            e.preventDefault();
+            if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+            setActionTable(tb);
+          }
+        }}
         onKeyDown={onChipKeyDown(tb, false)}
-        onClick={!edit ? () => setActionTable(tb) : undefined}
         className={`absolute -translate-x-1/2 -translate-y-1/2 select-none touch-none rounded-2xl p-[9px] focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${
           edit
             ? `cursor-grab ${dragging ? 'z-20 scale-110 cursor-grabbing shadow-2xl' : 'transition-transform hover:scale-[1.03]'}`
@@ -1113,8 +1149,8 @@ export default function FloorplanEditor({ mode, canManage = false, tables, order
                   title={t('floorplanEditHint')}
                   onPointerDown={startDrag(tb, true)}
                   onPointerMove={onDragMove}
-                  onPointerUp={endDrag}
-                  onPointerCancel={endDrag}
+                  onPointerUp={() => endDrag(tb)}
+                  onPointerCancel={() => endDrag(tb)}
                   onClick={!edit ? () => setActionTable(tb) : undefined}
                   onKeyDown={onChipKeyDown(tb, true)}
                   className={`flex select-none items-center gap-2.5 rounded-xl border-2 bg-card px-3 py-2 shadow-sm transition-shadow hover:shadow-md focus:outline-none focus-visible:ring-2 focus-visible:ring-brand ${

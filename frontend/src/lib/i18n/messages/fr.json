@@ -76,7 +76,9 @@
     "signInTitle": "Connectez-vous pour gérer votre établissement",
     "signingIn": "Connexion...",
     "storageUnavailable": "Impossible d’enregistrer votre session. Votre navigateur bloque peut-être le stockage (navigation privée ou cookies désactivés).",
-    "yourName": "Votre nom"
+    "yourName": "Votre nom",
+    "newBusinessLabel": "Nouvelle entreprise ?",
+    "createNewAccount": "Cr�er un nouveau compte ?"
   },
   "backup": {
     "creating": "Création de la sauvegarde...",

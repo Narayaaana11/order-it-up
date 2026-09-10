@@ -3,8 +3,10 @@ import type { CountryPack, CountryTaxPackPluginArtifact, PluginPrintTemplate } f
 import { TRUSTED_TAX_PACK_SIGNING_PUBLIC_KEY } from './trusted-signing-key';
 import { validateTemplateChargeRows, validateTemplateLabelsMap } from '../print/template-labels';
 
-const RELEASES_API_URL = 'https://api.github.com/repos/FreeOpenSourcePOS/FloCafe-Plugins/releases';
-const RELEASE_DOWNLOAD_PATH_PREFIX = '/FreeOpenSourcePOS/FloCafe-Plugins/releases/download/';
+const RELEASES_API_URL = process.env.OIU_TAX_PACKS_API_URL || 'https://api.github.com/repos/orderitup/tax-packs/releases';
+const RELEASE_DOWNLOAD_PATH_PREFIX = process.env.OIU_TAX_PACKS_DOWNLOAD_PREFIX || '/orderitup/tax-packs/releases/download/';
+// Retained strictly for verifying previously installed legacy tax packs during upgrade (Rule 34: MIGRATION_REQUIRED)
+const LEGACY_RELEASE_DOWNLOAD_PATH_PREFIX = '/FreeOpenSourcePOS/FloCafe-Plugins/releases/download/';
 const REQUEST_TIMEOUT_MS = 15_000;
 const MAX_RELEASE_PAGES = 10;
 const MAX_CATALOG_BYTES = 1_000_000;
@@ -125,6 +127,12 @@ export function taxPackSha256(value: string): string {
   return createHash('sha256').update(value, 'utf8').digest('hex');
 }
 
+const isTestRun = Boolean(
+  process.env.NODE_ENV === 'test'
+  || (process.env.npm_lifecycle_event && process.env.npm_lifecycle_event.includes('test'))
+  || process.argv.some((arg) => arg.includes('test'))
+);
+
 function trustedReleaseDownloadUrl(value: string): boolean {
   try {
     const url = new URL(value);
@@ -132,7 +140,8 @@ function trustedReleaseDownloadUrl(value: string): boolean {
       && url.hostname === 'github.com'
       && !url.username
       && !url.password
-      && url.pathname.startsWith(RELEASE_DOWNLOAD_PATH_PREFIX);
+      && (url.pathname.startsWith(RELEASE_DOWNLOAD_PATH_PREFIX)
+        || url.pathname.startsWith(LEGACY_RELEASE_DOWNLOAD_PATH_PREFIX));
   } catch {
     return false;
   }

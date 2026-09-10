@@ -580,43 +580,62 @@ export default function TablesPage() {
         <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-4">
           {visibleTables.map((table) => (
             <div key={table.id}
-              className={`bg-card rounded-xl p-5 border border-border text-center hover:shadow-md transition-shadow ${!table.is_active ? 'opacity-60' : ''}`}>
-              <div className={`w-3 h-3 rounded-full ${statusColors[table.status]} mx-auto mb-3`} />
-              <h3 className="font-bold text-lg text-foreground">{table.name}</h3>
-              <p className="text-sm text-muted-foreground">{tTables('capacitySeats', { count: table.capacity })}</p>
-              <p className="text-xs text-gray-400 mt-1">{tTables(TABLE_STATUS_LABEL_KEYS[table.status])}</p>
+              onClick={() => router.push(`/pos?table_id=${table.id}`)}
+              className={`bg-card rounded-2xl p-5 border-2 text-center transition-all cursor-pointer hover:-translate-y-1 hover:shadow-lg relative select-none ${!table.is_active ? 'opacity-60' : ''} ${
+                table.status === 'available' ? 'border-green-500/40 hover:border-green-500 hover:shadow-green-500/10'
+                : table.status === 'occupied' ? 'border-red-500/40 hover:border-red-500 hover:shadow-red-500/10'
+                : table.status === 'reserved' ? 'border-amber-500/40 hover:border-amber-500 hover:shadow-amber-500/10'
+                : 'border-border hover:shadow-md'
+              }`}
+            >
+              <div className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full ${
+                table.status === 'available' ? 'bg-green-500'
+                : table.status === 'occupied' ? 'bg-red-500'
+                : table.status === 'reserved' ? 'bg-amber-500'
+                : 'bg-gray-400'
+              }`} />
+              <h3 className="font-black text-lg text-foreground mt-1">{table.name}</h3>
+              <p className="text-xs text-muted-foreground">{tTables('capacitySeats', { count: table.capacity })}</p>
+              <p className={`text-xs font-semibold mt-1 ${
+                table.status === 'available' ? 'text-green-600'
+                : table.status === 'occupied' ? 'text-red-600'
+                : table.status === 'reserved' ? 'text-amber-600'
+                : 'text-gray-500'
+              }`}>{tTables(TABLE_STATUS_LABEL_KEYS[table.status])}</p>
               {table.status === 'occupied' && table.seated_at && (
-                <div className="mt-1"><TableTurnoverBadge seatedAt={table.seated_at} /></div>
+                <div className="mt-1 flex justify-center"><TableTurnoverBadge seatedAt={table.seated_at} /></div>
               )}
               <div className="mt-2 flex justify-center">{locationBadge(table)}</div>
               {table.status === 'reserved' && table.reservation_customer_name && (
-                <p className="text-xs text-yellow-700 font-medium mt-1 truncate">{table.reservation_customer_name}</p>
+                <p className="text-xs text-amber-700 font-medium mt-1 truncate">{table.reservation_customer_name}</p>
               )}
               {table.status === 'reserved' && table.reservation_customer_phone && (
-                <p className="text-xs text-yellow-600 mt-0.5"><Ltr>{table.reservation_customer_phone}</Ltr></p>
+                <p className="text-xs text-amber-600 mt-0.5"><Ltr>{table.reservation_customer_phone}</Ltr></p>
               )}
 
-              {(table.status === 'occupied' || table.status === 'reserved') && (
-                <button onClick={() => updateStatus(table.id, 'available')}
-                  className="mt-3 text-xs text-brand hover:text-brand-hover font-medium">
-                  {tTables('markAvailable')}
+              <div className="mt-3 flex flex-col gap-1 items-center" onClick={(e) => e.stopPropagation()}>
+                {(table.status === 'occupied' || table.status === 'reserved') && (
+                  <button onClick={() => updateStatus(table.id, 'available')}
+                    className="text-xs text-brand hover:text-brand/80 font-medium">
+                    {tTables('markAvailable')}
+                  </button>
+                )}
+                {table.status === 'available' && (
+                  <button onClick={() => setReservingTable(table)}
+                    className="text-xs text-amber-600 hover:text-amber-700 font-medium">
+                    {tTables('reserve')}
+                  </button>
+                )}
+                {canManageTables && (
+                  <button onClick={() => openEdit(table)} className="text-xs text-brand hover:text-brand/80 font-medium flex items-center gap-1">
+                    <Pencil size={11} /> {tTables('editTable')}
+                  </button>
+                )}
+                <button onClick={() => toggleActive(table)}
+                  className={`text-xs font-medium ${!table.is_active ? 'text-green-600 hover:text-green-700' : 'text-red-500 hover:text-red-700'}`}>
+                  {!table.is_active ? <><RotateCcw size={11} className="inline me-0.5" />{tTables('reactivate')}</> : tTables('deactivate')}
                 </button>
-              )}
-              {table.status === 'available' && (
-                <button onClick={() => setReservingTable(table)}
-                  className="mt-3 text-xs text-yellow-600 hover:text-yellow-700 font-medium">
-                  {tTables('reserve')}
-                </button>
-              )}
-              {canManageTables && (
-                <button onClick={() => openEdit(table)} className="mt-2 mx-auto text-xs text-brand hover:text-brand-hover font-medium flex items-center gap-1">
-                  <Pencil size={12} /> {tTables('editTable')}
-                </button>
-              )}
-              <button onClick={() => toggleActive(table)}
-                className={`mt-2 block mx-auto text-xs font-medium ${!table.is_active ? 'text-green-600 hover:text-green-700' : 'text-red-500 hover:text-red-700'}`}>
-                {!table.is_active ? tTables('reactivate') : tTables('deactivate')}
-              </button>
+              </div>
             </div>
           ))}
         </div>

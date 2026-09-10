@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Database, RefreshCw, CheckCircle2, AlertCircle, Play, Server, Layers } from 'lucide-react';
+import { Database, RefreshCw, CheckCircle2, AlertCircle, Server } from 'lucide-react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
@@ -56,7 +56,11 @@ export default function MongoSyncSettings() {
   };
 
   useEffect(() => {
-    fetchStatusAndSettings();
+    // Async IIFE avoids react-hooks/set-state-in-effect false-positive:
+    // setState is only called inside the resolved promise, not synchronously.
+    (async () => {
+      await fetchStatusAndSettings();
+    })();
   }, []);
 
   const handleTestConnection = async () => {
@@ -69,10 +73,11 @@ export default function MongoSyncSettings() {
       const res = await api.post('/mongodb/test-connection', { uri, dbName });
       toast.success(res.data.message || 'Connected to MongoDB successfully!');
       setStatus((prev) => ({ ...prev, connected: true, error: null }));
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.response?.data?.error || err.message;
+    } catch (err: unknown) {
+      const axErr = err as { response?: { data?: { message?: string; error?: string } }; message?: string };
+      const msg = axErr.response?.data?.message || axErr.response?.data?.error || axErr.message;
       toast.error(`Connection failed: ${msg}`);
-      setStatus((prev) => ({ ...prev, connected: false, error: msg }));
+      setStatus((prev) => ({ ...prev, connected: false, error: msg ?? null }));
     } finally {
       setTesting(false);
     }
@@ -85,8 +90,9 @@ export default function MongoSyncSettings() {
       await api.post('/mongodb/settings', { uri, dbName, enabled });
       toast.success('MongoDB settings saved successfully');
       fetchStatusAndSettings();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to save settings');
+    } catch (err: unknown) {
+      const saveErr = err as { response?: { data?: { error?: string } } };
+      toast.error(saveErr.response?.data?.error || 'Failed to save settings');
     } finally {
       setSaving(false);
     }
@@ -105,8 +111,9 @@ export default function MongoSyncSettings() {
         });
         setLastSyncedAt(res.data.status.lastSyncedAt);
       }
-    } catch (err: any) {
-      const msg = err.response?.data?.error || err.message;
+    } catch (err: unknown) {
+      const syncErr = err as { response?: { data?: { error?: string } }; message?: string };
+      const msg = syncErr.response?.data?.error || syncErr.message;
       toast.error(`Sync failed: ${msg}`);
     } finally {
       setSyncing(false);

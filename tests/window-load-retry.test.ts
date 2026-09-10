@@ -17,6 +17,7 @@
 import * as assert from 'node:assert/strict';
 import * as http from 'node:http';
 import * as fs from 'node:fs';
+import * as os from 'node:os';
 import * as path from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import {

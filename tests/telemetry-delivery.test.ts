@@ -49,7 +49,7 @@ async function main() {
 
     assert.equal(await sendEvent('app_launch'), true, '2xx telemetry delivery succeeds');
     assert.equal(requestBody?.country, 'AR', 'telemetry sends the configured ISO country');
-    assert.equal(requestBody?.app, 'flocafe');
+    assert.equal(requestBody?.app, 'orderitup');
     assert.equal(requestBody?.app_version, '2.7.2-test');
 
     // An unconfirmed country is omitted rather than sent as the install

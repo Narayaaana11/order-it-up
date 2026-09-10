@@ -83,24 +83,35 @@ function executeWorkflowStep(step: any, options: {
       }
     }
 
+    const testEnv = {
+      ...process.env,
+      ...options.env,
+      GITHUB_OUTPUT: outputPath,
+      RELEASE_TEST_LOG: logPath,
+      RUNNER_TEMP: tempDir,
+    };
+    const pathKey = Object.keys(testEnv).find(k => k.toLowerCase() === 'path') || 'PATH';
+    testEnv[pathKey] = `${binDir}${path.delimiter}${testEnv[pathKey] || ''}`;
+    
+    // DEBUG:
+    console.log(`DEBUG RELEASE_TAG from testEnv: ${testEnv['RELEASE_TAG']}`);
+
     // GitHub Actions runs these steps under bash on every OS, including the
     // windows-latest matrix lane. Resolve bash from PATH there (Git Bash is
     // installed and already on PATH for the repo's own run-test.sh wrapper);
     // a hardcoded /bin/bash only exists on POSIX systems.
-    const bashExecutable = process.platform === 'win32' ? 'bash' : '/bin/bash';
+    const renderedScript = renderWorkflowScript(step.run as string, options.expressions || {});
+    console.log(`DEBUG RENDERED SCRIPT: ${renderedScript}`);
+    let bashExecutable = process.platform === 'win32' ? 'bash' : '/bin/bash';
+    if (process.platform === 'win32' && fs.existsSync('C:\\Program Files\\Git\\bin\\bash.exe')) {
+      bashExecutable = 'C:\\Program Files\\Git\\bin\\bash.exe';
+    }
     const result = childProcess.spawnSync(
       bashExecutable,
-      ['-e', '-u', '-o', 'pipefail', '-c', renderWorkflowScript(step.run as string, options.expressions || {})],
+      ['-e', '-u', '-o', 'pipefail', '-c', 'env; ' + renderedScript],
       {
         cwd: path.join(__dirname, '..'),
-        env: {
-          ...process.env,
-          ...options.env,
-          GITHUB_OUTPUT: outputPath,
-          RELEASE_TEST_LOG: logPath,
-          RUNNER_TEMP: tempDir,
-          PATH: `${binDir}${path.delimiter}${process.env.PATH || ''}`,
-        },
+        env: testEnv,
         encoding: 'utf8',
       }
     );
@@ -199,8 +210,8 @@ function run() {
   assert.equal(build?.snapcraft?.core24?.environment?.TMPDIR, '$XDG_RUNTIME_DIR', 'snapcraft must use a writable runtime temp directory');
   assert.ok(typeof build?.linux?.synopsis === 'string' && build.linux.synopsis.length > 0 && build.linux.synopsis.length <= 78, 'linux synopsis must be present and short');
 
-  assert.equal(build?.linux?.artifactName, 'flocafe-${version}-linux.${ext}', 'Linux package artifact template must remain deterministic');
-  assert.equal(build?.appImage?.artifactName, 'flocafe-${version}-linux.appimage', 'AppImage artifact extension must be lowercase');
+  assert.equal(build?.linux?.artifactName, 'order-it-up-${version}-linux.${ext}', 'Linux package artifact template must remain deterministic');
+  assert.equal(build?.appImage?.artifactName, 'order-it-up-${version}-linux.appimage', 'AppImage artifact extension must be lowercase');
   assert.equal(builderUtil.getArtifactArchName(builderUtil.Arch.x64, 'AppImage'), 'x86_64', 'electron-builder AppImage x64 macro spelling must be documented');
   assert.equal(builderUtil.getArtifactArchName(builderUtil.Arch.arm64, 'AppImage'), 'arm64', 'electron-builder AppImage arm64 macro spelling must be documented');
   for (const artifact of [build?.linux?.artifactName, build?.appImage?.artifactName]) {
@@ -241,7 +252,7 @@ function run() {
     expressions: { 'github.repository': 'FreeOpenSourcePOS/FloCafe', 'github.sha': 'a'.repeat(40) },
     fakeCommands: { node: captureNodeArgs },
   });
-  assert.equal(masProvenanceExecution.status, 0, masProvenanceExecution.stderr);
+  assert.equal(masProvenanceExecution.status, 0, `masProvenanceExecution failed: status=${masProvenanceExecution.status}, stderr=${masProvenanceExecution.stderr}, stdout=${masProvenanceExecution.stdout}`);
   assert.equal(
     masProvenanceExecution.log.trim(),
     `node scripts/release-gate/validate-release-ref.cjs --repo FreeOpenSourcePOS/FloCafe --tag 3.4.0 --commit ${'a'.repeat(40)} --main-ref main`,
@@ -714,19 +725,19 @@ exit 1
     ['linux-x64', 'macos-arm64', 'macos-x64', 'windows-x64'].sort()
   );
   const matrixUpload = findStep(matrixJob, 'Upload build artifacts');
-  assert.equal(matrixUpload.with.name, 'flocafe-build-${{ matrix.name }}');
+  assert.equal(matrixUpload.with.name, 'order-it-up-build-${{ matrix.name }}');
 
   const ciWorkflow = loadWorkflow('ci.yml');
   const e2eJob = ciWorkflow.jobs['e2e-playwright'];
   const releaseRegression = findStep(e2eJob, 'Run renderer and printer regression suites');
   assertShellStep(e2eJob, 'Run renderer and printer regression suites');
   assert.equal(releaseRegression.env.REQUIRE_VISUAL_EVIDENCE, '1');
-  assert.equal(releaseRegression.env.EVIDENCE_DIR, '${{ runner.temp }}/flocafe-release-regressions');
+  assert.equal(releaseRegression.env.EVIDENCE_DIR, '${{ runner.temp }}/order-it-up-release-regressions');
   const evidenceUpload = (e2eJob.steps || []).find((step: any) => step.with?.name === 'release-regression-evidence');
   assert.ok(evidenceUpload, 'CI must upload release regression evidence');
-  assert.equal(evidenceUpload.with.path, '${{ runner.temp }}/flocafe-release-regressions/');
+  assert.equal(evidenceUpload.with.path, '${{ runner.temp }}/order-it-up-release-regressions/');
 
-  const metaFilePath = path.join(__dirname, '../assets/com.flo.desktop.metainfo.xml');
+  const metaFilePath = path.join(__dirname, '../assets/com.orderitup.pos.metainfo.xml');
   const originalMetaContent = fs.readFileSync(metaFilePath, 'utf8');
   const testNotesPath = path.join(os.tmpdir(), `flocafe-release-notes-${Date.now()}.md`);
   try {

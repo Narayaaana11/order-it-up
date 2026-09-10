@@ -443,6 +443,16 @@ export default function POSPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isRestaurant, setBillingType, setTablesRequired, setKotPrintingEnabled]);
 
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const tableId = params.get('table_id');
+      if (tableId && cart.tableId !== tableId) {
+        cart.setTableId(tableId);
+      }
+    }
+  }, [cart]);
+
   const handleProductClick = (product: Product) => {
     // Always open modal so user can add notes and adjust quantity
     setAddonProduct(product);
@@ -1019,11 +1029,23 @@ export default function POSPage() {
         onShowTablePicker={() => setShowTablePicker(true)}
         fullscreen={fullscreen}
         onToggleFullscreen={toggleFullscreen}
+        search={search}
+        setSearch={setSearch}
+        onSearchEnter={(term) => {
+          const trimmed = term.trim();
+          if (!trimmed) return;
+          const match = resolveScannedProduct(trimmed, products);
+          if (match) {
+            if (match.scaleBarcode) cart.addItem(match.product, match.quantity);
+            else handleProductClick(match.product);
+            setSearch('');
+          }
+        }}
       />
 
       {/* Main content area */}
-      <div className="flex flex-1 min-h-0 overflow-hidden p-4 gap-4">
-        {/* Product Grid — full width on mobile, flex-1 on desktop */}
+      <div className="flex flex-1 min-h-0 overflow-hidden bg-background">
+        {/* Product Grid (contains its own left sidebar for categories) */}
         <div className="flex-1 min-w-0 h-full flex flex-col">
           <ProductGrid
             categories={categories}
@@ -1039,7 +1061,7 @@ export default function POSPage() {
         </div>
 
         {/* Desktop Cart — always open, hidden on mobile */}
-        <div className="hidden md:flex md:w-80 md:shrink-0 h-full">
+        <div className="hidden md:flex md:w-[340px] xl:w-[400px] md:shrink-0 h-full border-l border-border bg-card">
           <CartPanel {...cartPanelProps} />
         </div>
       </div>

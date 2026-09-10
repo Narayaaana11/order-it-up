@@ -54,7 +54,8 @@ type PosKey = keyof AppConfig['Messages']['pos'];
 const BUILT_IN_PAYMENT_KEYS = {
   cash: 'methodCash',
   card: 'methodCard',
-} as const satisfies Record<'cash' | 'card', PosKey>;
+  upi: 'methodUpi',
+} as const satisfies Record<'cash' | 'card' | 'upi', PosKey>;
 
 export default function PaymentModal({ bill, currency, onClose, onPaid, onBillUpdate }: Props) {
   const remaining = Number(bill.balance);
@@ -641,16 +642,17 @@ export default function PaymentModal({ bill, currency, onClose, onPaid, onBillUp
             {payments.map((payment, idx) => {
               const builtIn = PAYMENT_METHODS.find((method) => method.key === payment.method && payment.payment_method_id === undefined);
               const custom = customMethods.find((method) => method.id === payment.payment_method_id);
-              const label = builtIn ? t(BUILT_IN_PAYMENT_KEYS[builtIn.key]) : custom?.name || tCommon('unknown');
+              const label = builtIn ? t(BUILT_IN_PAYMENT_KEYS[builtIn.key as keyof typeof BUILT_IN_PAYMENT_KEYS]) : custom?.name || tCommon('unknown');
               const Icon = builtIn?.icon;
               const active = (parseFloat(payment.amount) || 0) > 0;
-              return <div key={payment.payment_method_id === undefined ? payment.method : `custom:${payment.payment_method_id}`} className="flex min-h-12">
-                <button type="button" title={label} onClick={() => { setAmountTarget({ kind: 'payment', index: idx }); allocateRemainingTo(idx); }} className={`touch-target w-36 shrink-0 justify-start rounded-s-xl border px-3 gap-2 text-sm font-semibold transition-colors ${active ? 'bg-brand text-white border-brand' : 'bg-muted text-foreground border-border hover:border-brand hover:text-brand'}`}>
-                  {Icon && <Icon size={15} />}
+              const isProminent = payment.method === 'cash' || payment.method === 'upi';
+              return <div key={payment.payment_method_id === undefined ? payment.method : `custom:${payment.payment_method_id}`} className={`flex transition-all ${isProminent ? 'min-h-16 shadow-sm mb-3' : 'min-h-12 mb-2'}`}>
+                <button type="button" title={label} onClick={() => { setAmountTarget({ kind: 'payment', index: idx }); allocateRemainingTo(idx); }} className={`touch-target shrink-0 justify-start rounded-s-xl border px-3 gap-2 font-bold transition-colors ${isProminent ? 'w-40 text-base' : 'w-36 text-sm'} ${active ? 'bg-brand text-white border-brand shadow-inner' : 'bg-card text-foreground border-border hover:border-brand hover:text-brand shadow-sm'}`}>
+                  {Icon && <Icon size={isProminent ? 20 : 16} className={active ? 'text-white' : 'text-brand'} />}
                   <span className="truncate">{label}</span>
                 </button>
-                <div className="flex flex-1 items-center border border-s-0 border-border rounded-e-xl bg-card focus-within:ring-2 focus-within:ring-brand focus-within:border-transparent">
-                  <span className="ps-3 text-gray-400 text-xs">{inputCurrencyLabel}</span>
+                <div className={`flex flex-1 items-center border border-s-0 border-border rounded-e-xl bg-card focus-within:ring-2 focus-within:ring-brand focus-within:border-transparent ${isProminent ? 'shadow-sm' : ''}`}>
+                  <span className="ps-3 text-gray-400 text-xs font-medium">{inputCurrencyLabel}</span>
                   <input
                     type="number"
                     value={payment.amount}
@@ -658,7 +660,7 @@ export default function PaymentModal({ bill, currency, onClose, onPaid, onBillUp
                     onChange={(e) => updatePaymentAmount(idx, e.target.value)}
                     placeholder="0.00"
                     inputMode="decimal"
-                    className="min-w-0 flex-1 px-2 py-2 text-end text-base font-semibold outline-none rounded-e-xl"
+                    className={`min-w-0 flex-1 px-3 py-2 text-end font-bold outline-none rounded-e-xl ${isProminent ? 'text-xl text-brand' : 'text-base'}`}
                     step={inputCurrencyStep}
                     min="0"
                   />

@@ -76,7 +76,9 @@
     "signInTitle": "Giriş Yap",
     "signingIn": "Giriş yapılıyor...",
     "storageUnavailable": "Yerel depolama alanı kullanılamıyor.",
-    "yourName": "Adınız"
+    "yourName": "Adınız",
+    "newBusinessLabel": "Yeni isletme?",
+    "createNewAccount": "Yeni hesap olustur ?"
   },
   "backup": {
     "creating": "Yedekleme oluşturuluyor...",

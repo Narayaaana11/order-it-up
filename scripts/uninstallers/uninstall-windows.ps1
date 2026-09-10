@@ -1,4 +1,4 @@
-<#
+﻿<#
 .SYNOPSIS
   Order It Up -- standalone Windows uninstaller.
 
@@ -36,7 +36,7 @@ param(
 
 $ErrorActionPreference = 'Stop'
 $script:AppName = 'Order It Up'
-$script:AppProcessName = 'Flo Cafe'
+$script:AppProcessName = 'Order It Up'
 $script:RemovalAttempts = 6
 $script:RemovalRetryDelayMilliseconds = 500
 $script:AppGracefulCloseTimeoutSeconds = 10
@@ -117,7 +117,7 @@ function Invoke-Removal($path, $description) {
   $message = "could NOT fully remove $description at $path"
   if ($lastError) { $message += ": $lastError" }
   Mark-Partial $message
-  Write-Warn 'make sure Flo Cafe is completely closed (check Task Manager for "Flo Cafe.exe", it may be hiding in the system tray) and re-run this script.'
+  Write-Warn 'make sure Order It Up is completely closed (check Task Manager for "Order It Up.exe", it may be hiding in the system tray) and re-run this script.'
   return New-RemovalResult $path $description $true $false $false
 }
 
@@ -129,20 +129,20 @@ function Get-FloProcesses {
       return @()
     }
     $script:ProcessInspectionFailed = $true
-    Mark-Partial ("could not inspect running Flo Cafe processes: {0}" -f $_.Exception.Message)
+    Mark-Partial ("could not inspect running Order It Up processes: {0}" -f $_.Exception.Message)
     return $null
   }
 }
 
-function Confirm-FloCafeStopped {
+function Confirm-OrderItUpStopped {
   if ($script:DryRun) { return $true }
   $activeProcesses = @(Get-FloProcesses)
   if ($script:ProcessInspectionFailed) {
-    Mark-Partial 'could not verify that Flo Cafe is stopped; skipping destructive cleanup to protect active writes'
+    Mark-Partial 'could not verify that Order It Up is stopped; skipping destructive cleanup to protect active writes'
     return $false
   }
   if ($activeProcesses.Count -gt 0) {
-    Mark-Partial 'Flo Cafe is still running; skipping destructive cleanup to protect active writes'
+    Mark-Partial 'Order It Up is still running; skipping destructive cleanup to protect active writes'
     return $false
   }
   return $true
@@ -260,7 +260,7 @@ function Confirm-ChildUninstallerStopped {
 }
 
 function Confirm-NoActiveUninstallWork {
-  return (Confirm-FloCafeStopped) -and (Confirm-ChildUninstallerStopped)
+  return (Confirm-OrderItUpStopped) -and (Confirm-ChildUninstallerStopped)
 }
 
 function Test-ProcessIdsStopped($ids) {
@@ -353,7 +353,7 @@ function Wait-ForFloExit($processes, $timeoutSeconds) {
   return Wait-ForProcessIdsExit $ids $timeoutSeconds
 }
 
-function Close-FloCafe {
+function Close-OrderItUp {
   $processes = @(Get-FloProcesses)
   if ($script:ProcessInspectionFailed) { return $false }
   if ($processes.Count -eq 0) {
@@ -383,14 +383,14 @@ function Close-FloCafe {
     return $true
   }
 
-  Write-Warn ("Flo Cafe did not close gracefully within {0} seconds; forcing it to close." -f $script:AppGracefulCloseTimeoutSeconds)
+  Write-Warn ("Order It Up did not close gracefully within {0} seconds; forcing it to close." -f $script:AppGracefulCloseTimeoutSeconds)
   $remaining = @(Get-FloProcesses)
   if ($script:ProcessInspectionFailed) { return $false }
   foreach ($process in $remaining) {
     try {
       Stop-Process -Id $process.Id -Force -ErrorAction Stop
     } catch {
-      Mark-Partial ("could not force-close Flo Cafe process {0}: {1}" -f $process.Id, $_.Exception.Message)
+      Mark-Partial ("could not force-close Order It Up process {0}: {1}" -f $process.Id, $_.Exception.Message)
     }
   }
 
@@ -399,7 +399,7 @@ function Close-FloCafe {
     return $true
   }
 
-  Mark-Partial ("could not confirm that Flo Cafe closed after the {0}-second force wait; locked files may remain" -f $script:AppForceCloseTimeoutSeconds)
+  Mark-Partial ("could not confirm that Order It Up closed after the {0}-second force wait; locked files may remain" -f $script:AppForceCloseTimeoutSeconds)
   return $false
 }
 
@@ -429,7 +429,7 @@ function Invoke-RegistryRemoval($entry) {
   $description = 'registry uninstall entry'
   if (-not (Confirm-NoActiveUninstallWork)) { return $false }
   if ([string]::IsNullOrWhiteSpace($registryPath)) {
-    Mark-Partial 'could not determine the registry path for the Flo Cafe uninstall entry'
+    Mark-Partial 'could not determine the registry path for the Order It Up uninstall entry'
     return $false
   }
 
@@ -479,7 +479,7 @@ function Test-FloUninstallerIsTrusted {
   )
 
   # Never launch a registry-selected executable unless it is actually part of
-  # Flo Cafe: it must be named like an NSIS uninstaller and live either under a
+  # Order It Up: it must be named like an NSIS uninstaller and live either under a
   # known install root or directly inside the registry entry's own install
   # directory. Existence alone is not identity (GHSA-42p9-xf35-xfmp).
   if ([string]::IsNullOrWhiteSpace($UninstallerExe)) { return $false }
@@ -502,7 +502,7 @@ function Test-FloUninstallerIsTrusted {
   $roots = New-Object 'System.Collections.Generic.List[string]'
   if (-not [string]::IsNullOrWhiteSpace([string]$env:LOCALAPPDATA)) {
     [void]$roots.Add((Join-Path $env:LOCALAPPDATA "Programs\$($script:AppName)"))
-    [void]$roots.Add((Join-Path $env:LOCALAPPDATA 'Programs\flo-desktop'))
+    [void]$roots.Add((Join-Path $env:LOCALAPPDATA 'Programs\order-it-up'))
   }
   if (-not [string]::IsNullOrWhiteSpace([string]$env:ProgramFiles)) {
     [void]$roots.Add((Join-Path $env:ProgramFiles $script:AppName))
@@ -534,7 +534,7 @@ function Test-FloUninstallerIsTrusted {
   return $false
 }
 
-function Invoke-FloCafeUninstall {
+function Invoke-OrderItUpUninstall {
   param(
     [switch]$PurgeData,
     [switch]$DryRun
@@ -553,11 +553,11 @@ function Invoke-FloCafeUninstall {
   $userDataPath = $null
   $legacyUserDataPath = $null
   if (-not [string]::IsNullOrWhiteSpace([string]$env:APPDATA)) {
-    $userDataPath = Join-Path $env:APPDATA 'flo-desktop'
+    $userDataPath = Join-Path $env:APPDATA 'order-it-up'
     $legacyUserDataPath = Join-Path $env:APPDATA $script:AppName
   }
 
-  Write-Step 'Flo Cafe uninstaller (Windows)'
+  Write-Step 'Order It Up uninstaller (Windows)'
   if ($script:DryRun) { Write-Log '(dry run -- nothing will actually be deleted)' }
 
   # Resolve this before any process lookup or termination. Keeping data must be
@@ -572,10 +572,10 @@ function Invoke-FloCafeUninstall {
   Resolve-DataDecision $PurgeData $DryRun
 
   # ── Quit the app if it's running ─────────────────────────────────────────
-  Write-Step 'Closing Flo Cafe if it is running...'
-  $appClosed = [bool](Close-FloCafe)
+  Write-Step 'Closing Order It Up if it is running...'
+  $appClosed = [bool](Close-OrderItUp)
   if (-not $appClosed -and -not $script:DryRun) {
-    Write-Warn 'Flo Cafe did not close completely; destructive cleanup will be skipped while it is running.'
+    Write-Warn 'Order It Up did not close completely; destructive cleanup will be skipped while it is running.'
   }
 
   # ── Look up the registry uninstall entry (covers both per-user and ──────
@@ -636,10 +636,10 @@ function Invoke-FloCafeUninstall {
       }
 
       if ($uninstallerExe -and $uninstallerExists -and -not (Test-FloUninstallerIsTrusted -UninstallerExe $uninstallerExe -InstallLocation $entryInstallLocation)) {
-        Write-Warn "refusing to run an unverified executable at `"$uninstallerExe`" -- it is not a known Flo Cafe install location; falling back to manual cleanup"
+        Write-Warn "refusing to run an unverified executable at `"$uninstallerExe`" -- it is not a known Order It Up install location; falling back to manual cleanup"
       } elseif ($uninstallerExe -and $uninstallerExists) {
         Write-Step "Running the app's own uninstaller silently..."
-        # /S first, then whatever came from the registry (e.g. /D=C:\Program Files\Flo Cafe):
+        # /S first, then whatever came from the registry (e.g. /D=C:\Program Files\Order It Up):
         # NSIS requires /D=<path> to be the LAST parameter and takes everything after
         # it, unquoted, as the literal install path -- putting /S after it would get
         # swallowed into that path instead of being read as a flag.
@@ -687,7 +687,7 @@ function Invoke-FloCafeUninstall {
             Write-Warn 'falling back to manual cleanup below'
           }
         } else {
-          Write-Warn "skipping the app's own uninstaller because Flo Cafe or its child uninstaller is still running"
+          Write-Warn "skipping the app's own uninstaller because Order It Up or its child uninstaller is still running"
         }
       } elseif ($uninstallerExe) {
         Write-Warn "could not find the app's own uninstaller at $uninstallerExe -- falling back to manual cleanup"
@@ -699,7 +699,7 @@ function Invoke-FloCafeUninstall {
 
   $destructiveCleanupAllowed = Confirm-NoActiveUninstallWork
   if (-not $destructiveCleanupAllowed) {
-    Write-Warn 'Skipping app files, registry, and business-data removal until Flo Cafe is completely closed.'
+    Write-Warn 'Skipping app files, registry, and business-data removal until Order It Up is completely closed.'
   }
 
   if ($destructiveCleanupAllowed) {
@@ -709,10 +709,10 @@ function Invoke-FloCafeUninstall {
     $candidatePaths = @()
     # Never recursively delete an arbitrary registry-supplied path. The app's own
     # uninstaller handles custom install locations; fallback cleanup is restricted
-    # to the known Flo Cafe install roots below.
+    # to the known Order It Up install roots below.
     if (-not [string]::IsNullOrWhiteSpace([string]$env:LOCALAPPDATA)) {
       $candidatePaths += Join-Path $env:LOCALAPPDATA "Programs\$($script:AppName)"
-      $candidatePaths += Join-Path $env:LOCALAPPDATA 'Programs\flo-desktop'
+      $candidatePaths += Join-Path $env:LOCALAPPDATA 'Programs\order-it-up'
     }
     if (-not [string]::IsNullOrWhiteSpace([string]$env:ProgramFiles)) {
       $candidatePaths += Join-Path $env:ProgramFiles $script:AppName
@@ -768,8 +768,8 @@ function Invoke-FloCafeUninstall {
 
     # ── User data (database, backups, Master PIN) ─────────────────────────────
     # Electron's default userData dir comes from package.json's top-level "name"
-    # ("flo-desktop"), not the electron-builder "productName" ("Flo Cafe") used
-    # for the installer/shortcuts -- so the real data lives under "flo-desktop",
+    # ("order-it-up"), not the electron-builder "productName" ("Order It Up") used
+    # for the installer/shortcuts -- so the real data lives under "order-it-up",
     # not under "$script:AppName". Sweep both so stray data from either naming
     # never survives an uninstall.
     if ($script:PurgeData) {
@@ -785,7 +785,7 @@ function Invoke-FloCafeUninstall {
       Write-Log 'keeping your data'
     }
   } else {
-    Write-Log 'keeping your data because destructive cleanup was skipped while Flo Cafe was running'
+    Write-Log 'keeping your data because destructive cleanup was skipped while Order It Up was running'
   }
 
   if ($script:DryRun) {
@@ -799,8 +799,8 @@ function Invoke-FloCafeUninstall {
     Write-Log 'cleanup completed successfully; all discovered app-owned targets were verified absent'
   } else {
     Write-Step 'Partial cleanup.'
-    Write-Warn 'Some Flo Cafe files, processes, or registry entries could not be removed or verified.'
-    Write-Warn 'Close Flo Cafe completely and re-run this script to finish cleanup.'
+    Write-Warn 'Some Order It Up files, processes, or registry entries could not be removed or verified.'
+    Write-Warn 'Close Order It Up completely and re-run this script to finish cleanup.'
   }
 
   return [pscustomobject]@{
@@ -816,7 +816,7 @@ function Invoke-FloCafeUninstall {
 # the helper behavior testable in Pester. A direct standalone invocation returns
 # a non-zero process status when cleanup is known to be partial.
 if ($MyInvocation.InvocationName -ne '.') {
-  $result = Invoke-FloCafeUninstall -PurgeData:$PurgeData -DryRun:$DryRun
+  $result = Invoke-OrderItUpUninstall -PurgeData:$PurgeData -DryRun:$DryRun
   if (-not $result.Complete) { exit 1 }
   exit 0
 }

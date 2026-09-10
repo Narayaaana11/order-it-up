@@ -113,8 +113,8 @@ jobs:
           APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
           APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
           APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
-          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID || 'BKDY677XJA' }}
-          MAS_APP_IDENTIFIER: ${{ vars.MAS_APP_IDENTIFIER || 'com.flo.desktop' }}
+          APPLE_TEAM_ID: ${{ vars.APPLE_TEAM_ID || '' }}
+          MAS_APP_IDENTIFIER: ${{ vars.MAS_APP_IDENTIFIER || 'com.orderitup.pos' }}
           MAS_RELEASE_LOCALE: ${{ vars.MAS_RELEASE_LOCALE || 'en-US' }}
           MAS_SUBMIT_FOR_REVIEW: ${{ inputs.submit_for_review }}
           MAS_AUTOMATIC_RELEASE: ${{ inputs.automatic_release }}

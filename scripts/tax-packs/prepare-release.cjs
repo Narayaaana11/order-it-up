@@ -6,7 +6,7 @@ const fs = require('fs');
 const path = require('path');
 const { createHash, createPrivateKey, sign } = require('crypto');
 
-const REPOSITORY = 'FreeOpenSourcePOS/FloCafe-Plugins';
+const REPOSITORY = process.env.OIU_TAX_PACKS_REPO || 'orderitup/tax-packs';
 const TAG_PATTERN = /^tax-pack-([a-z0-9][a-z0-9-]*)-v(\d+\.\d+\.\d+)$/;
 
 function parseArgs(argv) {

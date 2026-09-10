@@ -157,6 +157,28 @@ class MongoSyncService {
     }
   }
 
+  /** Resolve tenant identifier from settings or POS identity */
+  public getTenantId(): string {
+    try {
+      const sqlite = getDatabase();
+      const row = sqlite.prepare("SELECT value FROM settings WHERE key = 'cloud_store_id'").get() as { value: string } | undefined;
+      if (row?.value && row.value.trim()) {
+        return row.value.trim();
+      }
+      const posHashRow = sqlite.prepare("SELECT value FROM settings WHERE key = 'cloud_pos_hash'").get() as { value: string } | undefined;
+      if (posHashRow?.value && posHashRow.value.trim()) {
+        return posHashRow.value.trim();
+      }
+      const storeNameRow = sqlite.prepare("SELECT value FROM settings WHERE key = 'store_name'").get() as { value: string } | undefined;
+      if (storeNameRow?.value && storeNameRow.value.trim()) {
+        return storeNameRow.value.trim().toLowerCase().replace(/[^a-z0-9_-]/g, '_');
+      }
+    } catch {
+      // Database not ready or in migration
+    }
+    return 'default_store';
+  }
+
   /** Get current sync status and collection counts */
   public async getStatus(): Promise<MongoSyncStatus> {
     const config = this.getConfig();
@@ -171,9 +193,10 @@ class MongoSyncService {
 
     if (this.db) {
       try {
+        const tenantId = this.getTenantId();
         const collections = ['bills', 'orders', 'products', 'categories', 'customers', 'cash_closures'];
         for (const col of collections) {
-          counts[col] = await this.db.collection(col).estimatedDocumentCount();
+          counts[col] = await this.db.collection(col).countDocuments({ tenant_id: tenantId });
         }
       } catch {
         // ignore count errors
@@ -301,13 +324,14 @@ class MongoSyncService {
     }
   }
 
-  /** Helper to bulk upsert documents by ID */
+  /** Helper to bulk upsert documents by ID with multi-tenant isolation */
   private async upsertMany(collectionName: string, items: any[], keyField: string): Promise<number> {
     if (!this.db || items.length === 0) return 0;
     const collection = this.db.collection(collectionName);
+    const tenantId = this.getTenantId();
 
     const operations = items.map((item) => {
-      const doc = { ...item };
+      const doc = { ...item, tenant_id: tenantId };
       // Map SQLite integer booleans / JSON fields if appropriate
       if (typeof doc.items === 'string') {
         try { doc.items = JSON.parse(doc.items); } catch {}
@@ -321,7 +345,7 @@ class MongoSyncService {
 
       return {
         replaceOne: {
-          filter: { [keyField]: doc[keyField] },
+          filter: { tenant_id: tenantId, [keyField]: doc[keyField] },
           replacement: doc,
           upsert: true,
         },

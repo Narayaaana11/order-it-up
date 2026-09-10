@@ -76,7 +76,9 @@
     "signInTitle": "Entre para gerenciar sua empresa",
     "signingIn": "Entrando...",
     "storageUnavailable": "Não foi possível salvar sua sessão. Seu navegador pode estar bloqueando o armazenamento (modo anônimo ou cookies desativados).",
-    "yourName": "Seu Nome"
+    "yourName": "Seu Nome",
+    "newBusinessLabel": "Novo neg�cio?",
+    "createNewAccount": "Criar uma nova conta ?"
   },
   "backup": {
     "creating": "Criando backup...",

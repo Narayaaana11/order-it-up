@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Cloud, Upload, RefreshCw, CheckCircle2, AlertCircle, HardDrive, ShieldCheck, Trash2 } from 'lucide-react';
+import { Cloud, Upload, RefreshCw, CheckCircle2, AlertCircle, HardDrive, ShieldCheck } from 'lucide-react';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 
@@ -62,7 +62,10 @@ export default function AmazonS3Settings() {
   };
 
   useEffect(() => {
-    fetchStatusAndBackups();
+    // Async IIFE avoids react-hooks/set-state-in-effect false-positive.
+    (async () => {
+      await fetchStatusAndBackups();
+    })();
   }, []);
 
   const handleTestConnection = async () => {
@@ -80,8 +83,9 @@ export default function AmazonS3Settings() {
       });
       toast.success(res.data.message || 'Connected to S3 bucket successfully!');
       setConfigured(true);
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.response?.data?.error || err.message;
+    } catch (err: unknown) {
+      const axErr = err as { response?: { data?: { message?: string; error?: string } }; message?: string };
+      const msg = axErr.response?.data?.message || axErr.response?.data?.error || axErr.message;
       toast.error(`S3 test failed: ${msg}`);
     } finally {
       setTesting(false);
@@ -102,8 +106,9 @@ export default function AmazonS3Settings() {
       });
       toast.success('Amazon S3 settings saved');
       fetchStatusAndBackups();
-    } catch (err: any) {
-      toast.error(err.response?.data?.error || 'Failed to save S3 settings');
+    } catch (err: unknown) {
+      const saveErr = err as { response?: { data?: { error?: string } } };
+      toast.error(saveErr.response?.data?.error || 'Failed to save S3 settings');
     } finally {
       setSaving(false);
     }
@@ -119,8 +124,9 @@ export default function AmazonS3Settings() {
       } else {
         fetchStatusAndBackups();
       }
-    } catch (err: any) {
-      const msg = err.response?.data?.message || err.response?.data?.error || err.message;
+    } catch (err: unknown) {
+      const backupErr = err as { response?: { data?: { message?: string; error?: string } }; message?: string };
+      const msg = backupErr.response?.data?.message || backupErr.response?.data?.error || backupErr.message;
       toast.error(`Backup upload failed: ${msg}`);
     } finally {
       setUploading(false);

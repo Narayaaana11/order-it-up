@@ -310,7 +310,7 @@ export function withDatabaseMaintenanceLock<T>(operation: (signal: AbortSignal) 
   });
 }
 
-const DEFAULT_CLOUD_SERVER_URL = 'https://blue.flopos.com/';
+const DEFAULT_CLOUD_SERVER_URL = process.env.OIU_CLOUD_API_URL || 'https://api.orderitup.in';
 
 function randomSecret(): string {
   return crypto.randomBytes(32).toString('base64')

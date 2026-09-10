@@ -163,10 +163,12 @@ type OrdersKey = keyof AppConfig['Messages']['orders'];
 type PosKey = keyof AppConfig['Messages']['pos'];
 
 // Built-in payment method label keys mapped to typed `pos` leaf keys.
-const BUILT_IN_PAYMENT_KEYS = {
+const BUILT_IN_PAYMENT_KEYS: Record<string, PosKey> = {
   cash: 'methodCash',
   card: 'methodCard',
-} as const satisfies Record<'cash' | 'card', PosKey>;
+  upi: 'methodUpi',
+  wallet: 'methodWallet',
+} as const;
 
 export default function DashboardPage() {
   const { currentTenant } = useAuthStore();
@@ -486,13 +488,15 @@ export default function DashboardPage() {
               <Link
                 key={tile.label}
                 href={tile.href}
-                className={`rounded-xl border p-5 ${tile.color} transition-transform hover:-translate-y-0.5 hover:shadow-sm`}
+                className={`rounded-2xl border-2 p-5 ${tile.color} transition-all hover:-translate-y-1 hover:shadow-lg group`}
               >
-                <div className="flex items-center justify-between mb-3">
-                  <span className="text-sm font-medium text-muted-foreground">{tile.label}</span>
-                  <tile.icon size={20} className={tile.iconColor} />
+                <div className="flex items-center justify-between mb-4">
+                  <span className="text-xs font-bold text-muted-foreground uppercase tracking-widest">{tile.label}</span>
+                  <div className={`w-9 h-9 rounded-xl flex items-center justify-center ${tile.color} shadow-sm`}>
+                    <tile.icon size={18} className={tile.iconColor} />
+                  </div>
                 </div>
-                <p className="text-3xl font-bold text-gray-900">
+                <p className="text-3xl font-black text-foreground leading-none">
                   {tile.value}
                 </p>
               </Link>
@@ -501,13 +505,13 @@ export default function DashboardPage() {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {/* Recent Orders */}
-            <div className="bg-card rounded-xl border border-border dark:border-border overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border dark:border-border">
-                <h2 className="flex items-center gap-2 font-semibold text-foreground">
-                  <ClipboardList size={16} className="text-gray-400" />
+            <div className="bg-card rounded-2xl border-2 border-border overflow-hidden shadow-sm">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/40">
+                <h2 className="flex items-center gap-2 font-bold text-foreground">
+                  <ClipboardList size={16} className="text-brand" />
                   {isToday ? t('recentOrders') : periodMode === 'month' ? t('monthOrders') : t('orders')}
                 </h2>
-                <Link href="/orders" className="flex items-center gap-1 text-xs text-brand hover:text-brand-hover font-medium">
+                <Link href="/orders" className="flex items-center gap-1 text-xs text-brand hover:text-brand-hover font-semibold">
                   {t('viewAll')} <ArrowRight size={12} className="rtl-flip" />
                 </Link>
               </div>
@@ -542,13 +546,13 @@ export default function DashboardPage() {
             </div>
 
             {/* Top Products Today */}
-            <div className="bg-card rounded-xl border border-border dark:border-border overflow-hidden">
-              <div className="flex items-center justify-between px-4 py-3 border-b border-border dark:border-border">
-                <h2 className="flex items-center gap-2 font-semibold text-foreground">
-                  <TrendingUp size={16} className="text-gray-400" />
+            <div className="bg-card rounded-2xl border-2 border-border overflow-hidden shadow-sm">
+              <div className="flex items-center justify-between px-5 py-4 border-b border-border bg-muted/40">
+                <h2 className="flex items-center gap-2 font-bold text-foreground">
+                  <TrendingUp size={16} className="text-brand" />
                   {periodMode === 'month' ? t('topProductsMonth') : isToday ? t('topProductsToday') : t('topProducts')}
                 </h2>
-                <Link href="/products" className="flex items-center gap-1 text-xs text-brand hover:text-brand-hover font-medium">
+                <Link href="/products" className="flex items-center gap-1 text-xs text-brand hover:text-brand-hover font-semibold">
                   {t('viewAll')} <ArrowRight size={12} className="rtl-flip" />
                 </Link>
               </div>

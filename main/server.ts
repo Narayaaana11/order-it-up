@@ -36,6 +36,8 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (req.path === '/api/health') { next(); return; }
   // Auth routes handle their own token verification
   if (req.path.startsWith('/api/auth')) { next(); return; }
+  // Central SaaS Admin routes have separate operator authentication
+  if (req.path.startsWith('/api/admin')) { next(); return; }
   // Allow unauthenticated GET requests for product images (so <img> tags work)
   if (req.path.startsWith('/api/products/') && req.path.endsWith('/image') && req.method === 'GET') { next(); return; }
 

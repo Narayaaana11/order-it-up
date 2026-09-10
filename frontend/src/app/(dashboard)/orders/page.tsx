@@ -1067,29 +1067,39 @@ export default function OrdersPage() {
             return (
               <div
                 key={order.id}
-                className={`bg-card rounded-xl border overflow-hidden flex flex-col ${
-                  order.status === 'cancelled' ? 'border-red-200 opacity-75' : 'border-border'
+                className={`bg-card rounded-xl border-2 overflow-hidden flex flex-col shadow-sm transition-shadow hover:shadow-md ${
+                  order.status === 'cancelled'
+                    ? 'border-red-200 opacity-70'
+                    : paid
+                    ? 'border-emerald-200'
+                    : payStatus === 'partial'
+                    ? 'border-amber-200'
+                    : 'border-border'
                 }`}
               >
-                {/* Top bar: order id/status on the left, payment badge + reprint on the right */}
-                <div className="flex items-center justify-between gap-2 px-4 py-3 bg-muted border-b border-border">
+                {/* Top bar */}
+                <div className={`flex items-center justify-between gap-2 px-4 py-3 border-b border-border ${
+                  order.status === 'cancelled' ? 'bg-red-50 dark:bg-red-900/10'
+                  : paid ? 'bg-emerald-50 dark:bg-emerald-900/10'
+                  : 'bg-muted'
+                }`}>
                   <div className="flex items-center gap-2 flex-wrap min-w-0">
-                    <span className="font-bold text-foreground">#<Ltr>{order.order_number}</Ltr></span>
+                    <span className="font-black text-lg text-foreground">#<Ltr>{order.order_number}</Ltr></span>
                     {(() => { const badge = orderStatusBadge[order.status]; return badge ? (
-                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${badge.bg} ${badge.text}`}>{tOrders(badge.labelKey)}</span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${badge.bg} ${badge.text}`}>{tOrders(badge.labelKey)}</span>
                     ) : null; })()}
-                    <span className="text-sm text-muted-foreground capitalize">{tOrders(ORDER_TYPE_KEYS[order.type])}</span>
+                    <span className="text-sm text-muted-foreground font-medium">{tOrders(ORDER_TYPE_KEYS[order.type])}</span>
                     {order.table && (
-                      <span className="text-sm text-orange-600 font-medium">{order.table.name}</span>
+                      <span className="text-sm text-brand font-semibold bg-brand/10 px-2 py-0.5 rounded-full">{order.table.name}</span>
                     )}
-                    <span className="flex items-center gap-1 text-xs text-gray-400">
-                      <Clock size={12} />
-                      {getTimeSince(order.created_at)}
-                    </span>
                   </div>
                   <div className="flex items-center gap-2 shrink-0">
+                    <span className="flex items-center gap-1 text-xs text-muted-foreground">
+                      <Clock size={11} />
+                      {getTimeSince(order.created_at)}
+                    </span>
                     {payBadge && (
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-medium ${payBadge.bg} ${payBadge.text}`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${payBadge.bg} ${payBadge.text}`}>
                         {tOrders(payBadge.labelKey)}
                       </span>
                     )}
@@ -1273,21 +1283,21 @@ export default function OrdersPage() {
                   <div className="mt-3 pt-3 border-t border-dashed border-border space-y-1">
                     <div className="flex justify-between text-sm">
                       <span className="text-muted-foreground">{tCommon('subtotal')}</span>
-                      <span className="text-foreground">{fmt(subtotal)}</span>
+                      <span className="text-foreground font-medium">{fmt(subtotal)}</span>
                     </div>
                     {discount > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-purple-600">{tCommon('discount')}</span>
-                        <span className="text-purple-600">-{fmt(discount)}</span>
+                        <span className="text-purple-600 font-medium">-{fmt(discount)}</span>
                       </div>
                     )}
                     {tax > 0 && (
                       <div className="flex justify-between text-sm">
                         <span className="text-muted-foreground">{tCommon('tax')}</span>
-                        <span className="text-foreground">{fmt(tax)}</span>
+                        <span className="text-foreground font-medium">{fmt(tax)}</span>
                       </div>
                     )}
-                    <div className="flex justify-between text-base font-bold pt-1 border-t border-border">
+                    <div className="flex justify-between text-lg font-black pt-2 border-t-2 border-border">
                       <span className="text-foreground">{tCommon('total')}</span>
                       <span className="text-foreground">{fmt(total)}</span>
                     </div>
@@ -1349,14 +1359,14 @@ export default function OrdersPage() {
                   )}
                 </div>
 
-                {/* Footer with actions */}
-                <div className="px-4 py-3 border-t border-border flex flex-wrap gap-2">
+                {/* Footer: action bar */}
+                <div className="px-3 py-3 border-t border-border bg-muted/40 flex flex-wrap gap-2">
                     {showCheckout(order) && (
                       <Button
                         onClick={() => handleCheckout(order.id)}
                         disabled={generatingBill === order.id}
                         size="sm"
-                        className="flex-1 justify-center"
+                        className="flex-1 justify-center font-bold"
                       >
                         <CreditCard size={14} className="me-1.5" />
                         {generatingBill === order.id ? tOrders('generating') : tOrders('checkout')}
@@ -1367,7 +1377,7 @@ export default function OrdersPage() {
                         variant="outline"
                         onClick={() => openAddItemsModal(order)}
                         size="sm"
-                        className="flex-1 justify-center border-green-300 text-green-600 hover:bg-green-50 hover:text-green-700"
+                        className="flex-1 justify-center border-emerald-300 text-emerald-700 hover:bg-emerald-50 hover:text-emerald-800"
                       >
                         <Plus size={14} className="me-1.5" />
                         {tOrders('addItem')}
@@ -1379,7 +1389,7 @@ export default function OrdersPage() {
                         onClick={() => handleConvertToTakeaway(order)}
                         disabled={convertingOrderId === order.id}
                         size="sm"
-                        className="flex-1 justify-center border-blue-300 text-blue-600 hover:bg-blue-50 hover:text-blue-700"
+                        className="flex-1 justify-center border-blue-300 text-blue-700 hover:bg-blue-50 hover:text-blue-800"
                       >
                         <ShoppingBag size={14} className="me-1.5" />
                         {convertingOrderId === order.id ? tOrders('converting') : tOrders('convertToTakeaway')}
