@@ -265,7 +265,7 @@
     "@aws-sdk/client-s3": "^3.750.0",
     "jsonwebtoken": "^9.0.2",
     "libphonenumber-js": "^1.13.12",
-    "mongodb": "^6.13.0",
+    "mongodb": "^7.6.0",
     "pino": "^10.3.1",
     "qrcode": "^1.5.3",
     "ws": "^8.21.2"
