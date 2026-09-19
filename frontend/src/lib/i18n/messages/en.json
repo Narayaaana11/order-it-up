@@ -76,7 +76,9 @@
     "signInTitle": "Sign in to manage your business",
     "signingIn": "Signing in...",
     "storageUnavailable": "Could not save your session. Your browser may be blocking storage (private mode or disabled cookies).",
-    "yourName": "Your Name"
+    "yourName": "Your Name",
+    "newBusinessLabel": "New business?",
+    "createNewAccount": "Create new account"
   },
   "backup": {
     "creating": "Creating backup...",
@@ -346,18 +348,24 @@
     "wsConnected": "WebSocket connected"
   },
   "nav": {
+    "aiInsights": "AI Copilot",
     "collapse": "Collapse",
     "confirmLogout": "Are you sure you want to log out?",
     "customers": "Customers",
     "dashboard": "Dashboard",
+    "expenses": "Expenses",
     "heapLabel": "Heap: ",
+    "inventory": "Inventory",
     "kds": "KDS",
     "logout": "Logout",
     "logoutTooltip": "Logout",
+    "onlineOrders": "Online Orders",
     "orders": "Orders",
     "portLabel": "Port",
     "pos": "POS",
     "products": "Products",
+    "reports": "Reports",
+    "reservations": "Reservations",
     "serverLabel": "Server: ",
     "serverStatusRunning": "running",
     "serverStatusStarting": "starting",

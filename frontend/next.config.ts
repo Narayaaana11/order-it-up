@@ -1,8 +1,8 @@
 import type { NextConfig } from "next";
 import path from "node:path";
 /**
- * NEXT_BUILD_MODE=desktop  →  static export for Electron (FloDesktop)
- * NEXT_BUILD_MODE unset    →  standard Next.js server mode (FloPOS cloud)
+ * NEXT_BUILD_MODE=desktop  →  static export for Electron (Order It Up Desktop)
+ * NEXT_BUILD_MODE unset    →  standard Next.js server mode (Order It Up cloud)
  */
 const isDesktop = process.env.NEXT_BUILD_MODE === "desktop";
 

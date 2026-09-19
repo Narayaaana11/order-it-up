@@ -273,6 +273,7 @@
   "build": {
     "appId": "com.orderitup.pos",
     "productName": "Order It Up",
+    "npmRebuild": false,
     "icon": "assets/icon-512.png",
     "afterPack": "scripts/afterPack.js",
     "asar": true,

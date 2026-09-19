@@ -40,7 +40,7 @@ const {
 } = require('../main/services/master-pin');
 
 function main() {
-  console.log('🧪 FloDesktop Master PIN Tests');
+  console.log('🧪 Order It Up Master PIN Tests');
   console.log('='.repeat(60));
 
   assert.equal(isMasterPinAvailable(), true, 'encryption is available in this mock');

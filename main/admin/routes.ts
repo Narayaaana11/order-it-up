@@ -112,19 +112,56 @@ router.get('/me', requireAdminAuth, asyncHandler(async (req: Request, res: Respo
 }));
 
 /**
+ * Helper to fetch the live local restaurant tenant from SQLite settings
+ */
+function getLiveLocalTenant(): TenantRecord {
+  try {
+    const db = getDatabase();
+    const rows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[];
+    const s: Record<string, string> = Object.fromEntries(rows.map(r => [r.key, r.value]));
+    return {
+      id: s.store_id || 'store_local_primary',
+      name: s.business_name || 'Order It Up Flagship',
+      contactEmail: s.contact_email || 'owner@orderitup.local',
+      contactPhone: s.phone || '+919876543210',
+      plan: (s.subscription_tier as any) || 'pro',
+      status: (s.subscription_status as any) || 'active',
+      terminalsCount: 1,
+      maxTerminals: 5,
+      city: s.city || 'Hyderabad',
+      state: s.state || 'Telangana',
+      createdAt: s.install_timestamp || '2026-01-01T10:00:00.000Z',
+      lastActiveAt: new Date().toISOString(),
+    };
+  } catch {
+    return MOCK_TENANTS[0];
+  }
+}
+
+function getAllTenants(): TenantRecord[] {
+  const local = getLiveLocalTenant();
+  const remote = MOCK_TENANTS.filter(t => t.id !== local.id);
+  return [local, ...remote];
+}
+
+/**
  * GET /api/admin/metrics
  * System-wide business & technical metrics
  */
 router.get('/metrics', requireAdminAuth, asyncHandler(async (_req: Request, res: Response) => {
   const mongoStatus = await mongoSyncService.getStatus();
   const s3Config = amazonS3Service.getConfig();
+  const tenants = getAllTenants();
 
   let sqliteOk = true;
   let localBillsCount = 0;
+  let localOrdersCount = 0;
   try {
     const sqlite = getDatabase();
-    const row = sqlite.prepare('SELECT COUNT(*) as count FROM bills').get() as { count: number };
-    localBillsCount = row?.count || 0;
+    const billRow = sqlite.prepare('SELECT COUNT(*) as count FROM bills').get() as { count: number };
+    const orderRow = sqlite.prepare('SELECT COUNT(*) as count FROM orders').get() as { count: number };
+    localBillsCount = billRow?.count || 0;
+    localOrdersCount = orderRow?.count || 0;
   } catch {
     sqliteOk = false;
   }
@@ -132,10 +169,10 @@ router.get('/metrics', requireAdminAuth, asyncHandler(async (_req: Request, res:
   res.json({
     ok: true,
     metrics: {
-      totalStores: MOCK_TENANTS.length,
-      activeStores: MOCK_TENANTS.filter((t) => t.status === 'active').length,
-      trialStores: MOCK_TENANTS.filter((t) => t.status === 'trial').length,
-      totalTerminals: MOCK_TENANTS.reduce((acc, t) => acc + t.terminalsCount, 0),
+      totalStores: tenants.length,
+      activeStores: tenants.filter((t) => t.status === 'active').length,
+      trialStores: tenants.filter((t) => t.status === 'trial').length,
+      totalTerminals: tenants.reduce((acc, t) => acc + t.terminalsCount, 0),
       estimatedMrrInr: 45000,
       currency: 'INR',
       cloudSync: {
@@ -151,6 +188,7 @@ router.get('/metrics', requireAdminAuth, asyncHandler(async (_req: Request, res:
       localSystemHealth: {
         sqliteOk,
         localBillsCount,
+        localOrdersCount,
       },
     },
   });
@@ -163,7 +201,7 @@ router.get('/metrics', requireAdminAuth, asyncHandler(async (_req: Request, res:
 router.get('/tenants', requireAdminAuth, asyncHandler(async (_req: Request, res: Response) => {
   res.json({
     ok: true,
-    tenants: MOCK_TENANTS,
+    tenants: getAllTenants(),
   });
 }));
 
@@ -174,6 +212,28 @@ router.get('/tenants', requireAdminAuth, asyncHandler(async (_req: Request, res:
 router.post('/tenants/:id/plan', requireAdminAuth, requireAdminRole('SUPER_ADMIN', 'FINANCE', 'ADMIN'), asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const { plan, status } = req.body;
+
+  const local = getLiveLocalTenant();
+  if (id === local.id || id === 'store_local_primary') {
+    const db = getDatabase();
+    if (plan) {
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at) VALUES ('subscription_tier', ?, datetime('now'))
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+      `).run(plan);
+    }
+    if (status) {
+      db.prepare(`
+        INSERT INTO settings (key, value, updated_at) VALUES ('subscription_status', ?, datetime('now'))
+        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+      `).run(status);
+    }
+    return res.json({
+      ok: true,
+      message: `Local store subscription updated to ${plan} (${status}).`,
+      tenant: getLiveLocalTenant(),
+    });
+  }
 
   const tenant = MOCK_TENANTS.find((t) => t.id === id);
   if (!tenant) {

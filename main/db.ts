@@ -357,13 +357,14 @@ export function getDbHealth(): { ok: boolean; error?: string } {
 }
 
 export function getDbPath(): string {
-  // Native Playwright owns this path for its disposable local Electron run.
-  // It is intentionally opt-in and has no effect on normal desktop installs.
   if (process.env.FLO_E2E_DB_PATH) return path.resolve(process.env.FLO_E2E_DB_PATH);
+  if (process.env.OIU_E2E_DB_PATH) return path.resolve(process.env.OIU_E2E_DB_PATH);
   const projectRoot = path.basename(path.dirname(__dirname)) === 'dist'
     ? path.resolve(__dirname, '../..')
     : path.resolve(__dirname, '..');
   const userDataPath = app.isPackaged ? app.getPath('userData') : projectRoot;
+  const oiuDbPath = path.join(userDataPath, 'order-it-up.db');
+  if (fs.existsSync(oiuDbPath)) return oiuDbPath;
   return path.join(userDataPath, 'flo.db');
 }
 
@@ -1169,7 +1170,7 @@ export function listBackups(): { fileName: string; path: string; sizeBytes: numb
   if (!fs.existsSync(backupDir)) return [];
 
   return fs.readdirSync(backupDir)
-    .filter((fileName) => fileName.startsWith('flo-backup-') && fileName.endsWith('.db'))
+    .filter((fileName) => (fileName.startsWith('order-it-up-backup-') || fileName.startsWith('oiu-backup-') || fileName.startsWith('flo-backup-')) && fileName.endsWith('.db'))
     .map((fileName) => ({ fileName, fullPath: resolveContainedPath(backupDir, fileName) }))
     .filter((entry): entry is { fileName: string; fullPath: string } => {
       if (!entry.fullPath) return false;
@@ -1196,7 +1197,7 @@ export function deleteBackup(fileName: string): void {
     error.code = 'ERR_INVALID_BACKUP_NAME';
     return error;
   };
-  if (!/^flo-backup-[\w.-]+\.db$/.test(fileName)) {
+  if (!/^(?:order-it-up-backup-|oiu-backup-|flo-backup-)[\w.-]+\.db$/.test(fileName)) {
     throw invalidName();
   }
   const backupDir = getBackupDir();
@@ -1225,7 +1226,7 @@ export function isManagedBackupFile(candidatePath: string): boolean {
   }
   if (!resolved.startsWith(backupDir + path.sep)) return false;
   const fileName = path.basename(resolved);
-  if (!fileName.startsWith('flo-backup-') || !fileName.endsWith('.db')) return false;
+  if ((!fileName.startsWith('order-it-up-backup-') && !fileName.startsWith('oiu-backup-') && !fileName.startsWith('flo-backup-')) || !fileName.endsWith('.db')) return false;
   try {
     return fs.statSync(resolved).isFile();
   } catch {
@@ -3946,6 +3947,10 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       if (!orderColumns.includes('external_order_id')) {
         db.exec(`ALTER TABLE orders ADD COLUMN external_order_id TEXT DEFAULT NULL`);
       }
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_orders_online_platform ON orders(online_platform);
+        CREATE INDEX IF NOT EXISTS idx_orders_external_id ON orders(external_order_id);
+      `);
     },
   },
   {
@@ -4024,6 +4029,196 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
         CREATE UNIQUE INDEX IF NOT EXISTS cash_closures_one_day
           ON cash_closures(business_date) WHERE scope = 'day';
       `);
+    },
+  },
+  {
+    version: 82,
+    name: 'add_restaurant_operating_system_erp',
+    up: () => {
+      db.exec(`
+        -- ── Raw Ingredients & BOM Recipes ──────────────────────────────────
+        CREATE TABLE IF NOT EXISTS raw_ingredients (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          unit TEXT NOT NULL DEFAULT 'kg',
+          current_stock REAL NOT NULL DEFAULT 0,
+          minimum_stock REAL NOT NULL DEFAULT 0,
+          cost_per_unit REAL NOT NULL DEFAULT 0,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS product_recipes (
+          id TEXT PRIMARY KEY,
+          product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+          ingredient_id TEXT NOT NULL REFERENCES raw_ingredients(id) ON DELETE CASCADE,
+          quantity_required REAL NOT NULL,
+          unit TEXT NOT NULL,
+          wastage_percentage REAL NOT NULL DEFAULT 0,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(product_id, ingredient_id)
+        );
+
+        CREATE TABLE IF NOT EXISTS inventory_transactions (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ingredient_id TEXT NOT NULL REFERENCES raw_ingredients(id),
+          type TEXT NOT NULL CHECK (type IN ('order_deduction', 'purchase_inward', 'manual_adjustment', 'order_restoration', 'wastage')),
+          quantity REAL NOT NULL,
+          balance_after REAL NOT NULL,
+          reference_id TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- ── Vendors & Procurement / Purchase Orders ───────────────────────
+        CREATE TABLE IF NOT EXISTS vendors (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL,
+          contact_person TEXT,
+          phone TEXT,
+          email TEXT,
+          gstin TEXT,
+          address TEXT,
+          balance REAL NOT NULL DEFAULT 0,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS purchase_orders (
+          id TEXT PRIMARY KEY,
+          po_number TEXT UNIQUE NOT NULL,
+          vendor_id TEXT NOT NULL REFERENCES vendors(id),
+          invoice_number TEXT,
+          invoice_date TEXT,
+          total_amount REAL NOT NULL DEFAULT 0,
+          tax_amount REAL NOT NULL DEFAULT 0,
+          paid_amount REAL NOT NULL DEFAULT 0,
+          payment_status TEXT NOT NULL DEFAULT 'unpaid' CHECK (payment_status IN ('paid', 'partial', 'unpaid')),
+          payment_method TEXT,
+          notes TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS purchase_order_items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          purchase_id TEXT NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+          ingredient_id TEXT NOT NULL REFERENCES raw_ingredients(id),
+          quantity REAL NOT NULL,
+          unit_price REAL NOT NULL,
+          tax_rate REAL DEFAULT 0,
+          total REAL NOT NULL
+        );
+
+        -- ── Expenses & Daily P&L ───────────────────────────────────────────
+        CREATE TABLE IF NOT EXISTS expense_categories (
+          id TEXT PRIMARY KEY,
+          name TEXT NOT NULL UNIQUE,
+          description TEXT,
+          is_active INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE TABLE IF NOT EXISTS expenses (
+          id TEXT PRIMARY KEY,
+          expense_date TEXT NOT NULL CHECK (expense_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          category_id TEXT NOT NULL REFERENCES expense_categories(id),
+          amount REAL NOT NULL CHECK (amount >= 0),
+          payment_method TEXT NOT NULL DEFAULT 'cash',
+          paid_to TEXT,
+          reference_number TEXT,
+          notes TEXT,
+          created_by TEXT REFERENCES users(id),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- ── Table Reservations & Guest Bookings ─────────────────────────────
+        CREATE TABLE IF NOT EXISTS table_reservations (
+          id TEXT PRIMARY KEY,
+          table_id TEXT REFERENCES tables(id) ON DELETE SET NULL,
+          customer_name TEXT NOT NULL,
+          customer_phone TEXT NOT NULL,
+          guest_count INTEGER NOT NULL DEFAULT 2,
+          reservation_date TEXT NOT NULL CHECK (reservation_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          reservation_time TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'seated', 'completed', 'cancelled', 'no_show')),
+          notes TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        -- ── Performance Indexes ────────────────────────────────────────────
+        CREATE INDEX IF NOT EXISTS idx_recipes_product ON product_recipes(product_id);
+        CREATE INDEX IF NOT EXISTS idx_recipes_ingredient ON product_recipes(ingredient_id);
+        CREATE INDEX IF NOT EXISTS idx_inv_tx_ingredient ON inventory_transactions(ingredient_id);
+        CREATE INDEX IF NOT EXISTS idx_po_vendor ON purchase_orders(vendor_id);
+        CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(expense_date);
+        CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id);
+        CREATE INDEX IF NOT EXISTS idx_reservations_date ON table_reservations(reservation_date);
+      `);
+
+      // Seed default expense categories
+      const seedCat = db.prepare(`
+        INSERT OR IGNORE INTO expense_categories (id, name, description)
+        VALUES (?, ?, ?)
+      `);
+      seedCat.run('exp_cat_raw_materials', 'Raw Materials & Food Cost', 'Procurement of produce, dairy, meat, spices');
+      seedCat.run('exp_cat_utilities', 'Utilities & Bills', 'Electricity, gas cylinders, water, internet');
+      seedCat.run('exp_cat_maintenance', 'Maintenance & Repairs', 'Kitchen equipment repair, HVAC servicing');
+      seedCat.run('exp_cat_staff', 'Staff Salaries & Advances', 'Staff wages, tips disbursement, petty staff advances');
+      seedCat.run('exp_cat_rent', 'Rent & Property', 'Monthly restaurant premises rent');
+      seedCat.run('exp_cat_petty', 'Petty Cash & Miscellaneous', 'Emergency cash purchases, cleaning supplies, packaging');
+    },
+  },
+  {
+    version: 83,
+    name: 'add_aggregator_integration',
+    up: () => {
+      const orderColumns = getColumns(db, 'orders');
+      if (!orderColumns.includes('customer_name')) {
+        db.exec(`ALTER TABLE orders ADD COLUMN customer_name TEXT DEFAULT NULL`);
+      }
+      if (!orderColumns.includes('customer_phone')) {
+        db.exec(`ALTER TABLE orders ADD COLUMN customer_phone TEXT DEFAULT NULL`);
+      }
+      if (!orderColumns.includes('delivery_address')) {
+        db.exec(`ALTER TABLE orders ADD COLUMN delivery_address TEXT DEFAULT NULL`);
+      }
+      if (!orderColumns.includes('rider_name')) {
+        db.exec(`ALTER TABLE orders ADD COLUMN rider_name TEXT DEFAULT NULL`);
+      }
+      if (!orderColumns.includes('rider_phone')) {
+        db.exec(`ALTER TABLE orders ADD COLUMN rider_phone TEXT DEFAULT NULL`);
+      }
+      if (!orderColumns.includes('rider_status')) {
+        db.exec(`ALTER TABLE orders ADD COLUMN rider_status TEXT DEFAULT 'unassigned'`);
+      }
+      if (!orderColumns.includes('prep_time_minutes')) {
+        db.exec(`ALTER TABLE orders ADD COLUMN prep_time_minutes INTEGER DEFAULT 20`);
+      }
+      if (!orderColumns.includes('aggregator_raw_payload')) {
+        db.exec(`ALTER TABLE orders ADD COLUMN aggregator_raw_payload TEXT DEFAULT NULL`);
+      }
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS aggregator_configs (
+          platform TEXT PRIMARY KEY CHECK (platform IN ('swiggy', 'zomato', 'direct')),
+          webhook_secret TEXT,
+          is_enabled INTEGER NOT NULL DEFAULT 1,
+          auto_accept INTEGER NOT NULL DEFAULT 1,
+          default_prep_time_minutes INTEGER NOT NULL DEFAULT 20,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+      `);
+
+      const seedConfig = db.prepare(`
+        INSERT OR IGNORE INTO aggregator_configs (platform, webhook_secret, is_enabled, auto_accept, default_prep_time_minutes)
+        VALUES (?, NULL, 1, 1, 20)
+      `);
+      seedConfig.run('swiggy');
+      seedConfig.run('zomato');
     },
   },
 ];
@@ -4319,6 +4514,16 @@ function createSchema(): void {
       discount_reason TEXT,
       round_off REAL DEFAULT 0,
       total REAL DEFAULT 0,
+      online_platform TEXT DEFAULT NULL,
+      external_order_id TEXT DEFAULT NULL,
+      customer_name TEXT DEFAULT NULL,
+      customer_phone TEXT DEFAULT NULL,
+      delivery_address TEXT DEFAULT NULL,
+      rider_name TEXT DEFAULT NULL,
+      rider_phone TEXT DEFAULT NULL,
+      rider_status TEXT DEFAULT 'unassigned',
+      prep_time_minutes INTEGER DEFAULT 20,
+      aggregator_raw_payload TEXT DEFAULT NULL,
       cooking_started_at TEXT,
       ready_at TEXT,
       served_at TEXT,
@@ -4520,7 +4725,134 @@ function createSchema(): void {
       created_at TEXT DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- ── Restaurant Operating System ERP ─────────────────────────────────
+    CREATE TABLE IF NOT EXISTS raw_ingredients (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      unit TEXT NOT NULL DEFAULT 'kg',
+      current_stock REAL NOT NULL DEFAULT 0,
+      minimum_stock REAL NOT NULL DEFAULT 0,
+      cost_per_unit REAL NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS product_recipes (
+      id TEXT PRIMARY KEY,
+      product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      ingredient_id TEXT NOT NULL REFERENCES raw_ingredients(id) ON DELETE CASCADE,
+      quantity_required REAL NOT NULL,
+      unit TEXT NOT NULL,
+      wastage_percentage REAL NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(product_id, ingredient_id)
+    );
+
+    CREATE TABLE IF NOT EXISTS inventory_transactions (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      ingredient_id TEXT NOT NULL REFERENCES raw_ingredients(id),
+      type TEXT NOT NULL CHECK (type IN ('order_deduction', 'purchase_inward', 'manual_adjustment', 'order_restoration', 'wastage')),
+      quantity REAL NOT NULL,
+      balance_after REAL NOT NULL,
+      reference_id TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS vendors (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      contact_person TEXT,
+      phone TEXT,
+      email TEXT,
+      gstin TEXT,
+      address TEXT,
+      balance REAL NOT NULL DEFAULT 0,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS purchase_orders (
+      id TEXT PRIMARY KEY,
+      po_number TEXT UNIQUE NOT NULL,
+      vendor_id TEXT NOT NULL REFERENCES vendors(id),
+      invoice_number TEXT,
+      invoice_date TEXT,
+      total_amount REAL NOT NULL DEFAULT 0,
+      tax_amount REAL NOT NULL DEFAULT 0,
+      paid_amount REAL NOT NULL DEFAULT 0,
+      payment_status TEXT NOT NULL DEFAULT 'unpaid' CHECK (payment_status IN ('paid', 'partial', 'unpaid')),
+      payment_method TEXT,
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS purchase_order_items (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      purchase_id TEXT NOT NULL REFERENCES purchase_orders(id) ON DELETE CASCADE,
+      ingredient_id TEXT NOT NULL REFERENCES raw_ingredients(id),
+      quantity REAL NOT NULL,
+      unit_price REAL NOT NULL,
+      tax_rate REAL DEFAULT 0,
+      total REAL NOT NULL
+    );
+
+    CREATE TABLE IF NOT EXISTS expense_categories (
+      id TEXT PRIMARY KEY,
+      name TEXT NOT NULL UNIQUE,
+      description TEXT,
+      is_active INTEGER NOT NULL DEFAULT 1,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS expenses (
+      id TEXT PRIMARY KEY,
+      expense_date TEXT NOT NULL CHECK (expense_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+      category_id TEXT NOT NULL REFERENCES expense_categories(id),
+      amount REAL NOT NULL CHECK (amount >= 0),
+      payment_method TEXT NOT NULL DEFAULT 'cash',
+      paid_to TEXT,
+      reference_number TEXT,
+      notes TEXT,
+      created_by TEXT REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS table_reservations (
+      id TEXT PRIMARY KEY,
+      table_id TEXT REFERENCES tables(id) ON DELETE SET NULL,
+      customer_name TEXT NOT NULL,
+      customer_phone TEXT NOT NULL,
+      guest_count INTEGER NOT NULL DEFAULT 2,
+      reservation_date TEXT NOT NULL CHECK (reservation_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+      reservation_time TEXT NOT NULL,
+      status TEXT NOT NULL DEFAULT 'confirmed' CHECK (status IN ('confirmed', 'seated', 'completed', 'cancelled', 'no_show')),
+      notes TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- ── Aggregator Integrations (Swiggy, Zomato) ─────────────────────────
+    CREATE TABLE IF NOT EXISTS aggregator_configs (
+      platform TEXT PRIMARY KEY CHECK (platform IN ('swiggy', 'zomato', 'direct')),
+      webhook_secret TEXT,
+      is_enabled INTEGER NOT NULL DEFAULT 1,
+      auto_accept INTEGER NOT NULL DEFAULT 1,
+      default_prep_time_minutes INTEGER NOT NULL DEFAULT 20,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
     -- ── Indexes ──────────────────────────────────────────────────────────
+    CREATE INDEX IF NOT EXISTS idx_recipes_product ON product_recipes(product_id);
+    CREATE INDEX IF NOT EXISTS idx_recipes_ingredient ON product_recipes(ingredient_id);
+    CREATE INDEX IF NOT EXISTS idx_inv_tx_ingredient ON inventory_transactions(ingredient_id);
+    CREATE INDEX IF NOT EXISTS idx_po_vendor ON purchase_orders(vendor_id);
+    CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(expense_date);
+    CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id);
+    CREATE INDEX IF NOT EXISTS idx_reservations_date ON table_reservations(reservation_date);
 
     CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
     CREATE INDEX IF NOT EXISTS idx_products_active   ON products(is_active);
@@ -5057,6 +5389,7 @@ export function projectKdsOrder(order: any, restricted: boolean): any {
     'id', 'order_number', 'type', 'guest_count',
     'special_instructions', 'status', 'created_at', 'updated_at',
     'table_name', 'table_number', 'floor', 'section',
+    'online_platform', 'aggregator_order_id', 'rider_name', 'rider_phone', 'rider_status', 'prep_time_minutes',
   ];
   return Object.fromEntries(allowedFields.filter((field) => field in order).map((field) => [field, order[field]]));
 }

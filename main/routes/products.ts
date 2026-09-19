@@ -74,12 +74,16 @@ async function resolvePublicHostname(hostname: string, signal: AbortSignal): Pro
     if (error?.name === 'AbortError' || error?.code === 'ENOTFOUND') {
       throw error;
     }
-    throw new Error('Could not resolve hostname');
+    const resolveErr: any = new Error('Could not resolve hostname');
+    resolveErr.code = error?.code || 'ENOTFOUND';
+    throw resolveErr;
   } finally {
     if (onAbort) signal.removeEventListener('abort', onAbort);
   }
   if (addresses.length === 0) {
-    throw new Error('Could not resolve hostname');
+    const resolveErr: any = new Error('Could not resolve hostname');
+    resolveErr.code = 'ENOTFOUND';
+    throw resolveErr;
   }
   for (const { address } of addresses) {
     if (isBlockedSsrfTarget(address)) {
@@ -624,7 +628,18 @@ router.post('/fetch-url', requireRole(...ROLE_ACCESS.ownerManager), asyncHandler
         if (error?.name === 'AbortError') {
           return res.status(504).json({ error: 'Request timed out' });
         }
-        if (error?.code === 'ENOTFOUND') {
+        if (error?.message === 'URL resolves to a disallowed address') {
+          return res.status(400).json({ error: 'URL is not allowed' });
+        }
+        if (
+          error?.code === 'ENOTFOUND' ||
+          error?.code === 'ESERVFAIL' ||
+          error?.code === 'ENODATA' ||
+          error?.code === 'EREFUSED' ||
+          error?.code === 'EAI_AGAIN' ||
+          error?.message === 'Could not resolve hostname' ||
+          error?.message === 'Hostname not found'
+        ) {
           return res.status(502).json({ error: 'Could not resolve hostname' });
         }
         return res.status(400).json({ error: 'URL is not allowed' });

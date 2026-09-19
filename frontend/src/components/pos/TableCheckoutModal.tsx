@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, ShoppingCart, Users } from 'lucide-react';
+import { X, ShoppingCart, Users, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import TaxBreakdown from '@/components/pos/TaxBreakdown';
 import api from '@/lib/api';
@@ -10,6 +10,8 @@ import { useFormatCurrency } from '@/hooks/useFormatCurrency';
 import toast from 'react-hot-toast';
 import type { Table, Order, Bill, OrderItem } from '@/lib/types';
 import { SplitCheckModal } from '@/components/pos/SplitCheckModal';
+import { usePrinterStore } from '@/hooks/usePrinter';
+import { useAuthStore } from '@/store/auth';
 
 interface Props {
   table: Table;
@@ -70,6 +72,31 @@ export default function TableCheckoutModal({
   useEffect(() => {
     api.get('/settings/split_checks_enabled').then((res) => setSplitChecksEnabled(res.data?.setting?.value === 'true')).catch(() => setSplitChecksEnabled(false));
   }, []);
+
+  const [printing, setPrinting] = useState(false);
+  const { currentTenant } = useAuthStore();
+  const { printBill } = usePrinterStore();
+
+  const handlePrintBill = async () => {
+    if (!order) return;
+    setPrinting(true);
+    try {
+      let currentBill = order.bill;
+      if (!currentBill) {
+        const { data } = await api.post('/bills/generate', { order_id: order.id });
+        currentBill = data.bill;
+        setOrder({ ...order, bill: currentBill });
+      }
+      if (currentBill && currentTenant) {
+        await printBill(currentBill, currentTenant);
+        toast.success('Bill sent to printer with dynamic UPI QR code');
+      }
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to print bill');
+    } finally {
+      setPrinting(false);
+    }
+  };
 
   const handleCheckout = async () => {
     if (!order) return;
@@ -221,17 +248,39 @@ export default function TableCheckoutModal({
                 <ShoppingCart size={16} className="me-2" />
                 {addingItems ? t('adding') : t('addToOrder', { count: cartItemCount })}
               </Button>
-              <Button onClick={handleCheckout} variant="outline" className="w-full" disabled={generating}>
-                {generating ? t('generating') : t('checkoutInstead')}
-              </Button>
+              <div className="grid grid-cols-2 gap-2">
+                <Button 
+                  onClick={handlePrintBill} 
+                  variant="outline" 
+                  disabled={printing || generating} 
+                  className="w-full text-brand border-brand/30 hover:bg-brand/10 font-semibold"
+                >
+                  <Printer size={15} className="me-1.5" />
+                  {printing ? 'Printing...' : 'Print Bill (UPI)'}
+                </Button>
+                <Button onClick={handleCheckout} variant="outline" className="w-full" disabled={generating}>
+                  {generating ? t('generating') : t('checkoutInstead')}
+                </Button>
+              </div>
             </div>
           ) : splitBills.length === 0 ? (
-            // Cart empty - show both options
-            <div className="grid grid-cols-2 gap-3">
-              <Button variant="outline" onClick={() => onAddItems(table, order)}>
-                {t('addItems')}
-              </Button>
-              <Button onClick={handleCheckout} disabled={generating}>
+            // Cart empty - show Add Items, Print Bill, Checkout
+            <div className="space-y-2">
+              <div className="grid grid-cols-2 gap-2">
+                <Button variant="outline" onClick={() => onAddItems(table, order)}>
+                  {t('addItems')}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handlePrintBill} 
+                  disabled={printing || generating}
+                  className="text-brand border-brand/30 hover:bg-brand/10 font-semibold"
+                >
+                  <Printer size={15} className="me-1.5" />
+                  {printing ? 'Printing...' : 'Print Bill (UPI)'}
+                </Button>
+              </div>
+              <Button onClick={handleCheckout} disabled={generating} className="w-full" size="lg">
                 {generating ? t('generating') : t('checkout')}
               </Button>
             </div>

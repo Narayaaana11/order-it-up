@@ -1,18 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Wifi, WifiOff } from 'lucide-react';
+import { WifiOff } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { useTranslations } from 'use-intl';
 
 export default function SyncIndicator() {
-  const [isOnline, setIsOnline] = useState(true);
-  const t = useTranslations('nav');
+  const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   useEffect(() => {
-    // Initial state
-    setIsOnline(navigator.onLine);
-
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
 

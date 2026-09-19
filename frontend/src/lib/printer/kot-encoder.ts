@@ -1,4 +1,4 @@
-/** Converts a Flo POS Order into a Kitchen Order Ticket (KOT) ESC/POS byte array. */
+/** Converts an Order It Up POS Order into a Kitchen Order Ticket (KOT) ESC/POS byte array. */
 import ReceiptPrinterEncoder from '@point-of-sale/receipt-printer-encoder';
 import type { Order } from '@/lib/types';
 import { LANGUAGES, type Language } from '@/lib/i18n/languages';

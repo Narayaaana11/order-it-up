@@ -307,7 +307,7 @@ export function rollbackMerchantPrintTemplate(id: string, actorId: string | null
 // Offline import/export: templates travel as self-describing JSON envelopes
 // with canonical checksums, landing as new draft rows upon validated import.
 
-const EXPORT_FILE_SUFFIX = '.flocafe-template.json';
+const EXPORT_FILE_SUFFIX = '.orderitup-template.json';
 
 export interface MerchantTemplateExportFile {
   /** Sanitized, traversal-proof download filename. */

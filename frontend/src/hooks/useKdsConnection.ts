@@ -117,6 +117,15 @@ export interface KdsOrder {
   updated_at?: string;
   items?: KdsOrderItem[];
   table?: { name: string } | null;
+  online_platform?: 'swiggy' | 'zomato' | 'qr' | string | null;
+  aggregator_order_id?: string | null;
+  rider_name?: string | null;
+  rider_phone?: string | null;
+  rider_status?: string | null;
+  customer_name?: string | null;
+  customer_phone?: string | null;
+  delivery_address?: string | null;
+  prep_time_minutes?: number | null;
 }
 
 export interface KdsUser {

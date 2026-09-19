@@ -153,7 +153,7 @@ export function registerIpcHandlers(
 
       const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
       const result = await dialog.showSaveDialog({
-        defaultPath: path.join(app.getPath('documents'), `flo-backup-${timestamp}.db`),
+        defaultPath: path.join(app.getPath('documents'), `order-it-up-backup-${timestamp}.db`),
         filters: [{ name: 'SQLite Database', extensions: ['db'] }],
       });
 
@@ -197,7 +197,7 @@ export function registerIpcHandlers(
       } else if (!fs.existsSync(backupPath)) {
         return { success: false, error: 'Backup file no longer exists' };
       } else if (!isManagedBackupFile(backupPath)) {
-        return { success: false, error: 'Restore source must be a Flo-managed backup file' };
+        return { success: false, error: 'Restore source must be an Order It Up managed backup file' };
       }
 
       const backupVersion = getSchemaVersionFromBackup(backupPath);
@@ -205,7 +205,7 @@ export function registerIpcHandlers(
       if (backupVersion === null) {
         return {
           success: false,
-          error: 'Invalid backup file: missing schema version metadata. This backup may have been created with an older version of FloDesktop.'
+          error: 'Invalid backup file: missing schema version metadata. This backup may have been created with an older version of Order It Up.'
         };
       }
 

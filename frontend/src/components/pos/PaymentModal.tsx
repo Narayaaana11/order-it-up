@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { X, Wallet, ArrowLeftRight, CheckCircle2, Sparkles, User, Percent, Send, ChevronDown } from 'lucide-react';
+import { X, Wallet, ArrowLeftRight, CheckCircle2, Sparkles, User, Percent, Send, ChevronDown, Printer } from 'lucide-react';
 import { Button } from '@/components/ui/button';
+import { usePrinterStore } from '@/hooks/usePrinter';
 import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import type { Bill } from '@/lib/types';
@@ -97,6 +98,20 @@ export default function PaymentModal({ bill, currency, onClose, onPaid, onBillUp
   useEffect(() => {
     idempotencyKeyRef.current = null;
   }, [bill.id]);
+  const { printBill } = usePrinterStore();
+  const [printingBill, setPrintingBill] = useState(false);
+  const handlePrint = async () => {
+    if (!currentTenant) return;
+    setPrintingBill(true);
+    try {
+      await printBill(bill, currentTenant);
+      toast.success('Bill sent to printer with dynamic UPI QR');
+    } catch (err: any) {
+      toast.error(err.message || 'Failed to print bill');
+    } finally {
+      setPrintingBill(false);
+    }
+  };
   const [justPaid, setJustPaid] = useState(false);
   const [sendingWa, setSendingWa] = useState(false);
   const [pointsEarned, setPointsEarned] = useState(0);
@@ -783,14 +798,24 @@ export default function PaymentModal({ bill, currency, onClose, onPaid, onBillUp
                   </Button>
                 )
               )}
+              <Button onClick={handlePrint} variant="outline" className="w-full text-brand border-brand/30 hover:bg-brand/10" size="lg" disabled={printingBill}>
+                <Printer size={16} className="me-2" />
+                {printingBill ? 'Printing...' : 'Print Receipt'}
+              </Button>
               <Button onClick={onPaid} variant="outline" className="w-full" size="lg">
                 {tCommon('done')}
               </Button>
             </>
           ) : (
-            <Button onClick={handlePay} disabled={processing || totalPaymentMinor < remainingMinor} className="w-full" size="lg">
-              {processing ? t('processingPayment') : `${t('pay')} ${currencyFmt(totalPayment)}`}
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={handlePrint} variant="outline" size="lg" disabled={printingBill} className="text-brand border-brand/30 hover:bg-brand/10 font-semibold px-4">
+                <Printer size={16} className="me-1.5" />
+                {printingBill ? 'Printing...' : 'Print Bill'}
+              </Button>
+              <Button onClick={handlePay} disabled={processing || totalPaymentMinor < remainingMinor} className="flex-1" size="lg">
+                {processing ? t('processingPayment') : `${t('pay')} ${currencyFmt(totalPayment)}`}
+              </Button>
+            </div>
           )}
         </div>
       </div>

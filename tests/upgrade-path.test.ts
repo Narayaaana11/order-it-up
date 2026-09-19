@@ -93,7 +93,7 @@ function isNativeAbiMismatch(error: any): boolean {
 }
 
 function main() {
-  console.log('🧪 FloDesktop Upgrade-Path Regression Test');
+  console.log('🧪 Order It Up Upgrade-Path Regression Test');
   console.log('='.repeat(60));
 
   const {

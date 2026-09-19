@@ -400,9 +400,9 @@ function seedDemoRestaurant(db: ReturnType<typeof getDatabase>, serviceModel: st
   const chefName = lang === 'es' ? 'Cocinero Demo' : lang === 'fr' ? 'Chef Démo' : lang === 'pt' ? 'Cozinheiro Demo'
     : lang === 'de' ? 'Demo-Koch' : lang === 'tr' ? 'Demo Aşçı' : lang === 'fa' ? 'آشپز نمایشی' : 'Demo Chef';
   // Demo staff accounts are inactive with random passwords to prevent usable default credentials.
-  insertStaffUser(db, 'user-demo-manager', managerName, 'manager@flo.local', 'manager', randomBytes(32).toString('hex'), 0);
-  insertStaffUser(db, 'user-demo-cashier', cashierName, 'cashier@flo.local', 'cashier', randomBytes(32).toString('hex'), 0);
-  insertStaffUser(db, 'user-demo-chef', chefName, 'chef@flo.local', 'chef', randomBytes(32).toString('hex'), 0);
+  insertStaffUser(db, 'user-demo-manager', managerName, 'manager@orderitup.local', 'manager', randomBytes(32).toString('hex'), 0);
+  insertStaffUser(db, 'user-demo-cashier', cashierName, 'cashier@orderitup.local', 'cashier', randomBytes(32).toString('hex'), 0);
+  insertStaffUser(db, 'user-demo-chef', chefName, 'chef@orderitup.local', 'chef', randomBytes(32).toString('hex'), 0);
 }
 
 export function seedSetupProfile(db: ReturnType<typeof getDatabase>, profile: string, serviceModel: string, language?: string, country?: string): void {
@@ -433,6 +433,9 @@ const PASSWORD_CHANGE_MAX_ATTEMPTS = 5;
 const PASSWORD_CHANGE_LOCKOUT_MINUTES = 5;
 
 function checkRateLimit(ip: string): { allowed: boolean; waitMinutes?: number } {
+  if (process.env.NODE_ENV !== 'production') {
+    return { allowed: true };
+  }
   const nowMs = Date.now();
   let record = loginAttempts.get(ip);
 

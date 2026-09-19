@@ -4395,7 +4395,7 @@ export default function SettingsPage() {
                     const url = window.URL.createObjectURL(blob);
                     const a = document.createElement('a');
                     a.href = url;
-                    a.download = `flo-export-${new Date().toISOString().split('T')[0]}.json`;
+                    a.download = `order-it-up-export-${new Date().toISOString().split('T')[0]}.json`;
                     document.body.appendChild(a);
                     a.click();
                     document.body.removeChild(a);
@@ -4657,7 +4657,7 @@ export default function SettingsPage() {
                   reader.onload = async (event) => {
                     try {
                       const data = JSON.parse(event.target?.result as string);
-                      if (!data.app || data.app !== 'FloDesktop') {
+                      if (!data.app || (data.app !== 'OrderItUp' && data.app !== 'FloDesktop')) {
                         toast.error(t('invalidExportFile'));
                         return;
                       }
@@ -4810,7 +4810,7 @@ export default function SettingsPage() {
             <div className="space-y-6">
             <h2 className="text-lg font-semibold text-foreground">{t('tabMobileAccess')}</h2>
 
-            {/* FloAdmin — reporting sync */}
+            {/* Cloud Admin — reporting sync */}
             <div className="bg-card rounded-2xl border-2 border-border p-6 space-y-5">
               <div className="flex items-center gap-2">
                 <Cloud size={20} className="text-brand" />
@@ -4906,7 +4906,7 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* RevFlo — consolidated: download/QR + app (pairing) code + paired devices */}
+            {/* OIU Mobile — consolidated: download/QR + app (pairing) code + paired devices */}
             <div className="bg-card rounded-2xl border-2 border-border p-6 space-y-5">
               <div className="flex items-center gap-2">
                 <Smartphone size={20} className="text-muted-foreground" />

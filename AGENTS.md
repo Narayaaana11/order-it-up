@@ -16,7 +16,7 @@ For minor typos or isolated one-line edits, formal planning is not required.
 
 ## Source of truth
 
-- **Current runtime behavior:** Current code and automated tests define what FloCafe does today.
+- **Current runtime behavior:** Current code and automated tests define what Order It Up does today.
 - **Intended change:** The approved task description, issue, or PR defines what the specific change must achieve.
 - **Project invariants:** This document (`AGENTS.md`) and documentation marked `CURRENT` define project-wide boundaries.
 - **Active design:** Documents marked `ACTIVE DESIGN` or `FORWARD-LOOKING` in `docs/` describe target architecture and may be ahead of current code.
@@ -39,14 +39,14 @@ docs/           Documentation, design specifications, and audits (see docs/READM
 1. **Offline-first operation:** Core POS operation (orders, billing, KDS, printing) must function without internet connectivity. Optional network features (Google Drive, WhatsApp, cloud reporting) run only when explicitly configured and must fail gracefully when offline.
 2. **Data safety:** Existing customer data must survive upgrades. Never reset, truncate, or drop user databases as a shortcut for migration design.
 3. **Architecture boundaries:** UI language, tenant regional settings, and tax/compliance behavior are separate, decoupled domains.
-4. **Business timestamps:** Persisted timestamps follow FloCafe's canonical storage conventions; configured store timezone applies to business-local presentation, day/shift boundaries, and reporting intervals.
+4. **Business timestamps:** Persisted timestamps follow Order It Up's canonical storage conventions; configured store timezone applies to business-local presentation, day/shift boundaries, and reporting intervals.
 5. **Backend authority:** Security-critical, payment, and tax calculations remain backend-authoritative.
 6. **Reuse before adding:** Reuse existing helpers, utilities, and dependencies before introducing new packages.
 7. **Scope discipline:** Implement only the approved task. Do not make opportunistic refactors across unrelated files.
 
 ## Lessons from past mistakes
 
-FloCafe currently has fewer than 100 active installs, almost all of them testers rather than production merchants. The guidance below is calibrated to that scale — revisit it if that changes.
+Order It Up currently has fewer than 100 active installs, almost all of them testers rather than production merchants. The guidance below is calibrated to that scale — revisit it if that changes.
 
 - **Match migration/compatibility effort to actual usage, not worst-case fidelity.** Preserving one upgraded store's *exact* prior behavior (PR #640: carrying a per-printer cash-drawer-pulse flag's unconditional, every-payment-method behavior across a settings redesign, including UPI and custom methods) grew into a sentinel value, a union type, and load-vs-save race tracking spanning both the backend and the settings page — and still needed three follow-up fixes for edge cases that mechanism itself introduced, before it was reverted in favor of a plain default. For a product this size, a simple, slightly-narrowed default that's reconfigurable in the UI beats a stateful mechanism whose only job is protecting a handful of testers from a minor, one-time behavior change.
 - **After a second automated-review finding on code you just patched, stop and reconsider the design before patching again.** Each fix in that same episode closed one finding and opened another (parse failure on the sentinel → a load-vs-save race guarding against it → that guard dropping a genuine user edit). The second recurrence on the same few lines is the signal to ask "is this mechanism worth its complexity," not to patch a third time.
@@ -67,7 +67,7 @@ FloCafe currently has fewer than 100 active installs, almost all of them testers
 
 ## Commands
 
-FloCafe requires **Node.js 22 or later**.
+Order It Up requires **Node.js 22 or later**.
 
 ```sh
 npm run dev              # Full Electron app (cleans ports, builds frontend & backend)
@@ -98,3 +98,10 @@ Select checks that cover the changed subsystem:
 | Packaging / Releases | Target platform build commands and release checks |
 
 Run `npm test` when a full validation pass is requested, before releases, or when changes touch multiple core subsystems.
+
+---
+
+## Multi-Agent Roles & Operational Specifications
+
+For the comprehensive multi-agent restaurant architecture, role verification audit, gap analysis, and implementation roadmap across all six operational personas (Customer, Server/Waiter, Kitchen Chef, Cashier, Owner/Manager, and Delivery Driver), see [agents.md](../agents.md).
+

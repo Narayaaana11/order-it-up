@@ -6,21 +6,26 @@ import {
   LayoutDashboard,
   ShoppingCart,
   ClipboardList,
-  Package,
   Grid3X3,
-  Users,
-  UserCog,
   Settings,
-  ChefHat,
-  MessageCircle,
 } from 'lucide-react';
 import { useTranslations } from 'use-intl';
 import { useAuthStore } from '@/store/auth';
 import { usePosSettingsStore } from '@/store/pos-settings';
-import { ROLE_ACCESS, hasRole } from '@shared/role-permissions';
+import { ROLE_ACCESS, hasRole, type Role } from '@shared/role-permissions';
 import { cn } from '@/lib/utils';
 
-const ALL_NAV_ITEMS = [
+type NavLabelKey = 'pos' | 'orders' | 'tables' | 'dashboard' | 'settings';
+
+interface NavItem {
+  href: string;
+  labelKey: NavLabelKey;
+  icon: typeof ShoppingCart;
+  roles: readonly Role[];
+  businessTypes: string[] | null;
+}
+
+const ALL_NAV_ITEMS: readonly NavItem[] = [
   { href: '/pos', labelKey: 'pos', icon: ShoppingCart, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
   { href: '/orders', labelKey: 'orders', icon: ClipboardList, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
   { href: '/tables', labelKey: 'tables', icon: Grid3X3, roles: ROLE_ACCESS.ownerManager, businessTypes: ['restaurant'] },
@@ -44,7 +49,7 @@ export default function BottomNav() {
   });
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 flex h-16 items-center justify-around border-t border-border bg-card/95 backdrop-blur-md pb-safe shadow-[0_-1px_12px_rgba(0,0,0,0.08)]">
+    <nav className="md:hidden fixed bottom-0 inset-x-0 z-50 flex h-16 items-center justify-around border-t border-border bg-card/95 backdrop-blur-md pb-safe shadow-[0_-1px_12px_rgba(0,0,0,0.08)]">
       {navItems.map((item) => {
         const [hrefPath, hrefQuery] = item.href.split('?');
         const isActive = !hrefQuery && (pathname === hrefPath || pathname?.startsWith(hrefPath + '/'));
@@ -71,7 +76,7 @@ export default function BottomNav() {
               "text-[10px] leading-none font-medium transition-colors",
               isActive ? "text-brand font-bold" : "text-muted-foreground"
             )}>
-              {t(item.labelKey as any)}
+              {t(item.labelKey)}
             </span>
           </Link>
         );

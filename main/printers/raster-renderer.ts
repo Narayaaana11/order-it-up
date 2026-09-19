@@ -20,7 +20,7 @@ const RENDER_TIMEOUT_MS = 10_000;
 
 /** Self-contained page with no navigation, network access, or Node integration. */
 export function rasterRendererHtml(): string {
-  return `<!doctype html><meta charset="utf-8"><title>Flo raster surface</title>
+  return `<!doctype html><meta charset="utf-8"><title>Order It Up raster surface</title>
 <style>html,body{margin:0;padding:0;background:#fff}canvas{display:block}</style>
 <script>
 (() => {

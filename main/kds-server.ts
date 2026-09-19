@@ -45,9 +45,10 @@ export function isKdsServerRunning(): boolean {
 /** Locate the static export directory. */
 function getStaticDir(): string | null {
   const candidates = [
-    // Development / unpackaged: relative to dist/main/ (compiled output of
-    // main/, see tsconfig rootDir covering shared/ since #441)
+    // Development / unpackaged: relative to dist/main/
     path.join(__dirname, '../../frontend/out'),
+    path.resolve(process.cwd(), 'frontend/out'),
+    path.join(__dirname, '../frontend/out'),
     path.join(process.resourcesPath || '', 'frontend-out'),
   ];
 
@@ -147,7 +148,7 @@ export function startKdsServer(): Promise<void> {
     app.get('/api/health', (_req: Request, res: Response) => {
       res.json({
         status: 'ok',
-        service: 'Flo KDS Server',
+        service: 'Order It Up KDS Server',
         version: '1.0.0',
         timestamp: new Date().toISOString(),
       });
@@ -557,7 +558,7 @@ export function startKdsServer(): Promise<void> {
       app.get('/', (_req: Request, res: Response) => {
         res.send(`
           <html><body style="font-family:sans-serif;padding:2rem">
-            <h2>Flo KDS – Build not found</h2>
+            <h2>Order It Up KDS – Build not found</h2>
             <p>Run <code>npm run build:frontend</code> then restart the app.</p>
           </body></html>
         `);

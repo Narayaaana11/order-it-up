@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react';
 import api from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
-import { CreditCard, Trash2, RotateCcw, Clock, MessageCircle, Printer, XCircle, Lock, Percent, Banknote, Search, Plus, ChevronDown, ChevronRight, UserPlus, User, ShoppingBag, Send, Loader2, Ban, Download } from 'lucide-react';
+import { CreditCard, Trash2, RotateCcw, Clock, MessageCircle, Printer, XCircle, Lock, Percent, Banknote, Search, Plus, ChevronDown, ChevronRight, UserPlus, User, ShoppingBag, Send, Loader2, Ban, Download, LayoutGrid, Table as TableIcon, Calendar, CheckCircle2, Bike } from 'lucide-react';
 import toast from 'react-hot-toast';
 import PaymentModal from '@/components/pos/PaymentModal';
 import CreateCustomerModal from '@/components/pos/CreateCustomerModal';
@@ -97,6 +97,7 @@ interface Filters {
   table: string;
   type: string;
   status: string;
+  date: string;
 }
 
 interface CancelModal {
@@ -153,7 +154,7 @@ export default function OrdersPage() {
   // Snapshot of "now" for the "Xm ago" timestamps below — Date.now() can't be called directly
   // during render (impure), so it's held in state and refreshed periodically instead.
   const [now, setNow] = useState(() => Date.now());
-  const [tabFilter, setTabFilter] = useState<FilterType>('active');
+  const [tabFilter, setTabFilter] = useState<FilterType>('all');
   const [paymentBill, setPaymentBill] = useState<Bill | null>(null);
   const [tables, setTables] = useState<Table[]>([]);
   const [kdsEnabled, setKdsEnabled] = useState(true);
@@ -161,7 +162,14 @@ export default function OrdersPage() {
   const isWhatsAppReady = useWhatsAppReady();
 
   // Consolidated filter state
-  const [filters, setFilters] = useState<Filters>({ search: '', table: '', type: '', status: '' });
+  const [filters, setFilters] = useState<Filters>({
+    search: '',
+    table: '',
+    type: '',
+    status: '',
+    date: new Date().toISOString().split('T')[0],
+  });
+  const [viewMode, setViewMode] = useState<'table' | 'grid'>('table');
 
   // Consolidated cancel modal state
   const [cancelModal, setCancelModal] = useState<CancelModal | null>(null);
@@ -513,11 +521,30 @@ export default function OrdersPage() {
     if (filters.status === 'completed' && order.status !== 'completed') {
       return false;
     }
-    if (filters.status === 'cancelled' && order.status !== 'cancelled') {
-      return false;
+    // Filter by date
+    if (filters.date) {
+      const d = (order.created_at || '').slice(0, 10);
+      if (d !== filters.date) return false;
     }
     return true;
   });
+
+  // Daily stats for selected date (or all orders if date filter cleared)
+  const dateFilteredAll = orders.filter((o) => {
+    if (!filters.date) return true;
+    return (o.created_at || '').slice(0, 10) === filters.date;
+  });
+
+  const dailyStats = {
+    totalCount: dateFilteredAll.length,
+    totalRevenue: dateFilteredAll.reduce((acc, o) => {
+      if (o.status === 'cancelled') return acc;
+      return acc + (o.bill ? Number(o.bill.total) : Number(o.total || 0));
+    }, 0),
+    completedCount: dateFilteredAll.filter((o) => o.status === 'completed').length,
+    activeCount: dateFilteredAll.filter((o) => isOrderActive(o)).length,
+    unpaidCount: dateFilteredAll.filter((o) => ['unpaid', 'partial'].includes(paymentStatusOf(o) || '')).length,
+  };
 
   const handleCheckout = async (orderId: number) => {
     setGeneratingBill(orderId);
@@ -900,14 +927,44 @@ export default function OrdersPage() {
   return (
     <div className="flex flex-col h-[calc(100vh-4rem)]">
       {/* Header */}
-      <div className="flex items-center justify-between mb-4">
-        <h1 className="text-2xl font-bold text-foreground">{tNav('orders')}</h1>
-        <div className="flex gap-2">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-foreground">{tNav('orders')}</h1>
+          {/* View mode toggle */}
+          <div className="flex items-center bg-card border border-border rounded-lg p-0.5">
+            <button
+              onClick={() => setViewMode('table')}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                viewMode === 'table'
+                  ? 'bg-brand text-white shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              title="Tabular View"
+            >
+              <TableIcon size={14} />
+              <span>Table</span>
+            </button>
+            <button
+              onClick={() => setViewMode('grid')}
+              className={`px-2.5 py-1 rounded-md text-xs font-semibold flex items-center gap-1.5 transition-all ${
+                viewMode === 'grid'
+                  ? 'bg-brand text-white shadow-xs'
+                  : 'text-muted-foreground hover:text-foreground'
+              }`}
+              title="Card Grid View"
+            >
+              <LayoutGrid size={14} />
+              <span>Cards</span>
+            </button>
+          </div>
+        </div>
+
+        <div className="flex gap-2 flex-wrap">
           {(['all', 'active', 'unpaid', 'held'] as FilterType[]).map((f) => (
             <button
               key={f}
               onClick={() => setTabFilter(f)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium ${
+              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 tabFilter === f
                   ? 'bg-brand text-white'
                   : 'bg-card text-muted-foreground border border-border hover:border-gray-400'
@@ -916,6 +973,39 @@ export default function OrdersPage() {
               {tOrders(tabLabelKey[f])}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Daily Performance Stats Banner */}
+      <div className="grid grid-cols-2 sm:grid-cols-5 gap-2.5 mb-4">
+        <div className="bg-card border border-border rounded-xl p-3 shadow-xs">
+          <div className="text-[11px] font-medium text-muted-foreground">Orders Placed</div>
+          <div className="text-xl font-black text-foreground mt-0.5">{dailyStats.totalCount}</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">{filters.date ? `Date: ${filters.date}` : 'All Dates'}</div>
+        </div>
+
+        <div className="bg-card border border-border rounded-xl p-3 shadow-xs">
+          <div className="text-[11px] font-medium text-muted-foreground">Day Revenue</div>
+          <div className="text-xl font-black text-foreground mt-0.5">{fmt(dailyStats.totalRevenue)}</div>
+          <div className="text-[10px] text-emerald-600 font-semibold mt-0.5">Gross Invoiced</div>
+        </div>
+
+        <div className="bg-card border border-border rounded-xl p-3 shadow-xs">
+          <div className="text-[11px] font-medium text-muted-foreground">Completed</div>
+          <div className="text-xl font-black text-emerald-600 mt-0.5">{dailyStats.completedCount}</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">Settled & Served</div>
+        </div>
+
+        <div className="bg-card border border-border rounded-xl p-3 shadow-xs">
+          <div className="text-[11px] font-medium text-muted-foreground">In Kitchen / Active</div>
+          <div className="text-xl font-black text-blue-600 mt-0.5">{dailyStats.activeCount}</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">Prep or Dining</div>
+        </div>
+
+        <div className="bg-card border border-border rounded-xl p-3 shadow-xs col-span-2 sm:col-span-1">
+          <div className="text-[11px] font-medium text-muted-foreground">Unpaid Bills</div>
+          <div className="text-xl font-black text-amber-600 mt-0.5">{dailyStats.unpaidCount}</div>
+          <div className="text-[10px] text-muted-foreground mt-0.5">Awaiting Checkout</div>
         </div>
       </div>
 
@@ -971,6 +1061,34 @@ export default function OrdersPage() {
           <option value="completed">{tOrders('completed')}</option>
           <option value="cancelled">{tOrders('cancelled')}</option>
         </select>
+
+        {/* Date filter with Quick select */}
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center border border-border bg-card rounded-lg px-2.5 py-2 focus-within:ring-2 focus-within:ring-brand/30">
+            <Calendar size={14} className="text-muted-foreground me-1.5" />
+            <input
+              type="date"
+              value={filters.date}
+              onChange={(e) => setFilters(prev => ({ ...prev, date: e.target.value }))}
+              className="bg-transparent text-xs text-foreground focus:outline-none"
+            />
+          </div>
+          {filters.date ? (
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, date: '' }))}
+              className="text-xs text-muted-foreground hover:text-foreground underline px-1"
+            >
+              All Dates
+            </button>
+          ) : (
+            <button
+              onClick={() => setFilters(prev => ({ ...prev, date: new Date().toISOString().split('T')[0] }))}
+              className="text-xs text-brand hover:underline px-1 font-semibold"
+            >
+              Today
+            </button>
+          )}
+        </div>
       </div>
 
       {/* Orders List */}
@@ -1049,6 +1167,175 @@ export default function OrdersPage() {
       ) : filteredOrders.length === 0 ? (
         <div className="flex items-center justify-center flex-1 text-gray-400">
           <p>{tOrders('empty')}</p>
+        </div>
+      ) : viewMode === 'table' ? (
+        <div className="flex-1 overflow-y-auto border border-border rounded-xl bg-card shadow-xs">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm border-collapse">
+              <thead>
+                <tr className="border-b border-border bg-muted/60 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
+                  <th className="py-3.5 px-4">Order & Time</th>
+                  <th className="py-3.5 px-4">Type & Table</th>
+                  <th className="py-3.5 px-4">Customer</th>
+                  <th className="py-3.5 px-4">Items</th>
+                  <th className="py-3.5 px-4">Amount</th>
+                  <th className="py-3.5 px-4">Payment</th>
+                  <th className="py-3.5 px-4">Status</th>
+                  <th className="py-3.5 px-4 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                {filteredOrders.map((order) => {
+                  const paid = isOrderPaid(order);
+                  const payStatus = paymentStatusOf(order);
+                  const payBadge = payStatus ? paymentStatusBadge[payStatus] : null;
+                  const bill = order.bill;
+                  const total = bill ? Number(bill.total) : Number(order.total);
+                  const subtotal = bill ? Number(bill.subtotal) : Number(order.subtotal);
+                  const activeItems = (order.items || []).filter((i: OrderItem) => i.status !== 'cancelled');
+                  const statusBadge = orderStatusBadge[order.status];
+
+                  return (
+                    <tr key={order.id} className="hover:bg-muted/40 transition-colors">
+                      <td className="py-3 px-4">
+                        <div className="font-bold text-foreground flex items-center gap-1.5">
+                          #{order.order_number}
+                          {order.online_platform && (
+                            <span className={`px-1.5 py-0.2 rounded text-[10px] font-bold uppercase ${
+                              order.online_platform === 'zomato' ? 'bg-red-500 text-white' : 'bg-orange-500 text-white'
+                            }`}>
+                              {order.online_platform}
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-xs text-muted-foreground flex items-center gap-1 mt-0.5">
+                          <Clock size={11} />
+                          {getTimeSince(order.created_at)}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="font-medium text-foreground text-xs">
+                          {tOrders(ORDER_TYPE_KEYS[order.type])}
+                        </div>
+                        {order.table && (
+                          <div className="text-xs text-brand font-semibold mt-0.5">
+                            {order.table.name}
+                          </div>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        {order.customer ? (
+                          <div>
+                            <div className="font-medium text-xs text-foreground">{order.customer.name}</div>
+                            {order.customer.phone && (
+                              <div className="text-[11px] text-muted-foreground font-mono">{order.customer.phone}</div>
+                            )}
+                          </div>
+                        ) : (
+                          <span className="text-xs text-muted-foreground italic">Walk-in</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 max-w-[240px]">
+                        <div className="text-xs text-foreground truncate" title={activeItems.map((item) => `${item.quantity}x ${item.product_name || 'Item'}`).join(', ')}>
+                          {activeItems.map((item) => `${item.quantity}x ${item.product_name || 'Item'}`).join(', ') || 'No items'}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {activeItems.length} items
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="font-black text-sm text-foreground font-mono">
+                          {fmt(total)}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Subtotal: {fmt(subtotal)}
+                        </div>
+                      </td>
+                      <td className="py-3 px-4">
+                        {payBadge ? (
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${payBadge.bg} ${payBadge.text}`}>
+                            {tOrders(payBadge.labelKey)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">-</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4">
+                        {statusBadge ? (
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${statusBadge.bg} ${statusBadge.text}`}>
+                            {tOrders(statusBadge.labelKey)}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-muted-foreground">{order.status}</span>
+                        )}
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <div className="flex items-center justify-end gap-1.5 flex-wrap">
+                          {/* Print Bill with Dynamic UPI QR */}
+                          {order.bill && (
+                            <button
+                              onClick={() => handlePrint(order.bill!.id)}
+                              disabled={printingBillId === order.bill.id}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground disabled:opacity-50 transition-colors"
+                              title={tOrders('printReceipt')}
+                            >
+                              <Printer size={14} />
+                            </button>
+                          )}
+
+                          {/* Pay / Checkout */}
+                          {!paid && order.status !== 'cancelled' && (
+                            <Button
+                              size="sm"
+                              onClick={() => {
+                                if (order.bill) {
+                                  setPaymentBill(order.bill);
+                                } else {
+                                  handleCheckout(order.id);
+                                }
+                              }}
+                              disabled={generatingBill === order.id}
+                              className="h-7 px-2.5 bg-brand hover:bg-brand/90 text-white text-xs font-semibold"
+                            >
+                              <CreditCard size={12} className="me-1" />
+                              {order.bill ? tPos('checkout') : tOrders('checkout')}
+                            </Button>
+                          )}
+
+                          {/* WhatsApp Share */}
+                          {paid && order.customer?.phone && (
+                            <button
+                              onClick={() => (isWhatsAppReady ? handleSendViaFlo(order) : handleWhatsAppShare(order))}
+                              disabled={sendingWaOrderId === order.id}
+                              className="p-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white transition-colors disabled:opacity-70"
+                              title={isWhatsAppReady ? tCommon('sendViaFlo') : tCommon('shareViaWhatsApp')}
+                            >
+                              {sendingWaOrderId === order.id ? (
+                                <Loader2 className="size-3.5 animate-spin" />
+                              ) : (
+                                <Send size={14} />
+                              )}
+                            </button>
+                          )}
+
+                          {/* Add items */}
+                          {!['completed', 'cancelled'].includes(order.status) && (
+                            <button
+                              onClick={() => openAddItemsModal(order)}
+                              className="p-1.5 rounded-lg border border-border text-muted-foreground hover:bg-muted hover:text-foreground transition-colors"
+                              title={tOrders('addItem')}
+                            >
+                              <Plus size={14} />
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
         </div>
       ) : (
         <div className="flex-1 overflow-y-auto grid grid-cols-1 lg:grid-cols-2 2xl:grid-cols-3 gap-4 content-start items-start auto-rows-max">

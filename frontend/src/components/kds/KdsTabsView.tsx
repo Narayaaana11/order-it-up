@@ -95,6 +95,16 @@ export function KdsTabsView({ orders, updating, updateItemStatus }: KdsTabsViewP
                       ? tOrders(ORDER_TYPE_LABEL_KEYS[order.type as OrderType])
                       : order.type}
                   </Badge>
+                  {order.online_platform === 'swiggy' && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-black bg-[#fc8019] text-white tracking-wider shadow-sm">
+                      SWIGGY {order.aggregator_order_id ? `#${order.aggregator_order_id}` : ''}
+                    </span>
+                  )}
+                  {order.online_platform === 'zomato' && (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-black bg-[#cb202d] text-white tracking-wider shadow-sm">
+                      ZOMATO {order.aggregator_order_id ? `#${order.aggregator_order_id}` : ''}
+                    </span>
+                  )}
                   {order.table?.name && (
                     <Badge variant="secondary">{t('tableLabel', { name: order.table.name })}</Badge>
                   )}
@@ -104,6 +114,16 @@ export function KdsTabsView({ orders, updating, updateItemStatus }: KdsTabsViewP
                   <Ltr><ElapsedTime dateStr={order.created_at} /></Ltr>
                 </div>
               </div>
+
+              {(order.rider_name || order.rider_status) && (
+                <div className="mb-2 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg text-xs flex items-center justify-between font-medium text-blue-900 dark:text-blue-200">
+                  <span className="flex items-center gap-1.5">
+                    🛵 <span>{order.rider_name || 'Delivery Partner'}</span>
+                    <span className="px-1.5 py-0.5 rounded bg-blue-200/60 dark:bg-blue-800/60 text-[10px] font-bold uppercase">{order.rider_status || 'Assigned'}</span>
+                  </span>
+                  {order.rider_phone && <span className="font-mono text-[11px] opacity-80">{order.rider_phone}</span>}
+                </div>
+              )}
 
               {order.special_instructions && (
                 <div className="mb-2 px-2 py-1.5 bg-amber-50 border border-amber-200 rounded-lg">

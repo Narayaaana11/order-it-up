@@ -10,11 +10,10 @@ export default function GlobalNotifications() {
   const tCustomers = useTranslations('customers');
   const tCommon = useTranslations('common');
   const [invalidPhonesCount, setInvalidPhonesCount] = useState(0);
-  const [isOnline, setIsOnline] = useState(true);
+  const [isOnline, setIsOnline] = useState(() => typeof navigator !== 'undefined' ? navigator.onLine : true);
 
   // Offline detection
   useEffect(() => {
-    setIsOnline(navigator.onLine);
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);

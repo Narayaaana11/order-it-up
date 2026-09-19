@@ -38,6 +38,10 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (req.path.startsWith('/api/auth')) { next(); return; }
   // Central SaaS Admin routes have separate operator authentication
   if (req.path.startsWith('/api/admin')) { next(); return; }
+  // Public customer QR self-ordering routes (menu, order, tracking)
+  if (req.path.startsWith('/api/qr')) { next(); return; }
+  // Public webhooks (Swiggy / Zomato order ingestion and rider updates)
+  if (req.path.startsWith('/api/webhooks')) { next(); return; }
   // Allow unauthenticated GET requests for product images (so <img> tags work)
   if (req.path.startsWith('/api/products/') && req.path.endsWith('/image') && req.method === 'GET') { next(); return; }
 
@@ -89,9 +93,10 @@ export function getServerPort(): number {
 /** Locate Next.js static export directory for dev or packaged builds. */
 function getFrontendDir(): string | null {
   const candidates = [
-    // Development / unpackaged: relative to dist/main/ (compiled output of
-    // main/, see tsconfig rootDir covering shared/ since #441)
+    // Development / unpackaged: relative to dist/main/
     path.join(__dirname, '../../frontend/out'),
+    path.resolve(process.cwd(), 'frontend/out'),
+    path.join(__dirname, '../frontend/out'),
     // Packaged: electron-builder copies it to resources/frontend-out
     path.join(process.resourcesPath || '', 'frontend-out'),
   ];
@@ -130,6 +135,10 @@ export function resolveStaticPage(frontendDir: string, reqPath: string): string 
   // paths fall back to the root page without ever escaping frontendDir.
   if (!/^[A-Za-z0-9_-]+(?:\/[A-Za-z0-9_-]+)*$/.test(route)) {
     return path.join(frontendDir, 'index.html');
+  }
+  if (route === 'qr' || route.startsWith('qr/')) {
+    const qrCandidate = path.join(frontendDir, 'qr', 'index.html');
+    if (fs.existsSync(qrCandidate)) return qrCandidate;
   }
   const candidate = resolveContainedPath(frontendDir, route, 'index.html');
   if (!candidate) return path.join(frontendDir, 'index.html');
@@ -188,7 +197,7 @@ export function startServer(): Promise<void> {
       res.status(db.ok ? 200 : 503).json({
         status: db.ok ? 'ok' : 'error',
         db: db.ok ? 'ok' : db.error,
-        service: 'Flo Local API',
+        service: 'Order It Up Local API',
         version: process.env.npm_package_version || '2.4.7',
         timestamp: new Date().toISOString(),
       });
@@ -196,6 +205,19 @@ export function startServer(): Promise<void> {
 
     // ── All API routes ─────────────────────────────────────────────────
     registerRoutes(app);
+
+    // ── Serve Central Admin Dashboard ──────────────────────────────────
+    const adminDashboardCandidates = [
+      path.resolve(__dirname, '../../admin-dashboard'),
+      path.resolve(__dirname, '../admin-dashboard'),
+      path.resolve(process.cwd(), 'admin-dashboard'),
+    ];
+    const adminDashboardDir = adminDashboardCandidates.find((d) => fs.existsSync(d));
+    if (adminDashboardDir) {
+      console.log(`[Server] Serving admin dashboard from: ${adminDashboardDir}`);
+      app.use('/admin', express.static(adminDashboardDir));
+      app.use('/admin-dashboard', express.static(adminDashboardDir));
+    }
 
     // ── Serve Next.js static export ────────────────────────────────────
     // Must come AFTER API routes so /api/* is not caught by the SPA fallback.
@@ -223,7 +245,7 @@ export function startServer(): Promise<void> {
       app.use(express.static(frontendDir, { dotfiles: 'allow', index: false }));
 
       // Serve each Next.js static route index directly to avoid root redirects.
-      app.get(/^(?!\/api|\/kds).*$/, staticRouteRateLimit(), (req: Request, res: Response) => {
+      app.get(/^(?!\/api|\/kds|\/admin).*$/, staticRouteRateLimit(), (req: Request, res: Response) => {
         res.sendFile(resolveStaticPage(frontendDir, req.path), { dotfiles: 'allow' });
       });
     } else {
@@ -231,7 +253,7 @@ export function startServer(): Promise<void> {
       app.get('/', (_req: Request, res: Response) => {
         res.send(`
           <html><body style="font-family:sans-serif;padding:2rem">
-            <h2>Flo – Frontend not built</h2>
+            <h2>Order It Up – Frontend not built</h2>
             <p>Run <code>npm run build:frontend</code> then restart the app.</p>
           </body></html>
         `);

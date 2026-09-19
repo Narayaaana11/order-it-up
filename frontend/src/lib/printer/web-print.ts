@@ -1,6 +1,7 @@
 /** Thermal-width bill printing using browser print dialog for merchants without hardware printers. */
 
 import type { Bill, Tenant } from '@/lib/types';
+import api from '@/lib/api';
 import toast from 'react-hot-toast';
 import type { PrintWarning } from './warnings';
 import {
@@ -86,6 +87,12 @@ export interface WebPrintOptions {
   language?: Language;
   /** Resolved receipt languages supplied by the caller's print policy. */
   languages?: ResolvedPrintLanguages;
+  /** Custom UPI VPA / ID for payment QR code */
+  upiVpa?: string;
+  /** Base64 Data URL for pre-generated UPI QR code */
+  upiQrDataUrl?: string;
+  /** Whether to show the dynamic UPI payment QR code (defaults to true for INR) */
+  showUpiQr?: boolean;
 }
 
 /** Resolve tax-id label printed on receipt (special case for Iranian Economic Code). */
@@ -127,7 +134,24 @@ export async function printWebBill(
     message: `Receipt language "${language}" could not be loaded, so English labels were used. Check the locale bundle and retry.`,
     kind: 'locale' as const,
   }));
-  const html = generateBillHtml(bill, tenant, { ...opts, languages });
+
+  // Fetch local offline UPI QR Code for Indian currency tenants
+  let upiQrDataUrl = opts.upiQrDataUrl;
+  let upiVpa = opts.upiVpa;
+  const isIndianTenant = (tenant.currency || 'INR').toUpperCase() === 'INR' || (tenant.country || 'IN').toUpperCase() === 'IN';
+  if (opts.showUpiQr !== false && !upiQrDataUrl && bill.id && isIndianTenant) {
+    try {
+      const res = await api.get(`/bills/${bill.id}/upi-qr`);
+      if (res.data?.qr_data_url) {
+        upiQrDataUrl = res.data.qr_data_url;
+        upiVpa = res.data.vpa;
+      }
+    } catch {
+      // Non-blocking fallback to visual generator
+    }
+  }
+
+  const html = generateBillHtml(bill, tenant, { ...opts, languages, upiQrDataUrl, upiVpa });
 
   // 3. Write HTML and trigger print
   if (printWindow.closed) {
@@ -224,6 +248,9 @@ export function generateBillHtml(
     showTableNumber = true,
     isReprint = false,
     trimDecimals = false,
+    upiVpa,
+    upiQrDataUrl,
+    showUpiQr = true,
   } = opts;
 
   const languages = resolvePrintLanguages(opts);
@@ -402,6 +429,34 @@ export function generateBillHtml(
     </table>
     ` : ''}
 
+    ${(() => {
+      const isIndianTenant = (tenant.currency || 'INR').toUpperCase() === 'INR' || (tenant.country || 'IN').toUpperCase() === 'IN';
+      const effectiveVpa = upiVpa || 'orderitup@icici';
+      const grandTotalAmount = Number(totals ? totals.grandTotal.amount : bill.total || 0).toFixed(2);
+      const cleanBizName = (businessName || tenant.business_name || 'Restaurant').replace(/[^a-zA-Z0-9 ]/g, '').trim() || 'Restaurant';
+      const billNum = bill.bill_number || `INV-${bill.id}`;
+      const upiUri = `upi://pay?pa=${encodeURIComponent(effectiveVpa)}&pn=${encodeURIComponent(cleanBizName)}&am=${grandTotalAmount}&cu=INR&tn=${encodeURIComponent(`Bill ${billNum}`)}&tr=${encodeURIComponent(billNum)}`;
+      const effectiveQrUrl = upiQrDataUrl || (isIndianTenant && showUpiQr ? `https://api.qrserver.com/v1/create-qr-code/?size=250x250&margin=0&data=${encodeURIComponent(upiUri)}` : null);
+
+      if (!showUpiQr || !isIndianTenant || !effectiveQrUrl) return '';
+      return `
+      <!-- Dynamic UPI Payment QR Code Section -->
+      <div class="upi-payment-block">
+        <div class="upi-title">SCAN &amp; PAY VIA UPI</div>
+        <div class="upi-qr-frame">
+          <img src="${escapeHtml(effectiveQrUrl)}" alt="UPI QR Code" class="upi-qr-img" />
+        </div>
+        <div class="upi-amount">
+          Amount to Pay: <strong>${fmtAmount(Number(grandTotalAmount))}</strong>
+        </div>
+        <div class="upi-badges">
+          <span>GPay</span> &bull; <span>PhonePe</span> &bull; <span>Paytm</span> &bull; <span>BHIM</span> &bull; <span>Cred</span>
+        </div>
+        <div class="upi-vpa">UPI ID: ${escapeHtml(effectiveVpa)}</div>
+      </div>
+      `;
+    })()}
+
     <!-- Footer -->
     <div class="footer">
       ${messages?.footerNote ? `<p>${escapeHtml(messages.footerNote.text)}</p>` : `<p>${escapeHtml(L.thankYou)}</p>`}
@@ -486,6 +541,17 @@ function getPaperStyles(size: PaperSize): string {
     .ltr { direction: ltr; unicode-bidi: isolate; }
     .text-muted { color: #666; }
     .text-italic { font-style: italic; color: #888; }
+    .upi-payment-block { text-align: center; margin: 12px 0 10px 0; padding: 10px 8px; border: 1.5px dashed #0f172a; border-radius: 8px; background: #f8fafc; }
+    .upi-title { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #0f172a; text-transform: uppercase; margin-bottom: 5px; }
+    .upi-qr-frame { display: flex; justify-content: center; margin: 4px 0; }
+    .upi-qr-img { width: 130px; height: 130px; display: block; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; padding: 4px; margin: 0 auto; }
+    .upi-amount { font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 5px; }
+    .upi-badges { font-size: 9px; font-weight: 600; color: #475569; margin-top: 3px; }
+    .upi-vpa { font-size: 9px; color: #64748b; margin-top: 2px; font-family: monospace; }
+    @media print {
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      .no-print { display: none !important; }
+    }
   `;
 
   switch (size) {

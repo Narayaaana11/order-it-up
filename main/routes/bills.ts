@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from 'crypto';
+import QRCode from 'qrcode';
 import { Router, Request, Response } from 'express';
 import {
   attachEffectiveAddons,
@@ -2319,5 +2320,55 @@ router.get('/:id/print-history', requireRole(...ROLE_ACCESS.ownerManagerCashier)
     res.status(500).json({ error: "Internal server error" });
   }
 });
+
+// GET /api/bills/:id/upi-qr - Dynamic UPI QR code generator for bill
+router.get('/:id/upi-qr', requireRole(...ROLE_ACCESS.ownerManagerCashier), asyncHandler(async (req: Request, res: Response) => {
+  const db = getDatabase();
+  const bill = db.prepare(`
+    SELECT b.*, o.order_number, o.table_id, t.number as table_number
+    FROM bills b
+    JOIN orders o ON o.id = b.order_id
+    LEFT JOIN tables t ON t.id = o.table_id
+    WHERE b.id = ?
+  `).get(req.params.id) as any;
+
+  if (!bill) {
+    return res.status(404).json({ error: 'Bill not found' });
+  }
+
+  const businessName = getSettingValue('business_name') || 'Order It Up';
+  const rawVpa = getSettingValue('upi_id') || getSettingValue('upi_vpa') || 'orderitup@icici';
+  const vpa = rawVpa.trim();
+  const amount = Number(bill.total || 0).toFixed(2);
+  const billNumber = bill.bill_number || `INV-${bill.id}`;
+  const cleanMerchantName = businessName.replace(/[^a-zA-Z0-9 ]/g, '').trim() || 'Restaurant';
+
+  // Standard UPI URI format
+  const upiUri = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(cleanMerchantName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(`Bill ${billNumber}`)}&tr=${encodeURIComponent(billNumber)}`;
+
+  // Generate crisp QR code
+  const qrDataUrl = await QRCode.toDataURL(upiUri, {
+    width: 320,
+    margin: 1,
+    color: {
+      dark: '#0f172a',
+      light: '#ffffff',
+    },
+    errorCorrectionLevel: 'M',
+  });
+
+  res.json({
+    ok: true,
+    bill_id: bill.id,
+    bill_number: billNumber,
+    amount: Number(amount),
+    merchant_name: businessName,
+    vpa,
+    upi_uri: upiUri,
+    qr_data_url: qrDataUrl,
+    table_number: bill.table_number,
+    order_number: bill.order_number,
+  });
+}));
 
 export const billRoutes = router;

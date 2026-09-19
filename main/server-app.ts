@@ -41,6 +41,8 @@ export function isServerAppRunning(): boolean {
 function getStaticDir(): string | null {
   const candidates = [
     path.join(__dirname, '../../frontend/out'),
+    path.resolve(process.cwd(), 'frontend/out'),
+    path.join(__dirname, '../frontend/out'),
     path.join(process.resourcesPath || '', 'frontend-out'),
   ];
 
@@ -169,7 +171,7 @@ export function startServerApp(): Promise<void> {
     app.get('/api/health', (_req: Request, res: Response) => {
       res.json({
         status: 'ok',
-        service: 'Flo Server App',
+        service: 'Order It Up Server App',
         version: '1.0.0',
         timestamp: new Date().toISOString(),
       });
@@ -283,7 +285,7 @@ export function startServerApp(): Promise<void> {
       app.get('/', (_req: Request, res: Response) => {
         res.send(`
           <html><body style="font-family:sans-serif;padding:2rem">
-            <h2>Flo Server App - Build not found</h2>
+            <h2>Order It Up Server App - Build not found</h2>
             <p>Run <code>npm run build:frontend</code> then restart the app.</p>
           </body></html>
         `);

@@ -78,7 +78,7 @@
     "storageUnavailable": "Impossible d’enregistrer votre session. Votre navigateur bloque peut-être le stockage (navigation privée ou cookies désactivés).",
     "yourName": "Votre nom",
     "newBusinessLabel": "Nouvelle entreprise ?",
-    "createNewAccount": "Cr�er un nouveau compte ?"
+    "createNewAccount": "Cr�er un nouveau compte ?"
   },
   "backup": {
     "creating": "Création de la sauvegarde...",
@@ -352,7 +352,9 @@
     "confirmLogout": "Voulez-vous vraiment vous déconnecter ?",
     "customers": "Clients",
     "dashboard": "Tableau de bord",
+    "expenses": "Dépenses",
     "heapLabel": "Tas : ",
+    "inventory": "Inventaire",
     "kds": "KDS",
     "logout": "Déconnexion",
     "logoutTooltip": "Se déconnecter",
@@ -360,6 +362,8 @@
     "portLabel": "Port",
     "pos": "POS",
     "products": "Produits",
+    "reports": "Rapports",
+    "reservations": "Réservations",
     "serverLabel": "Serveur : ",
     "serverStatusRunning": "en cours d’exécution",
     "serverStatusStarting": "démarrage",
@@ -592,6 +596,7 @@
     "menuLoadFailed": "Impossible de charger les données du menu",
     "methodCard": "Carte",
     "methodCash": "Espèces",
+    "methodUpi": "UPI",
     "methodWallet": "Portefeuille",
     "nameAutoFills": "Le nom se remplit automatiquement",
     "nameRequired": "Le nom est requis",

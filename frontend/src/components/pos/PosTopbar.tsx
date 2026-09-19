@@ -83,7 +83,7 @@ export default function PosTopbar({ tables, onShowTablePicker, fullscreen, onTog
       )}
 
       {/* Search */}
-      <div className="relative flex-1 max-w-sm ml-auto">
+      <div className="relative flex-1 max-w-sm ms-auto">
         <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-muted-foreground pointer-events-none" />
         <input
           type="text"

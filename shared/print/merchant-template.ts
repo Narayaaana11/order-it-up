@@ -48,6 +48,8 @@ import type { PrintDocument, PrintDocumentBlock, SemanticLabel } from './documen
 // ---------------------------------------------------------------------------
 
 /** Discriminator stored inside every merchant template payload. */
+export const LEGACY_MERCHANT_TEMPLATE_FORMAT = 'flocafe-merchant-print-template';
+export const OIU_MERCHANT_TEMPLATE_FORMAT = 'orderitup-merchant-print-template';
 export const MERCHANT_TEMPLATE_FORMAT = 'flocafe-merchant-print-template';
 
 /** Supported document types (v1 ships receipts only). */
@@ -72,6 +74,8 @@ export const MAX_MERCHANT_TEMPLATE_ENVELOPE_BYTES = 256 * 1024;
  * (documented in docs/merchant-print-templates.md): stable field names,
  * fail-closed on unknown majors, unknown fields rejected on import.
  */
+export const LEGACY_MERCHANT_TEMPLATE_EXPORT_FORMAT = 'flocafe-merchant-template';
+export const OIU_MERCHANT_TEMPLATE_EXPORT_FORMAT = 'orderitup-merchant-template';
 export const MERCHANT_TEMPLATE_EXPORT_FORMAT = 'flocafe-merchant-template';
 
 /** Current transfer-envelope schema major version. Breaking when bumped. */
@@ -196,8 +200,8 @@ export function validateMerchantTemplateEnvelope(value: unknown): MerchantTempla
     }
   }
 
-  if (value.format !== MERCHANT_TEMPLATE_EXPORT_FORMAT) {
-    reject(errors, `root.format: expected "${MERCHANT_TEMPLATE_EXPORT_FORMAT}", got ${JSON.stringify(value.format)}`);
+  if (value.format !== MERCHANT_TEMPLATE_EXPORT_FORMAT && value.format !== OIU_MERCHANT_TEMPLATE_EXPORT_FORMAT) {
+    reject(errors, `root.format: expected "${MERCHANT_TEMPLATE_EXPORT_FORMAT}" or "${OIU_MERCHANT_TEMPLATE_EXPORT_FORMAT}", got ${JSON.stringify(value.format)}`);
   }
   if (value.schemaVersion !== MERCHANT_TEMPLATE_EXPORT_SCHEMA_VERSION) {
     reject(errors, `root.schemaVersion: unsupported transfer-file version ${JSON.stringify(value.schemaVersion)}; this build supports major version ${MERCHANT_TEMPLATE_EXPORT_SCHEMA_VERSION} only`);
@@ -322,8 +326,8 @@ export function validateMerchantTemplate(value: unknown): MerchantTemplateValida
   }
 
   // --- Format discriminator -------------------------------------------------
-  if (value.format !== MERCHANT_TEMPLATE_FORMAT) {
-    reject(errors, `root.format: expected "${MERCHANT_TEMPLATE_FORMAT}", got ${JSON.stringify(value.format)}`);
+  if (value.format !== MERCHANT_TEMPLATE_FORMAT && value.format !== OIU_MERCHANT_TEMPLATE_FORMAT) {
+    reject(errors, `root.format: expected "${MERCHANT_TEMPLATE_FORMAT}" or "${OIU_MERCHANT_TEMPLATE_FORMAT}", got ${JSON.stringify(value.format)}`);
   }
 
   // --- Document type --------------------------------------------------------

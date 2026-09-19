@@ -178,7 +178,7 @@ export function setupKdsWebSocket(wss: WebSocketServer): void {
 
     ws.send(JSON.stringify({
       type: 'connected',
-      message: 'Connected to Flo KDS',
+      message: 'Connected to Order It Up KDS',
       timestamp: new Date().toISOString(),
     }));
   });

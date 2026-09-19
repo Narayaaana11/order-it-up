@@ -1,8 +1,0 @@
-blank_issues_enabled: false
-contact_links:
-  - name: Order It Up Documentation
-    url: https://github.com/orderitup/pos#readme
-    about: Operating guidance, configuration, printers, and Indian GST workflows.
-  - name: Order It Up Security
-    url: https://github.com/orderitup/pos/security
-    about: Report potential vulnerabilities privately per SECURITY.md.

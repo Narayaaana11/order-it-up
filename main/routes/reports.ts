@@ -729,4 +729,155 @@ router.get('/z-report', requireRole(...ROLE_ACCESS.ownerManager), (req: Request,
   }
 });
 
+// ── Direct Dashboard BI Endpoints ─────────────────────────────────────────
+
+router.get('/financial', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+  try {
+    const today = reportToday();
+    const startDate = reportDate(req.query.start_date, today);
+    const endDate = reportDate(req.query.end_date, startDate);
+    const [start] = reportDayBounds(startDate);
+    const [, end] = reportDayBounds(endDate);
+    const db = getDatabase();
+    const minorFactor = getCurrencyMinorUnitFactor(getTenantCurrency(db));
+
+    const collections = db.prepare(`
+      SELECT COUNT(*) AS bill_count, COALESCE(SUM(paid_amount), 0) AS gross_collected
+      FROM bills WHERE paid_at >= ? AND paid_at < ?
+    `).get(start, end) as { bill_count: number; gross_collected: number };
+
+    const refundTotals = db.prepare(`
+      SELECT COUNT(*) AS refund_count, COALESCE(SUM(CAST(r.amount_cents AS REAL)) / ?, 0) AS refunded
+      FROM refunds r JOIN bills b ON b.id = r.bill_id
+      WHERE b.paid_at >= ? AND b.paid_at < ?
+    `).get(minorFactor, start, end) as { refund_count: number; refunded: number };
+
+    const grossCollected = Number(collections.gross_collected || 0);
+    const refunded = Number(refundTotals.refunded || 0);
+    const netCollected = grossCollected - refunded;
+    const billCount = Number(collections.bill_count || 0);
+    const refundCount = Number(refundTotals.refund_count || 0);
+    const averageOrderValue = billCount > 0 ? netCollected / billCount : 0;
+    const paymentMethods = paymentMethodBreakdown(db, startDate, endDate, true, true);
+
+    res.json({
+      startDate,
+      endDate,
+      grossCollected,
+      refunded,
+      netCollected,
+      billCount,
+      refundCount,
+      averageOrderValue,
+      paymentMethods,
+    });
+  } catch (error: any) {
+    console.error('[API] /financial report failed:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/top-products', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const today = reportToday();
+    const startDate = reportDate(req.query.start_date, today);
+    const endDate = reportDate(req.query.end_date, today);
+    const requestedLimit = Number(req.query.limit) || 10;
+    const [start] = reportDayBounds(startDate);
+    const [, end] = reportDayBounds(endDate);
+
+    const rows = db.prepare(`
+      SELECT oi.product_id as id, oi.product_name as name,
+        COALESCE(c.name, 'General') as category,
+        SUM(oi.quantity) as quantity,
+        SUM(oi.subtotal) as revenue
+      FROM order_items oi
+      JOIN orders o ON oi.order_id = o.id
+      LEFT JOIN products p ON p.id = oi.product_id
+      LEFT JOIN categories c ON c.id = p.category_id
+      WHERE o.created_at >= ? AND o.created_at < ? AND o.status != 'cancelled'
+      GROUP BY oi.product_id
+      ORDER BY quantity DESC
+      LIMIT ?
+    `).all(start, end, requestedLimit) as any[];
+
+    res.json({ products: rows });
+  } catch (error: any) {
+    console.error('[API] /top-products report failed:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/top-staff', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const today = reportToday();
+    const startDate = reportDate(req.query.start_date, today);
+    const endDate = reportDate(req.query.end_date, today);
+    const requestedLimit = Number(req.query.limit) || 10;
+    const [start] = reportDayBounds(startDate);
+    const [, end] = reportDayBounds(endDate);
+
+    const rows = db.prepare(`
+      SELECT u.id, u.name, u.role,
+        COALESCE(SUM(o.total), 0) as revenue,
+        COUNT(o.id) as orderCount
+      FROM orders o
+      JOIN users u ON u.id = o.user_id
+      WHERE o.created_at >= ? AND o.created_at < ? AND o.status != 'cancelled'
+      GROUP BY u.id
+      ORDER BY revenue DESC
+      LIMIT ?
+    `).all(start, end, requestedLimit) as any[];
+
+    res.json({ staff: rows });
+  } catch (error: any) {
+    console.error('[API] /top-staff report failed:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
+router.get('/tax-liability', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const today = reportToday();
+    const startDate = reportDate(req.query.start_date, today);
+    const endDate = reportDate(req.query.end_date, today);
+    const [start] = reportDayBounds(startDate);
+    const [, end] = reportDayBounds(endDate);
+
+    const bills = db.prepare(`
+      SELECT b.*
+      FROM bills b
+      JOIN orders o ON o.id = b.order_id
+      WHERE b.created_at >= ? AND b.created_at < ?
+        AND o.status != 'cancelled'
+      ORDER BY b.created_at, b.id
+    `).all(start, end) as any[];
+
+    const orders = getOrdersWithItemsForBills(db, bills);
+    const documents = bills.map((bill) => ({
+      tax_amount: bill.tax_amount,
+      tax_snapshot: bill.tax_snapshot,
+      tax_breakdown: bill.tax_breakdown,
+      items: orders.get(Number(bill.id))?.items || [],
+    }));
+    const totalTax = bills.reduce((sum, b) => sum + (Number(b.tax_amount) || 0), 0);
+    const taxableAmount = bills.reduce((sum, b) => sum + (Number(b.subtotal) || 0), 0);
+
+    res.json({
+      startDate,
+      endDate,
+      totalTax,
+      taxableAmount,
+      billCount: bills.length,
+      components: aggregateTaxComponents(documents),
+    });
+  } catch (error: any) {
+    console.error('[API] /tax-liability report failed:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export const reportRoutes = router;

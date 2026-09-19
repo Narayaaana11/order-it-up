@@ -588,7 +588,7 @@ export default function TablesPage() {
                 : 'border-border hover:shadow-md'
               }`}
             >
-              <div className={`absolute top-3 right-3 w-2.5 h-2.5 rounded-full ${
+              <div className={`absolute top-3 end-3 w-2.5 h-2.5 rounded-full ${
                 table.status === 'available' ? 'bg-green-500'
                 : table.status === 'occupied' ? 'bg-red-500'
                 : table.status === 'reserved' ? 'bg-amber-500'

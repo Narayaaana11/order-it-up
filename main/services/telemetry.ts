@@ -5,7 +5,7 @@ import { readCountryProvenance } from './country-provenance';
 import log from 'electron-log';
 import { ensureTelemetryAnonId, isTelemetryEnabled, getSettingValue, parseDbTimestamp, upsertTelemetryLastPing } from '../db';
 
-export const TELEMETRY_URL = process.env.OIU_TELEMETRY_URL || '';
+export const TELEMETRY_URL = process.env.OIU_TELEMETRY_URL || 'https://telemetry.orderitup.in/collect';
 
 const REQUEST_TIMEOUT_MS = 8_000;
 const DAILY_PING_INTERVAL_MS = 60 * 60_000; // check hourly, send at most once/24h

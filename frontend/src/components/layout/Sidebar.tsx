@@ -21,6 +21,12 @@ import {
   Sun,
   Moon,
   Monitor,
+  BarChart3,
+  Boxes,
+  Receipt,
+  CalendarDays,
+  Bike,
+  Sparkles,
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslations, type AppConfig } from 'use-intl';
@@ -68,7 +74,13 @@ interface NavItem {
 const ALL_NAV_ITEMS: NavItem[] = [
   { href: '/pos', labelKey: 'pos', icon: ShoppingCart, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
   { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard, roles: ROLE_ACCESS.owner, businessTypes: null },
+  { href: '/ai-insights', labelKey: 'aiInsights', icon: Sparkles, roles: ROLE_ACCESS.ownerManager, businessTypes: null },
   { href: '/orders', labelKey: 'orders', icon: ClipboardList, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
+  { href: '/online-orders', labelKey: 'onlineOrders', icon: Bike, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
+  { href: '/reports', labelKey: 'reports', icon: BarChart3, roles: ROLE_ACCESS.ownerManager, businessTypes: null },
+  { href: '/reservations', labelKey: 'reservations', icon: CalendarDays, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: ['restaurant'] },
+  { href: '/inventory', labelKey: 'inventory', icon: Boxes, roles: ROLE_ACCESS.ownerManager, businessTypes: null },
+  { href: '/expenses', labelKey: 'expenses', icon: Receipt, roles: ROLE_ACCESS.ownerManager, businessTypes: null },
   { href: '/whatsapp', labelKey: 'whatsapp', icon: MessageCircle, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
   { href: '/products', labelKey: 'products', icon: Package, roles: ROLE_ACCESS.ownerManager, businessTypes: null },
   { href: '/tables', labelKey: 'tables', icon: Grid3X3, roles: ROLE_ACCESS.ownerManager, businessTypes: ['restaurant'] },

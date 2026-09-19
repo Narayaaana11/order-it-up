@@ -547,7 +547,7 @@ function requestRuntimeRelaunch(reason: string): void {
       return;
     }
     try {
-      log.info('[Lifecycle] Runtime cleanup finished; relaunching Flo');
+      log.info('[Lifecycle] Runtime cleanup finished; relaunching Order It Up');
       performAppRelaunch();
       app.exit(0);
     } catch (error) {
@@ -983,7 +983,7 @@ function startMdns(): void {
   try {
     bonjour = new Bonjour();
     bonjour.publish({
-      name: 'Flo',
+      name: 'Order It Up',
       type: 'http',
       port: getServerPort(),
       host: 'flo',   // resolves as flo.local on the LAN
@@ -1345,7 +1345,7 @@ async function initialize(): Promise<void> {
       }
       return;
     }
-    dialog.showErrorBox('Initialization Error', `Failed to start Flo: ${error}`);
+    dialog.showErrorBox('Initialization Error', `Failed to start Order It Up: ${error}`);
 
     // Report fatal startup error to telemetry on a best-effort basis.
     try {

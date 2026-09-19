@@ -3073,7 +3073,7 @@ async function printViaUSBWindows(data: Buffer, printerName?: string, signal?: A
   }
 
   // %TEMP%, not C:\Windows\Temp — the latter is not writable by a standard user.
-  const tmpFile = path.join(os.tmpdir(), `flo_print_${process.pid}_${Date.now()}.bin`);
+  const tmpFile = path.join(os.tmpdir(), `oiu_print_${process.pid}_${Date.now()}.bin`);
 
   try {
     fs.writeFileSync(tmpFile, data);

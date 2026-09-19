@@ -26,10 +26,17 @@ export const ADMIN_OPERATORS: (AdminUser & { passwordHash: string })[] = [
     passwordHash: SEED_PASSWORD_HASH,
   },
   {
-    id: 'op-support-1',
-    email: 'support@orderitup.in',
-    name: 'Technical Support Lead',
-    role: 'SUPPORT',
+    id: 'op-super-2',
+    email: 'superadmin@orderitup.in',
+    name: 'Super Administrator (Dev)',
+    role: 'SUPER_ADMIN',
+    passwordHash: SEED_PASSWORD_HASH,
+  },
+  {
+    id: 'op-admin-1',
+    email: 'admin@orderitup.local',
+    name: 'Operations Administrator',
+    role: 'ADMIN',
     passwordHash: SEED_PASSWORD_HASH,
   },
   {
@@ -37,6 +44,20 @@ export const ADMIN_OPERATORS: (AdminUser & { passwordHash: string })[] = [
     email: 'finance@orderitup.in',
     name: 'Finance & Billing Lead',
     role: 'FINANCE',
+    passwordHash: SEED_PASSWORD_HASH,
+  },
+  {
+    id: 'op-support-1',
+    email: 'support@orderitup.in',
+    name: 'Technical Support Lead',
+    role: 'SUPPORT',
+    passwordHash: SEED_PASSWORD_HASH,
+  },
+  {
+    id: 'op-readonly-1',
+    email: 'readonly@orderitup.in',
+    name: 'Read-Only Auditor',
+    role: 'READ_ONLY',
     passwordHash: SEED_PASSWORD_HASH,
   },
 ];

@@ -93,6 +93,11 @@ export default function StatusBar({ showUpdateBadge = true }: { showUpdateBadge?
       )}
 
       <div className="ms-auto flex h-full items-center divide-x divide-border/70">
+        <div className="hidden items-center gap-1 px-3 text-[10px] text-muted-foreground font-medium lg:flex">
+          <span>By</span>
+          <span className="font-semibold text-foreground/90">IndentDev</span>
+        </div>
+
         <div className="flex items-center gap-1.5 px-3" title={tNav('portLabel')}>
           <Server size={13} className="text-muted-foreground/70" />
           <span className="hidden text-muted-foreground lg:inline">{tNav('portLabel')}</span>

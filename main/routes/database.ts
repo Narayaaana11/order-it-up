@@ -93,13 +93,13 @@ router.get('/export', requireRole(...ROLE_ACCESS.owner), (req: Request, res: Res
     });
 
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `flo-export-${timestamp}.json`;
+    const filename = `order-it-up-export-${timestamp}.json`;
 
     res.setHeader('Content-Type', 'application/json');
     res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
     res.json({
       version: 1,
-      app: 'FloDesktop',
+      app: 'OrderItUp',
       exported_at: new Date().toISOString(),
       schema_version: String(getCurrentSchemaVersion()),
       redacted_fields: result.redactedFields,
@@ -452,10 +452,10 @@ router.get('/download', requireRole(...ROLE_ACCESS.owner), requireMasterPin, asy
   let tempDir: string | null = null;
   try {
     const dbPath = getDbPath();
-    tempDir = fs.mkdtempSync(path.join(path.dirname(dbPath), '.flo-download-'));
-    const snapshotPath = path.join(tempDir, 'flo-database.db');
+    tempDir = fs.mkdtempSync(path.join(path.dirname(dbPath), '.oiu-download-'));
+    const snapshotPath = path.join(tempDir, 'order-it-up-database.db');
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    const filename = `flo-database-${timestamp}.db`;
+    const filename = `order-it-up-database-${timestamp}.db`;
 
     // Download a clean checkpointed backup rather than streaming the live WAL
     // file. The temporary snapshot is independent of later restore/reset work.

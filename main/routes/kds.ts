@@ -224,7 +224,7 @@ router.post('/pairing', requireRole(...ROLE_ACCESS.ownerManager), (req: Request,
       VALUES (?, ?, ?, ?, ?)
     `).run(tokenId, token, station_id || null, expiresAt, now());
 
-    const pairingUrl = `flo://kds/pair?token=${token}`;
+    const pairingUrl = `oiu://kds/pair?token=${token}`;
     const webUrl = `/kds/pair?token=${token}`;
 
     res.status(201).json({

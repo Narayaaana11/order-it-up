@@ -25,14 +25,19 @@ import * as os from 'os';
 type Database = InstanceType<typeof DatabaseSync>;
 
 const candidatePaths = [
+  process.env.OIU_DB,
   process.env.FLO_DB,
+  path.join(os.homedir(), 'Sites/order-it-up.db'),
   path.join(os.homedir(), 'Sites/flo.db'),
+  path.join(os.homedir(), 'Library/Application Support/Order It Up/order-it-up.db'),
   path.join(os.homedir(), 'Library/Application Support/Flo/flo.db'),
+  path.join(process.cwd(), 'order-it-up.db'),
   path.join(process.cwd(), 'flo.db'),
+  path.join(process.cwd(), '..', 'order-it-up.db'),
   path.join(process.cwd(), '..', 'flo.db'),
 ].filter(Boolean) as string[];
 
-console.log('🔍 FloDesktop DB Integrity Audit');
+console.log('🔍 Order It Up DB Integrity Audit');
 console.log('='.repeat(60));
 
 const targets: string[] = [];

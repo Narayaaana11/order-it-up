@@ -230,7 +230,7 @@ function assertEqual(actual: any, expected: any, message: string) {
 
 // ── Tests ───────────────────────────────────────────────────────────────────
 
-console.log('🧪 FloDesktop Backup/Restore Tests\n');
+console.log('🧪 Order It Up Backup/Restore Tests\n');
 console.log('='.repeat(50));
 
 cleanup();

@@ -1,5 +1,5 @@
 /**
- * FloDesktop Printer Tests
+ * Order It Up Printer Tests
  *
  * Usage:
  *   npm run test:printer            # format tests only (no hardware)
@@ -275,7 +275,7 @@ const fixtureBusiness = {
   taxRegistrationNumber: 'TAXID-0001',
 };
 
-console.log('🧪 FloDesktop Printer Tests');
+console.log('🧪 Order It Up Printer Tests');
 console.log('='.repeat(60));
 
 console.log('\n✅ Test 1: buildEscPos emits correct control bytes');

@@ -65,7 +65,7 @@ function isNativeAbiMismatch(error: any): boolean {
 }
 
 async function main() {
-  console.log('🧪 FloDesktop First-Run Setup Tests');
+  console.log('🧪 Order It Up First-Run Setup Tests');
   console.log('='.repeat(60));
 
   let profileRefreshes = 0;

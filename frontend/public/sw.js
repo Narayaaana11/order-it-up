@@ -1,4 +1,4 @@
-const CACHE_NAME = 'flo-v19';
+const CACHE_NAME = 'oiu-v19';
 const PRECACHE_URLS = [
   '/dashboard',
   '/pos',

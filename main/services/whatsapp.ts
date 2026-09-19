@@ -884,7 +884,7 @@ async function sendMessageInternal(req: QueuedSend, signal: AbortSignal): Promis
   if (!state.enabled || isWhatsAppTerminal()) return { ok: false, error: 'WhatsApp is not enabled.', reason: 'feature_off' };
   if (!req.phoneE164) return { ok: false, error: 'Phone number required.', reason: 'no_phone' };
   if (state.state !== 'connected' || !state.socket) {
-    return { ok: false, error: 'Flo is not connected to WhatsApp.', reason: 'not_connected' };
+    return { ok: false, error: 'Order It Up is not connected to WhatsApp.', reason: 'not_connected' };
   }
   const socket = state.socket;
   const jid = await resolveJid(req.phoneE164, socket, signal);

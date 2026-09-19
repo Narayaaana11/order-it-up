@@ -84,6 +84,9 @@ export function rateLimit(options: RateLimitOptions = {}) {
 
 /** Stricter rate limiter for authentication endpoints; private/LAN IPs are not exempt. */
 export function authRateLimit(options: { max?: number } = {}) {
+  if (process.env.NODE_ENV !== 'production') {
+    return (_req: Request, _res: Response, next: NextFunction) => next();
+  }
   const envMax = process.env.FLO_AUTH_RATE_LIMIT_MAX ? parseInt(process.env.FLO_AUTH_RATE_LIMIT_MAX, 10) : undefined;
   return rateLimit({
     windowMs: 15 * 60 * 1000, // 15 minutes

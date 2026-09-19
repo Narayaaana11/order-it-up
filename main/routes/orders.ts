@@ -17,6 +17,7 @@ import { requireRole } from '../middleware/security';
 import { ROLE_ACCESS, hasRole } from '../../shared/role-permissions';
 import { getCurrencyFractionDigits, getCurrencyMinorUnitFactor } from '../countries';
 import { getTenantCurrency } from './bills';
+import { deductIngredientsForOrderItems, restoreIngredientsForOrderItems } from '../services/inventory-engine';
 import expressRateLimit from 'express-rate-limit';
 
 const router = Router();
@@ -580,6 +581,9 @@ router.post('/', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req: R
         }
       }
 
+      // Deduct raw ingredients if recipes are configured for these products
+      deductIngredientsForOrderItems(items, orderNumber, true);
+
       const chargeTaxes = calculateConfiguredChargeTaxes(tenantInfo, chargeContext, customer);
       const currency = getTenantCurrency();
       const decimals = getCurrencyFractionDigits(currency);
@@ -1027,6 +1031,9 @@ router.patch('/:id/status', orderWriteRateLimit, requireRole(...ROLE_ACCESS.orde
                 .run(item.inventory_deducted_quantity, nowStr, product.id);
             }
           }
+
+          // Restore raw ingredients if recipes are configured for these products
+          restoreIngredientsForOrderItems(eligibleItems, currentOrder.order_number, 'Order Cancellation');
 
           db.prepare(`
             UPDATE order_items SET status = 'cancelled', updated_at = ?

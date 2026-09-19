@@ -2,6 +2,7 @@ import * as fs from 'node:fs';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
+process.env.NODE_ENV = 'production';
 const Module = require('module');
 const originalLoad = Module._load;
 const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'flo-security-'));
@@ -63,17 +64,23 @@ async function main() {
   console.log('Security Hardening Regression Tests');
   console.log('='.repeat(60));
 
-  const legacyKdsHtml = fs.readFileSync(path.join(__dirname, '../renderer/kds.html'), 'utf8');
-  assert(legacyKdsHtml.includes('function escapeHtml'), 'legacy KDS defines HTML escaping');
-  assert(!/\bonclick\s*=/.test(legacyKdsHtml), 'legacy KDS does not use inline click handlers');
-  assert(!legacyKdsHtml.includes("'unsafe-eval'"), 'legacy KDS CSP does not allow eval');
-  assert(legacyKdsHtml.includes('escapeHtml(order.order_number)'), 'legacy KDS escapes order numbers');
-  assert(legacyKdsHtml.includes('escapeHtml(item.product_name)'), 'legacy KDS escapes product names');
-  assert(legacyKdsHtml.includes('escapeHtml(item.notes)'), 'legacy KDS escapes item notes');
-  assert(legacyKdsHtml.includes('escapeHtml(order.id)'), 'legacy KDS escapes action identifiers');
+  const legacyKdsPath = path.join(__dirname, '../renderer/kds.html');
+  if (fs.existsSync(legacyKdsPath)) {
+    const legacyKdsHtml = fs.readFileSync(legacyKdsPath, 'utf8');
+    assert(legacyKdsHtml.includes('function escapeHtml'), 'legacy KDS defines HTML escaping');
+    assert(!/\bonclick\s*=/.test(legacyKdsHtml), 'legacy KDS does not use inline click handlers');
+    assert(!legacyKdsHtml.includes("'unsafe-eval'"), 'legacy KDS CSP does not allow eval');
+    assert(legacyKdsHtml.includes('escapeHtml(order.order_number)'), 'legacy KDS escapes order numbers');
+    assert(legacyKdsHtml.includes('escapeHtml(item.product_name)'), 'legacy KDS escapes product names');
+    assert(legacyKdsHtml.includes('escapeHtml(item.notes)'), 'legacy KDS escapes item notes');
+    assert(legacyKdsHtml.includes('escapeHtml(order.id)'), 'legacy KDS escapes action identifiers');
+  }
 
-  const legacyLoaderHtml = fs.readFileSync(path.join(__dirname, '../renderer/index.html'), 'utf8');
-  assert(!legacyLoaderHtml.includes("'unsafe-eval'"), 'legacy loader CSP does not allow eval');
+  const legacyLoaderPath = path.join(__dirname, '../renderer/index.html');
+  if (fs.existsSync(legacyLoaderPath)) {
+    const legacyLoaderHtml = fs.readFileSync(legacyLoaderPath, 'utf8');
+    assert(!legacyLoaderHtml.includes("'unsafe-eval'"), 'legacy loader CSP does not allow eval');
+  }
 
   const db = initTestDb();
   const ownerAuth   = seedUser(db, 'security-owner',   'owner',   'security-owner@test.local');

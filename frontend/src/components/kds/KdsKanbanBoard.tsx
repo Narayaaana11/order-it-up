@@ -2,9 +2,8 @@
 
 import { PointerActivationConstraints, PointerSensor } from '@dnd-kit/dom';
 import { DragDropProvider, useDraggable, type DragEndEvent } from '@dnd-kit/react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
-import { ElapsedTime } from '@/components/kds/ElapsedTime';
 import { KdsColumn } from '@/components/kds/KdsColumn';
 import { KdsItemModal } from '@/components/kds/KdsItemModal';
 import { Badge } from '@/components/ui/badge';
@@ -221,6 +220,16 @@ function KanbanOrderCard({
                 ? tOrders(ORDER_TYPE_LABEL_KEYS[order.type as OrderType])
                 : order.type}
             </Badge>
+            {order.online_platform === 'swiggy' && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-black bg-[#fc8019] text-white tracking-wider shadow-sm">
+                SWIGGY {order.aggregator_order_id ? `#${order.aggregator_order_id}` : ''}
+              </span>
+            )}
+            {order.online_platform === 'zomato' && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-black bg-[#cb202d] text-white tracking-wider shadow-sm">
+                ZOMATO {order.aggregator_order_id ? `#${order.aggregator_order_id}` : ''}
+              </span>
+            )}
             {order.table?.name && (
               <Badge variant="secondary" className="text-xs font-semibold">{t('tableLabel', { name: order.table.name })}</Badge>
             )}
@@ -228,6 +237,16 @@ function KanbanOrderCard({
           {/* Timer — large and urgent-colored when old */}
           <ElapsedTimeBadge dateStr={order.created_at} />
         </div>
+
+        {(order.rider_name || order.rider_status) && (
+          <div className="mx-3 mt-2 px-2.5 py-1.5 bg-blue-50 dark:bg-blue-950/40 border border-blue-200 dark:border-blue-800 rounded-lg text-xs flex items-center justify-between font-medium text-blue-900 dark:text-blue-200">
+            <span className="flex items-center gap-1.5">
+              🛵 <span>{order.rider_name || 'Delivery Partner'}</span>
+              <span className="px-1.5 py-0.5 rounded bg-blue-200/60 dark:bg-blue-800/60 text-[10px] font-bold uppercase">{order.rider_status || 'Assigned'}</span>
+            </span>
+            {order.rider_phone && <span className="font-mono text-[11px] opacity-80">{order.rider_phone}</span>}
+          </div>
+        )}
 
         {order.special_instructions && (
           <p className="mx-3 mt-2 px-2 py-1.5 bg-amber-50 dark:bg-amber-900/20 border border-amber-300 rounded-lg text-sm text-amber-800 dark:text-amber-200 font-semibold break-words">
@@ -270,8 +289,12 @@ function KanbanOrderCard({
 
 // Urgency-aware elapsed time badge — turns amber after 10 min, red after 20 min.
 function ElapsedTimeBadge({ dateStr }: { dateStr: string }) {
+  const [now, setNow] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setNow(Date.now()), 10000);
+    return () => clearInterval(id);
+  }, []);
   const start = new Date(dateStr).getTime();
-  const now = Date.now();
   const minutes = Math.floor((now - start) / 60000);
   const display = minutes < 60
     ? `${minutes}m`

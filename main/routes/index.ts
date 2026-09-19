@@ -37,6 +37,13 @@ import { mongodbRoutes } from './mongodb';
 import { amazonS3Routes } from './amazon-s3';
 import { subscriptionRoutes } from './subscription';
 import { adminRoutes } from '../admin/routes';
+import { inventoryRoutes } from './inventory';
+import { vendorRoutes } from './vendors';
+import { expenseRoutes } from './expenses';
+import { reservationRoutes } from './reservations';
+import { qrOrderRoutes } from './qr-order';
+import { aggregatorRoutes } from './aggregators';
+import { aiRoutes } from './ai';
 import { getDatabase, now, parseItemJson, attachEffectiveAddons, withTxn, getSettingValue, getCachedPairingCode, setCachedPairingCode, verifyPin } from '../db';
 import { checkPinRateLimit } from './orders';
 import { getCurrencyFractionDigits, getCurrencyMinorUnitFactor } from '../countries';
@@ -66,9 +73,9 @@ function mobilePairingErrorStatus(error: any): number {
 
 function mobilePairingErrorMessage(error: any): string {
   if (isUnregisteredCloudError(error)) {
-    return 'This POS hasn’t been claimed in FloAdmin yet. Complete registration in FloAdmin, then try generating a pairing code again.';
+    return 'This POS hasn’t been claimed in Cloud Admin yet. Complete registration in Cloud Admin, then try generating a pairing code again.';
   }
-  return error?.message || 'Could not reach FloAdmin';
+  return error?.message || 'Could not reach Cloud Admin';
 }
 
 const inlineCustomerLookupRateLimit = expressRateLimit({ windowMs: 60 * 1000, limit: 120, standardHeaders: true, legacyHeaders: false });
@@ -114,6 +121,13 @@ export function registerRoutes(app: Express): void {
   app.use('/api/s3', amazonS3Routes);
   app.use('/api/subscription', subscriptionRoutes);
   app.use('/api/admin', adminRoutes);
+  app.use('/api/inventory', inventoryRoutes);
+  app.use('/api/vendors', vendorRoutes);
+  app.use('/api/expenses', expenseRoutes);
+  app.use('/api/reservations', reservationRoutes);
+  app.use('/api/qr', qrOrderRoutes);
+  app.use('/api', aggregatorRoutes);
+  app.use('/api', aiRoutes);
 
   // Tax preview
   app.post('/api/tax/preview', asyncHandler(async (req, res) => {
@@ -198,8 +212,8 @@ export function registerRoutes(app: Express): void {
       const devices = await cloudSync.listPairedDevices();
       res.json({ devices });
     } catch (error: any) {
-      console.error('[API] FloAdmin request failed:', error);
-      res.status(502).json({ error: 'Could not reach FloAdmin' });
+      console.error('[API] Cloud Admin request failed:', error);
+      res.status(502).json({ error: 'Could not reach Cloud Admin' });
     }
   }));
 

@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to Flo Cafe are documented here. Dates are release dates, not commit dates. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
+All notable changes to Order It Up are documented here. Dates are release dates, not commit dates. Format loosely follows [Keep a Changelog](https://keepachangelog.com/).
 
 ## [3.7.2] - 2026-09-06
 

@@ -392,6 +392,7 @@ const FA_INTENTIONAL_IDENTICAL: ReadonlySet<string> = new Set([
   'settings.apiKeyInputPlaceholder', // example API key
   'settings.connectionUsb', // technical acronym
   'settings.paymentMethodUpi', // technical acronym (payment rail name)
+  'pos.methodUpi', // technical acronym (payment rail name)
   'settings.instagramPlaceholder', // example handle
   'settings.ipAddressPlaceholder', // example IP
   'settings.kds', // technical acronym
@@ -481,6 +482,7 @@ const FR_INTENTIONAL_IDENTICAL: ReadonlySet<string> = new Set([
   'settings.apiKeyInputPlaceholder', // example API key
   'settings.connectionUsb', // technical acronym
   'settings.paymentMethodUpi', // technical acronym (payment rail name)
+  'pos.methodUpi', // technical acronym (payment rail name)
   'settings.instagramPlaceholder', // example handle
   'settings.ipAddressPlaceholder', // example IP
   'settings.iranCurrencyDisplayRial', // currency name and native script
@@ -532,6 +534,7 @@ function frFallbackErrors(frFlat: Record<string, string>, enFlat: Record<string,
 
 const TR_INTENTIONAL_IDENTICAL = new Set<string>([
   'settings.paymentMethodUpi', // technical acronym (payment rail name)
+  'pos.methodUpi', // technical acronym (payment rail name)
   'common.appTitle', // brand name "OTU" / "Order It Up"
   'common.brandName', // brand name "Order It Up"
   'common.logoAlt', // brand name "Order It Up"
@@ -710,6 +713,7 @@ const FIL_INTENTIONAL_IDENTICAL = new Set<string>([
   'settings.connectionNetwork',
   'settings.connectionUsb',
   'settings.paymentMethodUpi', // technical acronym (payment rail name)
+  'pos.methodUpi', // technical acronym (payment rail name)
   'settings.cashDrawerPulseEnabledShort',
   'settings.currency',
   'settings.default',
@@ -884,6 +888,7 @@ const DE_INTENTIONAL_IDENTICAL = new Set<string>([
   'settings.apiKeyInputPlaceholder',
   'settings.connectionUsb',
   'settings.paymentMethodUpi', // technical acronym (payment rail name)
+  'pos.methodUpi', // technical acronym (payment rail name)
   'settings.errorDetails',
   'settings.ipAddressPlaceholder',
   'settings.iranCurrencyDisplayRial',

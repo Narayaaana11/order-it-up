@@ -26,18 +26,18 @@ if (fs.existsSync(envPath)) {
 
 const path = require('path');
 const os = require('os');
-const devUserDataPath = process.env.FLO_DEV_USER_DATA || __dirname;
+const devUserDataPath = process.env.OIU_DEV_USER_DATA || process.env.FLO_DEV_USER_DATA || __dirname;
 
 // ── Mock Electron's `app` module ──────────────────────────────────────────────
 const mockApp = {
-  isPackaged: Boolean(process.env.FLO_DEV_USER_DATA),
+  isPackaged: Boolean(process.env.OIU_DEV_USER_DATA || process.env.FLO_DEV_USER_DATA),
   getPath: (name) => {
     if (name === 'userData') return devUserDataPath;
     if (name === 'documents') return os.homedir();
     return os.tmpdir();
   },
   getVersion: () => require('./package.json').version,
-  getName: () => 'Flo (dev)',
+  getName: () => 'Order It Up (dev)',
 };
 
 require('module').Module._resolveFilename = (function (original) {

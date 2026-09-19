@@ -301,7 +301,7 @@ async function runTransfer(): Promise<void> {
     const exported = await request(app).get(`/api/print-templates/${templateId}/export`)
       .set('Authorization', OWNER);
     assert.equal(exported.status, 200);
-    assert.match(exported.headers['content-disposition'], /attachment;\s*filename="front-counter-receipt\.flocafe-template\.json"/);
+    assert.match(exported.headers['content-disposition'], /attachment;\s*filename="front-counter-receipt\.orderitup-template\.json"/);
     exportedText = exported.text;
     const envelope = JSON.parse(exportedText);
     assert.equal(envelope.format, MERCHANT_TEMPLATE_EXPORT_FORMAT);
@@ -345,7 +345,7 @@ async function runTransfer(): Promise<void> {
     const filename = /filename="([^"]+)"/.exec(weirdExport.headers['content-disposition'])![1];
     assert(!/[\\/]/.test(filename), 'no path separators in download filename');
     assert(!filename.startsWith('.'), 'no dotfile/traversal filenames');
-    assert.match(filename, /\.flocafe-template\.json$/);
+    assert.match(filename, /\.orderitup-template\.json$/);
     ok(`hostile names sanitize to traversal-proof filenames (${JSON.stringify(filename)})`);
 
     // A payload just inside the write cap can pretty-print past the transfer
@@ -421,7 +421,7 @@ async function runTransfer(): Promise<void> {
       const imported = await request(app).post('/api/print-templates/import')
         .set('Authorization', OWNER)
         .send(attempt === 0
-          ? { file: exportedText, fileName: '/home/someone/front-counter-receipt.flocafe-template.json' }
+          ? { file: exportedText, fileName: '/home/someone/front-counter-receipt.orderitup-template.json' }
           : { file: exportedText });
       assert.equal(imported.status, 201, `import returns 201 (got ${imported.status})`);
       const template = imported.body.template;
@@ -429,7 +429,7 @@ async function runTransfer(): Promise<void> {
       assert.equal(template.origin, 'imported');
       assert.notEqual(template.id, templateId, 'imports always mint a fresh identity');
       assert.equal(template.derivedFrom.type, 'offline-import');
-      assert.equal(template.derivedFrom.fileName, attempt === 0 ? 'front-counter-receipt.flocafe-template.json' : undefined,
+      assert.equal(template.derivedFrom.fileName, attempt === 0 ? 'front-counter-receipt.orderitup-template.json' : undefined,
         'client file paths reduce to a bare informational file name');
       importedId = template.id;
 
