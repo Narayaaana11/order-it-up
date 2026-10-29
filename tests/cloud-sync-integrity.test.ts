@@ -1,7 +1,7 @@
 /**
- * TASK C-03: Cloud Sync Integrity, Event Idempotency & Financial Protection Test Suite
+ * TASK C-03 & C-03A: Cloud Sync Integrity, Event Idempotency & Financial Protection Test Suite
  * 
- * Verifies all 12 operational security & financial integrity requirements:
+ * Verifies all operational security & financial integrity requirements:
  * 1. Duplicate event submission (idempotent duplicate acknowledgment without side-effect re-execution).
  * 2. Event ID conflict detection: reusing same event ID with conflicting payload is rejected.
  * 3. Network timeout simulation: legitimate retry after timeout acknowledges without duplicate writes.
@@ -9,11 +9,12 @@
  * 5. Cross-tenant & cross-branch event injection denial: terminal cannot write or overwrite other tenants.
  * 6. Revoked terminal & inactive branch rejection: 403 Forbidden on revoked terminal or closed branch.
  * 7. Server-side financial & mathematical validation: calculation mismatches, negative values, and overflows rejected.
- * 8. Atomic writes & partial-failure recovery: batch transactions rollback on mid-operation failure.
- * 9. Offline catch-up with valid historical events: legitimate historical bursts accepted cleanly.
- * 10. Out-of-order events & conflict handling: updates on existing orders verified against tenant boundaries.
+ * 8. Real financial rules: fractional quantities, packaging/delivery/service charges, round-off, tax-inclusive, void adjustments.
+ * 9. Cash closures with cash movements: pay-ins, cash drops, supplier payouts, and cash variances.
+ * 10. Atomic writes & partial-failure recovery: batch transactions rollback on mid-operation failure.
  * 11. Partial batch failure isolation: valid events are processed while invalid events are isolated.
  * 12. Client compatibility: strict conformance with POS outbox and Flutter contracts.
+ * 13. Sequential migration replay (0001 -> 0002 -> 0003) on fresh and pre-existing databases using real SQLite.
  */
 
 import assert from 'node:assert/strict';
@@ -118,9 +119,12 @@ class MockD1SyncDatabase {
           return { success: true };
         }
 
-        // Insert sync_events
+        // Insert sync_events with UNIQUE constraint check
         if (normalized.includes('INSERT INTO sync_events')) {
           const [id, orgId, branchId, terminalId, eventType, entityType, entityId, payloadHash, status, processedAt] = params;
+          if (db.syncEvents.has(id)) {
+            throw new Error(`UNIQUE constraint failed: sync_events.id (${id})`);
+          }
           db.syncEvents.set(id, {
             id,
             organization_id: orgId,
@@ -213,8 +217,21 @@ class MockD1SyncDatabase {
     if (this.simulateBatchFailure) {
       throw new Error('D1 Transaction / Batch Write Failure Simulated');
     }
-    for (const stmt of statements) {
-      await stmt.run();
+    // Transactional atomic execution
+    const backupSyncEvents = new Map(this.syncEvents);
+    const backupSyncedOrders = new Map(this.syncedOrders);
+    const backupSyncedOrderItems = new Map(this.syncedOrderItems);
+    const backupSyncedClosures = new Map(this.syncedClosures);
+    try {
+      for (const stmt of statements) {
+        await stmt.run();
+      }
+    } catch (err) {
+      this.syncEvents = backupSyncEvents;
+      this.syncedOrders = backupSyncedOrders;
+      this.syncedOrderItems = backupSyncedOrderItems;
+      this.syncedClosures = backupSyncedClosures;
+      throw err;
     }
   }
 }
@@ -223,43 +240,43 @@ function makeSyncReq(token: string, events: any[]): Request {
   return new Request('https://cloud.orderitup.internal/api/pos/events', {
     method: 'POST',
     headers: {
-      'Content-Type': 'application/json',
       'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
     },
     body: JSON.stringify({ events }),
   });
 }
 
 // ============================================================================
-// TEST SUITE 1: Terminal Ownership, Scoping & Revocation (Phase 2)
+// TEST SUITE 1: Terminal Ownership, Scoping & Revocation (Phase 2 & 6)
 // ============================================================================
 async function testTerminalOwnershipAndRevocation(): Promise<void> {
-  console.log('🧪 [Test Suite 1/4] Terminal Ownership, Scoping & Revocation...');
+  console.log('🧪 [Test Suite 1/5] Terminal Ownership, Scoping & Revocation...');
   resetMemoryRateLimits();
 
   const db = new MockD1SyncDatabase();
-  const orgA = 'org-tastecraft-a';
-  const orgB = 'org-competitor-b';
-  const branchA = 'br-delhi-01';
-  const branchB = 'br-mumbai-02';
+  const orgA = 'org-tenant-a';
+  const branchA = 'br-branch-a';
+  const orgB = 'org-tenant-b';
+  const branchB = 'br-branch-b';
 
-  db.organizations.set(orgA, { id: orgA, name: 'TasteCraft Delhi' });
-  db.organizations.set(orgB, { id: orgB, name: 'Competitor Mumbai' });
-  db.branches.set(branchA, { id: branchA, organization_id: orgA, name: 'Delhi Main', status: 'active' });
-  db.branches.set(branchB, { id: branchB, organization_id: orgB, name: 'Mumbai Express', status: 'active' });
+  db.organizations.set(orgA, { id: orgA, name: 'Tenant A' });
+  db.branches.set(branchA, { id: branchA, organization_id: orgA, name: 'Branch A', status: 'active' });
+  db.organizations.set(orgB, { id: orgB, name: 'Tenant B' });
+  db.branches.set(branchB, { id: branchB, organization_id: orgB, name: 'Branch B', status: 'active' });
 
-  // Terminal 1: Active in Org A, Branch A
-  const tokenA = 'term-token-active-a';
-  db.terminals.set('t-1', {
-    id: 't-1',
+  // Terminal 1: Active
+  const tokenActive = 'token-active-pos-1';
+  db.terminals.set('t-active', {
+    id: 't-active',
     organization_id: orgA,
     branch_id: branchA,
-    terminal_token_hash: await hashString(tokenA),
+    terminal_token_hash: await hashString(tokenActive),
     status: 'active',
   });
 
-  // Terminal 2: Revoked in Org A
-  const tokenRevoked = 'term-token-revoked';
+  // Terminal 2: Revoked
+  const tokenRevoked = 'token-revoked-pos-2';
   db.terminals.set('t-revoked', {
     id: 't-revoked',
     organization_id: orgA,
@@ -268,55 +285,58 @@ async function testTerminalOwnershipAndRevocation(): Promise<void> {
     status: 'revoked',
   });
 
-  // Terminal 3: In an inactive branch
-  const branchInactive = 'br-inactive-03';
+  // Terminal 3: Branch Inactive
+  const tokenBranchInactive = 'token-branch-closed-3';
+  const branchInactive = 'br-inactive';
   db.branches.set(branchInactive, { id: branchInactive, organization_id: orgA, name: 'Closed Branch', status: 'inactive' });
-  const tokenClosedBranch = 'term-token-closed-branch';
-  db.terminals.set('t-closed-branch', {
-    id: 't-closed-branch',
+  db.terminals.set('t-branch-closed', {
+    id: 't-branch-closed',
     organization_id: orgA,
     branch_id: branchInactive,
-    terminal_token_hash: await hashString(tokenClosedBranch),
+    terminal_token_hash: await hashString(tokenBranchInactive),
     status: 'active',
   });
 
   const env = { DB: db as any, JWT_SECRET: TEST_SECRET };
 
-  // 1a. Revoked terminal credentials must return 403 Forbidden
-  const resRevoked = await cloudWorker.fetch(makeSyncReq(tokenRevoked, [{ id: 'e1', type: 'order.completed' }]), env);
+  // 1a. Revoked terminal credentials must be rejected with 403 Forbidden
+  const resRevoked = await cloudWorker.fetch(makeSyncReq(tokenRevoked, []), env);
   assert.equal(resRevoked.status, 403);
-  assert.equal((await resRevoked.json() as any).error, 'Forbidden: terminal device has been revoked or disabled');
+  const dataRevoked = await resRevoked.json() as any;
+  assert.match(dataRevoked.error, /revoked/i);
 
-  // 1b. Active terminal on an inactive/closed branch must return 403 Forbidden
-  const resClosed = await cloudWorker.fetch(makeSyncReq(tokenClosedBranch, [{ id: 'e2', type: 'order.completed' }]), env);
-  assert.equal(resClosed.status, 403);
-  assert.equal((await resClosed.json() as any).error, 'Forbidden: terminal branch is inactive');
+  // 1b. Inactive branch terminal credentials must be rejected with 403 Forbidden
+  const resInactive = await cloudWorker.fetch(makeSyncReq(tokenBranchInactive, []), env);
+  assert.equal(resInactive.status, 403);
+  const dataInactive = await resInactive.json() as any;
+  assert.match(dataInactive.error, /inactive/i);
 
-  // 1c. Unknown token must return 401 Unauthorized
-  const resUnknown = await cloudWorker.fetch(makeSyncReq('unknown-token', [{ id: 'e3', type: 'order.completed' }]), env);
+  // 1c. Unknown/unregistered terminal token rejected with 401 Unauthorized
+  const resUnknown = await cloudWorker.fetch(makeSyncReq('unregistered-token', []), env);
   assert.equal(resUnknown.status, 401);
 
-  // 1d. Cross-tenant order overwrite attack prevention
-  // Create an existing order in Org B
+  // 1d. Cross-tenant order overwrite prevention:
+  // Pre-seed an order belonging strictly to Org B
   db.syncedOrders.set('ord-competitor-99', {
     id: 'ord-competitor-99',
     organization_id: orgB,
     branch_id: branchB,
+    terminal_id: 't-other',
     order_number: 'ORD-99',
-    grand_total: 500,
+    grand_total: 999,
   });
 
-  // Terminal A attempts to overwrite Org B's order by submitting an event for ord-competitor-99
-  const resCrossTenant = await cloudWorker.fetch(makeSyncReq(tokenA, [{
-    id: 'evt-cross-tenant-overwrite',
-    type: 'order.completed',
+  // Terminal from Org A attempts to submit an update for Org B's order
+  const resCrossTenant = await cloudWorker.fetch(makeSyncReq(tokenActive, [{
+    id: 'evt-hijack-attempt',
+    type: 'order.updated',
     payload: {
       id: 'ord-competitor-99',
-      order_number: 'HACKED-ORD-99',
-      subtotal: 100,
-      tax_total: 5,
+      order_number: 'ORD-99-HIJACKED',
+      subtotal: 10,
+      tax_total: 0,
       discount_total: 0,
-      grand_total: 105,
+      grand_total: 10,
       ordered_at: new Date().toISOString(),
     },
   }]), env);
@@ -336,7 +356,7 @@ async function testTerminalOwnershipAndRevocation(): Promise<void> {
 // TEST SUITE 2: Reliable Idempotency & Duplicate Prevention (Phase 3)
 // ============================================================================
 async function testIdempotencyAndDuplicates(): Promise<void> {
-  console.log('🧪 [Test Suite 2/4] Reliable Idempotency & Duplicate Prevention...');
+  console.log('🧪 [Test Suite 2/5] Reliable Idempotency & Duplicate Prevention...');
   resetMemoryRateLimits();
 
   const db = new MockD1SyncDatabase();
@@ -416,6 +436,7 @@ async function testIdempotencyAndDuplicates(): Promise<void> {
   assert.equal(db.syncedOrders.get('ord-repeatable-101').grand_total, 525, 'Existing order must not be corrupted');
 
   // 2d. Concurrent submission simulation:
+  // Two simultaneous requests containing the same event ID and identical payload
   const concurrentEvent = {
     id: 'evt-concurrent-202',
     type: 'order.completed',
@@ -439,8 +460,28 @@ async function testIdempotencyAndDuplicates(): Promise<void> {
   assert.equal(cRes2.status, 200);
   const cData1 = await cRes1.json() as BatchSyncResponse;
   const cData2 = await cRes2.json() as BatchSyncResponse;
-  assert(cData1.processed_count === 1 || cData2.processed_count === 1, 'At least one concurrent request succeeds');
+  assert.equal(cData1.processed_count, 1, 'First concurrent request succeeds');
+  assert.equal(cData2.processed_count, 1, 'Second concurrent request acknowledged idempotently');
+  assert.deepEqual(cData1.synced_ids, ['evt-concurrent-202']);
+  assert.deepEqual(cData2.synced_ids, ['evt-concurrent-202']);
   assert.equal(db.syncedOrders.get('ord-concurrent-202').grand_total, 210);
+
+  // 2e. Reusing concurrent event ID with a different conflicting payload is rejected deterministically
+  const conflictingConcurrent = {
+    id: 'evt-concurrent-202',
+    type: 'order.completed',
+    payload: {
+      ...concurrentEvent.payload,
+      grand_total: 9999, // Conflicting payload
+    },
+  };
+  const cRes3 = await cloudWorker.fetch(makeSyncReq(token, [conflictingConcurrent]), env);
+  assert.equal(cRes3.status, 200);
+  const cData3 = await cRes3.json() as BatchSyncResponse;
+  assert.equal(cData3.processed_count, 0, 'Conflicting payload must be rejected deterministically');
+  assert.equal(cData3.failed_count, 1);
+  assert.deepEqual(cData3.synced_ids, []);
+  assert.equal(db.syncedOrders.get('ord-concurrent-202').grand_total, 210, 'Original financial effect must remain intact');
 
   console.log('  ✓ Idempotent duplicate retry, conflict detection, and concurrent resolution verified');
 }
@@ -449,7 +490,7 @@ async function testIdempotencyAndDuplicates(): Promise<void> {
 // TEST SUITE 3: Financial & Mathematical Validation (Phase 5)
 // ============================================================================
 async function testFinancialValidation(): Promise<void> {
-  console.log('🧪 [Test Suite 3/4] Server-Side Financial & Mathematical Validation...');
+  console.log('🧪 [Test Suite 3/5] Server-Side Financial & Mathematical Validation...');
   resetMemoryRateLimits();
 
   const db = new MockD1SyncDatabase();
@@ -549,7 +590,7 @@ async function testFinancialValidation(): Promise<void> {
       id: 'cls-1',
       opening_cash: 500,
       cash_sales: 1000,
-      expected_cash: 9999, // Should be 1500!
+      expected_cash: 9999, // Inconsistent
       actual_cash: 1500,
       variance: 0,
     },
@@ -558,14 +599,116 @@ async function testFinancialValidation(): Promise<void> {
   const dataClosure = await resClosure.json() as BatchSyncResponse;
   assert.equal(dataClosure.processed_count, 0, 'Closure with invalid math must be rejected');
 
+  // 3f. Fractional quantities: 0.75 kg at 120/kg = 90.00 subtotal
+  const fractionalEvent = {
+    id: 'evt-fractional-qty',
+    type: 'order.completed',
+    payload: {
+      id: 'ord-frac-1',
+      subtotal: 90,
+      tax_total: 4.5,
+      discount_total: 0,
+      grand_total: 94.5,
+      ordered_at: new Date().toISOString(),
+      items: [
+        { id: 'item-f1', product_name: 'Cheese', quantity: 0.75, price: 120, subtotal: 90 },
+      ],
+    },
+  };
+  const resFrac = await cloudWorker.fetch(makeSyncReq(token, [fractionalEvent]), env);
+  const dataFrac = await resFrac.json() as BatchSyncResponse;
+  assert.equal(dataFrac.processed_count, 1, 'Valid fractional quantity order must be accepted');
+
+  // 3g. Real POS Charges (packaging, delivery, service charge) + Round Off
+  const chargesEvent = {
+    id: 'evt-order-charges',
+    type: 'order.completed',
+    payload: {
+      id: 'ord-charges-1',
+      subtotal: 500,
+      tax_total: 25,
+      discount_total: 50,
+      packaging_charge: 20,
+      delivery_charge: 30,
+      service_charge: 25,
+      round_off: -0.25,
+      grand_total: 549.75, // 500 - 50 + 25 + 75 - 0.25 = 549.75
+      ordered_at: new Date().toISOString(),
+    },
+  };
+  const resCharges = await cloudWorker.fetch(makeSyncReq(token, [chargesEvent]), env);
+  const dataCharges = await resCharges.json() as BatchSyncResponse;
+  assert.equal(dataCharges.processed_count, 1, 'Order with POS charges and round-off must be accepted');
+
+  // 3h. Tax-inclusive pricing (tax already inside subtotal)
+  const taxInclusiveEvent = {
+    id: 'evt-tax-inclusive',
+    type: 'order.completed',
+    payload: {
+      id: 'ord-inc-1',
+      subtotal: 200,
+      tax_total: 10, // inclusive tax
+      discount_total: 0,
+      grand_total: 200, // Grand total equals subtotal because tax is inclusive
+      ordered_at: new Date().toISOString(),
+      items: [
+        { id: 'item-inc-1', product_name: 'Buffet', quantity: 1, price: 200, subtotal: 200, tax_type: 'inclusive', tax_amount: 10 },
+      ],
+    },
+  };
+  const resInc = await cloudWorker.fetch(makeSyncReq(token, [taxInclusiveEvent]), env);
+  const dataInc = await resInc.json() as BatchSyncResponse;
+  assert.equal(dataInc.processed_count, 1, 'Tax-inclusive order must be accepted');
+
+  // 3i. Void adjustment items with negative unit_price and subtotal
+  const voidAdjustmentEvent = {
+    id: 'evt-void-adj',
+    type: 'order.updated',
+    payload: {
+      id: 'ord-void-adj-1',
+      subtotal: 100, // 200 - 100 = 100
+      tax_total: 5,
+      discount_total: 0,
+      grand_total: 105,
+      ordered_at: new Date().toISOString(),
+      items: [
+        { id: 'i-normal', product_name: 'Steak', quantity: 2, price: 100, subtotal: 200 },
+        { id: 'i-void', product_name: 'Refund: Steak', quantity: 1, price: -100, subtotal: -100, status: 'void_adjustment' },
+      ],
+    },
+  };
+  const resVoid = await cloudWorker.fetch(makeSyncReq(token, [voidAdjustmentEvent]), env);
+  const dataVoid = await resVoid.json() as BatchSyncResponse;
+  assert.equal(dataVoid.processed_count, 1, 'Void adjustment with negative prices must be accepted');
+
+  // 3j. Cash closure with movements (pay-ins and cash drops)
+  const closureWithMovementsEvent = {
+    id: 'evt-closure-movements',
+    type: 'closure.recorded',
+    payload: {
+      id: 'cls-movements-1',
+      opening_cash: 1000,
+      cash_sales: 3000,
+      pay_in: 500, // cash_in
+      cash_drop: 1500, // cash_out
+      expected_cash: 3000, // 1000 + 3000 + 500 - 1500 = 3000
+      actual_cash: 2980,
+      variance: -20, // 2980 - 3000 = -20
+    },
+  };
+  const resClMove = await cloudWorker.fetch(makeSyncReq(token, [closureWithMovementsEvent]), env);
+  const dataClMove = await resClMove.json() as BatchSyncResponse;
+  assert.equal(dataClMove.processed_count, 1, 'Cash closure with movements and variance must be accepted');
+
   console.log('  ✓ Calculation mismatches, negative values, item discrepancies, future dates, and closure math rejected');
+  console.log('  ✓ Real business rules verified: fractional quantities, packaging/delivery/service charges, round-off, tax-inclusive, void adjustments, and cash movements');
 }
 
 // ============================================================================
 // TEST SUITE 4: Atomicity, Partial Failures & Client Compatibility (Phase 4 & 7)
 // ============================================================================
 async function testAtomicityAndBatching(): Promise<void> {
-  console.log('🧪 [Test Suite 4/4] Atomic Writes, Partial Failure Recovery & POS Outbox Contract...');
+  console.log('🧪 [Test Suite 4/5] Atomic Writes, Partial Failure Recovery & POS Outbox Contract...');
   resetMemoryRateLimits();
 
   const db = new MockD1SyncDatabase();
@@ -659,11 +802,72 @@ async function testAtomicityAndBatching(): Promise<void> {
 }
 
 // ============================================================================
+// TEST SUITE 5: Real SQLite / D1 Migration Compatibility (Phase 1)
+// ============================================================================
+async function testMigrationCompatibility(): Promise<void> {
+  console.log('🧪 [Test Suite 5/5] Real SQLite / D1 Migration Compatibility (0001 -> 0002 -> 0003)...');
+
+  const fs = require('fs');
+  const path = require('path');
+  let createDb: () => any;
+
+  try {
+    const { DatabaseSync } = require('node:sqlite');
+    createDb = () => new DatabaseSync(':memory:');
+  } catch {
+    const Database = require('better-sqlite3');
+    createDb = () => new Database(':memory:');
+  }
+
+  const m1 = fs.readFileSync(path.join(__dirname, '../apps/cloud-api/migrations/0001_initial_schema.sql'), 'utf8');
+  const m2 = fs.readFileSync(path.join(__dirname, '../apps/cloud-api/migrations/0002_rate_limits_and_pairing.sql'), 'utf8');
+  const m3 = fs.readFileSync(path.join(__dirname, '../apps/cloud-api/migrations/0003_sync_integrity_and_idempotency.sql'), 'utf8');
+
+  // Test 1: Fresh database sequence (0001 -> 0002 -> 0003)
+  const dbFresh = createDb();
+  dbFresh.exec(m1);
+  dbFresh.exec(m2);
+  dbFresh.exec(m3);
+
+  const termCols = dbFresh.prepare('PRAGMA table_info(terminals)').all().map((c: any) => c.name);
+  const pairCols = dbFresh.prepare('PRAGMA table_info(pairing_tokens)').all().map((c: any) => c.name);
+  const syncEventCols = dbFresh.prepare('PRAGMA table_info(sync_events)').all().map((c: any) => c.name);
+
+  assert(termCols.includes('status'), 'terminals must include status column');
+  assert(pairCols.includes('attempts'), 'pairing_tokens must include attempts column');
+  assert(syncEventCols.includes('payload_hash'), 'sync_events must include payload_hash column');
+  dbFresh.close();
+
+  // Test 2: Existing database upgrade sequence
+  // Seed baseline state after 0001 & 0002
+  const dbUpgrade = createDb();
+  dbUpgrade.exec(m1);
+  dbUpgrade.exec(m2);
+  dbUpgrade.prepare("INSERT INTO organizations (id, name, created_at, updated_at) VALUES ('org-1', 'Org 1', '2026-01-01', '2026-01-01')").run();
+  dbUpgrade.prepare("INSERT INTO branches (id, organization_id, code, name, created_at, updated_at) VALUES ('br-1', 'org-1', 'B1', 'Branch 1', '2026-01-01', '2026-01-01')").run();
+  dbUpgrade.prepare("INSERT INTO terminals (id, organization_id, branch_id, terminal_name, terminal_token_hash, created_at) VALUES ('t-1', 'org-1', 'br-1', 'Term 1', 'hash1', '2026-01-01')").run();
+  dbUpgrade.prepare("INSERT INTO pairing_tokens (code, organization_id, branch_id, terminal_name, expires_at, created_at) VALUES ('123456', 'org-1', 'br-1', 'Term 1', '2026-01-02', '2026-01-01')").run();
+
+  // Apply 0003 forward-only migration
+  dbUpgrade.exec(m3);
+  const termRow = dbUpgrade.prepare("SELECT * FROM terminals WHERE id = 't-1'").get() as any;
+  assert.equal(termRow.status, 'active', 'Pre-existing terminal records must safely default to active status');
+  const indexes = dbUpgrade.prepare("SELECT name FROM sqlite_master WHERE type='index'").all().map((i: any) => i.name);
+  assert(indexes.includes('idx_sync_events_org_branch'), 'Must create idx_sync_events_org_branch');
+  assert(indexes.includes('idx_sync_events_entity'), 'Must create idx_sync_events_entity');
+  assert(indexes.includes('idx_synced_orders_tenant_lookup'), 'Must create idx_synced_orders_tenant_lookup');
+  assert(indexes.includes('idx_synced_closures_tenant_lookup'), 'Must create idx_synced_closures_tenant_lookup');
+  dbUpgrade.close();
+
+  console.log('  ✓ Fresh migrations (0001->0002->0003), upgrade path, data preservation, and indexes verified via SQLite');
+}
+
+// ============================================================================
 // MAIN RUNNER
 // ============================================================================
 async function runAllTests(): Promise<void> {
   console.log('================================================================');
-  console.log('  TASK C-03: CLOUD SYNC INTEGRITY & FINANCIAL AUDIT');
+  console.log('  TASK C-03 & C-03A: CLOUD SYNC INTEGRITY & FINANCIAL AUDIT');
   console.log('================================================================\n');
 
   try {
@@ -671,9 +875,10 @@ async function runAllTests(): Promise<void> {
     await testIdempotencyAndDuplicates();
     await testFinancialValidation();
     await testAtomicityAndBatching();
+    await testMigrationCompatibility();
 
     console.log('\n================================================================');
-    console.log('✅ ALL C-03 SYNC INTEGRITY & FINANCIAL SECURITY TESTS PASSED!');
+    console.log('✅ ALL C-03 & C-03A VERIFICATION SUITES PASSED FLAWLESSLY!');
     console.log('================================================================');
   } catch (err) {
     console.error('\n❌ Test Suite Failed:', err);

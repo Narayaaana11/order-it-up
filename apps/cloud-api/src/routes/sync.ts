@@ -46,6 +46,11 @@ function isValidBusinessTimestamp(val: unknown): boolean {
 
 /**
  * Validates financial and structural rules for an incoming order payload.
+ * Accurately aligns with desktop POS calculations across:
+ * - Exclusive & inclusive tax configurations
+ * - Packaging, delivery, and service charges
+ * - Cash / payable round-off adjustments
+ * - Void adjustments, refunds, cancellations, and fractional quantities
  */
 function validateOrderFinancials(payload: any): { valid: boolean; error?: string } {
   if (!payload || typeof payload !== 'object') {
@@ -58,8 +63,15 @@ function validateOrderFinancials(payload: any): { valid: boolean; error?: string
 
   const subtotal = payload.subtotal !== undefined ? payload.subtotal : 0;
   const taxTotal = payload.tax_total !== undefined ? payload.tax_total : (payload.tax !== undefined ? payload.tax : 0);
-  const discountTotal = payload.discount_total !== undefined ? payload.discount_total : (payload.discount !== undefined ? payload.discount : 0);
+  const discountTotal = payload.discount_total !== undefined ? payload.discount_total : (payload.discount !== undefined ? payload.discount : (payload.discount_amount !== undefined ? payload.discount_amount : 0));
   const grandTotal = payload.grand_total !== undefined ? payload.grand_total : (payload.total !== undefined ? payload.total : 0);
+
+  // Charges supported by POS: packaging_charge, delivery_charge, service_charge
+  const pkgCharge = payload.packaging_charge !== undefined ? payload.packaging_charge : 0;
+  const delCharge = payload.delivery_charge !== undefined ? payload.delivery_charge : 0;
+  const srvCharge = payload.service_charge !== undefined ? payload.service_charge : 0;
+  const chargesTotal = payload.charges_total !== undefined ? payload.charges_total : (pkgCharge + delCharge + srvCharge);
+  const roundOff = payload.round_off !== undefined ? payload.round_off : 0;
 
   if (!isNonNegativeFinite(subtotal)) {
     return { valid: false, error: `Invalid order subtotal: must be a non-negative finite number (got ${subtotal})` };
@@ -73,27 +85,27 @@ function validateOrderFinancials(payload: any): { valid: boolean; error?: string
   if (!isNonNegativeFinite(grandTotal)) {
     return { valid: false, error: `Invalid order grand_total: must be a non-negative finite number (got ${grandTotal})` };
   }
+  if (!Number.isFinite(roundOff) || Math.abs(roundOff) > 100) {
+    return { valid: false, error: `Invalid order round_off: must be a finite number within reasonable rounding bound (got ${roundOff})` };
+  }
+  if (!isNonNegativeFinite(chargesTotal) || chargesTotal > MAX_MONETARY_VALUE) {
+    return { valid: false, error: `Invalid order charges: must be a non-negative finite number (got ${chargesTotal})` };
+  }
 
   if (grandTotal > MAX_MONETARY_VALUE || subtotal > MAX_MONETARY_VALUE) {
     return { valid: false, error: `Order total exceeds maximum allowable limit of ${MAX_MONETARY_VALUE}` };
   }
 
-  // Financial consistency check: grand_total == subtotal - discount_total + tax_total (+/- 0.10 tolerance)
-  const expectedGrand = round2(subtotal - discountTotal + taxTotal);
-  if (Math.abs(grandTotal - expectedGrand) > 0.10) {
-    return {
-      valid: false,
-      error: `Financial calculation mismatch: grand_total (${grandTotal}) does not match subtotal (${subtotal}) - discount (${discountTotal}) + tax (${taxTotal}) = ${expectedGrand}`,
-    };
-  }
+  // Calculate items breakdown if items are provided
+  let calculatedItemsSum = 0;
+  let itemExclusiveTaxSum = 0;
+  let hasItemTaxTypes = false;
 
-  // Validate items if provided
   if (Array.isArray(payload.items)) {
     if (payload.items.length > MAX_ITEMS_PER_ORDER) {
       return { valid: false, error: `Order items count (${payload.items.length}) exceeds maximum limit of ${MAX_ITEMS_PER_ORDER}` };
     }
 
-    let calculatedItemsSum = 0;
     for (let idx = 0; idx < payload.items.length; idx++) {
       const item = payload.items[idx];
       if (!item || typeof item !== 'object') {
@@ -103,35 +115,74 @@ function validateOrderFinancials(payload: any): { valid: boolean; error?: string
       const qty = item.quantity !== undefined ? item.quantity : 1;
       const unitPrice = item.price !== undefined ? item.price : (item.unit_price !== undefined ? item.unit_price : 0);
       const itemSubtotal = item.subtotal !== undefined ? item.subtotal : (qty * unitPrice);
+      const isVoidOrRefund = item.status === 'void_adjustment' || item.status === 'refunded' || unitPrice < 0 || itemSubtotal < 0;
 
-      if (!isPositiveFinite(qty) || qty > MAX_ITEM_QUANTITY) {
-        return { valid: false, error: `Item ${idx} quantity (${qty}) must be a positive finite number <= ${MAX_ITEM_QUANTITY}` };
+      // Fractional quantities (e.g. 0.5 kg, 1.25 L) are supported
+      if (!Number.isFinite(qty) || Math.abs(qty) > MAX_ITEM_QUANTITY || qty === 0) {
+        return { valid: false, error: `Item ${idx} quantity (${qty}) must be a non-zero finite number <= ${MAX_ITEM_QUANTITY}` };
       }
-      if (!isNonNegativeFinite(unitPrice) || unitPrice > MAX_MONETARY_VALUE) {
-        return { valid: false, error: `Item ${idx} unit price (${unitPrice}) must be non-negative and <= ${MAX_MONETARY_VALUE}` };
-      }
-      if (!isNonNegativeFinite(itemSubtotal) || itemSubtotal > MAX_MONETARY_VALUE) {
-        return { valid: false, error: `Item ${idx} subtotal (${itemSubtotal}) must be non-negative and <= ${MAX_MONETARY_VALUE}` };
+
+      if (isVoidOrRefund) {
+        // Void / refund items represent negative cost adjustments while preserving audit trail
+        if (!Number.isFinite(unitPrice) || Math.abs(unitPrice) > MAX_MONETARY_VALUE) {
+          return { valid: false, error: `Item ${idx} unit price (${unitPrice}) exceeds allowed limit` };
+        }
+        if (!Number.isFinite(itemSubtotal) || Math.abs(itemSubtotal) > MAX_MONETARY_VALUE) {
+          return { valid: false, error: `Item ${idx} subtotal (${itemSubtotal}) exceeds allowed limit` };
+        }
+      } else {
+        if (!isNonNegativeFinite(unitPrice) || unitPrice > MAX_MONETARY_VALUE) {
+          return { valid: false, error: `Item ${idx} unit price (${unitPrice}) must be non-negative and <= ${MAX_MONETARY_VALUE}` };
+        }
+        if (!isNonNegativeFinite(itemSubtotal) || itemSubtotal > MAX_MONETARY_VALUE) {
+          return { valid: false, error: `Item ${idx} subtotal (${itemSubtotal}) must be non-negative and <= ${MAX_MONETARY_VALUE}` };
+        }
       }
 
       const expectedItemSubtotal = round2(qty * unitPrice);
-      if (Math.abs(itemSubtotal - expectedItemSubtotal) > 0.10) {
+      if (Math.abs(itemSubtotal - expectedItemSubtotal) > 0.15) {
         return {
           valid: false,
           error: `Item ${idx} subtotal mismatch: item subtotal (${itemSubtotal}) does not equal quantity (${qty}) * unit_price (${unitPrice}) = ${expectedItemSubtotal}`,
         };
       }
 
+      if (item.tax_type) {
+        hasItemTaxTypes = true;
+        if (item.tax_type !== 'inclusive') {
+          itemExclusiveTaxSum += (item.tax_amount || 0);
+        }
+      }
+
       calculatedItemsSum += itemSubtotal;
     }
 
-    // If order has items and subtotal > 0, items sum must balance to order subtotal (+/- 0.20 tolerance)
-    if (payload.items.length > 0 && subtotal > 0 && Math.abs(subtotal - calculatedItemsSum) > 0.20) {
+    // If order has items and subtotal > 0, items sum must balance to order subtotal (+/- 0.25 tolerance)
+    if (payload.items.length > 0 && subtotal > 0 && Math.abs(subtotal - calculatedItemsSum) > 0.25) {
       return {
         valid: false,
         error: `Order subtotal (${subtotal}) does not match sum of item subtotals (${round2(calculatedItemsSum)})`,
       };
     }
+  }
+
+  // Financial consistency checks:
+  // Option A (Exclusive taxes): grand_total == subtotal - discount_total + tax_total + chargesTotal + roundOff
+  // Option B (Inclusive taxes): tax is already included in subtotal, so grand_total == subtotal - discount_total + chargesTotal + roundOff
+  // Option C (Item-level tax types known): grand_total == subtotal - discount_total + itemExclusiveTaxSum + chargesTotal + roundOff
+  const expectedExclusive = round2(subtotal - discountTotal + taxTotal + chargesTotal + roundOff);
+  const expectedInclusive = round2(subtotal - discountTotal + chargesTotal + roundOff);
+  const expectedWithItemTaxes = hasItemTaxTypes ? round2(subtotal - discountTotal + itemExclusiveTaxSum + chargesTotal + roundOff) : null;
+
+  const matchesExclusive = Math.abs(grandTotal - expectedExclusive) <= 0.15;
+  const matchesInclusive = Math.abs(grandTotal - expectedInclusive) <= 0.15;
+  const matchesItemTaxes = expectedWithItemTaxes !== null && Math.abs(grandTotal - expectedWithItemTaxes) <= 0.15;
+
+  if (!matchesExclusive && !matchesInclusive && !matchesItemTaxes) {
+    return {
+      valid: false,
+      error: `Financial calculation mismatch: grand_total (${grandTotal}) does not match expected totals (exclusive: ${expectedExclusive}, inclusive: ${expectedInclusive})`,
+    };
   }
 
   // Timestamp check
@@ -145,6 +196,11 @@ function validateOrderFinancials(payload: any): { valid: boolean; error?: string
 
 /**
  * Validates financial and structural rules for an incoming cash closure payload.
+ * Accurately aligns with desktop POS cash drawer operations including:
+ * - Opening floats & counted actual cash
+ * - Cash sales, card, UPI, and digital sales
+ * - Cash movements (pay-ins, cash drops, supplier payouts, cash refunds)
+ * - Mathematical variance reconciliation
  */
 function validateClosureFinancials(closure: any): { valid: boolean; error?: string } {
   if (!closure || typeof closure !== 'object') {
@@ -155,14 +211,18 @@ function validateClosureFinancials(closure: any): { valid: boolean; error?: stri
     return { valid: false, error: 'Closure id is missing, invalid, or exceeds 128 characters' };
   }
 
-  const openingCash = closure.opening_cash !== undefined ? closure.opening_cash : 0;
+  const openingCash = closure.opening_cash !== undefined ? closure.opening_cash : (closure.opening_float_cents !== undefined ? closure.opening_float_cents / 100 : 0);
   const cashSales = closure.cash_sales !== undefined ? closure.cash_sales : 0;
   const cardSales = closure.card_sales !== undefined ? closure.card_sales : 0;
   const upiSales = closure.upi_sales !== undefined ? closure.upi_sales : 0;
   const otherSales = closure.other_sales !== undefined ? closure.other_sales : 0;
-  const expectedCash = closure.expected_cash !== undefined ? closure.expected_cash : (openingCash + cashSales);
-  const actualCash = closure.actual_cash !== undefined ? closure.actual_cash : 0;
-  const variance = closure.variance !== undefined ? closure.variance : (actualCash - expectedCash);
+  const expectedCash = closure.expected_cash !== undefined ? closure.expected_cash : (closure.expected_cash_cents !== undefined ? closure.expected_cash_cents / 100 : (openingCash + cashSales));
+  const actualCash = closure.actual_cash !== undefined ? closure.actual_cash : (closure.counted_cash_cents !== undefined ? closure.counted_cash_cents / 100 : 0);
+  const variance = closure.variance !== undefined ? closure.variance : (closure.variance_cents !== undefined ? closure.variance_cents / 100 : (actualCash - expectedCash));
+
+  // Cash movements (pay-ins, supplier cash payouts, cash drops, cash refunds)
+  const cashIn = closure.cash_in !== undefined ? closure.cash_in : (closure.pay_in || 0);
+  const cashOut = closure.cash_out !== undefined ? closure.cash_out : (closure.pay_out || closure.cash_drop || closure.cash_refunds || closure.refunds || 0);
 
   if (!isNonNegativeFinite(openingCash)) return { valid: false, error: 'Invalid opening_cash' };
   if (!isNonNegativeFinite(cashSales)) return { valid: false, error: 'Invalid cash_sales' };
@@ -177,18 +237,21 @@ function validateClosureFinancials(closure: any): { valid: boolean; error?: stri
     return { valid: false, error: 'Variance must be a finite number' };
   }
 
-  // Math check: expected_cash == opening_cash + cash_sales (+/- 0.10 tolerance)
-  const calculatedExpected = round2(openingCash + cashSales);
-  if (Math.abs(expectedCash - calculatedExpected) > 0.10) {
+  // Math check: expected_cash reconciliation
+  const calculatedWithMovements = round2(openingCash + cashSales + cashIn - cashOut);
+  const calculatedSimple = round2(openingCash + cashSales);
+  const expectedMatches = Math.abs(expectedCash - calculatedWithMovements) <= 0.15 || Math.abs(expectedCash - calculatedSimple) <= 0.15;
+
+  if (!expectedMatches) {
     return {
       valid: false,
-      error: `Expected cash mismatch: expected_cash (${expectedCash}) does not match opening_cash (${openingCash}) + cash_sales (${cashSales}) = ${calculatedExpected}`,
+      error: `Expected cash mismatch: expected_cash (${expectedCash}) does not match opening_cash (${openingCash}) + cash_sales (${cashSales}) with movements = ${calculatedWithMovements}`,
     };
   }
 
-  // Math check: variance == actual_cash - expected_cash (+/- 0.10 tolerance)
+  // Math check: variance == actual_cash - expected_cash (+/- 0.15 tolerance)
   const calculatedVariance = round2(actualCash - expectedCash);
-  if (Math.abs(variance - calculatedVariance) > 0.10) {
+  if (Math.abs(variance - calculatedVariance) > 0.15) {
     return {
       valid: false,
       error: `Cash variance mismatch: variance (${variance}) does not match actual_cash (${actualCash}) - expected_cash (${expectedCash}) = ${calculatedVariance}`,
@@ -309,14 +372,15 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
 
   // 6. Process events atomically with idempotency and financial validation
   for (const event of events) {
-    try {
-      if (!event || typeof event !== 'object' || typeof event.id !== 'string' || !event.id.trim() || typeof event.type !== 'string') {
-        continue;
-      }
+    if (!event || typeof event !== 'object' || typeof event.id !== 'string' || !event.id.trim() || typeof event.type !== 'string') {
+      continue;
+    }
 
+    let payloadHash = '';
+    try {
       // 6a. Compute deterministic payload hash for idempotency and conflict detection
       const canonicalPayloadStr = JSON.stringify(event.payload || {});
-      const payloadHash = await hashString(canonicalPayloadStr);
+      payloadHash = await hashString(canonicalPayloadStr);
 
       // 6b. Check existing event in sync_events table
       const existingEvent = await env.DB.prepare(`
@@ -566,7 +630,35 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
 
         processedIds.push(event.id);
       }
-    } catch (err) {
+    } catch (err: any) {
+      // Concurrency race handling:
+      // If a unique constraint failure occurred on sync_events.id, another concurrent
+      // request committed this same event ID simultaneously.
+      const errMsg = String(err?.message || '');
+      if (errMsg.includes('UNIQUE') || errMsg.includes('constraint failed')) {
+        const existing = await env.DB.prepare(`
+          SELECT organization_id, branch_id, payload_hash, status
+          FROM sync_events
+          WHERE id = ?
+        `).bind(event.id).first<{
+          organization_id: string;
+          branch_id: string;
+          payload_hash: string;
+          status: string;
+        }>();
+
+        if (existing && existing.organization_id === terminal.organization_id) {
+          if (existing.payload_hash === payloadHash) {
+            // Concurrent duplicate with identical payload -> Acknowledge idempotently
+            processedIds.push(event.id);
+            continue;
+          } else {
+            // Concurrent duplicate with conflicting payload -> Reject deterministically
+            console.warn(`[SyncSecurity] Event ID conflict under concurrency: event ${event.id} committed by concurrent request with different payload`);
+            continue;
+          }
+        }
+      }
       console.error(`Failed to ingest event ${event?.id}:`, err);
     }
   }

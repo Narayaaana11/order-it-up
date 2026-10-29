@@ -50,7 +50,7 @@ function deriveScrypt(
   options: { N: number; r: number; p: number }
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    scrypt(password, salt, keylen, options, (err, derivedKey) => {
+    scrypt(password, salt, keylen, options, (err: any, derivedKey: any) => {
       if (err) reject(err);
       else resolve(derivedKey);
     });

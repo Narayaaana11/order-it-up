@@ -10,7 +10,8 @@
     "d1:migrate:remote": "wrangler d1 migrations apply orderitup-d1-prod --remote"
   },
   "dependencies": {
-    "hono": "^4.3.0"
+    "hono": "^4.3.0",
+    "order-it-up": "file:../.."
   },
   "devDependencies": {
     "@cloudflare/workers-types": "^4.20240405.0",
