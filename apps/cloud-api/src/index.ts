@@ -9,6 +9,7 @@ import { handleAccountantClosures, handleAccountantTaxSummary, handleTallyExport
 import { handleGetMasterCatalog, handleSaveMasterProduct, handleGetBranchCatalog, handleSetBranchOverride } from './routes/catalog';
 import { handleListTransfers, handleCreateTransfer, handleUpdateTransferStatus } from './routes/transfers';
 import { createJWT, verifyJWT, hashPassword, verifyPassword, isSecretValid } from './auth';
+import { checkRateLimit, createRateLimitResponse, getClientIp, DEFAULT_RATE_LIMITS, getEffectiveLimit } from './rate-limit';
 
 function corsHeaders(): HeadersInit {
   return {
@@ -72,6 +73,18 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
       );
     }
 
+    // 2a. IP-based rate limiting (configurable via RATE_LIMIT_LOGIN_IP, default 30 attempts/min)
+    const clientIp = getClientIp(request);
+    const ipLimit = await checkRateLimit(env.DB, {
+      keyPrefix: 'login_ip',
+      identifier: clientIp,
+      limit: getEffectiveLimit(env.RATE_LIMIT_LOGIN_IP, DEFAULT_RATE_LIMITS.LOGIN_IP.limit),
+      windowSeconds: DEFAULT_RATE_LIMITS.LOGIN_IP.windowSeconds,
+    });
+    if (!ipLimit.allowed) {
+      return createRateLimitResponse(ipLimit);
+    }
+
     let body: any;
     try {
       body = await request.json();
@@ -88,6 +101,17 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
 
     if (!email || !password) {
       return Response.json({ error: 'Invalid credentials' }, { status: 400 });
+    }
+
+    // 2b. Account-based rate limiting (5 attempts per 5 minutes per normalized email)
+    const accountLimit = await checkRateLimit(env.DB, {
+      keyPrefix: 'login_account',
+      identifier: email,
+      limit: getEffectiveLimit(env.RATE_LIMIT_LOGIN_ACCOUNT, DEFAULT_RATE_LIMITS.LOGIN_ACCOUNT.limit),
+      windowSeconds: DEFAULT_RATE_LIMITS.LOGIN_ACCOUNT.windowSeconds,
+    });
+    if (!accountLimit.allowed) {
+      return createRateLimitResponse(accountLimit);
     }
 
     const user = await env.DB.prepare(`
@@ -155,7 +179,7 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
 
   // 3. Demo / Initializer Setup Seed
   if (path === '/api/auth/setup-demo' && method === 'POST') {
-    return handleSetupDemo(env);
+    return handleSetupDemo(request, env);
   }
 
   // 4. POS Terminal Pairing (Claiming)
@@ -282,7 +306,27 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   return Response.json({ error: 'Endpoint not found' }, { status: 404 });
 }
 
-async function handleSetupDemo(env: Env): Promise<Response> {
+async function handleSetupDemo(request: Request, env: Env): Promise<Response> {
+  // Prevent demo setup in production environments
+  if (env.ENVIRONMENT === 'production') {
+    return Response.json(
+      { error: 'Demo setup is disabled in production environment' },
+      { status: 403 }
+    );
+  }
+
+  // Rate limit demo initialization attempts per IP (3 per hour)
+  const clientIp = getClientIp(request);
+  const demoLimit = await checkRateLimit(env.DB, {
+    keyPrefix: 'demo_setup_ip',
+    identifier: clientIp,
+    limit: DEFAULT_RATE_LIMITS.DEMO_SETUP_IP.limit,
+    windowSeconds: DEFAULT_RATE_LIMITS.DEMO_SETUP_IP.windowSeconds,
+  });
+  if (!demoLimit.allowed) {
+    return createRateLimitResponse(demoLimit);
+  }
+
   const orgCount = await env.DB.prepare('SELECT COUNT(*) as count FROM organizations').first<{ count: number }>();
   if (orgCount && orgCount.count > 0) {
     return Response.json({ message: 'Database already initialized' });

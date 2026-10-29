@@ -1,11 +1,39 @@
 import { hashString } from '../auth';
 import { BatchSyncEvent, BatchSyncRequest, BatchSyncResponse } from '../../../../shared/cloud-types';
 import { Env } from './pairing';
+import { checkRateLimit, createRateLimitResponse, DEFAULT_RATE_LIMITS, getEffectiveLimit } from '../rate-limit';
+
+export const MAX_SYNC_PAYLOAD_BYTES = 2 * 1024 * 1024; // 2MB
+export const MAX_EVENTS_PER_BATCH = 250;
 
 export async function handleIngestSyncEvents(request: Request, env: Env): Promise<Response> {
+  // 1. Enforce payload size limit (max 2MB)
+  const contentLength = request.headers.get('content-length');
+  if (contentLength && parseInt(contentLength, 10) > MAX_SYNC_PAYLOAD_BYTES) {
+    return Response.json({ error: 'Payload exceeds 2MB limit' }, { status: 413 });
+  }
+
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: 'Invalid JSON sync payload' }, { status: 400 });
+  }
+
+  if (!body || typeof body !== 'object' || !Array.isArray(body.events)) {
+    return Response.json({ error: 'events array is required' }, { status: 400 });
+  }
+
+  // 2. Validate event batch size limit
+  if (body.events.length > MAX_EVENTS_PER_BATCH) {
+    return Response.json({
+      error: `Batch event count (${body.events.length}) exceeds maximum limit of ${MAX_EVENTS_PER_BATCH}`,
+    }, { status: 413 });
+  }
+
+  // 3. Authenticate POS Terminal
   const authHeader = request.headers.get('Authorization') || '';
   const rawToken = authHeader.replace(/^Bearer\s+/i, '').trim();
-  const body = await request.json() as any;
 
   let terminal: { id: string; organization_id: string; branch_id: string } | null = null;
 
@@ -18,7 +46,7 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
     `).bind(tokenHash).first<{ id: string; organization_id: string; branch_id: string }>();
   }
 
-  // Fallback to pos_hash matching
+  // Fallback to pos_hash matching against registered terminals
   if (!terminal && body?.pos_hash) {
     const hash = String(body.pos_hash);
     terminal = await env.DB.prepare(`
@@ -26,25 +54,24 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
       FROM terminals t
       WHERE t.id = ? OR t.terminal_token_hash = ?
     `).bind(hash, hash).first<{ id: string; organization_id: string; branch_id: string }>();
-
-    // If still not matched, bind to default demo branch to prevent data loss during test/onboarding
-    if (!terminal) {
-      const defaultBranch = await env.DB.prepare('SELECT id, organization_id FROM branches LIMIT 1')
-        .first<{ id: string; organization_id: string }>();
-      if (defaultBranch) {
-        terminal = {
-          id: hash,
-          organization_id: defaultBranch.organization_id,
-          branch_id: defaultBranch.id
-        };
-      }
-    }
   }
 
   if (!terminal) {
-    return Response.json({ error: 'Unauthorized terminal token or pos_hash' }, { status: 403 });
+    return Response.json({ error: 'Unauthorized: valid terminal device token required' }, { status: 401 });
   }
-  const events = body.events || [];
+
+  // 4. Rate Limit Event Sync by Terminal (120 requests/minute, allowing offline burst recovery)
+  const syncLimit = await checkRateLimit(env.DB, {
+    keyPrefix: 'pos_sync_terminal',
+    identifier: terminal.id,
+    limit: getEffectiveLimit(env.RATE_LIMIT_SYNC_EVENTS_TERMINAL, DEFAULT_RATE_LIMITS.SYNC_EVENTS_TERMINAL.limit),
+    windowSeconds: DEFAULT_RATE_LIMITS.SYNC_EVENTS_TERMINAL.windowSeconds,
+  });
+  if (!syncLimit.allowed) {
+    return createRateLimitResponse(syncLimit);
+  }
+
+  const events: BatchSyncEvent[] = body.events;
   const processedIds: string[] = [];
   const now = new Date().toISOString();
 
@@ -54,6 +81,10 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
 
   for (const event of events) {
     try {
+      if (!event || typeof event !== 'object' || typeof event.id !== 'string' || typeof event.type !== 'string') {
+        continue;
+      }
+
       if (event.type.startsWith('order.')) {
         const payload = event.payload as any;
         if (!payload || !payload.id) continue;
