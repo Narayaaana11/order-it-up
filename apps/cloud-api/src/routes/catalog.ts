@@ -61,12 +61,17 @@ export async function handleSaveMasterProduct(request: Request, env: Env, orgId:
   return Response.json({ success: true, id });
 }
 
-export async function handleGetBranchCatalog(request: Request, env: Env, branchId: string): Promise<Response> {
-  const branch = await env.DB.prepare('SELECT organization_id, name FROM branches WHERE id = ?')
-    .bind(branchId).first<{ organization_id: string; name: string }>();
+export async function handleGetBranchCatalog(request: Request, env: Env, branchId: string, orgId?: string): Promise<Response> {
+  const branchQuery = orgId
+    ? 'SELECT organization_id, name FROM branches WHERE id = ? AND organization_id = ?'
+    : 'SELECT organization_id, name FROM branches WHERE id = ?';
+  const branchParams = orgId ? [branchId, orgId] : [branchId];
+
+  const branch = await env.DB.prepare(branchQuery)
+    .bind(...branchParams).first<{ organization_id: string; name: string }>();
 
   if (!branch) {
-    return Response.json({ error: 'Branch not found' }, { status: 404 });
+    return Response.json({ error: 'Branch not found or belongs to another organization' }, { status: 404 });
   }
 
   // Get master products joined with branch overrides
@@ -96,7 +101,7 @@ export async function handleGetBranchCatalog(request: Request, env: Env, branchI
   });
 }
 
-export async function handleSetBranchOverride(request: Request, env: Env, branchId: string): Promise<Response> {
+export async function handleSetBranchOverride(request: Request, env: Env, branchId: string, orgId?: string): Promise<Response> {
   const body = await request.json() as {
     product_id: string;
     price_override?: number | null;
@@ -105,6 +110,20 @@ export async function handleSetBranchOverride(request: Request, env: Env, branch
 
   if (!body.product_id) {
     return Response.json({ error: 'product_id is required' }, { status: 400 });
+  }
+
+  if (orgId) {
+    const branch = await env.DB.prepare('SELECT id FROM branches WHERE id = ? AND organization_id = ?')
+      .bind(branchId, orgId).first();
+    if (!branch) {
+      return Response.json({ error: 'Branch not found or belongs to another organization' }, { status: 404 });
+    }
+
+    const product = await env.DB.prepare('SELECT id FROM master_products WHERE id = ? AND organization_id = ?')
+      .bind(body.product_id, orgId).first();
+    if (!product) {
+      return Response.json({ error: 'Product not found or belongs to another organization' }, { status: 404 });
+    }
   }
 
   const now = new Date().toISOString();

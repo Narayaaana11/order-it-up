@@ -5,7 +5,10 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "production"
-JWT_SECRET = "orderitup-franchise-secret-change-in-production"
+# Mandatory Security Requirement:
+# JWT_SECRET must be configured as an encrypted environment secret (minimum 32 characters / 256 bits):
+# - Production: Run `wrangler secret put JWT_SECRET`
+# - Local Development: Add `JWT_SECRET=<secret>` to apps/cloud-api/.dev.vars
 
 [[d1_databases]]
 binding = "DB"

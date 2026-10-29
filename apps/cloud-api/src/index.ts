@@ -8,7 +8,7 @@ import { handleAnalyticsOverview } from './routes/analytics';
 import { handleAccountantClosures, handleAccountantTaxSummary, handleTallyExport } from './routes/accountant';
 import { handleGetMasterCatalog, handleSaveMasterProduct, handleGetBranchCatalog, handleSetBranchOverride } from './routes/catalog';
 import { handleListTransfers, handleCreateTransfer, handleUpdateTransferStatus } from './routes/transfers';
-import { createJWT, verifyJWT, hashString } from './auth';
+import { createJWT, verifyJWT, hashPassword, verifyPassword, isSecretValid } from './auth';
 
 function corsHeaders(): HeadersInit {
   return {
@@ -43,7 +43,7 @@ export default {
     } catch (err: any) {
       console.error('Unhandled worker error:', err);
       return Response.json(
-        { error: 'Internal Server Error', details: err?.message || String(err) },
+        { error: 'Internal Server Error' },
         { status: 500, headers: corsHeaders() }
       );
     }
@@ -65,38 +65,77 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
 
   // 2. Auth: Login
   if (path === '/api/auth/login' && method === 'POST') {
-    const body = await request.json() as { email: string; password?: string };
-    if (!body.email) return Response.json({ error: 'Email required' }, { status: 400 });
+    if (!isSecretValid(env.JWT_SECRET)) {
+      return Response.json(
+        { error: 'Server authentication service is misconfigured' },
+        { status: 500 }
+      );
+    }
+
+    let body: any;
+    try {
+      body = await request.json();
+    } catch {
+      return Response.json({ error: 'Invalid credentials' }, { status: 400 });
+    }
+
+    if (!body || typeof body !== 'object') {
+      return Response.json({ error: 'Invalid credentials' }, { status: 400 });
+    }
+
+    const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
+    const password = typeof body.password === 'string' ? body.password : '';
+
+    if (!email || !password) {
+      return Response.json({ error: 'Invalid credentials' }, { status: 400 });
+    }
 
     const user = await env.DB.prepare(`
       SELECT u.*, o.name as organization_name, o.currency, o.timezone
       FROM cloud_users u
       JOIN organizations o ON u.organization_id = o.id
       WHERE u.email = ? AND u.status = 'active'
-    `).bind(body.email.trim().toLowerCase()).first<any>();
+    `).bind(email).first<any>();
 
-    if (!user) {
-      return Response.json({ error: 'User not found or inactive' }, { status: 401 });
+    // Fail closed on user not found, inactive, or null/empty password hash
+    if (!user || !user.password_hash || typeof user.password_hash !== 'string' || user.password_hash.trim() === '') {
+      // Run dummy verification with fixed parameters to mitigate timing-based account enumeration
+      await verifyPassword(password, 'scrypt$N=16384,r=8,p=1$00000000000000000000000000000000$0000000000000000000000000000000000000000000000000000000000000000');
+      return Response.json({ error: 'Invalid credentials' }, { status: 401 });
     }
 
-    // Verify password if set
-    if (user.password_hash && body.password) {
-      const passHash = await hashString(body.password);
-      if (passHash !== user.password_hash) {
-        return Response.json({ error: 'Invalid password' }, { status: 401 });
+    const { valid, needsRehash } = await verifyPassword(password, user.password_hash);
+    if (!valid) {
+      return Response.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    // Rehash legacy hash (e.g. SHA-256) to modern scrypt on successful login
+    if (needsRehash) {
+      try {
+        const modernHash = await hashPassword(password);
+        await env.DB.prepare(`
+          UPDATE cloud_users SET password_hash = ?, updated_at = ? WHERE id = ?
+        `).bind(modernHash, new Date().toISOString(), user.id).run();
+      } catch (err) {
+        console.error('Failed to rehash legacy password:', err);
       }
     }
 
-    // Generate JWT
-    const exp = Math.floor(Date.now() / 1000) + (7 * 86400); // 7 days
+    // Update last_login_at
+    const nowIso = new Date().toISOString();
+    await env.DB.prepare('UPDATE cloud_users SET last_login_at = ? WHERE id = ?')
+      .bind(nowIso, user.id).run();
+
+    // Generate JWT (7 days expiration)
+    const exp = Math.floor(Date.now() / 1000) + (7 * 86400);
     const token = await createJWT({
       sub: user.id,
       org: user.organization_id,
       email: user.email,
       role: user.role,
-      branch: user.assigned_branch_id,
+      branch: user.assigned_branch_id || null,
       exp
-    }, env.JWT_SECRET || 'orderitup-default-secret');
+    }, env.JWT_SECRET);
 
     return Response.json({
       token,
@@ -109,7 +148,7 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
         organization_name: user.organization_name,
         currency: user.currency,
         timezone: user.timezone,
-        assigned_branch_id: user.assigned_branch_id
+        assigned_branch_id: user.assigned_branch_id || null
       }
     });
   }
@@ -132,13 +171,14 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   // Authenticated Portal Endpoints (Require Bearer JWT)
   const authHeader = request.headers.get('Authorization') || '';
   const token = authHeader.replace(/^Bearer\s+/i, '').trim();
-  const claims = token ? await verifyJWT(token, env.JWT_SECRET || 'orderitup-default-secret') : null;
+  const claims = token && isSecretValid(env.JWT_SECRET) ? await verifyJWT(token, env.JWT_SECRET) : null;
 
   if (!claims) {
     return Response.json({ error: 'Unauthorized: valid cloud user token required' }, { status: 401 });
   }
 
   const orgId = claims.org;
+  const userRole = claims.role;
 
   // 6. Branches
   if (path === '/api/branches' && method === 'GET') {
@@ -148,6 +188,9 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   }
 
   if (path === '/api/branches' && method === 'POST') {
+    if (userRole !== 'owner' && userRole !== 'manager') {
+      return Response.json({ error: 'Forbidden: Insufficient privileges to create branches' }, { status: 403 });
+    }
     const body = await request.json() as any;
     const branchId = body.id || crypto.randomUUID();
     const now = new Date().toISOString();
@@ -160,22 +203,37 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
 
   // 7. Pairing Token Generation (Admin)
   if (path === '/api/pairing/generate' && method === 'POST') {
+    if (userRole !== 'owner' && userRole !== 'manager') {
+      return Response.json({ error: 'Forbidden: Insufficient privileges to generate pairing tokens' }, { status: 403 });
+    }
     return handleGeneratePairing(request, env, orgId);
   }
 
   // 8. Analytics Overview
   if (path === '/api/analytics/overview' && method === 'GET') {
+    if (userRole !== 'owner' && userRole !== 'accountant' && userRole !== 'manager') {
+      return Response.json({ error: 'Forbidden: Insufficient privileges to view analytics' }, { status: 403 });
+    }
     return handleAnalyticsOverview(request, env, orgId);
   }
 
   // 9. Accountant Hub
   if (path === '/api/accountant/closures' && method === 'GET') {
+    if (userRole !== 'owner' && userRole !== 'accountant') {
+      return Response.json({ error: 'Forbidden: Insufficient privileges to access accounting data' }, { status: 403 });
+    }
     return handleAccountantClosures(request, env, orgId);
   }
   if (path === '/api/accountant/tax-summary' && method === 'GET') {
+    if (userRole !== 'owner' && userRole !== 'accountant') {
+      return Response.json({ error: 'Forbidden: Insufficient privileges to access accounting data' }, { status: 403 });
+    }
     return handleAccountantTaxSummary(request, env, orgId);
   }
   if (path === '/api/accountant/export-tally' && method === 'GET') {
+    if (userRole !== 'owner' && userRole !== 'accountant') {
+      return Response.json({ error: 'Forbidden: Insufficient privileges to access accounting data' }, { status: 403 });
+    }
     return handleTallyExport(request, env, orgId);
   }
 
@@ -184,16 +242,22 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     return handleGetMasterCatalog(request, env, orgId);
   }
   if (path === '/api/catalog/product' && method === 'POST') {
+    if (userRole !== 'owner' && userRole !== 'manager') {
+      return Response.json({ error: 'Forbidden: Insufficient privileges to modify master catalog' }, { status: 403 });
+    }
     return handleSaveMasterProduct(request, env, orgId);
   }
   if (path.startsWith('/api/catalog/branch/') && path.endsWith('/override') && method === 'POST') {
+    if (userRole !== 'owner' && userRole !== 'manager') {
+      return Response.json({ error: 'Forbidden: Insufficient privileges to modify branch catalog' }, { status: 403 });
+    }
     const parts = path.split('/');
     const branchId = parts[parts.length - 2];
-    return handleSetBranchOverride(request, env, branchId);
+    return handleSetBranchOverride(request, env, branchId, orgId);
   }
   if (path.startsWith('/api/catalog/branch/') && method === 'GET') {
     const branchId = path.split('/').pop() || '';
-    return handleGetBranchCatalog(request, env, branchId);
+    return handleGetBranchCatalog(request, env, branchId, orgId);
   }
 
   // 11. Inventory Transfers
@@ -201,12 +265,18 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     return handleListTransfers(request, env, orgId);
   }
   if (path === '/api/transfers' && method === 'POST') {
+    if (userRole !== 'owner' && userRole !== 'manager') {
+      return Response.json({ error: 'Forbidden: Insufficient privileges to create stock transfers' }, { status: 403 });
+    }
     return handleCreateTransfer(request, env, orgId);
   }
   if (path.startsWith('/api/transfers/') && path.endsWith('/status') && (method === 'PATCH' || method === 'PUT')) {
+    if (userRole !== 'owner' && userRole !== 'manager') {
+      return Response.json({ error: 'Forbidden: Insufficient privileges to update stock transfers' }, { status: 403 });
+    }
     const parts = path.split('/');
     const transferId = parts[parts.length - 2];
-    return handleUpdateTransferStatus(request, env, transferId);
+    return handleUpdateTransferStatus(request, env, transferId, orgId);
   }
 
   return Response.json({ error: 'Endpoint not found' }, { status: 404 });
@@ -240,7 +310,7 @@ async function handleSetupDemo(env: Env): Promise<Response> {
   ).run();
 
   // 3. Demo Users
-  const passHash = await hashString('admin123');
+  const passHash = await hashPassword('admin123');
   await env.DB.prepare(`
     INSERT INTO cloud_users (id, organization_id, email, password_hash, name, role, status, created_at, updated_at)
     VALUES (?, ?, 'owner@tastecraft.com', ?, 'Vikram Malhotra (Owner)', 'owner', 'active', ?, ?),

@@ -1,0 +1,6 @@
+# Order It Up Cloud Edge Worker - Local Development Environment Variables
+# Copy this file to apps/cloud-api/.dev.vars for local testing with `wrangler dev`
+
+# Secret must be at least 32 characters (256 bits)
+JWT_SECRET=local-dev-secret-key-must-be-at-least-32-chars-long!
+ENVIRONMENT=development

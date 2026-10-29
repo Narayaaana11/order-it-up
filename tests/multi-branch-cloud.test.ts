@@ -9,7 +9,7 @@ import {
 
 async function testAuthAndJWT() {
   console.log('Testing Cloud Auth & JWT...');
-  const secret = 'super-secret-key-12345';
+  const secret = 'super-secret-key-12345-cloud-auth-32chars!';
   const payload = {
     sub: 'user-001',
     org: 'org-tastecraft-test',

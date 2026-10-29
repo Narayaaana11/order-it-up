@@ -11,8 +11,17 @@ export async function handleGeneratePairing(request: Request, env: Env, orgId: s
     return Response.json({ error: 'branch_id and terminal_name are required' }, { status: 400 });
   }
 
-  // Generate 6-digit code
-  const code = Math.floor(100000 + Math.random() * 900000).toString();
+  // Verify branch belongs to organization
+  const branch = await env.DB.prepare('SELECT id FROM branches WHERE id = ? AND organization_id = ?')
+    .bind(body.branch_id, orgId).first();
+  if (!branch) {
+    return Response.json({ error: 'Branch not found or belongs to another organization' }, { status: 404 });
+  }
+
+  // Generate cryptographically secure 6-digit code
+  const randomBuf = new Uint32Array(1);
+  crypto.getRandomValues(randomBuf);
+  const code = (100000 + (randomBuf[0] % 900000)).toString();
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString(); // 15 mins
   const now = new Date().toISOString();
 
