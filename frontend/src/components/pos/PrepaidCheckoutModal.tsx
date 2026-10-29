@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { X, Sparkles, ArrowLeftRight, CheckCircle2, Percent, Wallet, ChevronDown } from 'lucide-react';
+import { X, Sparkles, ArrowLeftRight, CheckCircle2, Percent, Wallet, ChevronDown, Banknote, QrCode } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import api from '@/lib/api';
 import { useCartStore } from '@/store/cart';
@@ -78,11 +78,10 @@ interface Payment {
 
 type AmountTarget = { kind: 'payment'; index: number } | { kind: 'wallet' } | { kind: 'discount' } | null;
 
-export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: Props) {
+export default function PrepaidCheckoutModal({ currency: _currency, onClose, onConfirm }: Props) {
   const cart = useCartStore();
   const customer = cart.customer;
   const t = useTranslations('pos');
-  const tCommon = useTranslations('common');
   const currencyFmt = useFormatCurrency();
   const fmtNum = useFormatNumber();
   const unitAdapter = useCurrencyUnitAdapter();
@@ -100,7 +99,7 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
   const [walletLoadFailed, setWalletLoadFailed] = useState(false);
   const [walletAmount, setWalletAmount] = useState('');
   const [processing, setProcessing] = useState(false);
-  const [customMethods, setCustomMethods] = useState<CustomPaymentMethod[]>([]);
+  const [selectedMethod, setSelectedMethod] = useState<'cash' | 'upi'>('cash');
 
   // Discount state (applied to the order once checkout is confirmed)
   const [discountOpen, setDiscountOpen] = useState(false);
@@ -138,6 +137,7 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
     previewDiscount,
   );
 
+  const [customMethods, setCustomMethods] = useState<CustomPaymentMethod[]>([]);
   const [payments, setPayments] = useState<Payment[]>(
     PAYMENT_METHODS.map((method) => ({ method: method.key, amount: '' })),
   );
@@ -232,27 +232,14 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
   }
 
   const walletAmt = toStoredUnit(parseFloat(walletAmount) || 0);
-  const totalPaymentMinor = payments.reduce((s, p) => s + toMinorUnits(toStoredUnit(parseFloat(p.amount) || 0)), 0) + toMinorUnits(walletAmt);
-  const totalPayment = totalPaymentMinor / minorFactor;
-  const remainingMinor = toMinorUnits(remaining);
 
   const updatePaymentAmount = (idx: number, value: string) => {
     setPaymentsTouched(true);
     setPayments((current) => current.map((payment, index) => index === idx ? { ...payment, amount: value } : payment));
   };
 
-  const allocateRemainingTo = (idx: number) => {
-    const allocatedElsewhere = payments.reduce((sum, payment, index) => index === idx ? sum : sum + toStoredUnit(parseFloat(payment.amount) || 0), walletAmt);
-    const dueStored = Math.max(0, remaining - allocatedElsewhere);
-    const dueDisplay = toDisplayUnit(dueStored);
-    setPaymentsTouched(true);
-    setPayments(payments.map((payment, index) => index === idx ? { ...payment, amount: dueDisplay > 0 ? String(dueDisplay) : '' } : payment));
-  };
-
-  const hasCash = payments.some((p) => p.method === 'cash' && (parseFloat(p.amount) || 0) > 0);
-  const change = hasCash && totalPaymentMinor > remainingMinor
-    ? (totalPaymentMinor - remainingMinor) / minorFactor
-    : 0;
+  const hasCash = selectedMethod === 'cash';
+  const change = 0;
 
   const activeAmountValue = amountTarget?.kind === 'payment'
     ? payments[amountTarget.index]?.amount || ''
@@ -308,43 +295,7 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
       return;
     }
     if (!preview) return;
-    const decimalPart = unitAdapter.maxDecimals > 0 ? `(?:\\.\\d{1,${unitAdapter.maxDecimals}})?` : '';
-    const amountPattern = new RegExp(`^\\d+${decimalPart}$`);
-    const amountIsValid = (value: string) => value.trim() === '' || amountPattern.test(value.trim());
-    if (payments.some((p) => (
-      !PAYMENT_METHODS.some((allowed) => allowed.key === p.method)
-      && !customMethods.some((method) => method.id === p.payment_method_id)
-    ) || !amountIsValid(p.amount))) {
-      toast.error(t('paymentFailed'));
-      return;
-    }
-    if (walletAmount.trim() && !amountPattern.test(walletAmount.trim())) {
-      toast.error(t('paymentFailed'));
-      return;
-    }
-    const nonCashTotalMinor = payments
-      .filter((p) => p.method !== 'cash')
-      .reduce((sum, p) => sum + toMinorUnits(toStoredUnit(Number(p.amount) || 0)), 0) + toMinorUnits(walletAmt);
-    if (nonCashTotalMinor > remainingMinor) {
-      toast.error(t('paymentAboveBalance'));
-      return;
-    }
-    if (totalPaymentMinor < remainingMinor) {
-      toast.error(t('paymentBelowBalance'));
-      return;
-    }
-    if (walletAmt > 0 && walletBalance === null) {
-      toast.error(t('paymentFailed'));
-      return;
-    }
-    if (walletAmt > 0 && walletBalance !== null) {
-      const walletPointsRequired = walletAmt * LOYALTY_REDEMPTION_RATE;
-      if (walletPointsRequired > walletBalance) {
-        const maxCurrency = Math.floor(walletBalance / LOYALTY_REDEMPTION_RATE);
-        toast.error(t('walletMaxAmount', { max: currencyFmt(maxCurrency) }));
-        return;
-      }
-    }
+
     if (preview.discountAmount > 0 && discountRequiresApproval && !discountPin) {
       toast.error(t('managerPinRequired'));
       return;
@@ -355,13 +306,12 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
     }
 
     setProcessing(true);
-    const splitLines: PrepaidPayment[] = payments
-      .map((p) => ({
-        method: p.payment_method_id === undefined ? p.method : 'custom',
-        ...(p.payment_method_id !== undefined ? { payment_method_id: p.payment_method_id } : {}),
-        amount: toStoredUnit(parseFloat(p.amount) || 0),
-      }))
-      .filter((p) => p.amount > 0 && !isNaN(p.amount));
+    const splitLines: PrepaidPayment[] = [
+      {
+        method: selectedMethod,
+        amount: remaining,
+      },
+    ];
 
     const finalDiscount: PrepaidDiscount | null = preview.discountAmount > 0
       ? {
@@ -372,7 +322,7 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
       }
       : null;
 
-    onConfirm(splitLines, walletAmt, finalDiscount);
+    onConfirm(splitLines, 0, finalDiscount);
   };
 
   return (
@@ -518,36 +468,33 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
             </div>
           )}
 
-          {/* Every method has one compact amount row; clicking its label fills the unallocated balance. */}
-          <div className="space-y-2">
-            {payments.map((payment, idx) => {
-              const builtIn = PAYMENT_METHODS.find((method) => method.key === payment.method && payment.payment_method_id === undefined);
-              const custom = customMethods.find((method) => method.id === payment.payment_method_id);
-              const label = builtIn ? t(BUILT_IN_PAYMENT_KEYS[builtIn.key as keyof typeof BUILT_IN_PAYMENT_KEYS]) : custom?.name || tCommon('unknown');
-              const Icon = builtIn?.icon;
-              const active = (parseFloat(payment.amount) || 0) > 0;
-              const isProminent = payment.method === 'cash' || payment.method === 'upi';
-              return <div key={payment.payment_method_id === undefined ? payment.method : `custom:${payment.payment_method_id}`} className={`flex transition-all ${isProminent ? 'min-h-16 shadow-sm mb-3' : 'min-h-12 mb-2'}`}>
-                <button type="button" title={label} onClick={() => { setAmountTarget({ kind: 'payment', index: idx }); allocateRemainingTo(idx); }} className={`touch-target shrink-0 justify-start rounded-s-xl border px-3 gap-2 font-bold transition-colors ${isProminent ? 'w-40 text-base' : 'w-36 text-sm'} ${active ? 'bg-brand text-white border-brand shadow-inner' : 'bg-card text-foreground border-border hover:border-brand hover:text-brand shadow-sm'}`}>
-                  {Icon && <Icon size={isProminent ? 20 : 16} className={active ? 'text-white' : 'text-brand'} />}
-                  <span className="truncate">{label}</span>
-                </button>
-                <div className={`flex flex-1 items-center border border-s-0 border-border rounded-e-xl bg-card focus-within:ring-2 focus-within:ring-brand focus-within:border-transparent ${isProminent ? 'shadow-sm' : ''}`}>
-                  <span className="ps-3 text-gray-400 text-xs font-medium">{inputCurrencyLabel}</span>
-                  <input
-                    type="number"
-                    value={payment.amount}
-                    onFocus={() => setAmountTarget({ kind: 'payment', index: idx })}
-                    onChange={(e) => updatePaymentAmount(idx, e.target.value)}
-                    placeholder="0.00"
-                    inputMode="decimal"
-                    className={`min-w-0 flex-1 px-3 py-2 text-end font-bold outline-none rounded-e-xl ${isProminent ? 'text-xl text-brand' : 'text-base'}`}
-                    step={inputCurrencyStep}
-                    min="0"
-                  />
-                </div>
-              </div>;
-            })}
+          {/* Payment Method Selection: Cash & UPI side-by-side */}
+          <div className="grid grid-cols-2 gap-3 py-1">
+            <button
+              type="button"
+              onClick={() => setSelectedMethod('cash')}
+              className={`touch-target flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl border-2 font-bold transition-all ${
+                selectedMethod === 'cash'
+                  ? 'border-brand bg-brand text-white shadow-md shadow-brand/20 scale-[1.02]'
+                  : 'border-border bg-card text-foreground hover:border-brand/40 hover:bg-muted/30'
+              }`}
+            >
+              <Banknote size={28} className={selectedMethod === 'cash' ? 'text-white' : 'text-brand'} />
+              <span className="text-base">{t(BUILT_IN_PAYMENT_KEYS.cash)}</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setSelectedMethod('upi')}
+              className={`touch-target flex flex-col items-center justify-center gap-2.5 p-4 rounded-2xl border-2 font-bold transition-all ${
+                selectedMethod === 'upi'
+                  ? 'border-brand bg-brand text-white shadow-md shadow-brand/20 scale-[1.02]'
+                  : 'border-border bg-card text-foreground hover:border-brand/40 hover:bg-muted/30'
+              }`}
+            >
+              <QrCode size={28} className={selectedMethod === 'upi' ? 'text-white' : 'text-brand'} />
+              <span className="text-base">{t(BUILT_IN_PAYMENT_KEYS.upi)}</span>
+            </button>
           </div>
 
           {/* Loyalty Wallet Section */}
@@ -622,7 +569,7 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
           )}
 
           {/* Change stays at the bottom of all payment controls. */}
-          {hasCash && (
+          {hasCash && change > 0 && (
             <div className={`rounded-xl px-4 py-2.5 flex items-center justify-between border transition-all duration-200 ${
               change > 0
                 ? 'bg-emerald-50 border-emerald-200'
@@ -656,7 +603,7 @@ export default function PrepaidCheckoutModal({ currency, onClose, onConfirm }: P
         <div className="shrink-0 border-t border-border px-5 pb-6 pt-3">
           <Button
             onClick={handleConfirm}
-            disabled={processing || taxLoading || (!preview && !hasInvalidFixedDiscount) || totalPaymentMinor < remainingMinor}
+            disabled={processing || taxLoading || (!preview && !hasInvalidFixedDiscount) || remaining <= 0}
             className="w-full h-12 text-base font-semibold rounded-xl"
             size="lg"
           >

@@ -21,7 +21,7 @@ import {
   printLabelResolver,
   resolveBillPrintLanguages,
 } from './print-document';
-import { RECEIPT_BRANDING_NAME } from './branding';
+import { RECEIPT_BRANDING } from './branding';
 import { LANGUAGES, type Language } from '@/lib/i18n/languages';
 import {
   getBlock,
@@ -340,11 +340,13 @@ export function generateBillHtml(
     ${messages?.onlineOrderBanner ? `<div class="online-order-banner">${escapeHtml(messages.onlineOrderBanner.label.primary)}${messages.onlineOrderBanner.platform.text ? `<div class="online-order-detail">${escapeHtml(messages.onlineOrderBanner.platform.text)}</div>` : ''}${messages.onlineOrderBanner.externalOrderId.text ? `<div class="online-order-detail">#${escapeHtml(messages.onlineOrderBanner.externalOrderId.text)}</div>` : ''}</div>` : ''}
     <!-- Header -->
     <div class="header">
-      ${header?.name ? `<h1>${escapeHtml(header.name.text)}</h1>` : ''}
+      <div class="brand-title">ORDER IT UP</div>
+      ${header?.name ? `<h1>${escapeHtml(header.name.text)}</h1>` : (businessName || tenant.business_name ? `<h1>${escapeHtml(businessName || tenant.business_name)}</h1>` : '')}
       ${header?.address ? `<p>${escapeHtml(header.address.text).replace(/\n/g, '<br>')}</p>` : ''}
       ${header?.phone && header.phoneLabel ? `<p>${escapeHtml(header.phoneLabel.primary)}: ${directionalValue(header.phone, base)}</p>` : ''}
       ${header?.taxId ? `<p>${escapeHtml(header.taxId.label.primary)}: ${directionalValue(header.taxId.value, base)}</p>` : ''}
     </div>
+    <div class="dashed-divider">----------------------------------------</div>
 
     <!-- Bill Details -->
     <div class="bill-details">
@@ -358,6 +360,7 @@ export function generateBillHtml(
         ${customer?.phone ? `<tr><td><strong>${escapeHtml(L.customerNo)}</strong> ${directionalValue(customer.phone, base)}</td><td></td></tr>` : ''}
       </table>
     </div>
+    <div class="dashed-divider">----------------------------------------</div>
 
     <!-- Items Table -->
     <table class="items-table">
@@ -384,6 +387,7 @@ export function generateBillHtml(
         `).join('')}
       </tbody>
     </table>
+    <div class="dashed-divider">----------------------------------------</div>
 
     <!-- Tax Breakdown -->
     ${breakdown && breakdown.lines.length > 0 ? `
@@ -413,7 +417,13 @@ export function generateBillHtml(
       ${totals.pointsEarned ? `<tr><td>${escapeHtml(totals.pointsEarned.label.primary)}</td><td class="text-end num">${escapeHtml(totals.pointsEarned.points)} pts</td></tr>` : ''}
       ${totals.pointsBalance ? `<tr><td>${escapeHtml(totals.pointsBalance.label.primary)}</td><td class="text-end num">${escapeHtml(totals.pointsBalance.points)} pts</td></tr>` : ''}
       ` : ''}
+      ${payments && payments.lines.length > 0 ? `
+      <tr class="mode-row"><td><strong>Mode:</strong></td><td class="text-end num"><strong>${escapeHtml(payments.lines.map(p => paymentLineLabel(p.label).toUpperCase()).join(', '))}</strong></td></tr>
+      ` : (bill.payment_details && Array.isArray(bill.payment_details) && bill.payment_details.length > 0 ? `
+      <tr class="mode-row"><td><strong>Mode:</strong></td><td class="text-end num"><strong>${escapeHtml(bill.payment_details.map((p: { method?: string }) => String(p.method || '').toUpperCase()).join(', '))}</strong></td></tr>
+      ` : '')}
     </table>
+    <div class="dashed-divider">----------------------------------------</div>
 
     <!-- Payments -->
     ${payments && payments.lines.length > 0 ? `
@@ -460,8 +470,8 @@ export function generateBillHtml(
     <!-- Footer -->
     <div class="footer">
       ${messages?.footerNote ? `<p>${escapeHtml(messages.footerNote.text)}</p>` : `<p>${escapeHtml(L.thankYou)}</p>`}
-      ${hasTax ? `<p>${escapeHtml(L.taxIncluded)}</p>` : ''}
-      <p class="powered-by">${escapeHtml(RECEIPT_BRANDING_NAME)}</p>
+      ${hasTax ? `<p class="tax-note">${escapeHtml(L.taxIncluded)}</p>` : ''}
+      <p class="powered-by">${escapeHtml(RECEIPT_BRANDING)}</p>
     </div>
   </div>
 
@@ -516,37 +526,75 @@ function paymentLineLabel(label: { conceptId?: string; primary: string }): strin
 function getPaperStyles(size: PaperSize): string {
   const baseStyles = `
     * { box-sizing: border-box; margin: 0; padding: 0; }
-    body { font-family: -apple-system, 'Segoe UI', Tahoma, 'Noto Naskh Arabic', 'Helvetica Neue', Arial, sans-serif; font-size: 12px; line-height: 1.4; color: #333; }
-    .bill-container { max-width: 100%; margin: 0 auto; }
-    .reprint-banner { text-align: center; font-size: 22px; font-weight: bold; letter-spacing: 2px; color: #c00; border: 3px solid #c00; padding: 6px; margin-bottom: 15px; }
-    .online-order-banner { text-align: center; font-size: 18px; font-weight: bold; letter-spacing: 1px; border: 2px solid #333; padding: 6px; margin-bottom: 15px; }
-    .online-order-banner .online-order-detail { font-size: 13px; font-weight: normal; letter-spacing: normal; margin-top: 2px; }
-    .header { text-align: center; margin-bottom: 20px; padding-bottom: 10px; border-bottom: 1px solid #ccc; }
-    .header h1 { font-size: 24px; margin-bottom: 5px; }
-    .bill-details { margin-bottom: 15px; }
-    .bill-details table { width: 100%; }
-    .items-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-    .items-table th, .items-table td { padding: 8px; border-bottom: 1px solid #eee; text-align: start; }
-    .items-table th { background: #f5f5f5; font-weight: bold; }
-    .tax-table, .payments-table { width: 50%; margin-inline-start: 50%; border-collapse: collapse; margin-bottom: 15px; }
-    .tax-table th, .tax-table td, .payments-table th, .payments-table td { padding: 6px 8px; }
-    .tax-table th, .payments-table th { background: #f9f9f9; text-align: start; }
-    .totals-table { width: 100%; border-collapse: collapse; margin-bottom: 15px; }
-    .totals-table td { padding: 6px 8px; }
-    .total-row { border-top: 2px solid #333; font-size: 16px; }
-    .footer { text-align: center; margin-top: 30px; padding-top: 15px; border-top: 1px solid #ccc; }
-    .powered-by { font-size: 10px; margin-top: 8px; color: #555; }
+    body { font-family: 'Courier New', Courier, 'Lucida Console', Monaco, monospace, -apple-system, sans-serif; font-size: 11px; line-height: 1.35; color: #111; background: #fff; }
+    .bill-container { max-width: 100%; margin: 0 auto; background: #fff; }
+    .reprint-banner { text-align: center; font-size: 18px; font-weight: bold; letter-spacing: 2px; color: #c00; border: 2px dashed #c00; padding: 4px; margin-bottom: 8px; }
+    .online-order-banner { text-align: center; font-size: 16px; font-weight: bold; letter-spacing: 1px; border: 2px dashed #333; padding: 4px; margin-bottom: 8px; }
+    .online-order-banner .online-order-detail { font-size: 11px; font-weight: normal; letter-spacing: normal; margin-top: 2px; }
+    .header { text-align: center; margin-bottom: 6px; }
+    .brand-title {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 18px;
+      font-weight: 900;
+      letter-spacing: 2px;
+      color: #000;
+      text-transform: uppercase;
+      margin-bottom: 2px;
+    }
+    .header h1 {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 13px;
+      font-weight: bold;
+      color: #222;
+      margin-bottom: 2px;
+      letter-spacing: 0.5px;
+    }
+    .header p {
+      font-family: 'Courier New', Courier, monospace;
+      font-size: 10px;
+      color: #555;
+      line-height: 1.3;
+    }
+    .dashed-divider {
+      text-align: center;
+      color: #888;
+      font-size: 10px;
+      letter-spacing: -0.5px;
+      overflow: hidden;
+      white-space: nowrap;
+      margin: 4px 0;
+      user-select: none;
+    }
+    .bill-details { margin: 4px 0; font-family: 'Courier New', Courier, monospace; font-size: 11px; }
+    .bill-details table { width: 100%; border-collapse: collapse; }
+    .bill-details td { padding: 1px 0; }
+    .items-table { width: 100%; border-collapse: collapse; margin: 4px 0; font-family: 'Courier New', Courier, monospace; font-size: 11px; }
+    .items-table th, .items-table td { padding: 3px 2px; text-align: start; }
+    .items-table th { background: transparent; font-weight: bold; border-top: 1px dashed #888; border-bottom: 1px dashed #888; }
+    .tax-table, .payments-table { width: 50%; margin-inline-start: 50%; border-collapse: collapse; margin-bottom: 6px; font-family: 'Courier New', Courier, monospace; font-size: 10px; }
+    .tax-table th, .tax-table td, .payments-table th, .payments-table td { padding: 2px 4px; }
+    .tax-table th, .payments-table th { background: transparent; border-bottom: 1px dashed #aaa; text-align: start; font-weight: bold; }
+    .totals-table { width: 100%; border-collapse: collapse; margin: 4px 0; font-family: 'Courier New', Courier, monospace; font-size: 11px; }
+    .totals-table td { padding: 2px 2px; }
+    .total-row { border-top: 1px dashed #888; border-bottom: 1px dashed #888; font-size: 13px; }
+    .total-row td { padding: 4px 2px; }
+    .mode-row { font-size: 11px; }
+    .footer { text-align: center; margin-top: 8px; padding-top: 4px; font-family: 'Courier New', Courier, monospace; }
+    .thank-you { font-size: 11px; font-weight: bold; color: #333; margin-bottom: 4px; letter-spacing: 0.5px; }
+    .tax-note { font-size: 9px; color: #666; margin-top: 2px; }
+    .footer-note { font-size: 10px; color: #444; margin-top: 2px; }
+    .powered-by { font-size: 10px; margin-top: 6px; color: #777; }
     .text-end { text-align: end !important; }
     .num { unicode-bidi: isolate; white-space: nowrap; }
     .ltr { direction: ltr; unicode-bidi: isolate; }
-    .text-muted { color: #666; }
-    .text-italic { font-style: italic; color: #888; }
-    .upi-payment-block { text-align: center; margin: 12px 0 10px 0; padding: 10px 8px; border: 1.5px dashed #0f172a; border-radius: 8px; background: #f8fafc; }
-    .upi-title { font-size: 11px; font-weight: 800; letter-spacing: 1px; color: #0f172a; text-transform: uppercase; margin-bottom: 5px; }
-    .upi-qr-frame { display: flex; justify-content: center; margin: 4px 0; }
-    .upi-qr-img { width: 130px; height: 130px; display: block; border-radius: 6px; border: 1px solid #cbd5e1; background: #ffffff; padding: 4px; margin: 0 auto; }
-    .upi-amount { font-size: 13px; font-weight: 700; color: #0f172a; margin-top: 5px; }
-    .upi-badges { font-size: 9px; font-weight: 600; color: #475569; margin-top: 3px; }
+    .text-muted { color: #666; font-size: 10px; }
+    .text-italic { font-style: italic; color: #888; font-size: 10px; }
+    .upi-payment-block { text-align: center; margin: 8px 0; padding: 8px 6px; border: 1px dashed #0f172a; border-radius: 6px; background: #fafafa; }
+    .upi-title { font-size: 10px; font-weight: 800; letter-spacing: 1px; color: #0f172a; text-transform: uppercase; margin-bottom: 4px; }
+    .upi-qr-frame { display: flex; justify-content: center; margin: 3px 0; }
+    .upi-qr-img { width: 120px; height: 120px; display: block; border-radius: 4px; border: 1px solid #cbd5e1; background: #ffffff; padding: 2px; margin: 0 auto; }
+    .upi-amount { font-size: 12px; font-weight: 700; color: #0f172a; margin-top: 4px; }
+    .upi-badges { font-size: 9px; font-weight: 600; color: #475569; margin-top: 2px; }
     .upi-vpa { font-size: 9px; color: #64748b; margin-top: 2px; font-family: monospace; }
     @media print {
       body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -557,14 +605,17 @@ function getPaperStyles(size: PaperSize): string {
   switch (size) {
     case 'thermal58':
       return baseStyles + `
-        .bill-container { padding: 5px; max-width: 58mm; font-size: 10px; }
-        .header h1 { font-size: 14px; }
-        .items-table th, .items-table td, .tax-table td, .totals-table td, .payments-table td { padding: 2px 4px; }
+        .bill-container { padding: 4px; max-width: 58mm; font-size: 10px; }
+        .brand-title { font-size: 16px; }
+        .header h1 { font-size: 12px; }
+        .total-row { font-size: 12px; }
+        .items-table th, .items-table td, .tax-table td, .totals-table td, .payments-table td { padding: 1px 2px; }
       `;
     case 'thermal80':
       return baseStyles + `
-        .bill-container { padding: 10px; max-width: 80mm; font-size: 11px; }
-        .header h1 { font-size: 16px; }
+        .bill-container { padding: 8px; max-width: 80mm; font-size: 11px; }
+        .brand-title { font-size: 18px; }
+        .header h1 { font-size: 13px; }
       `;
     default:
       return baseStyles;

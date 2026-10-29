@@ -44,6 +44,7 @@ import { reservationRoutes } from './reservations';
 import { qrOrderRoutes } from './qr-order';
 import { aggregatorRoutes } from './aggregators';
 import { aiRoutes } from './ai';
+import { cloudHqRoutes } from './cloud-hq';
 import { getDatabase, now, parseItemJson, attachEffectiveAddons, withTxn, getSettingValue, getCachedPairingCode, setCachedPairingCode, verifyPin } from '../db';
 import { checkPinRateLimit } from './orders';
 import { getCurrencyFractionDigits, getCurrencyMinorUnitFactor } from '../countries';
@@ -128,6 +129,11 @@ export function registerRoutes(app: Express): void {
   app.use('/api/qr', qrOrderRoutes);
   app.use('/api', aggregatorRoutes);
   app.use('/api', aiRoutes);
+  app.use('/api/cloud', cloudHqRoutes);
+  app.post('/api/pos/pair', (req, res, next) => {
+    req.url = '/pair';
+    cloudHqRoutes(req, res, next);
+  });
 
   // Tax preview
   app.post('/api/tax/preview', asyncHandler(async (req, res) => {

@@ -35,9 +35,13 @@ const originalResolveFilename = moduleApi._resolveFilename;
 moduleApi._resolveFilename = function (request: string, parent: any, isMain: boolean, options?: any) {
   const resolvedRequest = request === '@countries'
     ? path.resolve(ROOT, 'main/countries.ts')
-    : request.startsWith('@/')
-      ? path.resolve(ROOT, 'frontend/src', request.slice(2))
-      : request;
+    : request.startsWith('@print/')
+      ? path.resolve(ROOT, 'shared/print', request.slice('@print/'.length))
+      : request.startsWith('@shared/')
+        ? path.resolve(ROOT, 'shared', request.slice('@shared/'.length))
+        : request.startsWith('@/')
+          ? path.resolve(ROOT, 'frontend/src', request.slice(2))
+          : request;
   return originalResolveFilename.call(this, resolvedRequest, parent, isMain, options);
 };
 const React = frontendRequire('react');
@@ -278,7 +282,8 @@ async function runModalKeypadIntegrationTests() {
   };
   const currentTenant = { currency: 'JPY', country: 'JP' };
   const mocks: Record<string, unknown> = {
-    'lucide-react': { X: Icon, Wallet: Icon, ArrowLeftRight: Icon, CheckCircle2: Icon, Sparkles: Icon, User: Icon, Percent: Icon, Send: Icon, ChevronDown: Icon, Banknote: Icon, CreditCard: Icon },
+    'lucide-react': new Proxy({}, { get: () => Icon }),
+    '@/hooks/usePrinter': { usePrinterStore: () => ({ printBill: async () => undefined }) },
     '@/components/ui/button': {
       Button: ({ children, variant: _variant, size: _size, ...props }: any) => React.createElement('button', props, children),
     },

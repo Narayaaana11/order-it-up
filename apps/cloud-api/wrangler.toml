@@ -1,0 +1,13 @@
+name = "orderitup-cloud-api"
+main = "src/index.ts"
+compatibility_date = "2024-04-01"
+compatibility_flags = ["nodejs_compat"]
+
+[vars]
+ENVIRONMENT = "production"
+JWT_SECRET = "orderitup-franchise-secret-change-in-production"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "orderitup-d1-prod"
+database_id = "orderitup-d1-prod-db-id"

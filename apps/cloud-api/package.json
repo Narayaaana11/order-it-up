@@ -1,0 +1,20 @@
+{
+  "name": "orderitup-cloud-api",
+  "version": "1.0.0",
+  "description": "Cloudflare Workers & D1 Edge API for Order It Up Multi-Branch Franchise POS",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "d1:migrate": "wrangler d1 migrations apply orderitup-d1-prod --local",
+    "d1:migrate:remote": "wrangler d1 migrations apply orderitup-d1-prod --remote"
+  },
+  "dependencies": {
+    "hono": "^4.3.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240405.0",
+    "typescript": "^5.5.0",
+    "wrangler": "^3.50.0"
+  }
+}

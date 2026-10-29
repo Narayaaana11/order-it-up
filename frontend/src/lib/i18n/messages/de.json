@@ -348,6 +348,7 @@
     "wsConnected": "WebSocket verbunden"
   },
   "nav": {
+    "aiInsights": "KI-Copilot",
     "collapse": "Einklappen",
     "confirmLogout": "Möchten Sie sich wirklich abmelden?",
     "customers": "Kunden",
@@ -358,6 +359,7 @@
     "kds": "KDS",
     "logout": "Abmelden",
     "logoutTooltip": "Abmelden",
+    "onlineOrders": "Online-Bestellungen",
     "orders": "Bestellungen",
     "portLabel": "Port",
     "pos": "Kasse",

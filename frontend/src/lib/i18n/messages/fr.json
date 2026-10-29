@@ -348,6 +348,7 @@
     "wsConnected": "WebSocket connecté"
   },
   "nav": {
+    "aiInsights": "Copilote IA",
     "collapse": "Réduire",
     "confirmLogout": "Voulez-vous vraiment vous déconnecter ?",
     "customers": "Clients",
@@ -358,6 +359,7 @@
     "kds": "KDS",
     "logout": "Déconnexion",
     "logoutTooltip": "Se déconnecter",
+    "onlineOrders": "Commandes en ligne",
     "orders": "Commandes",
     "portLabel": "Port",
     "pos": "POS",

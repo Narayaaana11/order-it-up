@@ -348,6 +348,7 @@
     "wsConnected": "WebSocket Bağlı"
   },
   "nav": {
+    "aiInsights": "Yapay Zeka Yardımcısı",
     "collapse": "Menüyü Daralt",
     "confirmLogout": "Çıkış yapmak istediğinizden emin misiniz?",
     "customers": "Müşteriler",
@@ -358,6 +359,7 @@
     "kds": "Mutfak Ekranı",
     "logout": "Çıkış Yap",
     "logoutTooltip": "Oturumu kapat ve kilit ekranına dön",
+    "onlineOrders": "Çevrimiçi Siparişler",
     "orders": "Siparişler",
     "portLabel": "Port",
     "pos": "Satış Noktası",

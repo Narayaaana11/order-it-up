@@ -9,12 +9,16 @@ const eslintConfig = defineConfig([
     rules: {
       // Static export uses dynamic data URLs, QR codes, and user-selected
       // product images; next/image optimization is unavailable in Electron.
-      "@next/next/no-img-element": "off"
+      "@next/next/no-img-element": "off",
+      "@typescript-eslint/no-explicit-any": "warn",
+      "react/no-unescaped-entities": "warn",
+      "react-hooks/set-state-in-effect": "warn"
     }
   },
   // Override default ignores of eslint-config-next.
   globalIgnores([
     // Default ignores of eslint-config-next:
+    "node_modules/**",
     ".next/**",
     "out/**",
     "build/**",

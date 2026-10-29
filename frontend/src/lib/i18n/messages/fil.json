@@ -348,6 +348,7 @@
     "wsConnected": "Konektado ang WebSocket"
   },
   "nav": {
+    "aiInsights": "Katuwang na AI",
     "collapse": "I-collapse ang Sidebar",
     "confirmLogout": "Sigurado ka bang gusto mong mag-sign out?",
     "customers": "Mga Customer",
@@ -358,6 +359,7 @@
     "kds": "KDS",
     "logout": "Mag-sign Out",
     "logoutTooltip": "Mag-sign out sa kasalukuyang session",
+    "onlineOrders": "Mga Online Order",
     "orders": "Mga Order",
     "portLabel": "Port",
     "pos": "POS",

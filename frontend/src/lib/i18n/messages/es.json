@@ -348,6 +348,7 @@
     "wsConnected": "WebSocket conectado"
   },
   "nav": {
+    "aiInsights": "Copiloto IA",
     "collapse": "Contraer",
     "confirmLogout": "¿Estás seguro de que quieres cerrar la sesión?",
     "customers": "Clientes",
@@ -358,6 +359,7 @@
     "kds": "KDS",
     "logout": "Cerrar sesión",
     "logoutTooltip": "Cerrar sesión",
+    "onlineOrders": "Pedidos en línea",
     "orders": "Pedidos",
     "portLabel": "Puerto",
     "pos": "Punto de Venta",

@@ -431,9 +431,11 @@ export function buildClassicReceiptBytes(
     );
   }
 
-  // Business header (document block).
+  // Business header: ORDER IT UP at the top, followed by restaurant name
+  enc.align('center').bold(true);
+  safePrinterText(enc, 'ORDER IT UP', warnings, false, arabicShaping, cols).newline();
   if (header?.name) {
-    enc.align('center').bold(true).width(2).height(2);
+    enc.bold(true).width(2).height(2);
     safePrinterText(enc, truncate(header.name.text, 16), warnings, true, arabicShaping, Math.floor(cols / 2));
     enc.width(1).height(1).bold(false).newline();
   }
@@ -656,9 +658,11 @@ export function buildCompactReceiptBytes(
     );
   }
 
-  // Header (document business-header block)
+  // Header: ORDER IT UP at the top, followed by restaurant name
+  enc.align('center').bold(true);
+  safePrinterText(enc, 'ORDER IT UP', warnings, false, arabicShaping, cols).newline();
   if (header?.name) {
-    enc.align('center').bold(true);
+    enc.bold(true);
     safePrinterText(enc, truncate(header.name.text, cols), warnings, true, arabicShaping, cols);
     enc.bold(false).newline();
   }

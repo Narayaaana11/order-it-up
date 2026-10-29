@@ -454,8 +454,11 @@ export default function POSPage() {
   }, [cart]);
 
   const handleProductClick = (product: Product) => {
-    // Always open modal so user can add notes and adjust quantity
-    setAddonProduct(product);
+    if (product.addon_groups && product.addon_groups.length > 0) {
+      setAddonProduct(product);
+    } else {
+      cart.addItem(product, 1);
+    }
   };
 
   const handleAddonAdd = (product: Product, quantity: number, addons: Addon[], instructions: string) => {

@@ -348,6 +348,7 @@
     "wsConnected": "WebSocket پیوند داده شد"
   },
   "nav": {
+    "aiInsights": "دستیار هوش مصنوعی",
     "collapse": "جمع کردن",
     "confirmLogout": "آیا از خروج مطمئن هستید؟",
     "customers": "مشتریان",
@@ -358,6 +359,7 @@
     "kds": "نمایشگر آشپزخانه",
     "logout": "خروج",
     "logoutTooltip": "خروج",
+    "onlineOrders": "سفارشات آنلاین",
     "orders": "سفارش‌ها",
     "portLabel": "درگاه",
     "pos": "صندوق فروش",
