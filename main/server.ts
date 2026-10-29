@@ -44,6 +44,8 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (req.path.startsWith('/api/webhooks')) { next(); return; }
   // Allow unauthenticated GET requests for product images (so <img> tags work)
   if (req.path.startsWith('/api/products/') && req.path.endsWith('/image') && req.method === 'GET') { next(); return; }
+  // Terminal PIN pairing claim endpoints (for new tablets joining the local POS network)
+  if (req.path === '/api/pos/pair' || req.path === '/api/cloud/pair' || req.path === '/api/cloud/pair/claim') { next(); return; }
 
   const authHeader = req.headers.authorization;
   if (!authHeader?.startsWith('Bearer ')) {

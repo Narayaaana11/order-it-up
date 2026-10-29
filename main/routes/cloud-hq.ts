@@ -303,11 +303,30 @@ cloudHqRoutes.post('/pair/generate', requireRole(...ROLE_ACCESS.ownerManager), (
   });
 });
 
-// 6. Claim Terminal 6-Digit Pairing PIN
+// 6. Claim Terminal 6-Digit Pairing PIN (with IP brute-force protection)
+const pairClaimAttempts = new Map<string, { count: number; resetAt: number }>();
+const MAX_CLAIM_ATTEMPTS = 10;
+const CLAIM_WINDOW_MS = 5 * 60 * 1000;
+
 cloudHqRoutes.post(['/pair/claim', '/pair'], (req: Request, res: Response) => {
+  const clientIp = req.ip || req.socket?.remoteAddress || 'unknown';
+  const now = Date.now();
+  const tracker = pairClaimAttempts.get(clientIp);
+
+  if (tracker && tracker.resetAt > now && tracker.count >= MAX_CLAIM_ATTEMPTS) {
+    const retryAfter = Math.ceil((tracker.resetAt - now) / 1000);
+    res.setHeader('Retry-After', retryAfter);
+    return res.status(429).json({ error: 'Too many pairing attempts. Please wait 5 minutes.' });
+  }
+
   const code = (req.body?.code || req.body?.pin || '').toString().trim();
   const digits = code.replace(/\D/g, '');
   if (digits.length !== 6) {
+    if (!tracker || tracker.resetAt <= now) {
+      pairClaimAttempts.set(clientIp, { count: 1, resetAt: now + CLAIM_WINDOW_MS });
+    } else {
+      tracker.count++;
+    }
     return res.status(400).json({ error: 'Pairing PIN must be 6 digits' });
   }
 
