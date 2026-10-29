@@ -1,0 +1,60 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-verify:
+    name: Backend, Cloud & Security Verification
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: 'npm'
+
+      - name: Install Root Dependencies
+        run: npm ci
+
+      - name: Install Cloud API Dependencies
+        working-directory: apps/cloud-api
+        run: npm ci
+
+      - name: Backend Build (TypeScript)
+        run: npm run build
+
+      - name: Backend Lint
+        run: npm run lint:backend
+
+      - name: Cloud API Type Check
+        run: npx tsc -p apps/cloud-api/tsconfig.json --noEmit
+
+      - name: Cloud Sync Integrity & Concurrency Verification
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-sync-integrity.test.ts
+
+      - name: Cloud Rate Limiting & Brute Force Protection Verification
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-rate-limiting.test.ts
+
+      - name: Cloud Auth & Cryptographic JWT Verification
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-auth-hardening.test.ts
+
+      - name: Multi-Branch Aggregation & Variance Verification
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/multi-branch-cloud.test.ts
+
+      - name: Comprehensive E2E Multi-Branch & Mobile Parity Audit
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/comprehensive-e2e-audit.test.ts
+
+      - name: Payment Provider & Commercial License Security
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/payment-licensing-security.test.ts

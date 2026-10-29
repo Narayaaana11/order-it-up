@@ -128,6 +128,30 @@ class ApiClient {
     }
   }
 
+  Future<dynamic> patch(
+    String path, {
+    dynamic body,
+    Map<String, String>? extraHeaders,
+  }) async {
+    try {
+      final uri = _buildUri(path);
+      final response = await _client
+          .patch(
+            uri,
+            headers: _buildHeaders(extraHeaders: extraHeaders),
+            body: body != null ? jsonEncode(body) : null,
+          )
+          .timeout(timeoutDuration);
+
+      return _handleResponse(response);
+    } on TimeoutException {
+      throw ApiException('Connection timed out. Check POS server IP or network.');
+    } catch (e) {
+      if (e is ApiException) rethrow;
+      throw ApiException('Network error: ${e.toString()}');
+    }
+  }
+
   Future<dynamic> delete(String path) async {
     try {
       final uri = _buildUri(path);

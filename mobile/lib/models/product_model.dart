@@ -1,6 +1,7 @@
 class ProductModel {
   final String id;
   final String? categoryId;
+  final String? category;
   final String name;
   final double price;
   final String description;
@@ -12,6 +13,7 @@ class ProductModel {
   ProductModel({
     required this.id,
     this.categoryId,
+    this.category,
     required this.name,
     required this.price,
     this.description = '',
@@ -23,7 +25,7 @@ class ProductModel {
 
   bool get isVeg => dietaryType == 'veg' || dietaryType == 'vegan';
   bool get isAvailable => isActive;
-  String? get categoryName => null;
+  String? get categoryName => category ?? categoryId;
   String? get code => null;
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
@@ -35,6 +37,7 @@ class ProductModel {
     return ProductModel(
       id: json['id']?.toString() ?? '',
       categoryId: json['category_id']?.toString(),
+      category: json['category']?.toString() ?? json['category_name']?.toString() ?? json['category_id']?.toString(),
       name: json['name']?.toString() ?? 'Item',
       price: parsedPrice,
       description: json['description']?.toString() ?? '',
@@ -46,10 +49,12 @@ class ProductModel {
 
   ProductModel copyWith({
     bool? isActive,
+    String? category,
   }) {
     return ProductModel(
       id: id,
       categoryId: categoryId,
+      category: category ?? this.category,
       name: name,
       price: price,
       description: description,
@@ -64,6 +69,7 @@ class ProductModel {
     return {
       'id': id,
       'category_id': categoryId,
+      'category': category,
       'name': name,
       'price': price,
       'description': description,

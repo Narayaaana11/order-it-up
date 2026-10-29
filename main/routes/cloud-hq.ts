@@ -4,7 +4,9 @@
  */
 
 import { Router, Request, Response } from 'express';
-import { getDatabase, now } from '../db';
+import { getDatabase } from '../db';
+import { requireRole } from '../middleware/security';
+import { ROLE_ACCESS } from '../../shared/role-permissions';
 
 export const cloudHqRoutes = Router();
 
@@ -26,7 +28,7 @@ const inventoryTransfersList: Array<{
 ];
 
 // 1. Multi-Branch Overview
-cloudHqRoutes.get('/overview', (_req: Request, res: Response) => {
+cloudHqRoutes.get('/overview', requireRole(...ROLE_ACCESS.ownerManager), (_req: Request, res: Response) => {
   try {
     const db = getDatabase();
 
@@ -132,7 +134,7 @@ cloudHqRoutes.get('/overview', (_req: Request, res: Response) => {
 });
 
 // 2. Cash Closures Audit
-cloudHqRoutes.get('/closures', (_req: Request, res: Response) => {
+cloudHqRoutes.get('/closures', requireRole(...ROLE_ACCESS.ownerManager), (_req: Request, res: Response) => {
   try {
     const db = getDatabase();
     const rows = db.prepare(`
@@ -193,7 +195,7 @@ cloudHqRoutes.get('/closures', (_req: Request, res: Response) => {
 });
 
 // 3. Master Catalog & Branch Overrides
-cloudHqRoutes.get('/catalog', (_req: Request, res: Response) => {
+cloudHqRoutes.get('/catalog', requireRole(...ROLE_ACCESS.allStaff), (_req: Request, res: Response) => {
   try {
     const db = getDatabase();
     const products = db.prepare(`
@@ -230,7 +232,7 @@ cloudHqRoutes.get('/catalog', (_req: Request, res: Response) => {
   }
 });
 
-cloudHqRoutes.post('/catalog/override', (req: Request, res: Response) => {
+cloudHqRoutes.post('/catalog/override', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
   try {
     const { product_id, price_override, is_available } = req.body || {};
     if (!product_id) {
@@ -249,11 +251,11 @@ cloudHqRoutes.post('/catalog/override', (req: Request, res: Response) => {
 });
 
 // 4. Stock Transfers
-cloudHqRoutes.get('/transfers', (_req: Request, res: Response) => {
+cloudHqRoutes.get('/transfers', requireRole(...ROLE_ACCESS.allStaff), (_req: Request, res: Response) => {
   res.json({ success: true, transfers: inventoryTransfersList });
 });
 
-cloudHqRoutes.post('/transfers', (req: Request, res: Response) => {
+cloudHqRoutes.post('/transfers', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
   const { source, dest, item, qty, unit } = req.body || {};
   if (!item || !qty) {
     return res.status(400).json({ error: 'item and qty are required' });
@@ -274,7 +276,7 @@ cloudHqRoutes.post('/transfers', (req: Request, res: Response) => {
   res.json({ success: true, transfer: newTransfer });
 });
 
-cloudHqRoutes.patch('/transfers/:id/status', (req: Request, res: Response) => {
+cloudHqRoutes.patch('/transfers/:id/status', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
   const id = req.params.id;
   const status = req.body?.status;
 
@@ -288,7 +290,7 @@ cloudHqRoutes.patch('/transfers/:id/status', (req: Request, res: Response) => {
 });
 
 // 5. Generate Terminal 6-Digit Pairing PIN
-cloudHqRoutes.post('/pair/generate', (req: Request, res: Response) => {
+cloudHqRoutes.post('/pair/generate', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
   const branchId = req.body?.branch_id || 'br-02';
   const code = `${Math.floor(100 + Math.random() * 900)} ${Math.floor(100 + Math.random() * 900)}`;
   const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
