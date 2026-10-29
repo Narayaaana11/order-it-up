@@ -289,27 +289,64 @@ cloudHqRoutes.patch('/transfers/:id/status', requireRole(...ROLE_ACCESS.ownerMan
   res.json({ success: true, transfer: match });
 });
 
-// 5. Generate Terminal 6-Digit Pairing PIN
-cloudHqRoutes.post('/pair/generate', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+// 5. Active Terminal Pairing Sessions Store (Cryptographically bounded, single-use)
+export interface ActivePairingSession {
+  code: string;
+  branchId: string;
+  terminalName: string;
+  attempts: number;
+  claimed: boolean;
+  expiresAt: number;
+  createdAt: number;
+}
+
+export const activePairingSessions = new Map<string, ActivePairingSession>();
+export const pairClaimAttempts = new Map<string, { count: number; resetAt: number }>();
+export const MAX_CLAIM_ATTEMPTS = 10;
+export const MAX_PIN_ATTEMPTS = 5;
+export const CLAIM_WINDOW_MS = 5 * 60 * 1000;
+export const PIN_TTL_MS = 15 * 60 * 1000;
+
+export function resetPairingStore(): void {
+  activePairingSessions.clear();
+  pairClaimAttempts.clear();
+}
+
+// Generate Terminal 6-Digit Pairing PIN (Strictly protected by Owner/Manager role)
+cloudHqRoutes.post('/pair/generate', requireRole(...ROLE_ACCESS.ownerManager), async (req: Request, res: Response) => {
   const branchId = req.body?.branch_id || 'br-02';
-  const code = `${Math.floor(100 + Math.random() * 900)} ${Math.floor(100 + Math.random() * 900)}`;
-  const expiresAt = new Date(Date.now() + 15 * 60 * 1000).toISOString();
+  const terminalName = (req.body?.terminal_name || 'Mobile POS Tablet').toString().trim();
+
+  // Cryptographically secure 6-digit PIN generation
+  const crypto = await import('node:crypto');
+  const num = crypto.randomInt(100000, 1000000);
+  const rawCode = num.toString();
+  const formattedCode = `${rawCode.slice(0, 3)} ${rawCode.slice(3)}`;
+  const now = Date.now();
+  const expiresAt = now + PIN_TTL_MS;
+
+  activePairingSessions.set(rawCode, {
+    code: rawCode,
+    branchId,
+    terminalName,
+    attempts: 0,
+    claimed: false,
+    expiresAt,
+    createdAt: now,
+  });
 
   res.json({
     success: true,
-    code,
+    code: formattedCode,
     branch_id: branchId,
-    expires_at: expiresAt,
+    terminal_name: terminalName,
+    expires_at: new Date(expiresAt).toISOString(),
   });
 });
 
-// 6. Claim Terminal 6-Digit Pairing PIN (with IP brute-force protection)
-const pairClaimAttempts = new Map<string, { count: number; resetAt: number }>();
-const MAX_CLAIM_ATTEMPTS = 10;
-const CLAIM_WINDOW_MS = 5 * 60 * 1000;
-
+// 6. Claim Terminal 6-Digit Pairing PIN (Validated, Single-Use, Replay-Protected)
 cloudHqRoutes.post(['/pair/claim', '/pair'], (req: Request, res: Response) => {
-  const clientIp = req.ip || req.socket?.remoteAddress || 'unknown';
+  const clientIp = req.socket?.remoteAddress || req.ip || 'unknown';
   const now = Date.now();
   const tracker = pairClaimAttempts.get(clientIp);
 
@@ -319,23 +356,64 @@ cloudHqRoutes.post(['/pair/claim', '/pair'], (req: Request, res: Response) => {
     return res.status(429).json({ error: 'Too many pairing attempts. Please wait 5 minutes.' });
   }
 
-  const code = (req.body?.code || req.body?.pin || '').toString().trim();
-  const digits = code.replace(/\D/g, '');
-  if (digits.length !== 6) {
+  const recordFailedAttempt = () => {
     if (!tracker || tracker.resetAt <= now) {
       pairClaimAttempts.set(clientIp, { count: 1, resetAt: now + CLAIM_WINDOW_MS });
     } else {
       tracker.count++;
     }
+  };
+
+  const rawInput = (req.body?.code || req.body?.pin || '').toString().trim();
+  const digits = rawInput.replace(/\D/g, '');
+  if (digits.length !== 6) {
+    recordFailedAttempt();
     return res.status(400).json({ error: 'Pairing PIN must be 6 digits' });
   }
 
+  const session = activePairingSessions.get(digits);
+  if (!session) {
+    recordFailedAttempt();
+    return res.status(404).json({ error: 'Invalid pairing code' });
+  }
+
+  if (session.claimed) {
+    recordFailedAttempt();
+    return res.status(410).json({ error: 'Pairing code has already been claimed' });
+  }
+
+  if (now > session.expiresAt) {
+    activePairingSessions.delete(digits);
+    recordFailedAttempt();
+    return res.status(410).json({ error: 'Pairing code has expired' });
+  }
+
+  if (session.attempts >= MAX_PIN_ATTEMPTS) {
+    activePairingSessions.delete(digits);
+    recordFailedAttempt();
+    return res.status(429).json({ error: 'Maximum pairing verification attempts exceeded for this code' });
+  }
+
+  session.attempts++;
+
+  // Atomically burn the pairing session to prevent replay attacks
+  session.claimed = true;
+  activePairingSessions.delete(digits);
+
+  const branchName = session.branchId === 'br-01'
+    ? 'Connaught Place (Main Outlet)'
+    : session.branchId === 'br-02'
+      ? 'Gurugram CyberHub (Franchise)'
+      : 'Indiranagar 100ft (Franchise)';
+
   res.json({
     success: true,
-    branch: 'Connaught Place (Main Outlet)',
-    tenant: 'Grand Royal Hospitality Group',
+    branch: branchName,
+    branch_id: session.branchId,
+    tenant: 'Order It Up Hospitality Group',
     terminalId: `TERM-${digits}`,
-    token: `cloud-pos-token-${digits}`,
+    terminal_name: session.terminalName,
+    token: `pos-term-token-${session.branchId}-${digits}`,
   });
 });
 

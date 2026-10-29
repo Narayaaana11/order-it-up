@@ -97,11 +97,18 @@ router.post('/verify-payment', requireRole(...ROLE_ACCESS.ownerManager), asyncHa
     return res.status(400).json({ ok: false, error: result.message || 'Payment signature verification failed.' });
   }
 
-  // Prevent replay attacks: ensure paymentId was not previously consumed
+  // Prevent replay attacks: ensure paymentId or orderId was not previously consumed
   const db = getDatabase();
-  const existing = db.prepare('SELECT 1 FROM payment_transaction_refs WHERE transaction_id = ?').get(paymentId);
-  if (existing) {
+  const existingPayment = db.prepare('SELECT 1 FROM payment_transaction_refs WHERE method = ? AND transaction_id = ?')
+    .get('razorpay_subscription', paymentId);
+  if (existingPayment) {
     return res.status(409).json({ ok: false, error: 'Payment transaction has already been processed and activated.' });
+  }
+
+  const existingOrder = db.prepare('SELECT 1 FROM payment_transaction_refs WHERE method = ? AND bill_id = ?')
+    .get('razorpay_subscription', orderId);
+  if (existingOrder) {
+    return res.status(409).json({ ok: false, error: 'Subscription order has already been activated with another transaction.' });
   }
 
   const cycle = billingCycle === 'yearly' ? 'yearly' : 'monthly';
@@ -159,15 +166,17 @@ router.post('/webhooks/razorpay', asyncHandler(async (req: Request, res: Respons
   const eventId = event?.id || `wh_${Date.now()}`;
   const eventType = event?.event;
 
-  // Deduplication: prevent duplicate webhook event execution
+  // Deduplication: prevent duplicate webhook event execution (scoped to razorpay_webhook method)
   const db = getDatabase();
-  const processed = db.prepare('SELECT 1 FROM payment_transaction_refs WHERE transaction_id = ?').get(eventId);
+  const processed = db.prepare('SELECT 1 FROM payment_transaction_refs WHERE method = ? AND transaction_id = ?')
+    .get('razorpay_webhook', eventId);
   if (processed) {
     return res.status(200).json({ ok: true, status: 'already_processed', eventId });
   }
 
+  const entity = event?.payload?.payment?.entity || event?.payload?.order?.entity;
+
   if (eventType === 'payment.captured' || eventType === 'order.paid') {
-    const entity = event?.payload?.payment?.entity || event?.payload?.order?.entity;
     const notes = entity?.notes || {};
     const plan = (notes.plan || 'pro') as SubscriptionPlan;
     const durationDays = notes.billingCycle === 'yearly' ? 365 : 30;
@@ -186,6 +195,16 @@ router.post('/webhooks/razorpay', asyncHandler(async (req: Request, res: Respons
   } else if (eventType === 'payment.failed') {
     db.prepare('INSERT INTO payment_transaction_refs (method, transaction_id, bill_id, created_at) VALUES (?, ?, ?, ?)')
       .run('razorpay_webhook_failed', eventId, 'webhook_failed', now());
+  } else if (eventType === 'refund.processed' || eventType === 'payment.dispute.created') {
+    // If a payment is refunded or disputed, safely revoke active subscription
+    withTxn(() => {
+      db.prepare('INSERT INTO payment_transaction_refs (method, transaction_id, bill_id, created_at) VALUES (?, ?, ?, ?)')
+        .run('razorpay_dispute', eventId, entity?.id || 'dispute', now());
+
+      subscriptionService.updateSubscription({
+        status: 'suspended',
+      });
+    });
   }
 
   res.status(200).json({ ok: true, status: 'processed', eventId });
@@ -193,7 +212,7 @@ router.post('/webhooks/razorpay', asyncHandler(async (req: Request, res: Respons
 
 /**
  * POST /api/subscription/activate
- * Activate a license key on this terminal (Owner/Manager role required)
+ * Activate a commercial license key on this terminal using Asymmetric Public-Key (Ed25519) verification
  */
 router.post('/activate', requireRole(...ROLE_ACCESS.ownerManager), asyncHandler(async (req: Request, res: Response) => {
   const { licenseKey } = req.body;
@@ -202,81 +221,53 @@ router.post('/activate', requireRole(...ROLE_ACCESS.ownerManager), asyncHandler(
   }
 
   const trimmed = licenseKey.trim();
-  const parts = trimmed.split('-');
 
-  // Production requires structured, cryptographically validated commercial licenses
-  if (process.env.NODE_ENV === 'production') {
-    if (parts.length < 4 || parts[0].toUpperCase() !== 'OIU') {
-      return res.status(400).json({
-        ok: false,
-        error: 'Invalid license format. Commercial licenses must be in OIU-<PLAN>-<EXPIRY>-<SIG> format.'
+  // 1. Verify Asymmetric Ed25519 License Signature
+  const { verifyAsymmetricLicense } = await import('../services/license-verifier');
+  const result = verifyAsymmetricLicense(trimmed);
+
+  if (!result.valid) {
+    // Development / Local Test Fallback (explicit DEV- or TEST- prefix required; not permitted in production)
+    if (process.env.NODE_ENV !== 'production' && (trimmed.startsWith('DEV-') || trimmed.startsWith('TEST-'))) {
+      let devPlan: SubscriptionPlan = 'pro';
+      if (trimmed.toUpperCase().includes('STARTER')) devPlan = 'starter';
+      if (trimmed.toUpperCase().includes('ENTERPRISE')) devPlan = 'enterprise';
+
+      const oneYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+      subscriptionService.updateSubscription({
+        status: 'active',
+        plan: devPlan,
+        currentPeriodEnd: oneYear,
+        licenseKey: trimmed,
+      });
+
+      return res.json({
+        ok: true,
+        message: `Development license activated for Order It Up (${devPlan.toUpperCase()} Plan).`,
+        subscription: subscriptionService.getSubscriptionInfo(),
       });
     }
 
-    const planCode = parts[1].toLowerCase() as SubscriptionPlan;
-    if (!['starter', 'pro', 'enterprise'].includes(planCode)) {
-      return res.status(400).json({ ok: false, error: 'Unknown plan specified in license key.' });
-    }
-
-    const crypto = await import('node:crypto');
-    const licenseSecret = process.env.OIU_LICENSE_SECRET || process.env.JWT_SECRET;
-    if (!licenseSecret) {
-      return res.status(500).json({ ok: false, error: 'Server license verification service is misconfigured.' });
-    }
-
-    const payload = `${parts[0]}-${parts[1]}-${parts[2]}`;
-    const expectedSig = crypto.createHmac('sha256', licenseSecret).update(payload).digest('hex').slice(0, parts[3].length);
-
-    const sigBuf = Buffer.from(parts[3].toLowerCase(), 'utf8');
-    const expBuf = Buffer.from(expectedSig.toLowerCase(), 'utf8');
-
-    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
-      return res.status(401).json({ ok: false, error: 'Invalid or counterfeit license key signature.' });
-    }
-
-    // Verify expiry timestamp
-    const expiryTimestamp = parseInt(parts[2], 16) * 1000;
-    if (isNaN(expiryTimestamp) || expiryTimestamp < Date.now()) {
-      return res.status(400).json({ ok: false, error: 'This license key has expired.' });
-    }
-
-    const expiryIso = new Date(expiryTimestamp).toISOString();
-    subscriptionService.updateSubscription({
-      status: 'active',
-      plan: planCode,
-      currentPeriodEnd: expiryIso,
-      licenseKey: trimmed,
-    });
-
-    const updated = subscriptionService.getSubscriptionInfo();
-    return res.json({
-      ok: true,
-      message: `License successfully activated for Order It Up (${planCode.toUpperCase()} Plan).`,
-      subscription: updated,
+    return res.status(400).json({
+      ok: false,
+      error: result.error || 'Invalid, expired, or counterfeit commercial license key.',
     });
   }
 
-  // Development / Testing fallback
-  let plan: SubscriptionPlan = 'pro';
-  if (trimmed.toUpperCase().includes('STARTER')) {
-    plan = 'starter';
-  } else if (trimmed.toUpperCase().includes('ENTERPRISE')) {
-    plan = 'enterprise';
-  }
-
-  const oneYearFromNow = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString();
+  const planCode = result.plan!;
+  const expiryIso = result.expiresAt!;
 
   subscriptionService.updateSubscription({
     status: 'active',
-    plan,
-    currentPeriodEnd: oneYearFromNow,
+    plan: planCode,
+    currentPeriodEnd: expiryIso,
     licenseKey: trimmed,
   });
 
   const updated = subscriptionService.getSubscriptionInfo();
   res.json({
     ok: true,
-    message: `License successfully activated for Order It Up (${plan.toUpperCase()} Plan).`,
+    message: `License successfully activated for Order It Up (${planCode.toUpperCase()} Plan).`,
     subscription: updated,
   });
 }));

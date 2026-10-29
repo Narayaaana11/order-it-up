@@ -34,12 +34,12 @@ import { LocalePreferencesPanel } from '@/components/settings/LocalePreferencesP
 import { TimeZoneSelect } from '@/components/TimeZoneSelect';
 import MongoSyncSettings from '@/components/settings/MongoSyncSettings';
 import AmazonS3Settings from '@/components/settings/AmazonS3Settings';
+import { SubscriptionManager } from '@/components/settings/SubscriptionManager';
 import type { HealthCheckReport } from '@/types/electron';
 import { useLocale, useTranslations, type AppConfig } from 'use-intl';
 import { Ltr } from '@/components/layout/Ltr';
 import { useFormatDate } from '@/hooks/useFormatDate';
 import { useUpdateStatus } from '@/hooks/useUpdateStatus';
-import { TENANT_STATUS_LABEL_KEYS } from '@/lib/i18n-enums';
 import { isTemplateCardSelected, type BillTemplateSelectionSource } from '@/lib/bill-template-picker';
 import { ROLE_ACCESS, hasRole } from '@shared/role-permissions';
 
@@ -47,11 +47,6 @@ import { ROLE_ACCESS, hasRole } from '@shared/role-permissions';
 const SELECTABLE_LANGUAGES: Language[] = (Object.keys(LANGUAGES) as Language[]).filter(
   (lang) => LANGUAGES[lang].selectable,
 );
-
-function tenantStatusLabel(status: string | undefined, tCommon: (key: 'active' | 'inactive') => string): string {
-  const key = (TENANT_STATUS_LABEL_KEYS as Record<string, 'active' | 'inactive' | undefined>)[status ?? ''];
-  return key ? tCommon(key) : (status ?? '');
-}
 
 const CLOUD_ACCOUNT_STATUS_CHANGED_EVENT = 'flo:cloud-account-status-changed';
 
@@ -2887,43 +2882,26 @@ export default function SettingsPage() {
             </div>
 
 
-            {/* Subscription */}
+            {/* Language Selection */}
             <div className="bg-card rounded-2xl border-2 border-border p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <CreditCard size={20} className="text-muted-foreground" />
-                <h2 className="font-bold text-foreground">{t('subscription')}</h2>
-              </div>
-              <div className="space-y-3">
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('plan')}</p>
-                  <p className="font-medium text-foreground capitalize">{currentTenant?.plan}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">{t('status')}</p>
-                  <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${
-                    currentTenant?.status === 'active' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                  }`}>
-                    {tenantStatusLabel(currentTenant?.status, tCommon)}
-                  </span>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground mb-1">{t('languages')}</p>
-                  <select
-                    value={language}
-                    onChange={(e) => {
-                      const lang = e.target.value as Language;
-                      setLanguage(lang);
-                      api.put('/settings/business', { language: lang }).catch(() => toast.error(t('saveFailed')));
-                    }}
-                    className="block w-full rounded-md border-border shadow-sm focus:border-brand focus:ring-brand sm:text-sm px-3 py-2 border"
-                  >
-                    {SELECTABLE_LANGUAGES.map((lang) => (
-                      <option key={lang} value={lang}>{LANGUAGES[lang].nativeName}</option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+              <h2 className="font-bold text-foreground mb-3">{t('languages')}</h2>
+              <select
+                value={language}
+                onChange={(e) => {
+                  const lang = e.target.value as Language;
+                  setLanguage(lang);
+                  api.put('/settings/business', { language: lang }).catch(() => toast.error(t('saveFailed')));
+                }}
+                className="block w-full rounded-md border-border shadow-sm focus:border-brand focus:ring-brand sm:text-sm px-3 py-2 border"
+              >
+                {SELECTABLE_LANGUAGES.map((lang) => (
+                  <option key={lang} value={lang}>{LANGUAGES[lang].nativeName}</option>
+                ))}
+              </select>
             </div>
+
+            {/* Commercial Plan, Online Billing & Asymmetric Licensing */}
+            <SubscriptionManager isAdmin={isAdmin} />
 
             
           </div>

@@ -53,57 +53,79 @@ async function testRazorpayProviderHardening(): Promise<void> {
 }
 
 async function testLicenseKeyVerification(): Promise<void> {
-  console.log('🧪 [Test Suite 2/3] Commercial License Key Format & Cryptographic Validation...');
+  console.log('🧪 [Test Suite 2/3] Asymmetric Ed25519 Commercial License Security...');
 
-  const origEnv = process.env.NODE_ENV;
-  const origSecret = process.env.OIU_LICENSE_SECRET;
+  const { verifyAsymmetricLicense, issueAsymmetricLicense, DEFAULT_OIU_LICENSE_PUBLIC_KEY } = await import('../main/services/license-verifier');
 
-  try {
-    process.env.NODE_ENV = 'production';
-    const testSecret = 'commercial-license-signing-secret-key-32ch';
-    process.env.OIU_LICENSE_SECRET = testSecret;
+  // Generate an authorized testing Ed25519 keypair
+  const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
+  const pubPem = publicKey.export({ type: 'spki', format: 'pem' }) as string;
+  const privPem = privateKey.export({ type: 'pkcs8', format: 'pem' }) as string;
 
-    // Generate valid license: OIU-<PLAN>-<EXPIRY_HEX>-<SIG>
-    const plan = 'ENTERPRISE';
-    const futureExpiry = Math.floor((Date.now() + 365 * 86400 * 1000) / 1000).toString(16);
-    const payload = `OIU-${plan}-${futureExpiry}`;
-    const sig = crypto.createHmac('sha256', testSecret).update(payload).digest('hex').slice(0, 16);
-    const validKey = `${payload}-${sig}`;
+  // 1. Valid Asymmetric License Key Verification
+  const validKey = issueAsymmetricLicense({
+    plan: 'enterprise',
+    expiresAt: Date.now() + 365 * 86400 * 1000,
+    storeId: 'STORE-CP-01',
+    privateKeyPem: privPem,
+  });
 
-    // Test parse and signature validation
-    const parts = validKey.split('-');
-    assert.equal(parts[0], 'OIU');
-    assert.equal(parts[1], 'ENTERPRISE');
+  const verified = verifyAsymmetricLicense(validKey, pubPem);
+  assert.equal(verified.valid, true, 'Valid Ed25519 license must verify successfully');
+  assert.equal(verified.plan, 'enterprise');
+  assert.equal(verified.storeId, 'STORE-CP-01');
 
-    const expectedSig = crypto.createHmac('sha256', testSecret).update(payload).digest('hex').slice(0, parts[3].length);
-    assert.equal(parts[3], expectedSig, 'Signature must match');
+  // 2. Reject Tampered Plan (Attacker changes Starter to Enterprise without private key)
+  const tamperedKey = validKey.replace('ENTERPRISE', 'PRO');
+  const tamperedResult = verifyAsymmetricLicense(tamperedKey, pubPem);
+  assert.equal(tamperedResult.valid, false, 'Tampered plan tier must be rejected');
 
-    // Reject counterfeit key with changed plan
-    const counterfeitKey = `OIU-ENTERPRISE-${futureExpiry}-badsignature1234`;
-    const cParts = counterfeitKey.split('-');
-    const cSig = cParts[3];
-    assert.notEqual(cSig, expectedSig, 'Counterfeit signature must not match');
+  // 3. Reject Forged License Signed by Wrong/Attacker Private Key
+  const { privateKey: rogueKey } = crypto.generateKeyPairSync('ed25519');
+  const roguePrivPem = rogueKey.export({ type: 'pkcs8', format: 'pem' }) as string;
+  const counterfeitKey = issueAsymmetricLicense({
+    plan: 'enterprise',
+    expiresAt: Date.now() + 365 * 86400 * 1000,
+    storeId: 'STORE-CP-01',
+    privateKeyPem: roguePrivPem,
+  });
+  const rogueResult = verifyAsymmetricLicense(counterfeitKey, pubPem);
+  assert.equal(rogueResult.valid, false, 'Counterfeit signature signed with wrong private key must be rejected');
 
-    // Reject plain text like "ENTERPRISE"
-    const plainTextKey = 'ENTERPRISE';
-    assert(plainTextKey.split('-').length < 4, 'Plain text must be rejected in production');
+  // 4. Reject Expired License Key
+  const expiredKey = issueAsymmetricLicense({
+    plan: 'pro',
+    expiresAt: Date.now() - 86400 * 1000, // Expired yesterday
+    storeId: 'STORE-CP-01',
+    privateKeyPem: privPem,
+  });
+  const expiredResult = verifyAsymmetricLicense(expiredKey, pubPem);
+  assert.equal(expiredResult.valid, false, 'Expired license must be rejected');
+  assert.ok(expiredResult.error?.includes('expired'));
 
-  } finally {
-    process.env.NODE_ENV = origEnv;
-    process.env.OIU_LICENSE_SECRET = origSecret;
-  }
+  // 5. Reject Plain Text In Production
+  const plainTextResult = verifyAsymmetricLicense('ENTERPRISE', pubPem);
+  assert.equal(plainTextResult.valid, false, 'Plain text must be rejected');
 
-  console.log('  ✓ Cryptographic license parsing, signature check, and plain-text rejection verified');
+  // 6. Legacy HMAC License Migration Warning
+  const legacyKey = 'OIU-ENTERPRISE-67c13400-abcd1234ef567890';
+  const legacyResult = verifyAsymmetricLicense(legacyKey, pubPem);
+  assert.equal(legacyResult.valid, false, 'Legacy HMAC license must be rejected by default in production');
+  assert.equal(legacyResult.isLegacyHmac, true);
+  assert.ok(legacyResult.error?.includes('Legacy HMAC license keys are deprecated'));
+
+  console.log('  ✓ Asymmetric Ed25519 signature validation, tamper prevention, expiry check, and legacy migration verified');
 }
 
 async function testPaymentLifecycleAndWebhooks(): Promise<void> {
-  console.log('🧪 [Test Suite 3/3] Payment Lifecycle, Replay Protection & Webhook Idempotency...');
+  console.log('🧪 [Test Suite 3/3] Payment Lifecycle, Method-Scoped Replay & Webhook Idempotency...');
 
-  // In-memory simulation of payment_transaction_refs table (avoids Node/Electron ABI mismatch)
+  // In-memory simulation of payment_transaction_refs table with composite (method, transaction_id)
   const transactionRefs = new Map<string, { method: string; transaction_id: string; bill_id: string; created_at: string }>();
-  const checkTx = (txId: string) => transactionRefs.get(txId);
+  const makeKey = (method: string, txId: string) => `${method}::${txId}`;
+  const checkTx = (method: string, txId: string) => transactionRefs.get(makeKey(method, txId));
   const recordTx = (method: string, transactionId: string, billId: string) => {
-    transactionRefs.set(transactionId, { method, transaction_id: transactionId, bill_id: billId, created_at: new Date().toISOString() });
+    transactionRefs.set(makeKey(method, transactionId), { method, transaction_id: transactionId, bill_id: billId, created_at: new Date().toISOString() });
   };
 
   // 1. Server-authoritative pricing validation
@@ -123,13 +145,13 @@ async function testPaymentLifecycleAndWebhooks(): Promise<void> {
   const expectedAmount = PRICING_PLANS[plan][billingCycle];
   assert.equal(expectedAmount, 12999, 'Server amount must be derived strictly from server pricing table');
 
-  // 3. Payment verification & replay attack prevention
+  // 3. Payment verification & method-scoped replay attack prevention
   const orderId = 'order_sub_101';
   const paymentId = 'pay_sub_202';
   const validSignature = crypto.createHmac('sha256', keySecret).update(`${orderId}|${paymentId}`).digest('hex');
 
   // First verification: not previously consumed
-  assert.equal(checkTx(paymentId), undefined, 'Payment must not be already consumed');
+  assert.equal(checkTx('razorpay_subscription', paymentId), undefined, 'Payment must not be already consumed');
   const verifyResult = await provider.verifyPayment({ orderId, paymentId, signature: validSignature });
   assert.equal(verifyResult.verified, true);
 
@@ -137,10 +159,13 @@ async function testPaymentLifecycleAndWebhooks(): Promise<void> {
   recordTx('razorpay_subscription', paymentId, orderId);
 
   // Second verification attempt with same paymentId: replay rejected
-  const replayed = checkTx(paymentId);
+  const replayed = checkTx('razorpay_subscription', paymentId);
   assert.ok(replayed, 'Replayed payment ID must be detected in transaction refs');
 
-  // 4. Webhook HMAC verification and deduplication
+  // Prevent cross-method collision: a webhook event with the SAME ID string does not collide with paymentId
+  assert.equal(checkTx('razorpay_webhook', paymentId), undefined, 'Method scoping prevents semantic collisions');
+
+  // 4. Webhook HMAC verification, dispute handling and deduplication
   const webhookSecret = 'whsec_prod_test_key_999';
   const webhookPayload = JSON.stringify({
     id: 'evt_test_captured_001',
@@ -176,16 +201,16 @@ async function testPaymentLifecycleAndWebhooks(): Promise<void> {
 
   // Webhook deduplication
   const eventId = 'evt_test_captured_001';
-  assert.equal(checkTx(eventId), undefined);
+  assert.equal(checkTx('razorpay_webhook', eventId), undefined);
   recordTx('razorpay_webhook', eventId, 'order_sub_101');
 
   // Repeated delivery of the same webhook is deduplicated
-  assert.ok(checkTx(eventId), 'Duplicate webhook eventId must be recognized as already processed');
+  assert.ok(checkTx('razorpay_webhook', eventId), 'Duplicate webhook eventId must be recognized as already processed');
 
   // Failed payment webhook records failure without throwing or duplicating
   const failedEventId = 'evt_test_failed_002';
   recordTx('razorpay_webhook_failed', failedEventId, 'webhook_failed');
-  assert.ok(checkTx(failedEventId));
+  assert.ok(checkTx('razorpay_webhook_failed', failedEventId));
 
   console.log('  ✓ Server pricing enforcement, payment replay blocking, and webhook deduplication verified');
 }

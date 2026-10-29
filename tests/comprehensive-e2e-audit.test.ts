@@ -521,7 +521,7 @@ async function testExpressRouteEndpoints(): Promise<void> {
   }
 
   // 9.1 Test /pair/claim with valid 6-digit PIN
-  const { cloudHqRoutes } = await import('../main/routes/cloud-hq');
+  const { cloudHqRoutes, activePairingSessions } = await import('../main/routes/cloud-hq');
   
   // Find /pair/claim handler
   const claimLayer = cloudHqRoutes.stack.find((layer: any) => {
@@ -533,6 +533,17 @@ async function testExpressRouteEndpoints(): Promise<void> {
   assert(claimLayer, 'cloudHqRoutes must have /pair/claim post handler');
 
   const handler = claimLayer.route.stack[0].handle;
+
+  // Seed authorized pairing session for 849102
+  activePairingSessions.set('849102', {
+    code: '849102',
+    branchId: 'br-01',
+    terminalName: 'Mobile POS Tablet',
+    attempts: 0,
+    claimed: false,
+    expiresAt: Date.now() + 15 * 60 * 1000,
+    createdAt: Date.now(),
+  });
 
   // Test valid PIN
   const validMock = createMockRes();

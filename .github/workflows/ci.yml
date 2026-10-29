@@ -10,6 +10,9 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+permissions:
+  contents: read
+
 jobs:
   test-and-verify:
     name: Backend, Cloud & Security Verification
@@ -66,6 +69,9 @@ jobs:
 
       - name: Payment Provider & Commercial License Security
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/payment-licensing-security.test.ts
+
+      - name: Terminal Pairing Security & PIN Rate Limiting Verification
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/pairing-security.test.ts
 
   flutter-verify:
     name: Flutter Static Analysis & Mobile Tests
