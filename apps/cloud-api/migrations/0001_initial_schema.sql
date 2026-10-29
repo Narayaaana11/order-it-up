@@ -54,6 +54,7 @@ CREATE TABLE IF NOT EXISTS terminals (
     terminal_token_hash TEXT NOT NULL,
     last_seen_at TEXT,
     app_version TEXT,
+    status TEXT NOT NULL DEFAULT 'active',
     created_at TEXT NOT NULL
 );
 
@@ -181,9 +182,27 @@ CREATE TABLE IF NOT EXISTS inventory_transfers (
     updated_at TEXT NOT NULL
 );
 
+-- 9. Persistent Event-Level Idempotency Store
+CREATE TABLE IF NOT EXISTS sync_events (
+    id TEXT PRIMARY KEY,
+    organization_id TEXT NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    branch_id TEXT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+    terminal_id TEXT NOT NULL REFERENCES terminals(id) ON DELETE CASCADE,
+    event_type TEXT NOT NULL,
+    entity_type TEXT,
+    entity_id TEXT,
+    payload_hash TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'processed',
+    processed_at TEXT NOT NULL
+);
+
 -- Indexes for performance
 CREATE INDEX IF NOT EXISTS idx_branches_org ON branches(organization_id);
 CREATE INDEX IF NOT EXISTS idx_terminals_branch ON terminals(branch_id);
 CREATE INDEX IF NOT EXISTS idx_orders_org_branch_date ON synced_orders(organization_id, branch_id, ordered_at);
 CREATE INDEX IF NOT EXISTS idx_order_items_branch_product ON synced_order_items(branch_id, product_id, ordered_at);
 CREATE INDEX IF NOT EXISTS idx_closures_org_branch ON synced_cash_closures(organization_id, branch_id, closure_date);
+CREATE INDEX IF NOT EXISTS idx_sync_events_org_branch ON sync_events(organization_id, branch_id, processed_at);
+CREATE INDEX IF NOT EXISTS idx_sync_events_entity ON sync_events(entity_type, entity_id);
+CREATE INDEX IF NOT EXISTS idx_synced_orders_tenant_lookup ON synced_orders(id, organization_id, branch_id);
+CREATE INDEX IF NOT EXISTS idx_synced_closures_tenant_lookup ON synced_cash_closures(id, organization_id, branch_id);

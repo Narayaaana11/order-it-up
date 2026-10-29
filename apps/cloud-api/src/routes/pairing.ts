@@ -154,8 +154,8 @@ export async function handleClaimPairing(request: Request, env: Env): Promise<Re
 
   // 5. Create terminal bound strictly to token's organization and branch
   await env.DB.prepare(`
-    INSERT INTO terminals (id, organization_id, branch_id, terminal_name, terminal_token_hash, last_seen_at, app_version, created_at)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO terminals (id, organization_id, branch_id, terminal_name, terminal_token_hash, last_seen_at, app_version, status, created_at)
+    VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?)
   `).bind(
     terminalId,
     existingToken.organization_id,

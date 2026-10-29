@@ -126,7 +126,14 @@ class MockCloudD1Database {
               const [hash] = params;
               for (const term of db.terminals.values()) {
                 if (term.terminal_token_hash === hash) {
-                  return { id: term.id, organization_id: term.organization_id, branch_id: term.branch_id } as T;
+                  const branch = db.branches.get(term.branch_id);
+                  return {
+                    id: term.id,
+                    organization_id: term.organization_id,
+                    branch_id: term.branch_id,
+                    terminal_status: term.status || 'active',
+                    branch_status: branch?.status || 'active',
+                  } as T;
                 }
               }
               return null;
