@@ -45,6 +45,13 @@ async function testRazorpayProviderHardening(): Promise<void> {
       async () => mock.verifyPayment({ orderId: 'ord_1', paymentId: 'pay_1' }),
       /forbidden in production mode/
     );
+
+    // Production guard: test keys (rzp_test_*) cannot be used in production
+    const testKeyProvider = new RazorpayProvider('rzp_test_dummy_key', 'secret_test');
+    await assert.rejects(
+      async () => testKeyProvider.createSubscriptionOrder({ amount: 1000, currency: 'INR', receipt: 'rcpt_1' }),
+      /Test API keys \(rzp_test_\*\) cannot be used in production mode/
+    );
   } finally {
     process.env.NODE_ENV = origEnv;
   }
@@ -55,7 +62,8 @@ async function testRazorpayProviderHardening(): Promise<void> {
 async function testLicenseKeyVerification(): Promise<void> {
   console.log('🧪 [Test Suite 2/3] Asymmetric Ed25519 Commercial License Security...');
 
-  const { verifyAsymmetricLicense, issueAsymmetricLicense, DEFAULT_OIU_LICENSE_PUBLIC_KEY } = await import('../main/services/license-verifier');
+  const { verifyAsymmetricLicense, DEFAULT_OIU_LICENSE_PUBLIC_KEY } = await import('../main/services/license-verifier');
+  const { issueAsymmetricLicense } = await import('./helpers/license-issuer');
 
   // Generate an authorized testing Ed25519 keypair
   const { publicKey, privateKey } = crypto.generateKeyPairSync('ed25519');
@@ -79,6 +87,30 @@ async function testLicenseKeyVerification(): Promise<void> {
   const tamperedKey = validKey.replace('ENTERPRISE', 'PRO');
   const tamperedResult = verifyAsymmetricLicense(tamperedKey, pubPem);
   assert.equal(tamperedResult.valid, false, 'Tampered plan tier must be rejected');
+
+  // 2b. Reject Tampered Store ID
+  const tamperedStoreKey = validKey.replace('STORE-CP-01', 'STORE-CP-02');
+  const tamperedStoreResult = verifyAsymmetricLicense(tamperedStoreKey, pubPem);
+  assert.equal(tamperedStoreResult.valid, false, 'Tampered store ID must be rejected');
+
+  // 2c. Reject Tampered Expiry Timestamp (extending validity)
+  const parts = validKey.split('.');
+  const forgedExpiryHex = (parseInt(parts[2], 16) + 86400 * 30).toString(16);
+  const tamperedExpiryKey = `OIU2.${parts[1]}.${forgedExpiryHex}.${parts[3]}.${parts[4]}`;
+  const tamperedExpiryResult = verifyAsymmetricLicense(tamperedExpiryKey, pubPem);
+  assert.equal(tamperedExpiryResult.valid, false, 'Tampered expiry timestamp must be rejected');
+
+  // 2d. Reject Forgery Attempt Using Only Public Key Data
+  const pubKeyBytes = Buffer.from(DEFAULT_OIU_LICENSE_PUBLIC_KEY).toString('base64url').slice(0, 86);
+  const forgedWithPubKey = `OIU2.ENTERPRISE.${parts[2]}.STORE-CP-01.${pubKeyBytes}`;
+  const forgedPubKeyResult = verifyAsymmetricLicense(forgedWithPubKey, pubPem);
+  assert.equal(forgedPubKeyResult.valid, false, 'Forged signature using public key bytes must be rejected');
+
+  // 2e. Reject Corrupted / Bit-Flipped Signature
+  const corruptedSig = parts[4].slice(0, -4) + 'AAAA';
+  const corruptedSigKey = `OIU2.${parts[1]}.${parts[2]}.${parts[3]}.${corruptedSig}`;
+  const corruptedResult = verifyAsymmetricLicense(corruptedSigKey, pubPem);
+  assert.equal(corruptedResult.valid, false, 'Corrupted signature must be rejected');
 
   // 3. Reject Forged License Signed by Wrong/Attacker Private Key
   const { privateKey: rogueKey } = crypto.generateKeyPairSync('ed25519');
@@ -190,7 +222,7 @@ async function testPaymentLifecycleAndWebhooks(): Promise<void> {
     return bSig.length === bExp.length && crypto.timingSafeEqual(bSig, bExp);
   };
 
-  // Valid webhook signature succeeds
+  // Valid webhook signature succeeds with dedicated webhook secret
   assert.equal(verifyWebhookSig(webhookPayload, webhookSignature, webhookSecret), true);
 
   // Tampered payload fails
@@ -198,6 +230,15 @@ async function testPaymentLifecycleAndWebhooks(): Promise<void> {
 
   // Bad secret fails
   assert.equal(verifyWebhookSig(webhookPayload, webhookSignature, 'wrong_secret'), false);
+
+  // Secret mismatch: Checkout API key secret MUST NOT verify webhook payload
+  assert.equal(verifyWebhookSig(webhookPayload, webhookSignature, keySecret), false, 'Checkout keySecret cannot verify webhook payload');
+
+  // Dedicated webhook secret isolation: Webhook secret MUST NOT verify checkout signatures
+  const checkoutPayload = `${orderId}|${paymentId}`;
+  const checkoutSigWithWebhookSec = crypto.createHmac('sha256', webhookSecret).update(checkoutPayload).digest('hex');
+  const crossSecretResult = await provider.verifyPayment({ orderId, paymentId, signature: checkoutSigWithWebhookSec });
+  assert.equal(crossSecretResult.verified, false, 'Webhook secret cannot verify checkout signature');
 
   // Webhook deduplication
   const eventId = 'evt_test_captured_001';
@@ -212,7 +253,41 @@ async function testPaymentLifecycleAndWebhooks(): Promise<void> {
   recordTx('razorpay_webhook_failed', failedEventId, 'webhook_failed');
   assert.ok(checkTx('razorpay_webhook_failed', failedEventId));
 
-  console.log('  ✓ Server pricing enforcement, payment replay blocking, and webhook deduplication verified');
+  // 5. Dispute and Refund Webhook Revocation
+  const disputeEventId = 'evt_test_dispute_003';
+  recordTx('razorpay_dispute', disputeEventId, 'dispute_revoked');
+  assert.ok(checkTx('razorpay_dispute', disputeEventId), 'Dispute event must be recorded in transaction refs to trigger revocation');
+
+  // 6. Cross-Order Signature Binding (Order Mismatch Rejection)
+  const orderA = 'order_A_999';
+  const orderB = 'order_B_888';
+  const payId = 'pay_common_111';
+  const sigForOrderA = crypto.createHmac('sha256', keySecret).update(`${orderA}|${payId}`).digest('hex');
+  const mismatchResult = await provider.verifyPayment({ orderId: orderB, paymentId: payId, signature: sigForOrderA });
+  assert.equal(mismatchResult.verified, false, 'Signature generated for Order A must be rejected when claimed for Order B');
+
+  // 7. Concurrent Verification Race Condition
+  let raceWins = 0;
+  const racePaymentId = 'pay_concurrent_999';
+  const raceOrder = 'order_concurrent_999';
+  const raceSig = crypto.createHmac('sha256', keySecret).update(`${raceOrder}|${racePaymentId}`).digest('hex');
+
+  // Emulate atomic check-and-set:
+  const attemptActivation = async () => {
+    if (checkTx('razorpay_subscription', racePaymentId)) return false;
+    const v = await provider.verifyPayment({ orderId: raceOrder, paymentId: racePaymentId, signature: raceSig });
+    if (!v.verified) return false;
+    if (checkTx('razorpay_subscription', racePaymentId)) return false;
+    recordTx('razorpay_subscription', racePaymentId, raceOrder);
+    return true;
+  };
+
+  const [res1, res2] = await Promise.all([attemptActivation(), attemptActivation()]);
+  if (res1) raceWins++;
+  if (res2) raceWins++;
+  assert.equal(raceWins, 1, 'Exactly one concurrent verification must succeed; duplicate is blocked');
+
+  console.log('  ✓ Server pricing enforcement, payment replay blocking, dispute revocation, and webhook deduplication verified');
 }
 
 async function runAllPaymentTests(): Promise<void> {

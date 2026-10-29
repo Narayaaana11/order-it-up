@@ -46,8 +46,8 @@ export class RazorpayProvider implements PaymentProvider {
   private keySecret: string;
 
   constructor(keyId?: string, keySecret?: string) {
-    this.keyId = keyId || process.env.OIU_RAZORPAY_KEY_ID || '';
-    this.keySecret = keySecret || process.env.OIU_RAZORPAY_KEY_SECRET || '';
+    this.keyId = keyId || process.env.OIU_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID || '';
+    this.keySecret = keySecret || process.env.OIU_RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET || '';
   }
 
   public async createSubscriptionOrder(params: PaymentOrderParams): Promise<PaymentOrderResult> {
@@ -57,6 +57,10 @@ export class RazorpayProvider implements PaymentProvider {
       }
       log.warn('[Razorpay] Razorpay API keys not configured. Falling back to Mock Order in development.');
       return new MockPaymentProvider().createSubscriptionOrder(params);
+    }
+
+    if (process.env.NODE_ENV === 'production' && this.keyId.startsWith('rzp_test_')) {
+      throw new Error('[Razorpay] Test API keys (rzp_test_*) cannot be used in production mode.');
     }
 
     // In production, invoke https://api.razorpay.com/v1/orders
@@ -185,8 +189,10 @@ export class MockPaymentProvider implements PaymentProvider {
 }
 
 export function getPaymentProvider(): PaymentProvider {
-  if (process.env.OIU_RAZORPAY_KEY_ID && process.env.OIU_RAZORPAY_KEY_SECRET) {
-    return new RazorpayProvider();
+  const keyId = process.env.OIU_RAZORPAY_KEY_ID || process.env.RAZORPAY_KEY_ID;
+  const keySecret = process.env.OIU_RAZORPAY_KEY_SECRET || process.env.RAZORPAY_KEY_SECRET;
+  if (keyId && keySecret) {
+    return new RazorpayProvider(keyId, keySecret);
   }
   if (process.env.NODE_ENV === 'production') {
     throw new Error('Commercial payment provider credentials are required in production.');

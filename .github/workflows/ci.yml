@@ -43,11 +43,17 @@ jobs:
         working-directory: frontend
         run: npm run lint
 
+      - name: Frontend Build (Next.js Static Export)
+        run: npm run build:frontend
+
       - name: Backend Build (TypeScript)
         run: npm run build
 
       - name: Backend Lint
         run: npm run lint:backend
+
+      - name: Database Schema & Migration Integrity Audit
+        run: npm run audit:db
 
       - name: Cloud API Type Check
         run: npx tsc -p apps/cloud-api/tsconfig.json --noEmit

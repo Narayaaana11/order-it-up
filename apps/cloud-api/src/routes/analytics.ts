@@ -63,15 +63,15 @@ export async function handleAnalyticsOverview(request: Request, env: Env, orgId:
   // 3. Overall Top 10 Selling Items across all branches
   const topItemsRows = await env.DB.prepare(`
     SELECT
-      product_name,
-      SUM(quantity) as quantity_sold,
-      SUM(subtotal) as total_revenue
+      i.product_name,
+      SUM(i.quantity) as quantity_sold,
+      SUM(i.subtotal) as total_revenue
     FROM synced_order_items i
     JOIN synced_orders o ON i.order_id = o.id
     WHERE o.organization_id = ?
       AND o.ordered_at >= ? AND o.ordered_at <= ?
       AND o.status != 'cancelled'
-    GROUP BY product_name
+    GROUP BY i.product_name
     ORDER BY quantity_sold DESC
     LIMIT 10
   `).bind(orgId, dateFrom, dateTo).all<{

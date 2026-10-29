@@ -142,24 +142,27 @@ router.post('/verify-payment', requireRole(...ROLE_ACCESS.ownerManager), asyncHa
  */
 router.post('/webhooks/razorpay', asyncHandler(async (req: Request, res: Response) => {
   const signature = req.get('x-razorpay-signature');
-  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.OIU_RAZORPAY_KEY_SECRET;
+  const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET || process.env.OIU_RAZORPAY_WEBHOOK_SECRET;
 
   if (!webhookSecret) {
-    if (process.env.NODE_ENV === 'production') {
-      return res.status(500).json({ error: 'Webhook secret is not configured in production' });
+    if (process.env.NODE_ENV === 'production' || process.env.NODE_ENV === 'staging') {
+      return res.status(500).json({ error: 'Dedicated RAZORPAY_WEBHOOK_SECRET is not configured in production/staging environment' });
     }
+    return res.status(500).json({ error: 'Dedicated RAZORPAY_WEBHOOK_SECRET is required to process webhooks.' });
+  }
+
+  if (!signature) {
+    return res.status(401).json({ error: 'Missing x-razorpay-signature header' });
   }
 
   const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-  if (webhookSecret) {
-    const crypto = await import('node:crypto');
-    const expectedSig = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
-    const sigBuf = Buffer.from(signature || '', 'utf8');
-    const expBuf = Buffer.from(expectedSig, 'utf8');
+  const crypto = await import('node:crypto');
+  const expectedSig = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
+  const sigBuf = Buffer.from(signature, 'utf8');
+  const expBuf = Buffer.from(expectedSig, 'utf8');
 
-    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
-      return res.status(401).json({ error: 'Invalid webhook signature.' });
-    }
+  if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) {
+    return res.status(401).json({ error: 'Invalid webhook signature.' });
   }
 
   const event = req.body;

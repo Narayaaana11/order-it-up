@@ -14,3 +14,19 @@ ENVIRONMENT = "production"
 binding = "DB"
 database_name = "orderitup-d1-prod"
 database_id = "orderitup-d1-prod-db-id"
+
+# -----------------------------------------------------------------------------
+# Staging Environment (Strictly Isolated from Production)
+# -----------------------------------------------------------------------------
+[env.staging]
+name = "orderitup-cloud-api-staging"
+
+[env.staging.vars]
+ENVIRONMENT = "staging"
+FRONTEND_ORIGIN = "https://staging.orderitup.in"
+
+[[env.staging.d1_databases]]
+binding = "DB"
+database_name = "orderitup-d1-staging"
+database_id = "931431cc-45d5-47c9-bed9-37f903cdacd4"
+

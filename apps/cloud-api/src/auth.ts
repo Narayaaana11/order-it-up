@@ -11,6 +11,7 @@
  */
 
 import { scrypt, timingSafeEqual, randomBytes } from 'node:crypto';
+import { Buffer } from 'node:buffer';
 import { CloudUser, CloudRole } from '../../../shared/cloud-types';
 
 export interface JWTPayload {
@@ -116,7 +117,8 @@ export async function verifyPassword(
       const derivedKey = await deriveScrypt(password, salt, expectedKey.length, { N, r, p });
       const valid = timingSafeBufferEqual(derivedKey, expectedKey);
       return { valid, needsRehash: false };
-    } catch {
+    } catch (err) {
+      console.error('Password verification error:', err);
       return { valid: false, needsRehash: false };
     }
   }

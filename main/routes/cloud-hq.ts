@@ -382,6 +382,12 @@ cloudHqRoutes.post(['/pair/claim', '/pair'], (req: Request, res: Response) => {
     return res.status(410).json({ error: 'Pairing code has already been claimed' });
   }
 
+  // Cross-branch validation: reject claims targeting a different branch than the session was issued for
+  if (req.body?.branch_id && req.body.branch_id !== session.branchId) {
+    recordFailedAttempt();
+    return res.status(403).json({ error: 'Pairing code does not belong to the requested branch' });
+  }
+
   if (now > session.expiresAt) {
     activePairingSessions.delete(digits);
     recordFailedAttempt();

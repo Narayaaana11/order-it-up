@@ -22,13 +22,6 @@ export interface LicenseVerificationResult {
   error?: string;
 }
 
-export interface LicenseIssuanceParams {
-  plan: SubscriptionPlan;
-  expiresAt: Date | number;
-  storeId: string;
-  privateKeyPem: string;
-}
-
 /**
  * Verifies an asymmetric Ed25519 Order It Up commercial license key.
  * Expected format: OIU2.<PLAN>.<EXPIRY_HEX>.<STORE_ID>.<ED25519_SIG_BASE64URL>
@@ -114,22 +107,6 @@ export function verifyAsymmetricLicense(
     const message = err instanceof Error ? err.message : 'unknown error';
     return { valid: false, error: `Public key verification error: ${message}` };
   }
-}
-
-/**
- * Helper to generate valid asymmetric license keys (for licensing authority server / automated testing).
- * This function requires the private key and MUST NOT be called in customer-facing production clients.
- */
-export function issueAsymmetricLicense(params: LicenseIssuanceParams): string {
-  const { plan, storeId, privateKeyPem } = params;
-  const expiresAtMs = typeof params.expiresAt === 'number' ? params.expiresAt : params.expiresAt.getTime();
-  const expiryHex = Math.floor(expiresAtMs / 1000).toString(16);
-
-  const payload = `OIU2.${plan.toUpperCase()}.${expiryHex}.${storeId.toUpperCase()}`;
-  const privKey = crypto.createPrivateKey(privateKeyPem);
-  const sig = crypto.sign(null, Buffer.from(payload, 'utf8'), privKey);
-
-  return `${payload}.${sig.toString('base64url')}`;
 }
 
 /**

@@ -11,6 +11,7 @@ export interface Env {
   RATE_LIMIT_PAIR_GENERATE_BRANCH?: string | number;
   RATE_LIMIT_DEMO_SETUP_IP?: string | number;
   RATE_LIMIT_SYNC_EVENTS_TERMINAL?: string | number;
+  FRONTEND_ORIGIN?: string;
 }
 
 export const MAX_PAIRING_CODE_ATTEMPTS = 5;

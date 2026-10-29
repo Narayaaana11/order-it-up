@@ -11,11 +11,29 @@ import { handleListTransfers, handleCreateTransfer, handleUpdateTransferStatus }
 import { createJWT, verifyJWT, hashPassword, verifyPassword, isSecretValid } from './auth';
 import { checkRateLimit, createRateLimitResponse, getClientIp, DEFAULT_RATE_LIMITS, getEffectiveLimit } from './rate-limit';
 
-function corsHeaders(): HeadersInit {
+function corsHeaders(request?: Request, env?: Env): HeadersInit {
+  const requestOrigin = request?.headers.get('Origin');
+  let allowOrigin = '*';
+
+  if (requestOrigin) {
+    if (env?.FRONTEND_ORIGIN) {
+      const allowed = env.FRONTEND_ORIGIN.split(',').map((o) => o.trim());
+      if (allowed.includes(requestOrigin) || allowed.includes('*')) {
+        allowOrigin = requestOrigin;
+      } else {
+        allowOrigin = allowed[0];
+      }
+    } else if (env?.ENVIRONMENT === 'staging') {
+      // Avoid blanket wildcard for staging browser requests
+      allowOrigin = requestOrigin;
+    }
+  }
+
   return {
-    'Access-Control-Allow-Origin': '*',
+    'Access-Control-Allow-Origin': allowOrigin,
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+    'Access-Control-Max-Age': '86400',
   };
 }
 
@@ -26,14 +44,14 @@ export default {
 
     // Handle CORS preflight
     if (method === 'OPTIONS') {
-      return new Response(null, { headers: corsHeaders() });
+      return new Response(null, { headers: corsHeaders(request, env) });
     }
 
     try {
       const response = await routeRequest(request, env, url, method);
       // Attach CORS
       const headers = new Headers(response.headers);
-      for (const [key, val] of Object.entries(corsHeaders())) {
+      for (const [key, val] of Object.entries(corsHeaders(request, env))) {
         headers.set(key, val);
       }
       return new Response(response.body, {
@@ -45,7 +63,7 @@ export default {
       console.error('Unhandled worker error:', err);
       return Response.json(
         { error: 'Internal Server Error' },
-        { status: 500, headers: corsHeaders() }
+        { status: 500, headers: corsHeaders(request, env) }
       );
     }
   },
