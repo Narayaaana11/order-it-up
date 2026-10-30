@@ -43,7 +43,10 @@ class _KdsScreenState extends State<KdsScreen> {
               ),
               child: Text(
                 '${kds.filteredTickets.length} ACTIVE',
-                style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w800, color: AppTheme.primaryDark),
+                style: const TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.primaryDark),
               ),
             ),
           ],
@@ -88,22 +91,27 @@ class _KdsScreenState extends State<KdsScreen> {
                     child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
                       children: [
-                        Icon(Icons.check_circle_outline, size: 54, color: AppTheme.success),
+                        Icon(Icons.check_circle_outline,
+                            size: 54, color: AppTheme.success),
                         const SizedBox(height: 12),
-                        const Text('Kitchen all clear! No pending tickets.', style: TextStyle(fontWeight: FontWeight.w600)),
+                        const Text('Kitchen all clear! No pending tickets.',
+                            style: TextStyle(fontWeight: FontWeight.w600)),
                       ],
                     ),
                   )
                 : LayoutBuilder(
                     builder: (context, constraints) {
-                      final cols = ResponsiveBreakpoints.getGridColumnCount(constraints.maxWidth, itemMinWidth: 280);
+                      final cols = ResponsiveBreakpoints.getGridColumnCount(
+                          constraints.maxWidth,
+                          itemMinWidth: 280);
 
                       if (cols <= 1) {
                         // Phone: Single Column list
                         return ListView.separated(
                           padding: const EdgeInsets.all(12),
                           itemCount: kds.filteredTickets.length,
-                          separatorBuilder: (_, __) => const SizedBox(height: 12),
+                          separatorBuilder: (_, __) =>
+                              const SizedBox(height: 12),
                           itemBuilder: (context, index) {
                             final ticket = kds.filteredTickets[index];
                             return SizedBox(

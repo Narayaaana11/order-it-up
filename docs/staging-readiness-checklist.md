@@ -1,7 +1,14 @@
 # Order It Up: Staging Deployment & Controlled Validation Checklist
 
 > **Target Environment:** Controlled Staging Sandbox  
-> **Status:** Pre-Staging Verification Complete (No production deployment permitted)  
+> **Release Branch:** `release/order-it-up-c12-staging`  
+> **Latest Commit SHA:** `9e3c66f`  
+> **GitHub Actions CI:** [Run #41007398733 (All 2 Jobs Passed / Green)](https://github.com/Narayaaana11/order-it-up/actions/runs/41007398733)  
+> **Pull Request:** [GitHub PR #11](https://github.com/Narayaaana11/order-it-up/pull/11)  
+> **Staging Worker URL:** `https://orderitup-cloud-api-staging.narayaaana11.workers.dev`  
+> **Staging Worker Version ID:** `d646994e-fe82-42a6-b036-78b48456fb74`  
+> **Staging D1 Identifier:** `931431cc-45d5-47c9-bed9-37f903cdacd4` (Migrations 0001–0007 Applied; Pre-Migration Backup: `backups/staging-backup-pre-c12.1.sql`)  
+> **Status:** Staging Deployed & Verified Live (39/39 C-12 Smoke Tests Passed; 16/16 C-12.1 Financial Integrity Tests Passed; 7/7 Transaction Integrity Tests Passed; 6/6 Shared Operational Backend Tests Passed)  
 > **Rule:** Never commit credentials, API keys, or production data.  
 > **CRITICAL INVARIANT:** Staging credentials (e.g. `rzp_test_*`, staging D1 IDs, staging JWT secrets) and staging data MUST NEVER be mixed with or reused in production environments. Production and staging environments must maintain strictly separate infrastructure, secrets, and database stores.
 
@@ -100,7 +107,10 @@ npx wrangler secret put JWT_SECRET --env staging
 #   0001_initial_schema.sql
 #   0002_rate_limits_and_pairing.sql
 #   0003_sync_integrity_and_idempotency.sql
-npx wrangler d1 migrations apply orderitup-d1-staging --env staging
+#   0004_restaurant_hierarchy_and_memberships.sql
+#   0005_shared_operations_tables_and_kitchen.sql
+#   0006_customer_payment_ledger.sql
+npx wrangler d1 migrations apply orderitup-d1-staging --remote --env staging
 ```
 
 ### Step 4: Deploy Worker to Staging Environment
@@ -230,7 +240,28 @@ Automated smoke tests executed directly against `https://orderitup-cloud-api-sta
 | 15 | POS Sync Conflict Prevention | `POST /api/pos/events` | Conflicting payload with reused event ID omitted from `synced_ids` | ✅ **PASS** |
 | 16 | Distributed Rate Limiting | `POST /api/auth/login` | 5 failed login attempts trigger HTTP 429 with `Retry-After` header | ✅ **PASS** |
 
-**Summary:** 16 / 16 Deployed Staging Smoke Tests Passed.
+**Baseline Smoke Tests Summary:** 16 / 16 Deployed Staging Smoke Tests Passed.
+
+### C-12 Multi-Location Operations & Transaction Integrity Live Smoke Tests
+Automated operational smoke tests executed directly against `https://orderitup-cloud-api-staging.narayaaana11.workers.dev` via `node tests/live-staging-smoke-c12.mjs`:
+
+| # | Operational Workflow Test | Method / Route | Verification Condition | Result |
+| :--- | :--- | :--- | :--- | :--- |
+| 1 | Service Health & D1 Engine | `GET /health` | HTTP 200, `{ status: "operational", engine: "Cloudflare Workers + D1" }` | ✅ **PASS** |
+| 2 | CORS Policy Verification | `OPTIONS /api/branches` | `Origin: https://staging.orderitup.in` allowed; unlisted origins rejected | ✅ **PASS** |
+| 3 | Authentication Enforcement | `GET /api/branches` | Missing and malformed tokens return HTTP 401 | ✅ **PASS** |
+| 4 | Self-Service SaaS Registration | `POST /api/auth/register` | Provisions tenant organization, restaurant, default branch, starter menu & owner JWT | ✅ **PASS** |
+| 5 | Restaurant & Branch Hierarchy | `POST /api/branches` | Owner provisions second branch bound to same restaurant | ✅ **PASS** |
+| 6 | Tenant Isolation & Cross-Tenant Defense | `GET /api/orders?branch_id=...` | Cross-tenant access between Tenant B and Tenant A rejected with HTTP 403 | ✅ **PASS** |
+| 7 | Server Catalog Price Authority | `POST /api/orders` | Cloud order creation rejects unlisted products with HTTP 400 | ✅ **PASS** |
+| 8 | Server-Authoritative Totals | `POST /api/orders` | Overrides client-submitted item prices with authoritative catalog base prices | ✅ **PASS** |
+| 9 | Dine-In Table & Kitchen Ticket Queue | `POST /api/tables`, `GET /api/kitchen/tickets` | Table created; automatic kitchen ticket bumped to `preparing` via PATCH | ✅ **PASS** |
+| 10 | Split Payments & Verification Ledger | `POST /api/orders/:id/payments` | Split cash (`cashier_collected`) + UPI (`manual_cashier_confirmed`) -> status `paid` | ✅ **PASS** |
+| 11 | Refund Limits & Idempotency | `POST /api/orders/:id/payments/:pid/refund` | Over-refund rejected (400); partial refund recorded as `manual_manager_refund`; idempotent replay returns 200 | ✅ **PASS** |
+| 12 | Optimistic Concurrency Control | `POST /api/orders/:id/items` | Outdated `expected_version` rejected with HTTP 409 Conflict | ✅ **PASS** |
+| 13 | Cross-Device Order Visibility | `GET /api/orders` | Polling endpoint reflects real-time payment status and ledger changes | ✅ **PASS** |
+
+**C-12 Live Smoke Tests Summary:** 39 / 39 Deployed Staging Verifications Passed (0 Failures).
 
 ---
 
@@ -246,7 +277,7 @@ Before promoting any build from staging to production, the following production-
 - [ ] **Production Cloudflare D1 Database:**
   - Create production database `orderitup-d1-prod`.
   - Update root `database_id` in `apps/cloud-api/wrangler.toml`.
-  - Apply migrations `0001` through `0003` to production D1 database.
+  - Apply migrations `0001` through `0006` to production D1 database.
   - Verify production snapshot export routine is active.
 - [ ] **Production JWT Secret:**
   - Provision high-entropy production secret: `wrangler secret put JWT_SECRET`.

@@ -14,23 +14,56 @@ class NavDestinationItem {
 }
 
 const List<NavDestinationItem> desktopNavItems = [
-  NavDestinationItem(id: 'pos', label: 'POS Terminal', icon: Icons.shopping_cart_outlined),
-  NavDestinationItem(id: 'dashboard', label: 'Dashboard', icon: Icons.dashboard_outlined),
-  NavDestinationItem(id: 'orders', label: 'Orders & History', icon: Icons.receipt_long_outlined),
-  NavDestinationItem(id: 'tables', label: 'Tables & Floor', icon: Icons.table_restaurant_outlined),
-  NavDestinationItem(id: 'kds', label: 'Kitchen KDS', icon: Icons.soup_kitchen_outlined),
-  NavDestinationItem(id: 'reservations', label: 'Reservations', icon: Icons.calendar_month_outlined),
-  NavDestinationItem(id: 'inventory', label: 'Raw Inventory', icon: Icons.inventory_2_outlined),
-  NavDestinationItem(id: 'customers', label: 'Customers CRM', icon: Icons.people_alt_outlined),
-  NavDestinationItem(id: 'online_orders', label: 'Online Orders', icon: Icons.delivery_dining_outlined),
-  NavDestinationItem(id: 'reports', label: 'Reports & Sales', icon: Icons.bar_chart_outlined),
-  NavDestinationItem(id: 'cloud_hq', label: 'Cloud Franchise HQ', icon: Icons.corporate_fare_outlined),
-  NavDestinationItem(id: 'expenses', label: 'Expenses', icon: Icons.receipt_outlined),
-  NavDestinationItem(id: 'whatsapp', label: 'WhatsApp', icon: Icons.chat_outlined),
-  NavDestinationItem(id: 'products', label: 'Products & Menu', icon: Icons.category_outlined),
-  NavDestinationItem(id: 'ai_insights', label: 'AI Insights', icon: Icons.auto_awesome_outlined),
-  NavDestinationItem(id: 'staff', label: 'Staff Management', icon: Icons.manage_accounts_outlined),
-  NavDestinationItem(id: 'settings', label: 'Settings', icon: Icons.settings_outlined),
+  NavDestinationItem(
+      id: 'pos', label: 'POS Terminal', icon: Icons.shopping_cart_outlined),
+  NavDestinationItem(
+      id: 'dashboard', label: 'Dashboard', icon: Icons.dashboard_outlined),
+  NavDestinationItem(
+      id: 'orders',
+      label: 'Orders & History',
+      icon: Icons.receipt_long_outlined),
+  NavDestinationItem(
+      id: 'tables',
+      label: 'Tables & Floor',
+      icon: Icons.table_restaurant_outlined),
+  NavDestinationItem(
+      id: 'kds', label: 'Kitchen KDS', icon: Icons.soup_kitchen_outlined),
+  NavDestinationItem(
+      id: 'reservations',
+      label: 'Reservations',
+      icon: Icons.calendar_month_outlined),
+  NavDestinationItem(
+      id: 'inventory',
+      label: 'Raw Inventory',
+      icon: Icons.inventory_2_outlined),
+  NavDestinationItem(
+      id: 'customers', label: 'Customers CRM', icon: Icons.people_alt_outlined),
+  NavDestinationItem(
+      id: 'online_orders',
+      label: 'Online Orders',
+      icon: Icons.delivery_dining_outlined),
+  NavDestinationItem(
+      id: 'reports', label: 'Reports & Sales', icon: Icons.bar_chart_outlined),
+  NavDestinationItem(
+      id: 'cloud_hq',
+      label: 'Cloud Franchise HQ',
+      icon: Icons.corporate_fare_outlined),
+  NavDestinationItem(
+      id: 'expenses', label: 'Expenses', icon: Icons.receipt_outlined),
+  NavDestinationItem(
+      id: 'whatsapp', label: 'WhatsApp', icon: Icons.chat_outlined),
+  NavDestinationItem(
+      id: 'products', label: 'Products & Menu', icon: Icons.category_outlined),
+  NavDestinationItem(
+      id: 'ai_insights',
+      label: 'AI Insights',
+      icon: Icons.auto_awesome_outlined),
+  NavDestinationItem(
+      id: 'staff',
+      label: 'Staff Management',
+      icon: Icons.manage_accounts_outlined),
+  NavDestinationItem(
+      id: 'settings', label: 'Settings', icon: Icons.settings_outlined),
 ];
 
 class AppSidebarDrawer extends StatelessWidget {
@@ -92,7 +125,8 @@ class AppSidebarDrawer extends StatelessWidget {
                         color: AppTheme.primary,
                         borderRadius: BorderRadius.circular(8),
                       ),
-                      child: const Icon(Icons.storefront, color: Colors.white, size: 20),
+                      child: const Icon(Icons.storefront,
+                          color: Colors.white, size: 20),
                     ),
                   ),
                 ),
@@ -111,7 +145,8 @@ class AppSidebarDrawer extends StatelessWidget {
                           ),
                         ),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 1),
                           decoration: BoxDecoration(
                             color: AppTheme.primaryLight,
                             borderRadius: BorderRadius.circular(6),
@@ -153,9 +188,8 @@ class AppSidebarDrawer extends StatelessWidget {
                       vertical: 9,
                     ),
                     decoration: BoxDecoration(
-                      color: isActive
-                          ? AppTheme.primaryLight
-                          : Colors.transparent,
+                      color:
+                          isActive ? AppTheme.primaryLight : Colors.transparent,
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Row(
@@ -168,7 +202,9 @@ class AppSidebarDrawer extends StatelessWidget {
                           size: 19,
                           color: isActive
                               ? AppTheme.primary
-                              : (isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                              : (isDark
+                                  ? AppTheme.textMutedDark
+                                  : AppTheme.textMutedLight),
                         ),
                         if (isExpanded) ...[
                           const SizedBox(width: 12),
@@ -178,10 +214,14 @@ class AppSidebarDrawer extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: TextStyle(
                                 fontSize: 13,
-                                fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+                                fontWeight: isActive
+                                    ? FontWeight.w700
+                                    : FontWeight.w500,
                                 color: isActive
                                     ? AppTheme.primaryDark
-                                    : (isDark ? AppTheme.textDark : AppTheme.textLight),
+                                    : (isDark
+                                        ? AppTheme.textDark
+                                        : AppTheme.textLight),
                               ),
                             ),
                           ),
@@ -211,7 +251,10 @@ class AppSidebarDrawer extends StatelessWidget {
                   backgroundColor: AppTheme.primaryLight,
                   child: const Text(
                     'OI',
-                    style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                    style: TextStyle(
+                        fontSize: 11,
+                        fontWeight: FontWeight.bold,
+                        color: AppTheme.primaryDark),
                   ),
                 ),
                 if (isExpanded) ...[
@@ -222,7 +265,8 @@ class AppSidebarDrawer extends StatelessWidget {
                       children: [
                         Text(
                           'Staff Cashier',
-                          style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 12, fontWeight: FontWeight.bold),
                         ),
                         Text(
                           'Shift Open',

@@ -75,7 +75,8 @@ void main() {
       expect(reconstructed.status, transfer.status);
     });
 
-    test('CloudHqProvider computes group aggregations and filters properly', () async {
+    test('CloudHqProvider computes group aggregations and filters properly',
+        () async {
       final apiService = ApiService(
         apiClient: ApiClient(baseUrl: 'http://localhost:3003'),
         isDemoMode: true,
@@ -122,21 +123,27 @@ void main() {
       expect(pairingRes!['success'], true);
     });
 
-    test('Responsive layout adapts seamlessly between Android phone and tablet breakpoints', () {
+    test(
+        'Responsive layout adapts seamlessly between Android phone and tablet breakpoints',
+        () {
       // Small Android phone (e.g. 360dp width)
       expect(ResponsiveBreakpoints.getScreenType(360), DeviceScreenType.phone);
-      expect(ResponsiveBreakpoints.getGridColumnCount(360, itemMinWidth: 160), 2);
+      expect(
+          ResponsiveBreakpoints.getGridColumnCount(360, itemMinWidth: 160), 2);
 
       // Mid-size phone (412dp)
       expect(ResponsiveBreakpoints.getScreenType(412), DeviceScreenType.phone);
-      expect(ResponsiveBreakpoints.getGridColumnCount(412, itemMinWidth: 160), 2);
+      expect(
+          ResponsiveBreakpoints.getGridColumnCount(412, itemMinWidth: 160), 2);
 
       // 7-inch to 10-inch Android Tablet (768dp)
       expect(ResponsiveBreakpoints.getScreenType(768), DeviceScreenType.tablet);
-      expect(ResponsiveBreakpoints.getGridColumnCount(768, itemMinWidth: 160), 4);
+      expect(
+          ResponsiveBreakpoints.getGridColumnCount(768, itemMinWidth: 160), 4);
 
       // 12-inch POS Tablet / Desktop (1200dp)
-      expect(ResponsiveBreakpoints.getScreenType(1200), DeviceScreenType.desktop);
+      expect(
+          ResponsiveBreakpoints.getScreenType(1200), DeviceScreenType.desktop);
     });
   });
 }

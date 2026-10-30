@@ -16,7 +16,8 @@ class CashierProvider extends ChangeNotifier {
 
   CashierProvider({required this.apiService});
 
-  List<OrderModel> get activeOrders => _activeOrders.where((o) => !o.isCompleted).toList();
+  List<OrderModel> get activeOrders =>
+      _activeOrders.where((o) => !o.isCompleted).toList();
   OrderModel? get selectedOrder => _selectedOrder;
   double get discountPercent => _discountPercent;
   double get taxPercent => _taxPercent;
@@ -45,7 +46,8 @@ class CashierProvider extends ChangeNotifier {
         if (match.isNotEmpty) {
           _selectedOrder = match.first;
         } else {
-          _selectedOrder = _activeOrders.isNotEmpty ? _activeOrders.first : null;
+          _selectedOrder =
+              _activeOrders.isNotEmpty ? _activeOrders.first : null;
         }
       } else if (_activeOrders.isNotEmpty) {
         _selectedOrder = _activeOrders.first;
@@ -66,25 +68,38 @@ class CashierProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  String _externalReference = '';
+  String get externalReference => _externalReference;
+
   void setPaymentMethod(String method) {
     _paymentMethod = method;
     notifyListeners();
   }
 
-  Future<bool> settleBill() async {
+  void setExternalReference(String ref) {
+    _externalReference = ref;
+    notifyListeners();
+  }
+
+  Future<bool> settleBill({String? externalReference}) async {
     if (_selectedOrder == null || activeBill == null) return false;
 
     _isSettling = true;
     notifyListeners();
+
+    final refToUse = externalReference ??
+        (_externalReference.isNotEmpty ? _externalReference : null);
 
     try {
       final success = await apiService.settleBill(
         orderId: _selectedOrder!.id,
         paymentMethod: _paymentMethod,
         amount: activeBill!.totalPayable,
+        externalReferenceId: refToUse,
       );
 
       if (success) {
+        _externalReference = '';
         await loadOrders();
       }
       _isSettling = false;

@@ -60,7 +60,8 @@ class DesktopProductCard extends StatelessWidget {
                     _buildDietaryIndicator(isVeg),
                     if (cartQuantity > 0)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 7, vertical: 2),
                         decoration: BoxDecoration(
                           color: AppTheme.primary,
                           borderRadius: BorderRadius.circular(10),
@@ -93,11 +94,16 @@ class DesktopProductCard extends StatelessWidget {
                           fontSize: 13.5,
                           fontWeight: FontWeight.w700,
                           color: isAvailable
-                              ? (isDark ? AppTheme.textDark : AppTheme.textLight)
-                              : (isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                              ? (isDark
+                                  ? AppTheme.textDark
+                                  : AppTheme.textLight)
+                              : (isDark
+                                  ? AppTheme.textMutedDark
+                                  : AppTheme.textMutedLight),
                         ),
                       ),
-                      if (product.categoryName != null && product.categoryName!.isNotEmpty) ...[
+                      if (product.categoryName != null &&
+                          product.categoryName!.isNotEmpty) ...[
                         const SizedBox(height: 2),
                         Text(
                           product.categoryName!,
@@ -105,7 +111,9 @@ class DesktopProductCard extends StatelessWidget {
                           overflow: TextOverflow.ellipsis,
                           style: TextStyle(
                             fontSize: 11,
-                            color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                            color: isDark
+                                ? AppTheme.textMutedDark
+                                : AppTheme.textMutedLight,
                           ),
                         ),
                       ],
@@ -127,12 +135,15 @@ class DesktopProductCard extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                         color: isAvailable
                             ? AppTheme.primary
-                            : (isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                            : (isDark
+                                ? AppTheme.textMutedDark
+                                : AppTheme.textMutedLight),
                       ),
                     ),
                     if (!isAvailable)
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
                         decoration: BoxDecoration(
                           color: Colors.red.shade100,
                           borderRadius: BorderRadius.circular(6),
@@ -151,13 +162,17 @@ class DesktopProductCard extends StatelessWidget {
                         width: 28,
                         height: 28,
                         decoration: BoxDecoration(
-                          color: cartQuantity > 0 ? AppTheme.primary : AppTheme.primaryLight,
+                          color: cartQuantity > 0
+                              ? AppTheme.primary
+                              : AppTheme.primaryLight,
                           borderRadius: BorderRadius.circular(8),
                         ),
                         child: Icon(
                           Icons.add,
                           size: 18,
-                          color: cartQuantity > 0 ? Colors.white : AppTheme.primaryDark,
+                          color: cartQuantity > 0
+                              ? Colors.white
+                              : AppTheme.primaryDark,
                         ),
                       ),
                   ],
@@ -171,7 +186,8 @@ class DesktopProductCard extends StatelessWidget {
   }
 
   Widget _buildDietaryIndicator(bool isVeg) {
-    final borderColor = isVeg ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
+    final borderColor =
+        isVeg ? const Color(0xFF16A34A) : const Color(0xFFDC2626);
     return Container(
       width: 14,
       height: 14,

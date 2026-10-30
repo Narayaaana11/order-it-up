@@ -16,7 +16,8 @@ class ProductsScreen extends StatefulWidget {
 class _ProductsScreenState extends State<ProductsScreen> {
   final TextEditingController _searchController = TextEditingController();
   String _selectedCategory = 'all';
-  final NumberFormat _currencyFmt = NumberFormat.currency(symbol: '₹', decimalDigits: 2);
+  final NumberFormat _currencyFmt =
+      NumberFormat.currency(symbol: '₹', decimalDigits: 2);
 
   @override
   void initState() {
@@ -41,8 +42,10 @@ class _ProductsScreenState extends State<ProductsScreen> {
     final query = _searchController.text.trim().toLowerCase();
 
     final filteredProducts = menu.products.where((p) {
-      final matchesQuery = query.isEmpty || p.name.toLowerCase().contains(query);
-      final matchesCategory = _selectedCategory == 'all' || p.categoryId == _selectedCategory;
+      final matchesQuery =
+          query.isEmpty || p.name.toLowerCase().contains(query);
+      final matchesCategory =
+          _selectedCategory == 'all' || p.categoryId == _selectedCategory;
       return matchesQuery && matchesCategory;
     }).toList();
 
@@ -83,7 +86,8 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                       },
                                     )
                                   : null,
-                              contentPadding: const EdgeInsets.symmetric(vertical: 10, horizontal: 16),
+                              contentPadding: const EdgeInsets.symmetric(
+                                  vertical: 10, horizontal: 16),
                             ),
                           ),
                           const SizedBox(height: 12),
@@ -94,21 +98,25 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                 FilterChip(
                                   label: const Text('All Categories'),
                                   selected: _selectedCategory == 'all',
-                                  onSelected: (_) => setState(() => _selectedCategory = 'all'),
-                                  selectedColor: AppTheme.primary.withOpacity(0.2),
+                                  onSelected: (_) =>
+                                      setState(() => _selectedCategory = 'all'),
+                                  selectedColor:
+                                      AppTheme.primary.withOpacity(0.2),
                                   checkmarkColor: AppTheme.primary,
                                 ),
                                 const SizedBox(width: 8),
                                 ...categories.map((c) => Padding(
-                                  padding: const EdgeInsets.only(right: 8),
-                                  child: FilterChip(
-                                    label: Text(c.name),
-                                    selected: _selectedCategory == c.id,
-                                    onSelected: (_) => setState(() => _selectedCategory = c.id),
-                                    selectedColor: AppTheme.primary.withOpacity(0.2),
-                                    checkmarkColor: AppTheme.primary,
-                                  ),
-                                )),
+                                      padding: const EdgeInsets.only(right: 8),
+                                      child: FilterChip(
+                                        label: Text(c.name),
+                                        selected: _selectedCategory == c.id,
+                                        onSelected: (_) => setState(
+                                            () => _selectedCategory = c.id),
+                                        selectedColor:
+                                            AppTheme.primary.withOpacity(0.2),
+                                        checkmarkColor: AppTheme.primary,
+                                      ),
+                                    )),
                               ],
                             ),
                           ),
@@ -119,9 +127,12 @@ class _ProductsScreenState extends State<ProductsScreen> {
                     // Products List
                     Expanded(
                       child: filteredProducts.isEmpty
-                          ? const Center(child: Text('No products found matching filters', style: TextStyle(color: Colors.grey)))
+                          ? const Center(
+                              child: Text('No products found matching filters',
+                                  style: TextStyle(color: Colors.grey)))
                           : ListView.builder(
-                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              padding:
+                                  const EdgeInsets.symmetric(horizontal: 16),
                               itemCount: filteredProducts.length,
                               itemBuilder: (context, idx) {
                                 final p = filteredProducts[idx];
@@ -129,26 +140,39 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                   margin: const EdgeInsets.only(bottom: 10),
                                   padding: const EdgeInsets.all(14),
                                   decoration: BoxDecoration(
-                                    color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
+                                    color: isDark
+                                        ? AppTheme.surfaceDark
+                                        : AppTheme.surfaceLight,
                                     borderRadius: BorderRadius.circular(14),
-                                    border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                                    border: Border.all(
+                                        color: isDark
+                                            ? AppTheme.borderDark
+                                            : AppTheme.borderLight),
                                   ),
                                   child: Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       // Dietary tag indicator dot
                                       Container(
                                         width: 14,
                                         height: 14,
                                         decoration: BoxDecoration(
-                                          border: Border.all(color: p.isVeg ? Colors.green : Colors.red, width: 2),
+                                          border: Border.all(
+                                              color: p.isVeg
+                                                  ? Colors.green
+                                                  : Colors.red,
+                                              width: 2),
                                           shape: BoxShape.rectangle,
-                                          borderRadius: BorderRadius.circular(2),
+                                          borderRadius:
+                                              BorderRadius.circular(2),
                                         ),
                                         padding: const EdgeInsets.all(2),
                                         child: Container(
                                           decoration: BoxDecoration(
-                                            color: p.isVeg ? Colors.green : Colors.red,
+                                            color: p.isVeg
+                                                ? Colors.green
+                                                : Colors.red,
                                             shape: BoxShape.circle,
                                           ),
                                         ),
@@ -158,21 +182,27 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                       // Name & details
                                       Expanded(
                                         child: Column(
-                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
                                           children: [
                                             Text(
                                               p.name,
                                               style: TextStyle(
                                                 fontWeight: FontWeight.bold,
                                                 fontSize: 14,
-                                                decoration: p.isActive ? null : TextDecoration.lineThrough,
+                                                decoration: p.isActive
+                                                    ? null
+                                                    : TextDecoration
+                                                        .lineThrough,
                                               ),
                                               overflow: TextOverflow.ellipsis,
                                             ),
                                             const SizedBox(height: 2),
                                             Text(
                                               '${_currencyFmt.format(p.price)} • ${p.kitchenStation.toUpperCase()}',
-                                              style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                              style: const TextStyle(
+                                                  fontSize: 12,
+                                                  color: Colors.grey),
                                             ),
                                           ],
                                         ),
@@ -182,16 +212,23 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                       // Availability 86 toggle button
                                       TextButton(
                                         onPressed: () {
-                                          menu.toggleProductAvailability(p.id, !p.isActive);
+                                          menu.toggleProductAvailability(p.id);
                                         },
                                         style: TextButton.styleFrom(
-                                          backgroundColor: p.isActive ? Colors.green.withOpacity(0.12) : Colors.red.withOpacity(0.12),
-                                          foregroundColor: p.isActive ? Colors.green : Colors.red,
-                                          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                          backgroundColor: p.isActive
+                                              ? Colors.green.withOpacity(0.12)
+                                              : Colors.red.withOpacity(0.12),
+                                          foregroundColor: p.isActive
+                                              ? Colors.green
+                                              : Colors.red,
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10, vertical: 6),
                                         ),
                                         child: Text(
                                           p.isActive ? 'In Stock' : "86'd",
-                                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
+                                          style: const TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold),
                                         ),
                                       ),
                                     ],

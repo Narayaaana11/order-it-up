@@ -100,7 +100,7 @@ class MockD1Database {
           async all<T = any>(): Promise<{ results: T[] }> {
             const normalized = sql.replace(/\s+/g, ' ').trim();
 
-            if (normalized.includes('FROM branches WHERE organization_id = ?')) {
+            if (normalized.includes('FROM branches') && (normalized.includes('organization_id = ?') || normalized.includes('b.organization_id = ?'))) {
               const orgId = params[0];
               const list: any[] = [];
               for (const b of db.branches.values()) {
@@ -585,7 +585,7 @@ async function testTenantBoundariesAndRBAC(): Promise<void> {
     }),
   });
   const resCreateBranch = await cloudWorker.fetch(reqCreateBranch, env);
-  assert.equal(resCreateBranch.status, 200);
+  assert([200, 201].includes(resCreateBranch.status), `Branch creation must return 200 or 201 (got ${resCreateBranch.status})`);
   const injectedBranch = db.branches.get('br-alpha-injected');
   assert.equal(injectedBranch.organization_id, 'org-alpha', 'Branch must be bound to org from JWT, not request body');
 

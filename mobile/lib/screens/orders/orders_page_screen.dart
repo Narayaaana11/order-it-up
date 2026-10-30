@@ -42,7 +42,8 @@ class _OrdersPageScreenState extends State<OrdersPageScreen> {
         final q = _search.toLowerCase();
         final matchesNum = o.orderNumber.toLowerCase().contains(q);
         final matchesTable = o.tableId?.toLowerCase().contains(q) ?? false;
-        final matchesCustomer = o.customerName?.toLowerCase().contains(q) ?? false;
+        final matchesCustomer =
+            o.customerName?.toLowerCase().contains(q) ?? false;
         if (!matchesNum && !matchesTable && !matchesCustomer) return false;
       }
       return true;
@@ -82,7 +83,9 @@ class _OrdersPageScreenState extends State<OrdersPageScreen> {
                             prefixIcon: const Icon(Icons.search, size: 18),
                             contentPadding: EdgeInsets.zero,
                             filled: true,
-                            fillColor: isDark ? AppTheme.cardDark : Colors.grey.shade100,
+                            fillColor: isDark
+                                ? AppTheme.cardDark
+                                : Colors.grey.shade100,
                             border: OutlineInputBorder(
                               borderRadius: BorderRadius.circular(10),
                               borderSide: BorderSide.none,
@@ -127,7 +130,8 @@ class _OrdersPageScreenState extends State<OrdersPageScreen> {
                         child: Column(
                           mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            Icon(Icons.receipt_long, size: 48, color: Colors.grey.shade400),
+                            Icon(Icons.receipt_long,
+                                size: 48, color: Colors.grey.shade400),
                             const SizedBox(height: 8),
                             const Text('No orders found matching this filter.'),
                           ],
@@ -147,7 +151,9 @@ class _OrdersPageScreenState extends State<OrdersPageScreen> {
                               color: isDark ? AppTheme.cardDark : Colors.white,
                               borderRadius: BorderRadius.circular(12),
                               border: Border.all(
-                                color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                                color: isDark
+                                    ? AppTheme.borderDark
+                                    : AppTheme.borderLight,
                               ),
                               boxShadow: [
                                 BoxShadow(
@@ -160,7 +166,8 @@ class _OrdersPageScreenState extends State<OrdersPageScreen> {
                               crossAxisAlignment: CrossAxisAlignment.start,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Row(
                                       children: [
@@ -173,13 +180,17 @@ class _OrdersPageScreenState extends State<OrdersPageScreen> {
                                         ),
                                         const SizedBox(width: 8),
                                         Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 7, vertical: 2),
                                           decoration: BoxDecoration(
                                             color: AppTheme.primaryLight,
-                                            borderRadius: BorderRadius.circular(6),
+                                            borderRadius:
+                                                BorderRadius.circular(6),
                                           ),
                                           child: Text(
-                                            order.tableId != null ? 'Table ${order.tableId}' : order.type.toUpperCase(),
+                                            order.tableId != null
+                                                ? 'Table ${order.tableId}'
+                                                : order.type.toUpperCase(),
                                             style: const TextStyle(
                                               fontSize: 11,
                                               fontWeight: FontWeight.bold,
@@ -200,23 +211,32 @@ class _OrdersPageScreenState extends State<OrdersPageScreen> {
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  order.items.map((i) => '${i.quantity}x ${i.productName}').join(', '),
+                                  order.items
+                                      .map((i) =>
+                                          '${i.quantity}x ${i.productName}')
+                                      .join(', '),
                                   maxLines: 2,
                                   overflow: TextOverflow.ellipsis,
                                   style: TextStyle(
                                     fontSize: 12,
-                                    color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                                    color: isDark
+                                        ? AppTheme.textMutedDark
+                                        : AppTheme.textMutedLight,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
-                                      DateFormat('hh:mm a').format(order.createdAtDateTime),
+                                      DateFormat('hh:mm a')
+                                          .format(order.createdAtDateTime),
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                                        color: isDark
+                                            ? AppTheme.textMutedDark
+                                            : AppTheme.textMutedLight,
                                       ),
                                     ),
                                     Text(
@@ -271,7 +291,8 @@ class _OrdersPageScreenState extends State<OrdersPageScreen> {
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
+      decoration:
+          BoxDecoration(color: bg, borderRadius: BorderRadius.circular(6)),
       child: Text(
         status.toUpperCase(),
         style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: fg),

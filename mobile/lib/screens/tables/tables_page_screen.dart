@@ -38,12 +38,14 @@ class _TablesPageScreenState extends State<TablesPageScreen> {
             children: [
               // Header Filter Chips
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
                   border: Border(
                     bottom: BorderSide(
-                      color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                      color:
+                          isDark ? AppTheme.borderDark : AppTheme.borderLight,
                     ),
                   ),
                 ),
@@ -53,13 +55,17 @@ class _TablesPageScreenState extends State<TablesPageScreen> {
                     children: [
                       _buildChip('all', 'All (${tableProv.tables.length})'),
                       const SizedBox(width: 6),
-                      _buildChip('available', 'Available (${tableProv.availableCount})'),
+                      _buildChip('available',
+                          'Available (${tableProv.availableCount})'),
                       const SizedBox(width: 6),
-                      _buildChip('occupied', 'Occupied (${tableProv.occupiedCount})'),
+                      _buildChip(
+                          'occupied', 'Occupied (${tableProv.occupiedCount})'),
                       const SizedBox(width: 6),
-                      _buildChip('reserved', 'Reserved (${tableProv.tables.where((t) => t.status == 'reserved').length})'),
+                      _buildChip('reserved',
+                          'Reserved (${tableProv.tables.where((t) => t.status == 'reserved').length})'),
                       const SizedBox(width: 6),
-                      _buildChip('billed', 'Billed (${tableProv.tables.where((t) => t.status == 'billed').length})'),
+                      _buildChip('billed',
+                          'Billed (${tableProv.tables.where((t) => t.status == 'billed').length})'),
                     ],
                   ),
                 ),
@@ -71,7 +77,8 @@ class _TablesPageScreenState extends State<TablesPageScreen> {
                     ? const Center(child: Text('No tables in this status.'))
                     : GridView.builder(
                         padding: const EdgeInsets.all(12),
-                        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                        gridDelegate:
+                            const SliverGridDelegateWithFixedCrossAxisCount(
                           crossAxisCount: 2,
                           mainAxisSpacing: 10,
                           crossAxisSpacing: 10,
@@ -91,7 +98,9 @@ class _TablesPageScreenState extends State<TablesPageScreen> {
                               border: Border.all(
                                 color: isOccupied
                                     ? AppTheme.primary
-                                    : (isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                                    : (isDark
+                                        ? AppTheme.borderDark
+                                        : AppTheme.borderLight),
                               ),
                               boxShadow: [
                                 BoxShadow(
@@ -105,14 +114,18 @@ class _TablesPageScreenState extends State<TablesPageScreen> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Text(
                                       table.name,
-                                      style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(
+                                          fontSize: 15,
+                                          fontWeight: FontWeight.bold),
                                     ),
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 7, vertical: 2),
                                       decoration: BoxDecoration(
                                         color: statusColor.withOpacity(0.15),
                                         borderRadius: BorderRadius.circular(6),
@@ -130,23 +143,30 @@ class _TablesPageScreenState extends State<TablesPageScreen> {
                                 ),
                                 Row(
                                   children: [
-                                    const Icon(Icons.people_outline, size: 14, color: Colors.grey),
+                                    const Icon(Icons.people_outline,
+                                        size: 14, color: Colors.grey),
                                     const SizedBox(width: 4),
                                     Text(
                                       '${table.capacity} Pax',
-                                      style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                      style: const TextStyle(
+                                          fontSize: 12, color: Colors.grey),
                                     ),
                                   ],
                                 ),
                                 if (isOccupied)
                                   Row(
-                                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
                                     children: [
                                       const Row(
                                         children: [
-                                          Icon(Icons.timer_outlined, size: 13, color: Colors.amber),
+                                          Icon(Icons.timer_outlined,
+                                              size: 13, color: Colors.amber),
                                           SizedBox(width: 3),
-                                          Text('24m', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                          Text('24m',
+                                              style: TextStyle(
+                                                  fontSize: 11,
+                                                  fontWeight: FontWeight.bold)),
                                         ],
                                       ),
                                       Text(
@@ -162,7 +182,8 @@ class _TablesPageScreenState extends State<TablesPageScreen> {
                                 else
                                   const Text(
                                     'Ready for seating',
-                                    style: TextStyle(fontSize: 11, color: Colors.green),
+                                    style: TextStyle(
+                                        fontSize: 11, color: Colors.green),
                                   ),
                               ],
                             ),

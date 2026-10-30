@@ -72,7 +72,8 @@ class ProductGridCard extends StatelessWidget {
                       _buildDietaryIndicator(),
                       if (!product.isActive)
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
                             color: AppTheme.danger.withOpacity(0.15),
                             borderRadius: BorderRadius.circular(4),
@@ -96,8 +97,11 @@ class ProductGridCard extends StatelessWidget {
                       fontWeight: FontWeight.w600,
                       color: product.isActive
                           ? (isDark ? AppTheme.textDark : AppTheme.textLight)
-                          : (isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
-                      decoration: product.isActive ? null : TextDecoration.lineThrough,
+                          : (isDark
+                              ? AppTheme.textMutedDark
+                              : AppTheme.textMutedLight),
+                      decoration:
+                          product.isActive ? null : TextDecoration.lineThrough,
                     ),
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
@@ -114,7 +118,9 @@ class ProductGridCard extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w700,
-                      color: product.isActive ? AppTheme.primaryDark : AppTheme.neutral,
+                      color: product.isActive
+                          ? AppTheme.primaryDark
+                          : AppTheme.neutral,
                     ),
                   ),
                   Container(
@@ -129,7 +135,9 @@ class ProductGridCard extends StatelessWidget {
                     child: Icon(
                       Icons.add,
                       size: 18,
-                      color: product.isActive ? AppTheme.primaryDark : AppTheme.neutral,
+                      color: product.isActive
+                          ? AppTheme.primaryDark
+                          : AppTheme.neutral,
                     ),
                   ),
                 ],

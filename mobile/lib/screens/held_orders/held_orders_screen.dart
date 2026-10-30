@@ -45,9 +45,13 @@ class _HeldOrdersScreenState extends State<HeldOrdersScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.pause_circle_outline, size: 54, color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                  Icon(Icons.pause_circle_outline,
+                      size: 54,
+                      color:
+                          isDark ? AppTheme.borderDark : AppTheme.borderLight),
                   const SizedBox(height: 12),
-                  const Text('No held orders! All carts processed.', style: TextStyle(fontWeight: FontWeight.w600)),
+                  const Text('No held orders! All carts processed.',
+                      style: TextStyle(fontWeight: FontWeight.w600)),
                 ],
               ),
             )
@@ -63,7 +67,10 @@ class _HeldOrdersScreenState extends State<HeldOrdersScreen> {
                   decoration: BoxDecoration(
                     color: isDark ? AppTheme.surfaceDark : Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                    border: Border.all(
+                        color: isDark
+                            ? AppTheme.borderDark
+                            : AppTheme.borderLight),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -73,10 +80,12 @@ class _HeldOrdersScreenState extends State<HeldOrdersScreen> {
                         children: [
                           Text(
                             held.tableName,
-                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w800, fontSize: 16),
                           ),
                           Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 8, vertical: 3),
                             decoration: BoxDecoration(
                               color: AppTheme.info.withOpacity(0.12),
                               borderRadius: BorderRadius.circular(6),
@@ -96,14 +105,21 @@ class _HeldOrdersScreenState extends State<HeldOrdersScreen> {
                       if (held.customerName != null)
                         Text(
                           'Guest: ${held.customerName} (${held.customerPhone ?? ""})',
-                          style: TextStyle(fontSize: 13, color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                          style: TextStyle(
+                              fontSize: 13,
+                              color: isDark
+                                  ? AppTheme.textMutedDark
+                                  : AppTheme.textMutedLight),
                         ),
                       if (held.orderNotes != null)
                         Padding(
                           padding: const EdgeInsets.only(top: 4),
                           child: Text(
                             'Reason: ${held.orderNotes}',
-                            style: const TextStyle(fontSize: 12, color: AppTheme.warning, fontStyle: FontStyle.italic),
+                            style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.warning,
+                                fontStyle: FontStyle.italic),
                           ),
                         ),
                       const Divider(height: 16),
@@ -112,8 +128,10 @@ class _HeldOrdersScreenState extends State<HeldOrdersScreen> {
                             child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
-                                Text('${i.quantity}x ${i.product.name}', style: const TextStyle(fontSize: 13)),
-                                Text('${AppConstants.defaultCurrency}${i.lineTotal.toStringAsFixed(0)}'),
+                                Text('${i.quantity}x ${i.product.name}',
+                                    style: const TextStyle(fontSize: 13)),
+                                Text(
+                                    '${AppConstants.defaultCurrency}${i.lineTotal.toStringAsFixed(0)}'),
                               ],
                             ),
                           )),
@@ -123,13 +141,17 @@ class _HeldOrdersScreenState extends State<HeldOrdersScreen> {
                         children: [
                           Text(
                             'Total: ${AppConstants.defaultCurrency}${held.totalAmount.toStringAsFixed(0)}',
-                            style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.primaryDark),
+                            style: const TextStyle(
+                                fontSize: 16,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.primaryDark),
                           ),
                           Row(
                             children: [
                               TextButton(
                                 onPressed: () => heldProv.removeHeld(held.id),
-                                style: TextButton.styleFrom(foregroundColor: AppTheme.danger),
+                                style: TextButton.styleFrom(
+                                    foregroundColor: AppTheme.danger),
                                 child: const Text('Discard'),
                               ),
                               const SizedBox(width: 8),
@@ -139,14 +161,17 @@ class _HeldOrdersScreenState extends State<HeldOrdersScreen> {
                                   orderProv.clearDraft();
                                   for (final item in held.items) {
                                     for (int i = 0; i < item.quantity; i++) {
-                                      orderProv.addProduct(item.product, note: item.note);
+                                      orderProv.addProduct(item.product,
+                                          note: item.note);
                                     }
                                   }
                                   if (held.customerName != null) {
-                                    orderProv.setCustomer(held.customerName!, held.customerPhone ?? '');
+                                    orderProv.setCustomer(held.customerName!,
+                                        held.customerPhone ?? '');
                                   }
                                   // Select table
-                                  final match = tableProv.tables.where((t) => t.id == held.tableId);
+                                  final match = tableProv.tables
+                                      .where((t) => t.id == held.tableId);
                                   if (match.isNotEmpty) {
                                     tableProv.selectTable(match.first);
                                   }
@@ -154,7 +179,8 @@ class _HeldOrdersScreenState extends State<HeldOrdersScreen> {
 
                                   Navigator.push(
                                     context,
-                                    MaterialPageRoute(builder: (_) => const WaiterScreen()),
+                                    MaterialPageRoute(
+                                        builder: (_) => const WaiterScreen()),
                                   );
                                 },
                                 icon: const Icon(Icons.replay, size: 16),

@@ -27,11 +27,19 @@ class CustomerModel {
       name: json['name']?.toString() ?? 'Guest',
       phone: json['phone']?.toString() ?? '',
       email: json['email']?.toString(),
-      loyaltyPoints: double.tryParse(json['loyalty_points']?.toString() ?? json['wallet_balance']?.toString() ?? '0.0') ?? 0.0,
-      totalVisits: int.tryParse(json['total_visits']?.toString() ?? json['orders_count']?.toString() ?? '1') ?? 1,
-      totalSpend: double.tryParse(json['total_spend']?.toString() ?? '0.0') ?? 0.0,
+      loyaltyPoints: double.tryParse(json['loyalty_points']?.toString() ??
+              json['wallet_balance']?.toString() ??
+              '0.0') ??
+          0.0,
+      totalVisits: int.tryParse(json['total_visits']?.toString() ??
+              json['orders_count']?.toString() ??
+              '1') ??
+          1,
+      totalSpend:
+          double.tryParse(json['total_spend']?.toString() ?? '0.0') ?? 0.0,
       notes: json['notes']?.toString(),
-      lastVisit: json['last_visit']?.toString() ?? json['created_at']?.toString(),
+      lastVisit:
+          json['last_visit']?.toString() ?? json['created_at']?.toString(),
     );
   }
 

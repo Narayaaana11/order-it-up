@@ -18,7 +18,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
   bool _isLoading = true;
   String _selectedRange = 'Today';
   Map<String, dynamic> _reportData = {};
-  final NumberFormat _currencyFmt = NumberFormat.currency(symbol: '₹', decimalDigits: 2);
+  final NumberFormat _currencyFmt =
+      NumberFormat.currency(symbol: '₹', decimalDigits: 2);
 
   @override
   void initState() {
@@ -26,7 +27,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final storage = StorageService();
     final isDemo = storage.isDemoMode();
     _apiService = ApiService(
-      apiClient: ApiClient(baseUrl: 'http://${storage.getServerHost()}:${storage.getServerPort()}'),
+      apiClient: ApiClient(
+          baseUrl:
+              'http://${storage.getServerHost()}:${storage.getServerPort()}'),
       isDemoMode: isDemo,
     );
     _loadReports();
@@ -50,13 +53,17 @@ class _ReportsScreenState extends State<ReportsScreen> {
     final kpiCols = isTablet ? 4 : 2;
     final kpiRatio = isTablet ? 2.2 : 1.45;
 
-    final gross = (_reportData['grossCollected'] as num? ?? 142500.0).toDouble();
+    final gross =
+        (_reportData['grossCollected'] as num? ?? 142500.0).toDouble();
     final net = (_reportData['netCollected'] as num? ?? 138200.0).toDouble();
     final refunded = (_reportData['refunded'] as num? ?? 4300.0).toDouble();
     final billCount = _reportData['billCount'] as int? ?? 342;
-    final avgTicket = (_reportData['avgOrderValue'] as num? ?? 404.09).toDouble();
-    final payMethods = (_reportData['paymentMethods'] as List? ?? []).cast<Map<String, dynamic>>();
-    final topProducts = (_reportData['topProducts'] as List? ?? []).cast<Map<String, dynamic>>();
+    final avgTicket =
+        (_reportData['avgOrderValue'] as num? ?? 404.09).toDouble();
+    final payMethods = (_reportData['paymentMethods'] as List? ?? [])
+        .cast<Map<String, dynamic>>();
+    final topProducts = (_reportData['topProducts'] as List? ?? [])
+        .cast<Map<String, dynamic>>();
 
     return Scaffold(
       appBar: AppBar(
@@ -85,7 +92,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         SingleChildScrollView(
                           scrollDirection: Axis.horizontal,
                           child: Row(
-                            children: ['Today', 'Yesterday', 'Last 7 Days', 'This Month'].map((range) {
+                            children: [
+                              'Today',
+                              'Yesterday',
+                              'Last 7 Days',
+                              'This Month'
+                            ].map((range) {
                               final isSelected = _selectedRange == range;
                               return Padding(
                                 padding: const EdgeInsets.only(right: 8),
@@ -96,7 +108,8 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                     setState(() => _selectedRange = range);
                                     _loadReports();
                                   },
-                                  selectedColor: AppTheme.primary.withOpacity(0.2),
+                                  selectedColor:
+                                      AppTheme.primary.withOpacity(0.2),
                                   checkmarkColor: AppTheme.primary,
                                 ),
                               );
@@ -114,41 +127,73 @@ class _ReportsScreenState extends State<ReportsScreen> {
                           mainAxisSpacing: 10,
                           childAspectRatio: kpiRatio,
                           children: [
-                            _buildStatCard('Gross Collected', _currencyFmt.format(gross), Icons.monetization_on, Colors.green, isDark),
-                            _buildStatCard('Net Revenue', _currencyFmt.format(net), Icons.trending_up, AppTheme.primary, isDark),
-                            _buildStatCard('Bills Count', '$billCount bills', Icons.receipt_long, Colors.blue, isDark),
-                            _buildStatCard('Average Ticket', _currencyFmt.format(avgTicket), Icons.tune, Colors.purple, isDark),
+                            _buildStatCard(
+                                'Gross Collected',
+                                _currencyFmt.format(gross),
+                                Icons.monetization_on,
+                                Colors.green,
+                                isDark),
+                            _buildStatCard(
+                                'Net Revenue',
+                                _currencyFmt.format(net),
+                                Icons.trending_up,
+                                AppTheme.primary,
+                                isDark),
+                            _buildStatCard('Bills Count', '$billCount bills',
+                                Icons.receipt_long, Colors.blue, isDark),
+                            _buildStatCard(
+                                'Average Ticket',
+                                _currencyFmt.format(avgTicket),
+                                Icons.tune,
+                                Colors.purple,
+                                isDark),
                           ],
                         ),
                         const SizedBox(height: 24),
 
                         // Payment Methods Distribution
-                        const Text('Payment Method Breakdown', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        const Text('Payment Method Breakdown',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 12),
                         Container(
                           padding: const EdgeInsets.all(14),
                           decoration: BoxDecoration(
-                            color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
+                            color: isDark
+                                ? AppTheme.surfaceDark
+                                : AppTheme.surfaceLight,
                             borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                            border: Border.all(
+                                color: isDark
+                                    ? AppTheme.borderDark
+                                    : AppTheme.borderLight),
                           ),
                           child: Column(
                             children: payMethods.map((pm) {
                               final method = pm['method'] as String? ?? 'Other';
-                              final total = (pm['total'] as num? ?? 0.0).toDouble();
+                              final total =
+                                  (pm['total'] as num? ?? 0.0).toDouble();
                               final count = pm['count'] as int? ?? 0;
                               final share = gross > 0 ? (total / gross) : 0.0;
 
                               return Padding(
                                 padding: const EdgeInsets.only(bottom: 12),
                                 child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.stretch,
                                   children: [
                                     Row(
-                                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceBetween,
                                       children: [
-                                        Text('$method ($count bills)', style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
-                                        Text(_currencyFmt.format(total), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                                        Text('$method ($count bills)',
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.w600,
+                                                fontSize: 13)),
+                                        Text(_currencyFmt.format(total),
+                                            style: const TextStyle(
+                                                fontWeight: FontWeight.bold,
+                                                fontSize: 13)),
                                       ],
                                     ),
                                     const SizedBox(height: 6),
@@ -157,9 +202,14 @@ class _ReportsScreenState extends State<ReportsScreen> {
                                       child: LinearProgressIndicator(
                                         value: share.clamp(0.02, 1.0),
                                         minHeight: 6,
-                                        backgroundColor: Colors.grey.withOpacity(0.2),
+                                        backgroundColor:
+                                            Colors.grey.withOpacity(0.2),
                                         valueColor: AlwaysStoppedAnimation(
-                                          method.contains('Cash') ? Colors.green : method.contains('UPI') ? Colors.purple : AppTheme.primary,
+                                          method.contains('Cash')
+                                              ? Colors.green
+                                              : method.contains('UPI')
+                                                  ? Colors.purple
+                                                  : AppTheme.primary,
                                         ),
                                       ),
                                     ),
@@ -172,37 +222,56 @@ class _ReportsScreenState extends State<ReportsScreen> {
                         const SizedBox(height: 24),
 
                         // Top Selling Products
-                        const Text('Top Performing Products', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        const Text('Top Performing Products',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 12),
                         ...topProducts.map((p) => Container(
-                          margin: const EdgeInsets.only(bottom: 8),
-                          padding: const EdgeInsets.all(12),
-                          decoration: BoxDecoration(
-                            color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Text(
-                                  p['name'] as String? ?? 'Item',
-                                  style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
+                              margin: const EdgeInsets.only(bottom: 8),
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppTheme.surfaceDark
+                                    : AppTheme.surfaceLight,
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                    color: isDark
+                                        ? AppTheme.borderDark
+                                        : AppTheme.borderLight),
                               ),
-                              const SizedBox(width: 8),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
                                 children: [
-                                  Text('${p['qty']} sold', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                  Text(_currencyFmt.format(p['revenue'] ?? 0), style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w600)),
+                                  Expanded(
+                                    child: Text(
+                                      p['name'] as String? ?? 'Item',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w600,
+                                          fontSize: 13),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
+                                    children: [
+                                      Text('${p['qty']} sold',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 13)),
+                                      Text(
+                                          _currencyFmt
+                                              .format(p['revenue'] ?? 0),
+                                          style: const TextStyle(
+                                              fontSize: 11,
+                                              color: Colors.green,
+                                              fontWeight: FontWeight.w600)),
+                                    ],
+                                  ),
                                 ],
                               ),
-                            ],
-                          ),
-                        )),
+                            )),
                       ],
                     ),
                   ),
@@ -212,13 +281,15 @@ class _ReportsScreenState extends State<ReportsScreen> {
     );
   }
 
-  Widget _buildStatCard(String title, String value, IconData icon, Color color, bool isDark) {
+  Widget _buildStatCard(
+      String title, String value, IconData icon, Color color, bool isDark) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+        border: Border.all(
+            color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -228,7 +299,12 @@ class _ReportsScreenState extends State<ReportsScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
-                child: Text(title, style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600), overflow: TextOverflow.ellipsis),
+                child: Text(title,
+                    style: const TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey,
+                        fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis),
               ),
               Icon(icon, color: color, size: 16),
             ],
@@ -236,7 +312,9 @@ class _ReportsScreenState extends State<ReportsScreen> {
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: Text(value,
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
         ],
       ),

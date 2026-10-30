@@ -31,8 +31,8 @@ class _CashierScreenState extends State<CashierScreen> {
       builder: (_) => UpiQrDialog(
         amount: amount,
         orderNumber: orderNumber,
-        onPaymentConfirmed: () async {
-          final success = await cashier.settleBill();
+        onPaymentConfirmed: (utr) async {
+          final success = await cashier.settleBill(externalReference: utr);
           if (success && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -42,6 +42,64 @@ class _CashierScreenState extends State<CashierScreen> {
             );
           }
         },
+      ),
+    );
+  }
+
+  void _showCardModal(double amount, String orderNumber) {
+    final cashier = Provider.of<CashierProvider>(context, listen: false);
+    final textController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Card Terminal Payment'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+                'Amount: ${AppConstants.defaultCurrency}${amount.toStringAsFixed(2)}'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: textController,
+              decoration: const InputDecoration(
+                labelText: 'Terminal Approval Code / Ref',
+                hintText: 'e.g. AUTH-982134',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final ref = textController.text.trim();
+              if (ref.length < 4) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text(
+                          'Please enter a valid terminal authorization code (min 4 chars)')),
+                );
+                return;
+              }
+              Navigator.pop(ctx);
+              final ok = await cashier.settleBill(externalReference: ref);
+              if (ok && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Card payment recorded & bill settled!'),
+                    backgroundColor: AppTheme.success,
+                  ),
+                );
+              }
+            },
+            child: const Text('Confirm Settle'),
+          ),
+        ],
       ),
     );
   }
@@ -65,11 +123,16 @@ class _CashierScreenState extends State<CashierScreen> {
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Icon(Icons.point_of_sale_outlined, size: 48, color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+            Icon(Icons.point_of_sale_outlined,
+                size: 48,
+                color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
             const SizedBox(height: 12),
             Text(
               'Select an active table order to settle bill',
-              style: TextStyle(color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+              style: TextStyle(
+                  color: isDark
+                      ? AppTheme.textMutedDark
+                      : AppTheme.textMutedLight),
             ),
           ],
         ),
@@ -89,13 +152,16 @@ class _CashierScreenState extends State<CashierScreen> {
                 children: [
                   Text(
                     bill.tableNumber,
-                    style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                    style: const TextStyle(
+                        fontSize: 18, fontWeight: FontWeight.w800),
                   ),
                   Text(
                     bill.orderNumber,
                     style: TextStyle(
                       fontSize: 12,
-                      color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                      color: isDark
+                          ? AppTheme.textMutedDark
+                          : AppTheme.textMutedLight,
                     ),
                   ),
                 ],
@@ -121,9 +187,12 @@ class _CashierScreenState extends State<CashierScreen> {
                 final item = bill.items[index];
                 return Row(
                   children: [
-                    Text('${item.quantity}x', style: const TextStyle(fontWeight: FontWeight.w700)),
+                    Text('${item.quantity}x',
+                        style: const TextStyle(fontWeight: FontWeight.w700)),
                     const SizedBox(width: 8),
-                    Expanded(child: Text(item.productName, style: const TextStyle(fontSize: 14))),
+                    Expanded(
+                        child: Text(item.productName,
+                            style: const TextStyle(fontSize: 14))),
                     Text(
                       '${AppConstants.defaultCurrency}${(item.unitPrice * item.quantity).toStringAsFixed(2)}',
                       style: const TextStyle(fontWeight: FontWeight.w600),
@@ -139,7 +208,8 @@ class _CashierScreenState extends State<CashierScreen> {
           // Discount Chips
           Row(
             children: [
-              const Text('Discount:', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+              const Text('Discount:',
+                  style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
               const SizedBox(width: 8),
               ...[0.0, 5.0, 10.0, 15.0].map((d) {
                 return Padding(
@@ -160,7 +230,8 @@ class _CashierScreenState extends State<CashierScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               const Text('Subtotal'),
-              Text('${AppConstants.defaultCurrency}${bill.subtotal.toStringAsFixed(2)}'),
+              Text(
+                  '${AppConstants.defaultCurrency}${bill.subtotal.toStringAsFixed(2)}'),
             ],
           ),
           if (bill.discountAmount > 0)
@@ -168,7 +239,8 @@ class _CashierScreenState extends State<CashierScreen> {
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
                 Text('Discount (${bill.discountPercent.toInt()}%)'),
-                Text('-${AppConstants.defaultCurrency}${bill.discountAmount.toStringAsFixed(2)}',
+                Text(
+                    '-${AppConstants.defaultCurrency}${bill.discountAmount.toStringAsFixed(2)}',
                     style: const TextStyle(color: AppTheme.danger)),
               ],
             ),
@@ -176,17 +248,22 @@ class _CashierScreenState extends State<CashierScreen> {
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text('GST / VAT (${bill.taxPercent.toInt()}%)'),
-              Text('+${AppConstants.defaultCurrency}${bill.taxAmount.toStringAsFixed(2)}'),
+              Text(
+                  '+${AppConstants.defaultCurrency}${bill.taxAmount.toStringAsFixed(2)}'),
             ],
           ),
           const Divider(height: 16),
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Total Payable', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+              const Text('Total Payable',
+                  style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
               Text(
                 '${AppConstants.defaultCurrency}${bill.totalPayable.toStringAsFixed(2)}',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800, color: AppTheme.primaryDark),
+                style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppTheme.primaryDark),
               ),
             ],
           ),
@@ -234,6 +311,8 @@ class _CashierScreenState extends State<CashierScreen> {
                   : () async {
                       if (cashier.paymentMethod == 'upi') {
                         _showUpiModal(bill.totalPayable, bill.orderNumber);
+                      } else if (cashier.paymentMethod == 'card') {
+                        _showCardModal(bill.totalPayable, bill.orderNumber);
                       } else {
                         final ok = await cashier.settleBill();
                         if (ok && mounted) {
@@ -250,9 +329,11 @@ class _CashierScreenState extends State<CashierScreen> {
                   ? const SizedBox(
                       width: 20,
                       height: 20,
-                      child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                      child: CircularProgressIndicator(
+                          color: Colors.white, strokeWidth: 2),
                     )
-                  : Text('Collect ${AppConstants.defaultCurrency}${bill.totalPayable.toStringAsFixed(2)}'),
+                  : Text(
+                      'Collect ${AppConstants.defaultCurrency}${bill.totalPayable.toStringAsFixed(2)}'),
             ),
           ),
         ],
@@ -298,11 +379,16 @@ class _CashierScreenState extends State<CashierScreen> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: isSelected
-                            ? AppTheme.primaryLight.withOpacity(isDark ? 0.2 : 0.6)
+                            ? AppTheme.primaryLight
+                                .withOpacity(isDark ? 0.2 : 0.6)
                             : (isDark ? AppTheme.surfaceDark : Colors.white),
                         borderRadius: BorderRadius.circular(10),
                         border: Border.all(
-                          color: isSelected ? AppTheme.primary : (isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                          color: isSelected
+                              ? AppTheme.primary
+                              : (isDark
+                                  ? AppTheme.borderDark
+                                  : AppTheme.borderLight),
                           width: isSelected ? 2 : 1,
                         ),
                       ),
@@ -314,11 +400,14 @@ class _CashierScreenState extends State<CashierScreen> {
                             children: [
                               Text(
                                 order.tableName ?? 'Dine-In',
-                                style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700, fontSize: 15),
                               ),
                               Text(
                                 '${AppConstants.defaultCurrency}${order.total.toStringAsFixed(0)}',
-                                style: const TextStyle(fontWeight: FontWeight.w800, color: AppTheme.primaryDark),
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.primaryDark),
                               ),
                             ],
                           ),
@@ -327,7 +416,9 @@ class _CashierScreenState extends State<CashierScreen> {
                             '${order.orderNumber} • ${order.items.length} items',
                             style: TextStyle(
                               fontSize: 12,
-                              color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                              color: isDark
+                                  ? AppTheme.textMutedDark
+                                  : AppTheme.textMutedLight,
                             ),
                           ),
                         ],
@@ -362,7 +453,10 @@ class _CashierScreenState extends State<CashierScreen> {
               child: Column(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  Icon(Icons.check_circle_outline, size: 48, color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                  Icon(Icons.check_circle_outline,
+                      size: 48,
+                      color:
+                          isDark ? AppTheme.borderDark : AppTheme.borderLight),
                   const SizedBox(height: 12),
                   const Text('No pending bills! All orders settled.'),
                 ],
@@ -381,8 +475,11 @@ class _CashierScreenState extends State<CashierScreen> {
                     showModalBottomSheet(
                       context: context,
                       isScrollControlled: true,
-                      backgroundColor: isDark ? AppTheme.surfaceDark : Colors.white,
-                      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+                      backgroundColor:
+                          isDark ? AppTheme.surfaceDark : Colors.white,
+                      shape: const RoundedRectangleBorder(
+                          borderRadius:
+                              BorderRadius.vertical(top: Radius.circular(20))),
                       builder: (_) => SizedBox(
                         height: 580,
                         child: _buildBillDetailsPane(cashier, false),
@@ -395,7 +492,10 @@ class _CashierScreenState extends State<CashierScreen> {
                     decoration: BoxDecoration(
                       color: isDark ? AppTheme.surfaceDark : Colors.white,
                       borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                      border: Border.all(
+                          color: isDark
+                              ? AppTheme.borderDark
+                              : AppTheme.borderLight),
                     ),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -403,17 +503,32 @@ class _CashierScreenState extends State<CashierScreen> {
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(order.tableName ?? 'Dine-In', style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                            Text(order.tableName ?? 'Dine-In',
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700, fontSize: 16)),
                             const SizedBox(height: 4),
-                            Text('${order.orderNumber} • ${order.items.length} items', style: TextStyle(fontSize: 12, color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight)),
+                            Text(
+                                '${order.orderNumber} • ${order.items.length} items',
+                                style: TextStyle(
+                                    fontSize: 12,
+                                    color: isDark
+                                        ? AppTheme.textMutedDark
+                                        : AppTheme.textMutedLight)),
                           ],
                         ),
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [
-                            Text('${AppConstants.defaultCurrency}${order.total.toStringAsFixed(0)}', style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppTheme.primaryDark)),
+                            Text(
+                                '${AppConstants.defaultCurrency}${order.total.toStringAsFixed(0)}',
+                                style: const TextStyle(
+                                    fontSize: 16,
+                                    fontWeight: FontWeight.w800,
+                                    color: AppTheme.primaryDark)),
                             const SizedBox(height: 4),
-                            const Text('Tap to settle >', style: TextStyle(fontSize: 12, color: AppTheme.info)),
+                            const Text('Tap to settle >',
+                                style: TextStyle(
+                                    fontSize: 12, color: AppTheme.info)),
                           ],
                         ),
                       ],

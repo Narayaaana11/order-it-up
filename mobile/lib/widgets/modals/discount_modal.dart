@@ -101,10 +101,13 @@ class _DiscountModalState extends State<DiscountModal> {
             // Value Input
             TextField(
               controller: _valController,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               autofocus: true,
               decoration: InputDecoration(
-                labelText: _isPercent ? 'Discount Percentage (%)' : 'Discount Amount (₹)',
+                labelText: _isPercent
+                    ? 'Discount Percentage (%)'
+                    : 'Discount Amount (₹)',
                 prefixText: _isPercent ? '% ' : '₹ ',
               ),
             ),
@@ -117,15 +120,29 @@ class _DiscountModalState extends State<DiscountModal> {
               runSpacing: 6,
               children: _isPercent
                   ? [
-                      ActionChip(label: const Text('5%'), onPressed: () => _apply(5, true)),
-                      ActionChip(label: const Text('10%'), onPressed: () => _apply(10, true)),
-                      ActionChip(label: const Text('15%'), onPressed: () => _apply(15, true)),
-                      ActionChip(label: const Text('20%'), onPressed: () => _apply(20, true)),
+                      ActionChip(
+                          label: const Text('5%'),
+                          onPressed: () => _apply(5, true)),
+                      ActionChip(
+                          label: const Text('10%'),
+                          onPressed: () => _apply(10, true)),
+                      ActionChip(
+                          label: const Text('15%'),
+                          onPressed: () => _apply(15, true)),
+                      ActionChip(
+                          label: const Text('20%'),
+                          onPressed: () => _apply(20, true)),
                     ]
                   : [
-                      ActionChip(label: const Text('₹50'), onPressed: () => _apply(50, false)),
-                      ActionChip(label: const Text('₹100'), onPressed: () => _apply(100, false)),
-                      ActionChip(label: const Text('₹200'), onPressed: () => _apply(200, false)),
+                      ActionChip(
+                          label: const Text('₹50'),
+                          onPressed: () => _apply(50, false)),
+                      ActionChip(
+                          label: const Text('₹100'),
+                          onPressed: () => _apply(100, false)),
+                      ActionChip(
+                          label: const Text('₹200'),
+                          onPressed: () => _apply(200, false)),
                     ],
             ),
 
@@ -151,8 +168,10 @@ class _DiscountModalState extends State<DiscountModal> {
                         _apply(val, _isPercent);
                       }
                     },
-                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary),
-                    child: const Text('Apply Discount', style: TextStyle(color: Colors.white)),
+                    style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.primary),
+                    child: const Text('Apply Discount',
+                        style: TextStyle(color: Colors.white)),
                   ),
                 ),
               ],

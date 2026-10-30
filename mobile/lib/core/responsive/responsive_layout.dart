@@ -51,9 +51,12 @@ typedef ResponsiveWidgetBuilder = Widget Function(
 );
 
 class ResponsiveLayout extends StatelessWidget {
-  final Widget Function(BuildContext context, BoxConstraints constraints)? phone;
-  final Widget Function(BuildContext context, BoxConstraints constraints)? tablet;
-  final Widget Function(BuildContext context, BoxConstraints constraints)? desktop;
+  final Widget Function(BuildContext context, BoxConstraints constraints)?
+      phone;
+  final Widget Function(BuildContext context, BoxConstraints constraints)?
+      tablet;
+  final Widget Function(BuildContext context, BoxConstraints constraints)?
+      desktop;
   final ResponsiveWidgetBuilder? builder;
 
   const ResponsiveLayout({
@@ -68,7 +71,8 @@ class ResponsiveLayout extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final screenType = ResponsiveBreakpoints.getScreenType(constraints.maxWidth);
+        final screenType =
+            ResponsiveBreakpoints.getScreenType(constraints.maxWidth);
 
         if (builder != null) {
           return builder!(context, constraints, screenType);

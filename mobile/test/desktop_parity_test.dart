@@ -33,7 +33,8 @@ void main() {
       expect(heldProv.heldCount, initialCount - 1);
     });
 
-    test('CustomerProvider searches by phone and tracks loyalty points', () async {
+    test('CustomerProvider searches by phone and tracks loyalty points',
+        () async {
       final custProv = CustomerProvider(apiService: apiService);
       await custProv.loadCustomers();
 
@@ -46,7 +47,9 @@ void main() {
       expect(custProv.filteredCustomers.first.loyaltyPoints, 340.0);
     });
 
-    test('InventoryProvider detects low stock ingredients and allows restocking', () async {
+    test(
+        'InventoryProvider detects low stock ingredients and allows restocking',
+        () async {
       final invProv = InventoryProvider(apiService: apiService);
       await invProv.loadIngredients();
 
@@ -57,11 +60,13 @@ void main() {
       final initialStock = lowStockItem.currentStock;
 
       await invProv.adjustStock(lowStockItem.id, 10.0);
-      final updated = invProv.ingredients.firstWhere((i) => i.id == lowStockItem.id);
+      final updated =
+          invProv.ingredients.firstWhere((i) => i.id == lowStockItem.id);
       expect(updated.currentStock, initialStock + 10.0);
     });
 
-    test('ClosureProvider calculates cash variance and creates Z-Report', () async {
+    test('ClosureProvider calculates cash variance and creates Z-Report',
+        () async {
       final closureProv = ClosureProvider(apiService: apiService);
       await closureProv.loadClosures();
 
@@ -97,7 +102,8 @@ void main() {
       expect(success, true);
       expect(resProv.reservations.length, initialCount + 1);
 
-      final created = resProv.reservations.firstWhere((r) => r.customerName == 'Rohit Sharma');
+      final created = resProv.reservations
+          .firstWhere((r) => r.customerName == 'Rohit Sharma');
       expect(created.isConfirmed, true);
 
       await resProv.updateStatus(created.id, 'seated');

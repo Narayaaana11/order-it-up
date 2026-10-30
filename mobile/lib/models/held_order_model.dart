@@ -27,7 +27,8 @@ class HeldOrderModel {
 
   int get totalQuantity => items.fold<int>(0, (sum, i) => sum + i.quantity);
 
-  double get totalAmount => items.fold<double>(0.0, (sum, i) => sum + i.lineTotal);
+  double get totalAmount =>
+      items.fold<double>(0.0, (sum, i) => sum + i.lineTotal);
 
   factory HeldOrderModel.fromJson(Map<String, dynamic> json) {
     return HeldOrderModel(
@@ -40,7 +41,8 @@ class HeldOrderModel {
       customerPhone: json['customer_phone']?.toString(),
       guestCount: int.tryParse(json['guest_count']?.toString() ?? '2') ?? 2,
       orderNotes: json['order_notes']?.toString(),
-      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ?? DateTime.now(),
+      createdAt: DateTime.tryParse(json['created_at']?.toString() ?? '') ??
+          DateTime.now(),
     );
   }
 

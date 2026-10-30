@@ -63,7 +63,8 @@ void main() {
       orderProvider.changeQuantity(testProductA.id, -1); // quantity now 1
       expect(orderProvider.totalItemCount, 1);
 
-      orderProvider.changeQuantity(testProductA.id, -1); // quantity 0 -> removed
+      orderProvider.changeQuantity(
+          testProductA.id, -1); // quantity 0 -> removed
       expect(orderProvider.draftLines.isEmpty, true);
       expect(orderProvider.totalItemCount, 0);
     });

@@ -17,7 +17,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   late ApiService _apiService;
   bool _isLoading = true;
   List<Map<String, dynamic>> _expenses = [];
-  final NumberFormat _currencyFmt = NumberFormat.currency(symbol: '₹', decimalDigits: 2);
+  final NumberFormat _currencyFmt =
+      NumberFormat.currency(symbol: '₹', decimalDigits: 2);
 
   @override
   void initState() {
@@ -25,7 +26,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
     final storage = StorageService();
     final isDemo = storage.isDemoMode();
     _apiService = ApiService(
-      apiClient: ApiClient(baseUrl: 'http://${storage.getServerHost()}:${storage.getServerPort()}'),
+      apiClient: ApiClient(
+          baseUrl:
+              'http://${storage.getServerHost()}:${storage.getServerPort()}'),
       isDemoMode: isDemo,
     );
     _loadExpenses();
@@ -60,23 +63,32 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                 DropdownButtonFormField<String>(
                   value: catController.text,
                   decoration: const InputDecoration(labelText: 'Category'),
-                  items: ['Raw Ingredients', 'Utilities & Gas', 'Staff Welfare', 'Maintenance', 'Packaging']
+                  items: [
+                    'Raw Ingredients',
+                    'Utilities & Gas',
+                    'Staff Welfare',
+                    'Maintenance',
+                    'Packaging'
+                  ]
                       .map((c) => DropdownMenuItem(value: c, child: Text(c)))
                       .toList(),
                   onChanged: (val) {
-                    if (val != null) setDlgState(() => catController.text = val);
+                    if (val != null)
+                      setDlgState(() => catController.text = val);
                   },
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: amountController,
                   keyboardType: TextInputType.number,
-                  decoration: const InputDecoration(labelText: 'Amount (₹)', prefixText: '₹ '),
+                  decoration: const InputDecoration(
+                      labelText: 'Amount (₹)', prefixText: '₹ '),
                 ),
                 const SizedBox(height: 12),
                 TextField(
                   controller: descController,
-                  decoration: const InputDecoration(labelText: 'Description / Vendor'),
+                  decoration:
+                      const InputDecoration(labelText: 'Description / Vendor'),
                 ),
                 const SizedBox(height: 12),
                 DropdownButtonFormField<String>(
@@ -93,7 +105,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Cancel')),
             ElevatedButton(
               onPressed: () async {
                 final amt = double.tryParse(amountController.text) ?? 0.0;
@@ -103,7 +117,9 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                     'category': catController.text,
                     'amount': amt,
                     'payment_method': paymentMethod,
-                    'description': descController.text.isNotEmpty ? descController.text : 'Store expense',
+                    'description': descController.text.isNotEmpty
+                        ? descController.text
+                        : 'Store expense',
                     'date': 'Today, Just now',
                   };
                   setState(() => _expenses.insert(0, newExp));
@@ -122,7 +138,8 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
   @override
   Widget build(BuildContext context) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
-    final totalExpenses = _expenses.fold(0.0, (acc, e) => acc + (e['amount'] as num? ?? 0.0).toDouble());
+    final totalExpenses = _expenses.fold(
+        0.0, (acc, e) => acc + (e['amount'] as num? ?? 0.0).toDouble());
 
     return Scaffold(
       appBar: AppBar(
@@ -157,9 +174,14 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                         Container(
                           padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
-                            color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
+                            color: isDark
+                                ? AppTheme.surfaceDark
+                                : AppTheme.surfaceLight,
                             borderRadius: BorderRadius.circular(16),
-                            border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                            border: Border.all(
+                                color: isDark
+                                    ? AppTheme.borderDark
+                                    : AppTheme.borderLight),
                           ),
                           child: Row(
                             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -167,9 +189,14 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  const Text('Total Logged Expenses', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                                  const Text('Total Logged Expenses',
+                                      style: TextStyle(
+                                          fontSize: 12, color: Colors.grey)),
                                   const SizedBox(height: 4),
-                                  Text(_currencyFmt.format(totalExpenses), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                                  Text(_currencyFmt.format(totalExpenses),
+                                      style: const TextStyle(
+                                          fontSize: 22,
+                                          fontWeight: FontWeight.bold)),
                                 ],
                               ),
                               Container(
@@ -178,72 +205,101 @@ class _ExpensesScreenState extends State<ExpensesScreen> {
                                   color: Colors.red.withOpacity(0.12),
                                   borderRadius: BorderRadius.circular(12),
                                 ),
-                                child: const Icon(Icons.account_balance_wallet, color: Colors.red, size: 24),
+                                child: const Icon(Icons.account_balance_wallet,
+                                    color: Colors.red, size: 24),
                               ),
                             ],
                           ),
                         ),
                         const SizedBox(height: 20),
 
-                        const Text('Expense Transactions', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        const Text('Expense Transactions',
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold)),
                         const SizedBox(height: 12),
                         ..._expenses.map((exp) => Container(
-                          margin: const EdgeInsets.only(bottom: 10),
-                          padding: const EdgeInsets.all(14),
-                          decoration: BoxDecoration(
-                            color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
-                            borderRadius: BorderRadius.circular(14),
-                            border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
-                          ),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Expanded(
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Row(
+                              margin: const EdgeInsets.only(bottom: 10),
+                              padding: const EdgeInsets.all(14),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? AppTheme.surfaceDark
+                                    : AppTheme.surfaceLight,
+                                borderRadius: BorderRadius.circular(14),
+                                border: Border.all(
+                                    color: isDark
+                                        ? AppTheme.borderDark
+                                        : AppTheme.borderLight),
+                              ),
+                              child: Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.primary.withOpacity(0.12),
-                                            borderRadius: BorderRadius.circular(6),
-                                          ),
-                                          child: Text(
-                                            exp['category'] as String? ?? 'General',
-                                            style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primary),
-                                          ),
+                                        Row(
+                                          children: [
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 8,
+                                                      vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.primary
+                                                    .withOpacity(0.12),
+                                                borderRadius:
+                                                    BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                exp['category'] as String? ??
+                                                    'General',
+                                                style: const TextStyle(
+                                                    fontSize: 11,
+                                                    fontWeight: FontWeight.bold,
+                                                    color: AppTheme.primary),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 8),
+                                            Text(
+                                              exp['payment_method']
+                                                      as String? ??
+                                                  'Cash',
+                                              style: const TextStyle(
+                                                  fontSize: 11,
+                                                  color: Colors.grey),
+                                            ),
+                                          ],
                                         ),
-                                        const SizedBox(width: 8),
+                                        const SizedBox(height: 6),
                                         Text(
-                                          exp['payment_method'] as String? ?? 'Cash',
-                                          style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                          exp['description'] as String? ?? '',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.w600,
+                                              fontSize: 13),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          exp['date'] as String? ?? '',
+                                          style: const TextStyle(
+                                              fontSize: 11, color: Colors.grey),
                                         ),
                                       ],
                                     ),
-                                    const SizedBox(height: 6),
-                                    Text(
-                                      exp['description'] as String? ?? '',
-                                      style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
-                                    const SizedBox(height: 2),
-                                    Text(
-                                      exp['date'] as String? ?? '',
-                                      style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                    ),
-                                  ],
-                                ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Text(
+                                    '- ${_currencyFmt.format(exp['amount'] ?? 0)}',
+                                    style: const TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.bold,
+                                        color: Colors.red),
+                                  ),
+                                ],
                               ),
-                              const SizedBox(width: 10),
-                              Text(
-                                '- ${_currencyFmt.format(exp['amount'] ?? 0)}',
-                                style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Colors.red),
-                              ),
-                            ],
-                          ),
-                        )),
+                            )),
                         const SizedBox(height: 70), // Padding for FAB
                       ],
                     ),

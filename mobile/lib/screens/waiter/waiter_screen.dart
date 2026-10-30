@@ -19,7 +19,8 @@ class WaiterScreen extends StatefulWidget {
   State<WaiterScreen> createState() => _WaiterScreenState();
 }
 
-class _WaiterScreenState extends State<WaiterScreen> with SingleTickerProviderStateMixin {
+class _WaiterScreenState extends State<WaiterScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _phoneTabController;
   final TextEditingController _searchController = TextEditingController();
 
@@ -124,7 +125,8 @@ class _WaiterScreenState extends State<WaiterScreen> with SingleTickerProviderSt
                         final sec = tableProv.sections[index];
                         final isSelected = sec == tableProv.selectedSection;
                         return ChoiceChip(
-                          label: Text(sec, style: const TextStyle(fontSize: 11)),
+                          label:
+                              Text(sec, style: const TextStyle(fontSize: 11)),
                           selected: isSelected,
                           onSelected: (_) => tableProv.selectSection(sec),
                         );
@@ -180,7 +182,9 @@ class _WaiterScreenState extends State<WaiterScreen> with SingleTickerProviderSt
                           avatar: Icon(
                             Icons.eco,
                             size: 16,
-                            color: menuProv.vegOnlyFilter ? Colors.white : AppTheme.success,
+                            color: menuProv.vegOnlyFilter
+                                ? Colors.white
+                                : AppTheme.success,
                           ),
                           label: const Text('Veg Only'),
                           selected: menuProv.vegOnlyFilter,
@@ -209,7 +213,8 @@ class _WaiterScreenState extends State<WaiterScreen> with SingleTickerProviderSt
                               child: ChoiceChip(
                                 label: Text(cat.name),
                                 selected: menuProv.selectedCategoryId == cat.id,
-                                onSelected: (_) => menuProv.selectCategory(cat.id),
+                                onSelected: (_) =>
+                                    menuProv.selectCategory(cat.id),
                               ),
                             )),
                       ],
@@ -220,10 +225,13 @@ class _WaiterScreenState extends State<WaiterScreen> with SingleTickerProviderSt
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
-                        final cols = ResponsiveBreakpoints.getGridColumnCount(constraints.maxWidth, itemMinWidth: 170);
+                        final cols = ResponsiveBreakpoints.getGridColumnCount(
+                            constraints.maxWidth,
+                            itemMinWidth: 170);
                         return GridView.builder(
                           padding: const EdgeInsets.all(14),
-                          gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                          gridDelegate:
+                              SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: cols,
                             childAspectRatio: 0.95,
                             crossAxisSpacing: 10,
@@ -268,7 +276,9 @@ class _WaiterScreenState extends State<WaiterScreen> with SingleTickerProviderSt
           tabs: [
             Tab(
               icon: const Icon(Icons.table_restaurant, size: 18),
-              text: tableProv.selectedTable != null ? tableProv.selectedTable!.number : 'Tables',
+              text: tableProv.selectedTable != null
+                  ? tableProv.selectedTable!.number
+                  : 'Tables',
             ),
             const Tab(
               icon: Icon(Icons.menu_book, size: 18),
@@ -319,7 +329,8 @@ class _WaiterScreenState extends State<WaiterScreen> with SingleTickerProviderSt
                       onTap: () {
                         tableProv.selectTable(table);
                         orderProv.loadActiveTableOrder(table.id);
-                        _phoneTabController.animateTo(1); // Auto-navigate to Menu
+                        _phoneTabController
+                            .animateTo(1); // Auto-navigate to Menu
                       },
                     );
                   },
@@ -403,14 +414,18 @@ class _WaiterScreenState extends State<WaiterScreen> with SingleTickerProviderSt
         ],
       ),
       // Sticky Phone Cart Action Bar
-      bottomSheet: (orderProv.totalItemCount > 0 || orderProv.currentTableOrder != null)
+      bottomSheet: (orderProv.totalItemCount > 0 ||
+              orderProv.currentTableOrder != null)
           ? Container(
               height: 64,
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
               decoration: BoxDecoration(
                 color: isDark ? AppTheme.surfaceDark : Colors.white,
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.1), blurRadius: 10, offset: const Offset(0, -3)),
+                  BoxShadow(
+                      color: Colors.black.withOpacity(0.1),
+                      blurRadius: 10,
+                      offset: const Offset(0, -3)),
                 ],
               ),
               child: Row(
@@ -421,7 +436,8 @@ class _WaiterScreenState extends State<WaiterScreen> with SingleTickerProviderSt
                     children: [
                       Text(
                         '${tableProv.selectedTable?.number ?? "Order"} • ${orderProv.totalItemCount} items',
-                        style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                            fontSize: 12, fontWeight: FontWeight.w600),
                       ),
                       Text(
                         '${AppConstants.defaultCurrency}${orderProv.draftTotal.toStringAsFixed(0)}',

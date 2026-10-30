@@ -31,7 +31,9 @@ class ReservationModel {
     return ReservationModel(
       id: json['id']?.toString() ?? '',
       tableId: json['table_id']?.toString(),
-      tableNumber: json['table_number']?.toString() ?? json['table_name']?.toString() ?? 'T-?',
+      tableNumber: json['table_number']?.toString() ??
+          json['table_name']?.toString() ??
+          'T-?',
       customerName: json['customer_name']?.toString() ?? 'Guest',
       customerPhone: json['customer_phone']?.toString() ?? '',
       guestCount: int.tryParse(json['guest_count']?.toString() ?? '2') ?? 2,

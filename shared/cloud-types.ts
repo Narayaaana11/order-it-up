@@ -158,7 +158,7 @@ export interface SyncedCashClosurePayload {
 
 export interface BatchSyncEvent {
   id: string;
-  type: 'order.created' | 'order.updated' | 'order.completed' | 'order.cancelled' | 'closure.recorded' | 'inventory.updated';
+  type: 'order.created' | 'order.updated' | 'order.completed' | 'order.cancelled' | 'closure.recorded' | 'inventory.updated' | 'payment.recorded' | 'payment.settled';
   entity_type: string;
   entity_id: string;
   payload: Record<string, unknown>;

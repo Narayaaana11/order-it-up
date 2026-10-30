@@ -27,7 +27,8 @@ class ReceiptPreviewDialog extends StatelessWidget {
                     borderRadius: BorderRadius.circular(8),
                     border: Border.all(color: Colors.grey.shade300),
                     boxShadow: [
-                      BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 6),
+                      BoxShadow(
+                          color: Colors.black.withOpacity(0.04), blurRadius: 6),
                     ],
                   ),
                   child: Column(
@@ -67,26 +68,74 @@ class ReceiptPreviewDialog extends StatelessWidget {
                         ),
                       ),
                       const SizedBox(height: 12),
-                      const Text('----------------------------------------', style: TextStyle(fontFamily: 'Courier', fontSize: 10, color: Colors.grey)),
+                      const Text('----------------------------------------',
+                          style: TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 10,
+                              color: Colors.grey)),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('Bill: ${bill.billNumber}', style: const TextStyle(fontFamily: 'Courier', fontSize: 11, color: Colors.black)),
-                          Text(bill.tableNumber, style: const TextStyle(fontFamily: 'Courier', fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black)),
+                          Text('Bill: ${bill.billNumber}',
+                              style: const TextStyle(
+                                  fontFamily: 'Courier',
+                                  fontSize: 11,
+                                  color: Colors.black)),
+                          Text(bill.tableNumber,
+                              style: const TextStyle(
+                                  fontFamily: 'Courier',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black)),
                         ],
                       ),
-                      Text('Order: ${bill.orderNumber}', style: const TextStyle(fontFamily: 'Courier', fontSize: 11, color: Colors.black)),
-                      if (bill.customerName != null && bill.customerName!.isNotEmpty)
-                        Text('Guest: ${bill.customerName}', style: const TextStyle(fontFamily: 'Courier', fontSize: 11, color: Colors.black)),
-                      const Text('----------------------------------------', style: TextStyle(fontFamily: 'Courier', fontSize: 10, color: Colors.grey)),
+                      Text('Order: ${bill.orderNumber}',
+                          style: const TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 11,
+                              color: Colors.black)),
+                      if (bill.customerName != null &&
+                          bill.customerName!.isNotEmpty)
+                        Text('Guest: ${bill.customerName}',
+                            style: const TextStyle(
+                                fontFamily: 'Courier',
+                                fontSize: 11,
+                                color: Colors.black)),
+                      const Text('----------------------------------------',
+                          style: TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 10,
+                              color: Colors.grey)),
                       const SizedBox(height: 6),
 
                       // Items Table
                       Row(
                         children: const [
-                          Expanded(flex: 4, child: Text('ITEM', style: TextStyle(fontFamily: 'Courier', fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black))),
-                          Expanded(flex: 1, child: Text('QTY', style: TextStyle(fontFamily: 'Courier', fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black))),
-                          Expanded(flex: 2, child: Text('AMT', textAlign: TextAlign.right, style: TextStyle(fontFamily: 'Courier', fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black))),
+                          Expanded(
+                              flex: 4,
+                              child: Text('ITEM',
+                                  style: TextStyle(
+                                      fontFamily: 'Courier',
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black))),
+                          Expanded(
+                              flex: 1,
+                              child: Text('QTY',
+                                  style: TextStyle(
+                                      fontFamily: 'Courier',
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black))),
+                          Expanded(
+                              flex: 2,
+                              child: Text('AMT',
+                                  textAlign: TextAlign.right,
+                                  style: TextStyle(
+                                      fontFamily: 'Courier',
+                                      fontSize: 11,
+                                      fontWeight: FontWeight.bold,
+                                      color: Colors.black))),
                         ],
                       ),
                       const SizedBox(height: 6),
@@ -98,21 +147,32 @@ class ReceiptPreviewDialog extends StatelessWidget {
                                   flex: 4,
                                   child: Text(
                                     item.productName,
-                                    style: const TextStyle(fontFamily: 'Courier', fontSize: 11, color: Colors.black),
+                                    style: const TextStyle(
+                                        fontFamily: 'Courier',
+                                        fontSize: 11,
+                                        color: Colors.black),
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
                                 Expanded(
                                   flex: 1,
-                                  child: Text('${item.quantity}', style: const TextStyle(fontFamily: 'Courier', fontSize: 11, color: Colors.black)),
+                                  child: Text('${item.quantity}',
+                                      style: const TextStyle(
+                                          fontFamily: 'Courier',
+                                          fontSize: 11,
+                                          color: Colors.black)),
                                 ),
                                 Expanded(
                                   flex: 2,
                                   child: Text(
-                                    (item.unitPrice * item.quantity).toStringAsFixed(2),
+                                    (item.unitPrice * item.quantity)
+                                        .toStringAsFixed(2),
                                     textAlign: TextAlign.right,
-                                    style: const TextStyle(fontFamily: 'Courier', fontSize: 11, color: Colors.black),
+                                    style: const TextStyle(
+                                        fontFamily: 'Courier',
+                                        fontSize: 11,
+                                        color: Colors.black),
                                   ),
                                 ),
                               ],
@@ -120,39 +180,78 @@ class ReceiptPreviewDialog extends StatelessWidget {
                           )),
 
                       const SizedBox(height: 6),
-                      const Text('----------------------------------------', style: TextStyle(fontFamily: 'Courier', fontSize: 10, color: Colors.grey)),
+                      const Text('----------------------------------------',
+                          style: TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 10,
+                              color: Colors.grey)),
 
                       // Totals
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Subtotal:', style: TextStyle(fontFamily: 'Courier', fontSize: 11, color: Colors.black)),
-                          Text(bill.subtotal.toStringAsFixed(2), style: const TextStyle(fontFamily: 'Courier', fontSize: 11, color: Colors.black)),
+                          const Text('Subtotal:',
+                              style: TextStyle(
+                                  fontFamily: 'Courier',
+                                  fontSize: 11,
+                                  color: Colors.black)),
+                          Text(bill.subtotal.toStringAsFixed(2),
+                              style: const TextStyle(
+                                  fontFamily: 'Courier',
+                                  fontSize: 11,
+                                  color: Colors.black)),
                         ],
                       ),
                       if (bill.discountAmount > 0)
                         Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
                           children: [
-                            Text('Discount (${bill.discountPercent.toStringAsFixed(0)}%):', style: const TextStyle(fontFamily: 'Courier', fontSize: 11, color: Colors.black)),
-                            Text('-${bill.discountAmount.toStringAsFixed(2)}', style: const TextStyle(fontFamily: 'Courier', fontSize: 11, color: Colors.black)),
+                            Text(
+                                'Discount (${bill.discountPercent.toStringAsFixed(0)}%):',
+                                style: const TextStyle(
+                                    fontFamily: 'Courier',
+                                    fontSize: 11,
+                                    color: Colors.black)),
+                            Text('-${bill.discountAmount.toStringAsFixed(2)}',
+                                style: const TextStyle(
+                                    fontFamily: 'Courier',
+                                    fontSize: 11,
+                                    color: Colors.black)),
                           ],
                         ),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('GST/Tax (${bill.taxPercent.toStringAsFixed(0)}%):', style: const TextStyle(fontFamily: 'Courier', fontSize: 11, color: Colors.black)),
-                          Text(bill.taxAmount.toStringAsFixed(2), style: const TextStyle(fontFamily: 'Courier', fontSize: 11, color: Colors.black)),
+                          Text(
+                              'GST/Tax (${bill.taxPercent.toStringAsFixed(0)}%):',
+                              style: const TextStyle(
+                                  fontFamily: 'Courier',
+                                  fontSize: 11,
+                                  color: Colors.black)),
+                          Text(bill.taxAmount.toStringAsFixed(2),
+                              style: const TextStyle(
+                                  fontFamily: 'Courier',
+                                  fontSize: 11,
+                                  color: Colors.black)),
                         ],
                       ),
                       const SizedBox(height: 4),
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('TOTAL PAYABLE:', style: TextStyle(fontFamily: 'Courier', fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black)),
+                          const Text('TOTAL PAYABLE:',
+                              style: TextStyle(
+                                  fontFamily: 'Courier',
+                                  fontSize: 13,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black)),
                           Text(
                             '${AppConstants.defaultCurrency}${bill.totalPayable.toStringAsFixed(2)}',
-                            style: const TextStyle(fontFamily: 'Courier', fontSize: 13, fontWeight: FontWeight.bold, color: Colors.black),
+                            style: const TextStyle(
+                                fontFamily: 'Courier',
+                                fontSize: 13,
+                                fontWeight: FontWeight.bold,
+                                color: Colors.black),
                           ),
                         ],
                       ),
@@ -160,15 +259,28 @@ class ReceiptPreviewDialog extends StatelessWidget {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          const Text('Mode:', style: TextStyle(fontFamily: 'Courier', fontSize: 11, color: Colors.black)),
-                          Text((bill.paymentMethod ?? 'CASH').toUpperCase(), style: const TextStyle(fontFamily: 'Courier', fontSize: 11, fontWeight: FontWeight.bold, color: Colors.black)),
+                          const Text('Mode:',
+                              style: TextStyle(
+                                  fontFamily: 'Courier',
+                                  fontSize: 11,
+                                  color: Colors.black)),
+                          Text((bill.paymentMethod ?? 'CASH').toUpperCase(),
+                              style: const TextStyle(
+                                  fontFamily: 'Courier',
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.black)),
                         ],
                       ),
                       const SizedBox(height: 12),
                       const Center(
                         child: Text(
                           '*** THANK YOU! VISIT AGAIN ***',
-                          style: TextStyle(fontFamily: 'Courier', fontSize: 10, fontWeight: FontWeight.bold, color: Colors.grey),
+                          style: TextStyle(
+                              fontFamily: 'Courier',
+                              fontSize: 10,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.grey),
                         ),
                       ),
                     ],
@@ -184,7 +296,9 @@ class ReceiptPreviewDialog extends StatelessWidget {
                     onPressed: () {
                       Navigator.pop(context);
                       ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('ESC/POS 80mm Print command sent to thermal printer.')),
+                        const SnackBar(
+                            content: Text(
+                                'ESC/POS 80mm Print command sent to thermal printer.')),
                       );
                     },
                     icon: const Icon(Icons.print, size: 18),

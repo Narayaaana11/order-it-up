@@ -26,7 +26,8 @@ class _SplashScreenState extends State<SplashScreen> {
     await Future.delayed(const Duration(milliseconds: 900));
     if (!mounted) return;
 
-    final configProv = Provider.of<ServerConfigProvider>(context, listen: false);
+    final configProv =
+        Provider.of<ServerConfigProvider>(context, listen: false);
     final authProv = Provider.of<AuthProvider>(context, listen: false);
 
     if (authProv.isAuthenticated) {

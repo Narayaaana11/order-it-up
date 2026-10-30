@@ -16,7 +16,8 @@ class DesktopPaymentModal extends StatefulWidget {
   final String? customerName;
   final String? customerPhone;
   final List<DraftLineModel> items;
-  final Function(String paymentMethod, double amountTendered, double change) onPaymentComplete;
+  final Function(String paymentMethod, double amountTendered, double change)
+      onPaymentComplete;
 
   const DesktopPaymentModal({
     super.key,
@@ -46,7 +47,8 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
   void initState() {
     super.initState();
     _tenderedAmount = widget.grandTotal;
-    _tenderedController = TextEditingController(text: widget.grandTotal.toStringAsFixed(2));
+    _tenderedController =
+        TextEditingController(text: widget.grandTotal.toStringAsFixed(2));
   }
 
   @override
@@ -103,7 +105,8 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
                         color: AppTheme.primaryLight,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(Icons.payments_outlined, color: AppTheme.primary, size: 20),
+                      child: Icon(Icons.payments_outlined,
+                          color: AppTheme.primary, size: 20),
                     ),
                     const SizedBox(width: 10),
                     Column(
@@ -111,7 +114,8 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
                       children: [
                         const Text(
                           'Checkout & Payment',
-                          style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                          style: TextStyle(
+                              fontSize: 17, fontWeight: FontWeight.bold),
                         ),
                         Text(
                           widget.tableName != null
@@ -119,7 +123,9 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
                               : 'Order Type: ${widget.orderType.toUpperCase()}',
                           style: TextStyle(
                             fontSize: 12,
-                            color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                            color: isDark
+                                ? AppTheme.textMutedDark
+                                : AppTheme.textMutedLight,
                           ),
                         ),
                       ],
@@ -147,7 +153,8 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
               ),
               child: Column(
                 children: [
-                  _buildSummaryLine('Subtotal', currencyFmt.format(widget.subtotal), isDark),
+                  _buildSummaryLine(
+                      'Subtotal', currencyFmt.format(widget.subtotal), isDark),
                   if (widget.discount > 0) ...[
                     const SizedBox(height: 4),
                     _buildSummaryLine(
@@ -158,14 +165,16 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
                     ),
                   ],
                   const SizedBox(height: 4),
-                  _buildSummaryLine('GST (5%)', currencyFmt.format(widget.tax), isDark),
+                  _buildSummaryLine(
+                      'GST (5%)', currencyFmt.format(widget.tax), isDark),
                   const Divider(height: 14),
                   Row(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
                       const Text(
                         'Total Payable',
-                        style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold),
+                        style: TextStyle(
+                            fontSize: 15, fontWeight: FontWeight.bold),
                       ),
                       Text(
                         currencyFmt.format(widget.grandTotal),
@@ -206,7 +215,8 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
               // Amount Tendered Field
               TextField(
                 controller: _tenderedController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                keyboardType:
+                    const TextInputType.numberWithOptions(decimal: true),
                 onChanged: (val) {
                   setState(() {
                     _tenderedAmount = double.tryParse(val) ?? 0.0;
@@ -224,7 +234,8 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
                 spacing: 6,
                 runSpacing: 6,
                 children: [
-                  _buildCashChip('Exact', () => _setTendered(widget.grandTotal)),
+                  _buildCashChip(
+                      'Exact', () => _setTendered(widget.grandTotal)),
                   _buildCashChip('+₹100', () => _addTendered(100)),
                   _buildCashChip('+₹200', () => _addTendered(200)),
                   _buildCashChip('+₹500', () => _addTendered(500)),
@@ -236,7 +247,8 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
 
               // Change to return
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                 decoration: BoxDecoration(
                   color: Colors.green.shade50,
                   borderRadius: BorderRadius.circular(8),
@@ -279,9 +291,11 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
                   showDialog(
                     context: context,
                     builder: (_) => UpiQrDialog(
-                      orderNumber: 'INV-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+                      orderNumber:
+                          'INV-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
                       amount: widget.grandTotal,
-                      onPaymentConfirmed: () {
+                      onPaymentConfirmed: (utr) {
+                        _cardRefController.text = utr;
                         Navigator.pop(context);
                         _completePayment();
                       },
@@ -308,16 +322,20 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
                       builder: (_) => ReceiptPreviewDialog(
                         bill: BillModel(
                           orderId: 0,
-                          orderNumber: 'INV-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
-                          tableNumber: widget.tableName ?? widget.orderType.toUpperCase(),
-                          items: widget.items.map((line) => OrderItemModel(
-                            id: 0,
-                            productId: line.product.id,
-                            productName: line.product.name,
-                            quantity: line.quantity,
-                            unitPrice: line.product.price,
-                            notes: line.note,
-                          )).toList(),
+                          orderNumber:
+                              'INV-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
+                          tableNumber: widget.tableName ??
+                              widget.orderType.toUpperCase(),
+                          items: widget.items
+                              .map((line) => OrderItemModel(
+                                    id: 0,
+                                    productId: line.product.id,
+                                    productName: line.product.name,
+                                    quantity: line.quantity,
+                                    unitPrice: line.product.price,
+                                    notes: line.note,
+                                  ))
+                              .toList(),
                           subtotal: widget.subtotal,
                           taxPercent: 5.0,
                           taxAmount: widget.tax,
@@ -331,7 +349,8 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
                   icon: const Icon(Icons.receipt, size: 16),
                   label: const Text('Preview'),
                   style: OutlinedButton.styleFrom(
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 12),
                   ),
                 ),
                 const SizedBox(width: 8),
@@ -341,7 +360,8 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
                     icon: const Icon(Icons.check_circle_outline, size: 18),
                     label: const Text(
                       'Complete Payment & Settle',
-                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                     ),
                     style: ElevatedButton.styleFrom(
                       padding: const EdgeInsets.symmetric(vertical: 14),
@@ -408,7 +428,8 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
 
   Widget _buildCashChip(String label, VoidCallback onTap) {
     return ActionChip(
-      label: Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+      label: Text(label,
+          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
       onPressed: onTap,
       backgroundColor: AppTheme.primaryLight,
       labelStyle: const TextStyle(color: AppTheme.primaryDark),
@@ -416,7 +437,8 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
     );
   }
 
-  Widget _buildSummaryLine(String label, String value, bool isDark, {Color? color}) {
+  Widget _buildSummaryLine(String label, String value, bool isDark,
+      {Color? color}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [

@@ -28,7 +28,8 @@ class ApiClient {
     this.authToken = authToken;
   }
 
-  Map<String, String> _buildHeaders({String? idempotencyKey, Map<String, String>? extraHeaders}) {
+  Map<String, String> _buildHeaders(
+      {String? idempotencyKey, Map<String, String>? extraHeaders}) {
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -70,7 +71,8 @@ class ApiClient {
 
       return _handleResponse(response);
     } on TimeoutException {
-      throw ApiException('Connection timed out. Check POS server IP or network.');
+      throw ApiException(
+          'Connection timed out. Check POS server IP or network.');
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException('Network error: ${e.toString()}');
@@ -81,11 +83,13 @@ class ApiClient {
     String path, {
     dynamic body,
     bool withIdempotency = false,
+    String? customIdempotencyKey,
     Map<String, String>? extraHeaders,
   }) async {
     try {
       final uri = _buildUri(path);
-      final idempotencyKey = withIdempotency ? 'mob-${_uuid.v4()}' : null;
+      final idempotencyKey = customIdempotencyKey ??
+          (withIdempotency ? 'mob-${_uuid.v4()}' : null);
       final headers = _buildHeaders(
         idempotencyKey: idempotencyKey,
         extraHeaders: extraHeaders,
@@ -101,7 +105,8 @@ class ApiClient {
 
       return _handleResponse(response);
     } on TimeoutException {
-      throw ApiException('Connection timed out. Check POS server IP or network.');
+      throw ApiException(
+          'Connection timed out. Check POS server IP or network.');
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException('Network error: ${e.toString()}');
@@ -145,7 +150,8 @@ class ApiClient {
 
       return _handleResponse(response);
     } on TimeoutException {
-      throw ApiException('Connection timed out. Check POS server IP or network.');
+      throw ApiException(
+          'Connection timed out. Check POS server IP or network.');
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException('Network error: ${e.toString()}');

@@ -67,7 +67,8 @@ class BillModel {
       customerName: order.customerName,
       customerPhone: order.customerPhone,
       paymentMethod: paymentMethod ?? 'cash',
-      billNumber: 'INV-${order.id}-${DateTime.now().millisecondsSinceEpoch % 10000}',
+      billNumber:
+          'INV-${order.id}-${DateTime.now().millisecondsSinceEpoch % 10000}',
       restaurantName: restaurantName ?? 'KANCHI FILTER COFFEE',
     );
   }

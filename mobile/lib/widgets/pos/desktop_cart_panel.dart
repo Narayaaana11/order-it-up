@@ -92,7 +92,9 @@ class DesktopCartPanel extends StatelessWidget {
                           Icon(
                             Icons.people_outline,
                             size: 17,
-                            color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                            color: isDark
+                                ? AppTheme.textMutedDark
+                                : AppTheme.textMutedLight,
                           ),
                           const SizedBox(width: 6),
                           Text(
@@ -100,7 +102,9 @@ class DesktopCartPanel extends StatelessWidget {
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w600,
-                              color: isDark ? AppTheme.textDark : AppTheme.textLight,
+                              color: isDark
+                                  ? AppTheme.textDark
+                                  : AppTheme.textLight,
                             ),
                           ),
                         ],
@@ -133,12 +137,16 @@ class DesktopCartPanel extends StatelessWidget {
                   TextField(
                     onChanged: onDeliveryAddressChanged,
                     controller: TextEditingController(text: deliveryAddress)
-                      ..selection = TextSelection.collapsed(offset: deliveryAddress.length),
+                      ..selection = TextSelection.collapsed(
+                          offset: deliveryAddress.length),
                     decoration: InputDecoration(
                       hintText: 'Enter customer delivery address...',
-                      prefixIcon: const Icon(Icons.location_on_outlined, size: 16),
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(8)),
+                      prefixIcon:
+                          const Icon(Icons.location_on_outlined, size: 16),
+                      contentPadding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 8),
+                      border: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(8)),
                     ),
                     style: const TextStyle(fontSize: 12),
                   ),
@@ -156,7 +164,9 @@ class DesktopCartPanel extends StatelessWidget {
                         Icon(
                           Icons.shopping_cart_outlined,
                           size: 40,
-                          color: (isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight)
+                          color: (isDark
+                                  ? AppTheme.textMutedDark
+                                  : AppTheme.textMutedLight)
                               .withOpacity(0.5),
                         ),
                         const SizedBox(height: 8),
@@ -165,7 +175,9 @@ class DesktopCartPanel extends StatelessWidget {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                            color: isDark
+                                ? AppTheme.textMutedDark
+                                : AppTheme.textMutedLight,
                           ),
                         ),
                         const SizedBox(height: 4),
@@ -173,7 +185,9 @@ class DesktopCartPanel extends StatelessWidget {
                           'Tap products from menu to add',
                           style: TextStyle(
                             fontSize: 12,
-                            color: (isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight)
+                            color: (isDark
+                                    ? AppTheme.textMutedDark
+                                    : AppTheme.textMutedLight)
                                 .withOpacity(0.8),
                           ),
                         ),
@@ -185,11 +199,13 @@ class DesktopCartPanel extends StatelessWidget {
                     itemCount: items.length,
                     separatorBuilder: (_, __) => Divider(
                       height: 16,
-                      color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                      color:
+                          isDark ? AppTheme.borderDark : AppTheme.borderLight,
                     ),
                     itemBuilder: (context, index) {
                       final item = items[index];
-                      return _buildCartItemRow(context, item, currencyFmt, isDark);
+                      return _buildCartItemRow(
+                          context, item, currencyFmt, isDark);
                     },
                   ),
           ),
@@ -207,7 +223,8 @@ class DesktopCartPanel extends StatelessWidget {
             ),
             child: Column(
               children: [
-                _buildSummaryRow('Subtotal', currencyFmt.format(subtotal), isDark),
+                _buildSummaryRow(
+                    'Subtotal', currencyFmt.format(subtotal), isDark),
                 const SizedBox(height: 6),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -216,7 +233,8 @@ class DesktopCartPanel extends StatelessWidget {
                       onTap: onAddDiscount,
                       child: Row(
                         children: [
-                          Icon(Icons.discount_outlined, size: 14, color: AppTheme.primary),
+                          Icon(Icons.discount_outlined,
+                              size: 14, color: AppTheme.primary),
                           const SizedBox(width: 4),
                           Text(
                             discount > 0 ? 'Discount Applied' : 'Add Discount',
@@ -230,11 +248,17 @@ class DesktopCartPanel extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      discount > 0 ? '- ${currencyFmt.format(discount)}' : '₹0.00',
+                      discount > 0
+                          ? '- ${currencyFmt.format(discount)}'
+                          : '₹0.00',
                       style: TextStyle(
                         fontSize: 12,
                         fontWeight: FontWeight.w600,
-                        color: discount > 0 ? Colors.green : (isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                        color: discount > 0
+                            ? Colors.green
+                            : (isDark
+                                ? AppTheme.textMutedDark
+                                : AppTheme.textMutedLight),
                       ),
                     ),
                   ],
@@ -249,9 +273,12 @@ class DesktopCartPanel extends StatelessWidget {
                   ),
                 ],
                 const SizedBox(height: 6),
-                _buildSummaryRow('GST (2.5% CGST + 2.5% SGST)', currencyFmt.format(tax), isDark),
+                _buildSummaryRow('GST (2.5% CGST + 2.5% SGST)',
+                    currencyFmt.format(tax), isDark),
                 const SizedBox(height: 10),
-                Divider(height: 1, color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                Divider(
+                    height: 1,
+                    color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
                 const SizedBox(height: 10),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -283,12 +310,16 @@ class DesktopCartPanel extends StatelessWidget {
                     OutlinedButton(
                       onPressed: items.isNotEmpty ? onHoldOrder : null,
                       style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 12),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 10, vertical: 12),
                         side: BorderSide(
-                          color: items.isNotEmpty ? AppTheme.heldOrder : Colors.grey.shade300,
+                          color: items.isNotEmpty
+                              ? AppTheme.heldOrder
+                              : Colors.grey.shade300,
                         ),
                         foregroundColor: AppTheme.heldOrder,
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                        shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(10)),
                       ),
                       child: const Icon(Icons.pause, size: 20),
                     ),
@@ -298,13 +329,20 @@ class DesktopCartPanel extends StatelessWidget {
                     if (orderType == 'dine_in') ...[
                       Expanded(
                         child: OutlinedButton.icon(
-                          onPressed: items.isNotEmpty && !isSubmitting ? onSendKot : null,
-                          icon: const Icon(Icons.soup_kitchen_outlined, size: 16),
-                          label: const Text('Send KOT', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                          onPressed: items.isNotEmpty && !isSubmitting
+                              ? onSendKot
+                              : null,
+                          icon:
+                              const Icon(Icons.soup_kitchen_outlined, size: 16),
+                          label: const Text('Send KOT',
+                              style: TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.bold)),
                           style: OutlinedButton.styleFrom(
                             padding: const EdgeInsets.symmetric(vertical: 12),
-                            side: const BorderSide(color: AppTheme.primary, width: 1.5),
-                            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                            side: const BorderSide(
+                                color: AppTheme.primary, width: 1.5),
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(10)),
                           ),
                         ),
                       ),
@@ -318,14 +356,18 @@ class DesktopCartPanel extends StatelessWidget {
                         onPressed: items.isNotEmpty ? onCheckout : null,
                         icon: const Icon(Icons.receipt_long, size: 16),
                         label: Text(
-                          orderType == 'dine_in' ? 'Pay Bill' : 'Charge & Print',
-                          style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                          orderType == 'dine_in'
+                              ? 'Pay Bill'
+                              : 'Charge & Print',
+                          style: const TextStyle(
+                              fontSize: 13, fontWeight: FontWeight.bold),
                         ),
                         style: ElevatedButton.styleFrom(
                           padding: const EdgeInsets.symmetric(vertical: 12),
                           backgroundColor: AppTheme.primary,
                           foregroundColor: Colors.white,
-                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                          shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10)),
                         ),
                       ),
                     ),
@@ -339,7 +381,8 @@ class DesktopCartPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildSummaryRow(String label, String value, bool isDark, {Color? color}) {
+  Widget _buildSummaryRow(String label, String value, bool isDark,
+      {Color? color}) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
@@ -391,7 +434,9 @@ class DesktopCartPanel extends StatelessWidget {
                     currencyFmt.format(item.product.price),
                     style: TextStyle(
                       fontSize: 11,
-                      color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                      color: isDark
+                          ? AppTheme.textMutedDark
+                          : AppTheme.textMutedLight,
                     ),
                   ),
                 ],
@@ -419,15 +464,20 @@ class DesktopCartPanel extends StatelessWidget {
                   Icon(
                     Icons.edit_note,
                     size: 15,
-                    color: item.note.isNotEmpty ? AppTheme.primary : Colors.grey,
+                    color:
+                        item.note.isNotEmpty ? AppTheme.primary : Colors.grey,
                   ),
                   const SizedBox(width: 4),
                   Text(
                     item.note.isNotEmpty ? item.note : 'Add kitchen note',
                     style: TextStyle(
                       fontSize: 11,
-                      fontStyle: item.note.isEmpty ? FontStyle.italic : FontStyle.normal,
-                      color: item.note.isNotEmpty ? AppTheme.primaryDark : Colors.grey,
+                      fontStyle: item.note.isEmpty
+                          ? FontStyle.italic
+                          : FontStyle.normal,
+                      color: item.note.isNotEmpty
+                          ? AppTheme.primaryDark
+                          : Colors.grey,
                     ),
                   ),
                 ],
@@ -445,7 +495,8 @@ class DesktopCartPanel extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   child: Text(
                     '${item.quantity}',
-                    style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold),
+                    style: const TextStyle(
+                        fontSize: 13, fontWeight: FontWeight.bold),
                   ),
                 ),
                 _buildStepperButton(
@@ -457,7 +508,8 @@ class DesktopCartPanel extends StatelessWidget {
                   onTap: () => onRemoveItem(item.product.id),
                   child: Padding(
                     padding: const EdgeInsets.all(4),
-                    child: Icon(Icons.delete_outline, size: 16, color: Colors.red.shade400),
+                    child: Icon(Icons.delete_outline,
+                        size: 16, color: Colors.red.shade400),
                   ),
                 ),
               ],
@@ -468,7 +520,8 @@ class DesktopCartPanel extends StatelessWidget {
     );
   }
 
-  Widget _buildStepperButton({required IconData icon, required VoidCallback onTap}) {
+  Widget _buildStepperButton(
+      {required IconData icon, required VoidCallback onTap}) {
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(6),
@@ -489,7 +542,8 @@ class DesktopCartPanel extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text('Kitchen Note for ${item.product.name}', style: const TextStyle(fontSize: 15)),
+        title: Text('Kitchen Note for ${item.product.name}',
+            style: const TextStyle(fontSize: 15)),
         content: TextField(
           controller: controller,
           autofocus: true,
@@ -498,7 +552,8 @@ class DesktopCartPanel extends StatelessWidget {
           ),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(ctx), child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
               onUpdateNote(item.product.id, controller.text.trim());

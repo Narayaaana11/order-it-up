@@ -35,7 +35,8 @@ class _DesktopPosShellState extends State<DesktopPosShell> {
   Widget _buildActiveBody() {
     switch (_activeDestination) {
       case 'pos':
-        return PosPageScreen(onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer());
+        return PosPageScreen(
+            onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer());
       case 'orders':
         return const OrdersPageScreen();
       case 'tables':
@@ -69,7 +70,8 @@ class _DesktopPosShellState extends State<DesktopPosShell> {
       case 'settings':
         return const SettingsScreen();
       default:
-        return PosPageScreen(onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer());
+        return PosPageScreen(
+            onOpenDrawer: () => _scaffoldKey.currentState?.openDrawer());
     }
   }
 
@@ -128,7 +130,8 @@ class _DesktopPosShellState extends State<DesktopPosShell> {
                     width: 22,
                     height: 22,
                     fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.storefront, size: 20, color: AppTheme.primary),
+                    errorBuilder: (_, __, ___) => const Icon(Icons.storefront,
+                        size: 20, color: AppTheme.primary),
                   ),
                   const SizedBox(width: 8),
                   const Text(
@@ -144,7 +147,8 @@ class _DesktopPosShellState extends State<DesktopPosShell> {
 
                   // Server Connection Status Badge (:3001)
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                     decoration: BoxDecoration(
                       color: Colors.green.shade50,
                       borderRadius: BorderRadius.circular(12),
@@ -182,7 +186,10 @@ class _DesktopPosShellState extends State<DesktopPosShell> {
                     backgroundColor: AppTheme.primaryLight,
                     child: const Text(
                       'OI',
-                      style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                      style: TextStyle(
+                          fontSize: 10,
+                          fontWeight: FontWeight.bold,
+                          color: AppTheme.primaryDark),
                     ),
                   ),
                 ],
@@ -197,7 +204,8 @@ class _DesktopPosShellState extends State<DesktopPosShell> {
           if (isTablet)
             AppSidebarDrawer(
               activeDestination: _activeDestination,
-              onSelectDestination: (dest) => setState(() => _activeDestination = dest),
+              onSelectDestination: (dest) =>
+                  setState(() => _activeDestination = dest),
               isExpanded: true,
             ),
 

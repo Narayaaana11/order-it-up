@@ -24,8 +24,8 @@ void main() {
       orderProvider = OrderProvider(apiService: apiService);
     });
 
-    test('All 16 desktop sidebar navigation routes exist', () {
-      expect(desktopNavItems.length, 16);
+    test('All 17 desktop sidebar navigation routes exist', () {
+      expect(desktopNavItems.length, 17);
       final ids = desktopNavItems.map((item) => item.id).toList();
       expect(ids.contains('pos'), true);
       expect(ids.contains('dashboard'), true);
@@ -37,6 +37,7 @@ void main() {
       expect(ids.contains('customers'), true);
       expect(ids.contains('online_orders'), true);
       expect(ids.contains('reports'), true);
+      expect(ids.contains('cloud_hq'), true);
       expect(ids.contains('expenses'), true);
       expect(ids.contains('whatsapp'), true);
       expect(ids.contains('products'), true);
@@ -45,7 +46,8 @@ void main() {
       expect(ids.contains('settings'), true);
     });
 
-    test('OrderProvider calculates exact subtotal, 5% GST, and grand total', () {
+    test('OrderProvider calculates exact subtotal, 5% GST, and grand total',
+        () {
       orderProvider.addProduct(testProduct); // ₹300.00
       expect(orderProvider.subtotal, 300.0);
       expect(orderProvider.taxTotal, 15.0); // 5% of 300

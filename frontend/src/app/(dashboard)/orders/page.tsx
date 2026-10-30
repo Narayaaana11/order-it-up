@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import api from '@/lib/api';
+import api, { createPollingController, isElectronEnvironment } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
 import { CreditCard, Trash2, RotateCcw, Clock, MessageCircle, Printer, XCircle, Lock, Percent, Banknote, Search, Plus, ChevronDown, ChevronRight, UserPlus, User, ShoppingBag, Send, Loader2, Ban, Download, LayoutGrid, Table as TableIcon, Calendar, CheckCircle2, Bike } from 'lucide-react';
@@ -198,6 +198,42 @@ export default function OrdersPage() {
   const [printHistory, setPrintHistory] = useState<Record<number, { id: number; print_type: string; user_name: string; printed_at: string }[]>>({});
   const fetchedBillIdsRef = useRef<Set<number>>(new Set());
 
+  // Multi-outlet branch context for cloud/web sessions
+  const [activeBranchId, setActiveBranchId] = useState<string>(() => {
+    if (typeof window !== 'undefined') {
+      return localStorage.getItem('selected_branch_id') || '';
+    }
+    return '';
+  });
+  const [availableBranches, setAvailableBranches] = useState<Array<{ id: string; name: string }>>([]);
+
+  // Load available branches for web users
+  useEffect(() => {
+    if (isElectronEnvironment()) return;
+    let cancelled = false;
+    async function loadBranches() {
+      try {
+        const { data } = await api.get('/branches');
+        const branches = Array.isArray(data?.branches) ? data.branches : (Array.isArray(data) ? data : []);
+        if (!cancelled && branches.length > 0) {
+          setAvailableBranches(branches);
+          setActiveBranchId((curr) => {
+            if (curr && branches.some((b: any) => b.id === curr)) return curr;
+            const chosen = branches[0].id;
+            if (typeof window !== 'undefined') {
+              localStorage.setItem('selected_branch_id', chosen);
+            }
+            return chosen;
+          });
+        }
+      } catch {
+        // Fall back gracefully
+      }
+    }
+    loadBranches();
+    return () => { cancelled = true; };
+  }, []);
+
   // Add Item modal states
   const [products, setProducts] = useState<Product[]>([]);
   const [productSearch, setProductSearch] = useState('');
@@ -256,6 +292,8 @@ export default function OrdersPage() {
   }
 
   const fetchPrintHistory = async (billId: number) => {
+    // Print history is an Electron-desktop local route only
+    if (!isElectronEnvironment()) return;
     try {
       const { data } = await api.get(`/bills/${billId}/print-history`);
       setPrintHistory(prev => ({ ...prev, [billId]: data.prints || [] }));
@@ -264,24 +302,82 @@ export default function OrdersPage() {
     }
   };
 
-  const fetchOrders = async () => {
+  const fetchOrders = async (branchIdOverride?: string) => {
+    const branchToUse = branchIdOverride !== undefined ? branchIdOverride : activeBranchId;
+    if (!isElectronEnvironment() && !branchToUse) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const { data } = await api.get('/orders', { params: { per_page: 50 } });
+      setLoading(true);
+      const params: Record<string, any> = { per_page: 50 };
+      if (!isElectronEnvironment()) {
+        params.branch_id = branchToUse;
+        params.limit = 50;
+      }
+      const { data } = await api.get('/orders', { params });
       const orders = data.orders || [];
       setOrders(orders);
-      // Fetch print history only for bills we haven't fetched yet
-      orders.forEach((order: Order) => {
-        if (order.bill?.id && !fetchedBillIdsRef.current.has(order.bill.id)) {
-          fetchedBillIdsRef.current.add(order.bill.id);
-          fetchPrintHistory(order.bill.id);
-        }
-      });
+      if (isElectronEnvironment()) {
+        orders.forEach((order: Order) => {
+          if (order.bill?.id && !fetchedBillIdsRef.current.has(order.bill.id)) {
+            fetchedBillIdsRef.current.add(order.bill.id);
+            fetchPrintHistory(order.bill.id);
+          }
+        });
+      }
     } catch {
       toast.error(tOrders('loadOrdersFailed'));
     } finally {
       setLoading(false);
     }
   };
+
+  const handleBranchChange = (newBranchId: string) => {
+    setActiveBranchId(newBranchId);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('selected_branch_id', newBranchId);
+    }
+    setOrders([]);
+    fetchedBillIdsRef.current.clear();
+    fetchOrders(newBranchId);
+  };
+
+  // Visibility-aware live cross-device order polling with exponential backoff (Phase 2-E)
+  useEffect(() => {
+    if (!isElectronEnvironment() && !activeBranchId) return;
+
+    const controller = createPollingController(async () => {
+      try {
+        const params: Record<string, any> = { per_page: 50 };
+        if (!isElectronEnvironment()) {
+          params.branch_id = activeBranchId;
+          params.limit = 50;
+        }
+        const { data } = await api.get('/orders', { params });
+        const orders = data.orders || [];
+        setOrders(orders);
+        if (isElectronEnvironment()) {
+          orders.forEach((order: Order) => {
+            if (order.bill?.id && !fetchedBillIdsRef.current.has(order.bill.id)) {
+              fetchedBillIdsRef.current.add(order.bill.id);
+              fetchPrintHistory(order.bill.id);
+            }
+          });
+        }
+      } catch (err: any) {
+        if (err?.name === 'AbortError' || err?.code === 'ERR_CANCELED') return;
+      } finally {
+        setLoading(false);
+      }
+    }, 5000);
+
+    controller.start();
+    return () => {
+      controller.stop();
+    };
+  }, [activeBranchId]);
 
   useEffect(() => {
     if (!activeUserId || appendRecoveryStartedUsersRef.current.has(activeUserId)) return;
@@ -1011,6 +1107,22 @@ export default function OrdersPage() {
 
       {/* Filter Bar */}
       <div className="flex flex-wrap items-center gap-3 mb-4">
+        {/* Branch filter (Cloud / Multi-outlet web context) */}
+        {!isElectronEnvironment() && availableBranches.length > 0 && (
+          <select
+            value={activeBranchId}
+            onChange={(e) => handleBranchChange(e.target.value)}
+            className="px-3 py-2 border border-brand/50 bg-brand/5 rounded-lg text-sm font-semibold text-brand focus:outline-none focus:ring-2 focus:ring-brand/30 focus:border-brand"
+            title="Active Store Branch"
+          >
+            {availableBranches.map((b) => (
+              <option key={b.id} value={b.id}>
+                📍 {b.name}
+              </option>
+            ))}
+          </select>
+        )}
+
         {/* Search by order number */}
         <div className="relative flex-1 min-w-[200px]">
           <Search size={16} className="absolute start-3 top-1/2 -translate-y-1/2 text-gray-400" />

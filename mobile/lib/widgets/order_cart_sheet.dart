@@ -41,13 +41,16 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
   Widget _buildItemStatusIcon(String status) {
     switch (status.toLowerCase()) {
       case 'preparing':
-        return const Icon(Icons.local_fire_department, size: 16, color: AppTheme.warning);
+        return const Icon(Icons.local_fire_department,
+            size: 16, color: AppTheme.warning);
       case 'ready':
-        return const Icon(Icons.notifications_active, size: 16, color: AppTheme.success);
+        return const Icon(Icons.notifications_active,
+            size: 16, color: AppTheme.success);
       case 'served':
         return const Icon(Icons.check_circle, size: 16, color: AppTheme.info);
       default:
-        return const Icon(Icons.radio_button_unchecked, size: 16, color: AppTheme.neutral);
+        return const Icon(Icons.radio_button_unchecked,
+            size: 16, color: AppTheme.neutral);
     }
   }
 
@@ -69,7 +72,8 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
             : BorderRadius.circular(12),
         border: widget.isBottomSheet
             ? null
-            : Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+            : Border.all(
+                color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -102,7 +106,9 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                       selectedTable?.section ?? 'Dine-In',
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                        color: isDark
+                            ? AppTheme.textMutedDark
+                            : AppTheme.textMutedLight,
                       ),
                     ),
                   ],
@@ -113,18 +119,27 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                       TextButton(
                         onPressed: () async {
                           if (selectedTable != null) {
-                            await Provider.of<HeldOrderProvider>(context, listen: false).holdDraft(
+                            await Provider.of<HeldOrderProvider>(context,
+                                    listen: false)
+                                .holdDraft(
                               tableId: selectedTable.id,
                               tableName: selectedTable.number,
                               items: orderProv.draftLines,
-                              customerName: orderProv.customerName.isNotEmpty ? orderProv.customerName : null,
-                              customerPhone: orderProv.customerPhone.isNotEmpty ? orderProv.customerPhone : null,
+                              customerName: orderProv.customerName.isNotEmpty
+                                  ? orderProv.customerName
+                                  : null,
+                              customerPhone: orderProv.customerPhone.isNotEmpty
+                                  ? orderProv.customerPhone
+                                  : null,
                               orderNotes: 'Tableside hold',
                             );
                             orderProv.clearDraft();
                             if (context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Order parked in Held Orders!'), backgroundColor: AppTheme.info),
+                                const SnackBar(
+                                    content:
+                                        Text('Order parked in Held Orders!'),
+                                    backgroundColor: AppTheme.info),
                               );
                               if (widget.isBottomSheet) Navigator.pop(context);
                             }
@@ -135,7 +150,9 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                           padding: EdgeInsets.zero,
                           minimumSize: const Size(44, 30),
                         ),
-                        child: const Text('Hold', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                        child: const Text('Hold',
+                            style: TextStyle(
+                                fontSize: 13, fontWeight: FontWeight.bold)),
                       ),
                       const SizedBox(width: 8),
                       TextButton(
@@ -145,7 +162,8 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                           padding: EdgeInsets.zero,
                           minimumSize: const Size(44, 30),
                         ),
-                        child: const Text('Clear', style: TextStyle(fontSize: 13)),
+                        child:
+                            const Text('Clear', style: TextStyle(fontSize: 13)),
                       ),
                     ],
                   ),
@@ -161,13 +179,15 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                 Expanded(
                   child: TextField(
                     controller: _nameController,
-                    onChanged: (val) => orderProv.setCustomer(val, _phoneController.text),
+                    onChanged: (val) =>
+                        orderProv.setCustomer(val, _phoneController.text),
                     style: const TextStyle(fontSize: 13),
                     decoration: const InputDecoration(
                       hintText: 'Customer Name',
                       isDense: true,
                       prefixIcon: Icon(Icons.person_outline, size: 18),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     ),
                   ),
                 ),
@@ -176,13 +196,15 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                   child: TextField(
                     controller: _phoneController,
                     keyboardType: TextInputType.phone,
-                    onChanged: (val) => orderProv.setCustomer(_nameController.text, val),
+                    onChanged: (val) =>
+                        orderProv.setCustomer(_nameController.text, val),
                     style: const TextStyle(fontSize: 13),
                     decoration: const InputDecoration(
                       hintText: 'Phone number',
                       isDense: true,
                       prefixIcon: Icon(Icons.phone_outlined, size: 18),
-                      contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+                      contentPadding:
+                          EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                     ),
                   ),
                 ),
@@ -201,7 +223,8 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                 if (currentOrder != null && currentOrder.items.isNotEmpty) ...[
                   Row(
                     children: [
-                      const Icon(Icons.restaurant, size: 14, color: AppTheme.neutral),
+                      const Icon(Icons.restaurant,
+                          size: 14, color: AppTheme.neutral),
                       const SizedBox(width: 6),
                       Text(
                         'KITCHEN ORDER (${currentOrder.items.length})',
@@ -209,7 +232,9 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
                           letterSpacing: 0.5,
-                          color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                          color: isDark
+                              ? AppTheme.textMutedDark
+                              : AppTheme.textMutedLight,
                         ),
                       ),
                     ],
@@ -223,7 +248,8 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                             const SizedBox(width: 8),
                             Text(
                               '${item.quantity}x',
-                              style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.w600, fontSize: 13),
                             ),
                             const SizedBox(width: 8),
                             Expanded(
@@ -238,7 +264,9 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                               '${AppConstants.defaultCurrency}${(item.unitPrice * item.quantity).toStringAsFixed(0)}',
                               style: TextStyle(
                                 fontSize: 13,
-                                color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                                color: isDark
+                                    ? AppTheme.textMutedDark
+                                    : AppTheme.textMutedLight,
                               ),
                             ),
                           ],
@@ -257,7 +285,9 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.5,
-                        color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                        color: isDark
+                            ? AppTheme.textMutedDark
+                            : AppTheme.textMutedLight,
                       ),
                     ),
                   ],
@@ -273,13 +303,17 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                           Icon(
                             Icons.receipt_long_outlined,
                             size: 40,
-                            color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                            color: isDark
+                                ? AppTheme.borderDark
+                                : AppTheme.borderLight,
                           ),
                           const SizedBox(height: 8),
                           Text(
                             'No items added yet',
                             style: TextStyle(
-                              color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                              color: isDark
+                                  ? AppTheme.textMutedDark
+                                  : AppTheme.textMutedLight,
                               fontSize: 14,
                             ),
                           ),
@@ -292,10 +326,14 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                         margin: const EdgeInsets.only(bottom: 8),
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: isDark ? AppTheme.cardDark : AppTheme.backgroundLight,
+                          color: isDark
+                              ? AppTheme.cardDark
+                              : AppTheme.backgroundLight,
                           borderRadius: BorderRadius.circular(10),
                           border: Border.all(
-                            color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                            color: isDark
+                                ? AppTheme.borderDark
+                                : AppTheme.borderLight,
                           ),
                         ),
                         child: Column(
@@ -319,9 +357,11 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                                 Row(
                                   children: [
                                     IconButton(
-                                      onPressed: () => orderProv.changeQuantity(line.product.id, -1),
+                                      onPressed: () => orderProv.changeQuantity(
+                                          line.product.id, -1),
                                       icon: const Icon(Icons.remove, size: 16),
-                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                      constraints: const BoxConstraints(
+                                          minWidth: 28, minHeight: 28),
                                       padding: EdgeInsets.zero,
                                     ),
                                     Text(
@@ -332,9 +372,11 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                                       ),
                                     ),
                                     IconButton(
-                                      onPressed: () => orderProv.changeQuantity(line.product.id, 1),
+                                      onPressed: () => orderProv.changeQuantity(
+                                          line.product.id, 1),
                                       icon: const Icon(Icons.add, size: 16),
-                                      constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                                      constraints: const BoxConstraints(
+                                          minWidth: 28, minHeight: 28),
                                       padding: EdgeInsets.zero,
                                     ),
                                   ],
@@ -347,16 +389,21 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                                 Expanded(
                                   child: TextFormField(
                                     initialValue: line.note,
-                                    onChanged: (val) => orderProv.updateLineNote(line.product.id, val),
+                                    onChanged: (val) => orderProv
+                                        .updateLineNote(line.product.id, val),
                                     style: const TextStyle(fontSize: 12),
                                     decoration: InputDecoration(
                                       hintText: 'Add note (e.g. less spicy)...',
                                       isDense: true,
-                                      contentPadding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+                                      contentPadding:
+                                          const EdgeInsets.symmetric(
+                                              horizontal: 8, vertical: 6),
                                       border: OutlineInputBorder(
                                         borderRadius: BorderRadius.circular(6),
                                         borderSide: BorderSide(
-                                          color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                                          color: isDark
+                                              ? AppTheme.borderDark
+                                              : AppTheme.borderLight,
                                         ),
                                       ),
                                     ),
@@ -396,7 +443,9 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
-                    const Text('Draft Total', style: TextStyle(fontSize: 14, fontWeight: FontWeight.w500)),
+                    const Text('Draft Total',
+                        style: TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.w500)),
                     Text(
                       '${AppConstants.defaultCurrency}${orderProv.draftTotal.toStringAsFixed(0)}',
                       style: const TextStyle(
@@ -416,11 +465,13 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                             orderProv.draftLines.isNotEmpty &&
                             !orderProv.isSubmitting)
                         ? () async {
-                            final success = await orderProv.sendDraftOrder(selectedTable.id);
+                            final success = await orderProv
+                                .sendDraftOrder(selectedTable.id);
                             if (success && context.mounted) {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Order dispatched to Kitchen KDS!'),
+                                  content:
+                                      Text('Order dispatched to Kitchen KDS!'),
                                   backgroundColor: AppTheme.success,
                                 ),
                               );
@@ -434,14 +485,17 @@ class _OrderCartSheetState extends State<OrderCartSheet> {
                         ? const SizedBox(
                             width: 20,
                             height: 20,
-                            child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                            child: CircularProgressIndicator(
+                                color: Colors.white, strokeWidth: 2),
                           )
                         : Row(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
                               const Icon(Icons.send_rounded, size: 18),
                               const SizedBox(width: 8),
-                              Text(currentOrder != null ? 'Add to Order' : 'Send to Kitchen (KOT)'),
+                              Text(currentOrder != null
+                                  ? 'Add to Order'
+                                  : 'Send to Kitchen (KOT)'),
                             ],
                           ),
                   ),

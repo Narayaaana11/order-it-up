@@ -3,15 +3,42 @@
  */
 
 import { Env, handleGeneratePairing, handleClaimPairing } from './routes/pairing';
+import { handleRegisterTenant } from './routes/registration';
 import { handleIngestSyncEvents } from './routes/sync';
 import { handleAnalyticsOverview } from './routes/analytics';
 import { handleAccountantClosures, handleAccountantTaxSummary, handleTallyExport } from './routes/accountant';
 import { handleGetMasterCatalog, handleSaveMasterProduct, handleGetBranchCatalog, handleSetBranchOverride } from './routes/catalog';
 import { handleListTransfers, handleCreateTransfer, handleUpdateTransferStatus } from './routes/transfers';
+import {
+  handleListRestaurants,
+  handleCreateRestaurant,
+  handleListBranches,
+  handleCreateBranch,
+  handleListMemberships,
+  handleCreateOrUpdateMembership,
+  handleRevokeMembership,
+} from './routes/hierarchy';
+import {
+  handleListOrders,
+  handleGetOrder,
+  handleCreateOrder,
+  handleAddOrderItems,
+  handleUpdateOrderStatus,
+  handleUpdateOrderPayment,
+  handleGetOrderPayments,
+  handleRecordCustomerPayment,
+  handleRefundCustomerPayment,
+  handleListTables,
+  handleCreateTable,
+  handleUpdateTableStatus,
+  handleListKitchenTickets,
+  handleUpdateKitchenTicketStatus,
+} from './routes/operations';
+import { getUserMemberships, isOrgOwnerOrAdmin, isOrgAccountant } from './rbac';
 import { createJWT, verifyJWT, hashPassword, verifyPassword, isSecretValid } from './auth';
 import { checkRateLimit, createRateLimitResponse, getClientIp, DEFAULT_RATE_LIMITS, getEffectiveLimit } from './rate-limit';
 
-function corsHeaders(request?: Request, env?: Env): HeadersInit {
+function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const requestOrigin = request?.headers.get('Origin');
   let allowOrigin = '*';
 
@@ -195,6 +222,11 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     });
   }
 
+  // 2b. Auth: Self-Service Tenant Registration
+  if ((path === '/api/auth/register' || path === '/api/auth/register-saas') && method === 'POST') {
+    return handleRegisterTenant(request, env);
+  }
+
   // 3. Demo / Initializer Setup Seed
   if (path === '/api/auth/setup-demo' && method === 'POST') {
     return handleSetupDemo(request, env);
@@ -220,77 +252,169 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   }
 
   const orgId = claims.org;
-  const userRole = claims.role;
+  const userId = claims.sub;
+  let memberships = await getUserMemberships(env.DB, orgId, userId);
 
-  // 6. Branches
+  // Backward-compatible fallback for owner/admin JWT claims if mock DB or legacy tenant lacks memberships row
+  if (memberships.length === 0 && (claims.role === 'owner' || (claims.role as string) === 'admin' || claims.role === 'super_admin')) {
+    memberships = [{
+      id: `fallback-${userId}`,
+      organization_id: orgId,
+      user_id: userId,
+      restaurant_id: null,
+      branch_id: null,
+      role: (claims.role as any) === 'admin' ? 'super_admin' : claims.role,
+      status: 'active'
+    }];
+  }
+
+  if (memberships.length === 0) {
+    return Response.json({ error: 'Forbidden: No active organization memberships' }, { status: 403 });
+  }
+
+  // 6. Restaurants & Concepts
+  if (path === '/api/restaurants' && method === 'GET') {
+    return handleListRestaurants(request, env, claims);
+  }
+  if (path === '/api/restaurants' && method === 'POST') {
+    return handleCreateRestaurant(request, env, claims);
+  }
+
+  // 7. Branches (Multi-Restaurant & Location Scoped)
   if (path === '/api/branches' && method === 'GET') {
-    const branches = await env.DB.prepare('SELECT * FROM branches WHERE organization_id = ? ORDER BY is_main_branch DESC, name ASC')
-      .bind(orgId).all();
-    return Response.json({ branches: branches.results });
+    return handleListBranches(request, env, claims, url);
   }
-
   if (path === '/api/branches' && method === 'POST') {
-    if (userRole !== 'owner' && userRole !== 'manager') {
-      return Response.json({ error: 'Forbidden: Insufficient privileges to create branches' }, { status: 403 });
-    }
-    const body = await request.json() as any;
-    const branchId = body.id || crypto.randomUUID();
-    const now = new Date().toISOString();
-    await env.DB.prepare(`
-      INSERT INTO branches (id, organization_id, code, name, is_main_branch, address, phone, email, status, created_at, updated_at)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
-    `).bind(branchId, orgId, body.code || `BR-${Date.now().toString().slice(-4)}`, body.name, body.is_main_branch ? 1 : 0, body.address || null, body.phone || null, body.email || null, now, now).run();
-    return Response.json({ success: true, branch_id: branchId });
+    return handleCreateBranch(request, env, claims);
   }
 
-  // 7. Pairing Token Generation (Admin)
+  // 8. Location-Scoped Memberships & RBAC
+  if (path === '/api/memberships' && method === 'GET') {
+    return handleListMemberships(request, env, claims, url);
+  }
+  if (path === '/api/memberships' && method === 'POST') {
+    return handleCreateOrUpdateMembership(request, env, claims);
+  }
+  if (path.startsWith('/api/memberships/') && method === 'DELETE') {
+    const membershipId = path.split('/').pop() || '';
+    return handleRevokeMembership(request, env, claims, membershipId);
+  }
+
+  // 9. Shared Real-Time Orders
+  if (path === '/api/orders' && method === 'GET') {
+    return handleListOrders(request, env, claims, url);
+  }
+  if (path === '/api/orders' && method === 'POST') {
+    return handleCreateOrder(request, env, claims);
+  }
+  if (path.startsWith('/api/orders/') && path.endsWith('/items') && method === 'POST') {
+    const parts = path.split('/');
+    const orderId = parts[parts.length - 2];
+    return handleAddOrderItems(request, env, claims, orderId);
+  }
+  if (path.startsWith('/api/orders/') && path.endsWith('/status') && method === 'PATCH') {
+    const parts = path.split('/');
+    const orderId = parts[parts.length - 2];
+    return handleUpdateOrderStatus(request, env, claims, orderId);
+  }
+  if (path.startsWith('/api/orders/') && path.endsWith('/payment') && method === 'PATCH') {
+    const parts = path.split('/');
+    const orderId = parts[parts.length - 2];
+    return handleUpdateOrderPayment(request, env, claims, orderId);
+  }
+  if (path.startsWith('/api/orders/') && path.includes('/payments/') && path.endsWith('/refund') && method === 'POST') {
+    const parts = path.split('/');
+    // /api/orders/:orderId/payments/:paymentId/refund
+    const orderId = parts[3];
+    const paymentId = parts[5];
+    return handleRefundCustomerPayment(request, env, claims, orderId, paymentId);
+  }
+  if (path.startsWith('/api/orders/') && path.endsWith('/payments') && method === 'GET') {
+    const parts = path.split('/');
+    const orderId = parts[parts.length - 2];
+    return handleGetOrderPayments(request, env, claims, orderId);
+  }
+  if (path.startsWith('/api/orders/') && path.endsWith('/payments') && method === 'POST') {
+    const parts = path.split('/');
+    const orderId = parts[parts.length - 2];
+    return handleRecordCustomerPayment(request, env, claims, orderId);
+  }
+  if (path.startsWith('/api/orders/') && method === 'GET') {
+    const orderId = path.split('/').pop() || '';
+    return handleGetOrder(request, env, claims, orderId);
+  }
+
+  // 10. Dining Tables
+  if (path === '/api/tables' && method === 'GET') {
+    return handleListTables(request, env, claims, url);
+  }
+  if (path === '/api/tables' && method === 'POST') {
+    return handleCreateTable(request, env, claims);
+  }
+  if (path.startsWith('/api/tables/') && path.endsWith('/status') && method === 'PATCH') {
+    const parts = path.split('/');
+    const tableId = parts[parts.length - 2];
+    return handleUpdateTableStatus(request, env, claims, tableId);
+  }
+
+  // 11. Kitchen Display Tickets
+  if (path === '/api/kitchen/tickets' && method === 'GET') {
+    return handleListKitchenTickets(request, env, claims, url);
+  }
+  if (path.startsWith('/api/kitchen/tickets/') && path.endsWith('/status') && method === 'PATCH') {
+    const parts = path.split('/');
+    const ticketId = parts[parts.length - 2];
+    return handleUpdateKitchenTicketStatus(request, env, claims, ticketId);
+  }
+
+  // 12. Pairing Token Generation (Owner / Manager)
   if (path === '/api/pairing/generate' && method === 'POST') {
-    if (userRole !== 'owner' && userRole !== 'manager') {
+    if (!isOrgOwnerOrAdmin(memberships) && !memberships.some((m) => m.role === 'manager')) {
       return Response.json({ error: 'Forbidden: Insufficient privileges to generate pairing tokens' }, { status: 403 });
     }
     return handleGeneratePairing(request, env, orgId);
   }
 
-  // 8. Analytics Overview
+  // 13. Analytics Overview
   if (path === '/api/analytics/overview' && method === 'GET') {
-    if (userRole !== 'owner' && userRole !== 'accountant' && userRole !== 'manager') {
+    if (!isOrgOwnerOrAdmin(memberships) && !isOrgAccountant(memberships) && !memberships.some((m) => m.role === 'manager')) {
       return Response.json({ error: 'Forbidden: Insufficient privileges to view analytics' }, { status: 403 });
     }
     return handleAnalyticsOverview(request, env, orgId);
   }
 
-  // 9. Accountant Hub
+  // 14. Accountant Hub
   if (path === '/api/accountant/closures' && method === 'GET') {
-    if (userRole !== 'owner' && userRole !== 'accountant') {
+    if (!isOrgOwnerOrAdmin(memberships) && !isOrgAccountant(memberships)) {
       return Response.json({ error: 'Forbidden: Insufficient privileges to access accounting data' }, { status: 403 });
     }
     return handleAccountantClosures(request, env, orgId);
   }
   if (path === '/api/accountant/tax-summary' && method === 'GET') {
-    if (userRole !== 'owner' && userRole !== 'accountant') {
+    if (!isOrgOwnerOrAdmin(memberships) && !isOrgAccountant(memberships)) {
       return Response.json({ error: 'Forbidden: Insufficient privileges to access accounting data' }, { status: 403 });
     }
     return handleAccountantTaxSummary(request, env, orgId);
   }
   if (path === '/api/accountant/export-tally' && method === 'GET') {
-    if (userRole !== 'owner' && userRole !== 'accountant') {
+    if (!isOrgOwnerOrAdmin(memberships) && !isOrgAccountant(memberships)) {
       return Response.json({ error: 'Forbidden: Insufficient privileges to access accounting data' }, { status: 403 });
     }
     return handleTallyExport(request, env, orgId);
   }
 
-  // 10. Master Catalog & Overrides
+  // 15. Master Catalog & Overrides
   if (path === '/api/catalog/master' && method === 'GET') {
     return handleGetMasterCatalog(request, env, orgId);
   }
   if (path === '/api/catalog/product' && method === 'POST') {
-    if (userRole !== 'owner' && userRole !== 'manager') {
+    if (!isOrgOwnerOrAdmin(memberships) && !memberships.some((m) => m.role === 'manager')) {
       return Response.json({ error: 'Forbidden: Insufficient privileges to modify master catalog' }, { status: 403 });
     }
     return handleSaveMasterProduct(request, env, orgId);
   }
   if (path.startsWith('/api/catalog/branch/') && path.endsWith('/override') && method === 'POST') {
-    if (userRole !== 'owner' && userRole !== 'manager') {
+    if (!isOrgOwnerOrAdmin(memberships) && !memberships.some((m) => m.role === 'manager')) {
       return Response.json({ error: 'Forbidden: Insufficient privileges to modify branch catalog' }, { status: 403 });
     }
     const parts = path.split('/');
@@ -302,18 +426,18 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     return handleGetBranchCatalog(request, env, branchId, orgId);
   }
 
-  // 11. Inventory Transfers
+  // 16. Inventory Transfers
   if (path === '/api/transfers' && method === 'GET') {
     return handleListTransfers(request, env, orgId);
   }
   if (path === '/api/transfers' && method === 'POST') {
-    if (userRole !== 'owner' && userRole !== 'manager') {
+    if (!isOrgOwnerOrAdmin(memberships) && !memberships.some((m) => m.role === 'manager')) {
       return Response.json({ error: 'Forbidden: Insufficient privileges to create stock transfers' }, { status: 403 });
     }
     return handleCreateTransfer(request, env, orgId);
   }
   if (path.startsWith('/api/transfers/') && path.endsWith('/status') && (method === 'PATCH' || method === 'PUT')) {
-    if (userRole !== 'owner' && userRole !== 'manager') {
+    if (!isOrgOwnerOrAdmin(memberships) && !memberships.some((m) => m.role === 'manager')) {
       return Response.json({ error: 'Forbidden: Insufficient privileges to update stock transfers' }, { status: 403 });
     }
     const parts = path.split('/');
@@ -352,8 +476,11 @@ async function handleSetupDemo(request: Request, env: Env): Promise<Response> {
 
   const now = new Date().toISOString();
   const orgId = 'org-tastecraft-demo';
+  const restId = 'rest-tastecraft-flagship';
   const mainBranchId = 'br-main-connaught';
   const franchiseBranchId = 'br-franchise-gurugram';
+  const ownerUserId = crypto.randomUUID();
+  const accountantUserId = crypto.randomUUID();
 
   // 1. Organization
   await env.DB.prepare(`
@@ -361,14 +488,20 @@ async function handleSetupDemo(request: Request, env: Env): Promise<Response> {
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(orgId, 'TasteCraft Hospitality Group', 'TasteCraft F&B Pvt Ltd', '07AAAAA0000A1Z5', 'INR', 'IN', 'Asia/Kolkata', now, now).run();
 
+  // 1b. Restaurant Brand Concept
+  await env.DB.prepare(`
+    INSERT INTO restaurants (id, organization_id, name, slug, concept_type, status, created_at, updated_at)
+    VALUES (?, ?, 'TasteCraft Dining', 'tastecraft-dining', 'finedine', 'active', ?, ?)
+  `).bind(restId, orgId, now, now).run();
+
   // 2. Branches
   await env.DB.prepare(`
-    INSERT INTO branches (id, organization_id, code, name, is_main_branch, address, phone, status, created_at, updated_at)
+    INSERT INTO branches (id, organization_id, restaurant_id, code, name, is_main_branch, address, phone, status, created_at, updated_at)
     VALUES (?, ?, ?, ?, 1, 'Block C, Connaught Place, New Delhi', '+91 98765 43210', 'active', ?, ?),
            (?, ?, ?, ?, 0, 'Cyber Hub, DLF Phase 2, Gurugram', '+91 98765 12345', 'active', ?, ?)
   `).bind(
-    mainBranchId, orgId, 'BR-01', 'Connaught Place (Main)', now, now,
-    franchiseBranchId, orgId, 'BR-02', 'Gurugram CyberHub (Franchise)', now, now
+    mainBranchId, orgId, restId, 'BR-01', 'Connaught Place (Main)', now, now,
+    franchiseBranchId, orgId, restId, 'BR-02', 'Gurugram CyberHub (Franchise)', now, now
   ).run();
 
   // 3. Demo Users
@@ -378,8 +511,18 @@ async function handleSetupDemo(request: Request, env: Env): Promise<Response> {
     VALUES (?, ?, 'owner@tastecraft.com', ?, 'Vikram Malhotra (Owner)', 'owner', 'active', ?, ?),
            (?, ?, 'accountant@tastecraft.com', ?, 'Pooja Sharma (Accountant)', 'accountant', 'active', ?, ?)
   `).bind(
-    crypto.randomUUID(), orgId, passHash, now, now,
-    crypto.randomUUID(), orgId, passHash, now, now
+    ownerUserId, orgId, passHash, now, now,
+    accountantUserId, orgId, passHash, now, now
+  ).run();
+
+  // 3b. Location-Scoped Memberships
+  await env.DB.prepare(`
+    INSERT INTO memberships (id, organization_id, user_id, restaurant_id, branch_id, role, status, created_at, updated_at)
+    VALUES (?, ?, ?, NULL, NULL, 'owner', 'active', ?, ?),
+           (?, ?, ?, NULL, NULL, 'accountant', 'active', ?, ?)
+  `).bind(
+    crypto.randomUUID(), orgId, ownerUserId, now, now,
+    crypto.randomUUID(), orgId, accountantUserId, now, now
   ).run();
 
   // 4. Master Products

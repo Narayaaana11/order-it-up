@@ -20,7 +20,8 @@ class DesktopBottomNav extends StatelessWidget {
     return Container(
       height: 60,
       decoration: BoxDecoration(
-        color: (isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight).withOpacity(0.96),
+        color: (isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight)
+            .withOpacity(0.96),
         border: Border(
           top: BorderSide(
             color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
@@ -52,7 +53,9 @@ class DesktopBottomNav extends StatelessWidget {
                   Icon(
                     Icons.menu,
                     size: 20,
-                    color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                    color: isDark
+                        ? AppTheme.textMutedDark
+                        : AppTheme.textMutedLight,
                   ),
                   const SizedBox(height: 3),
                   Text(
@@ -60,7 +63,9 @@ class DesktopBottomNav extends StatelessWidget {
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                      color: isDark
+                          ? AppTheme.textMutedDark
+                          : AppTheme.textMutedLight,
                     ),
                   ),
                 ],

@@ -50,7 +50,9 @@ class _ManagerScreenState extends State<ManagerScreen> {
             // KPI Grid
             LayoutBuilder(
               builder: (context, constraints) {
-                final cols = ResponsiveBreakpoints.getGridColumnCount(constraints.maxWidth, itemMinWidth: 180);
+                final cols = ResponsiveBreakpoints.getGridColumnCount(
+                    constraints.maxWidth,
+                    itemMinWidth: 180);
                 return GridView.count(
                   crossAxisCount: cols < 2 ? 2 : (cols > 4 ? 4 : cols),
                   shrinkWrap: true,
@@ -61,7 +63,8 @@ class _ManagerScreenState extends State<ManagerScreen> {
                   children: [
                     KpiMetricCard(
                       title: "Today's Gross Sales",
-                      value: '${AppConstants.defaultCurrency}${manager.totalRevenueToday.toStringAsFixed(0)}',
+                      value:
+                          '${AppConstants.defaultCurrency}${manager.totalRevenueToday.toStringAsFixed(0)}',
                       subtitle: '+14.2% vs yesterday',
                       icon: Icons.currency_rupee,
                       color: AppTheme.success,
@@ -75,7 +78,8 @@ class _ManagerScreenState extends State<ManagerScreen> {
                     ),
                     KpiMetricCard(
                       title: 'Average Ticket (AOV)',
-                      value: '${AppConstants.defaultCurrency}${manager.averageTicketSize.toStringAsFixed(0)}',
+                      value:
+                          '${AppConstants.defaultCurrency}${manager.averageTicketSize.toStringAsFixed(0)}',
                       subtitle: 'Target: ₹900',
                       icon: Icons.trending_up,
                       color: AppTheme.primary,
@@ -83,7 +87,8 @@ class _ManagerScreenState extends State<ManagerScreen> {
                     KpiMetricCard(
                       title: 'Table Occupancy',
                       value: '${manager.occupancyPercent.toStringAsFixed(0)}%',
-                      subtitle: '${manager.occupiedTables}/${manager.totalTables} Tables Seated',
+                      subtitle:
+                          '${manager.occupiedTables}/${manager.totalTables} Tables Seated',
                       icon: Icons.table_restaurant,
                       color: AppTheme.warning,
                     ),
@@ -100,7 +105,8 @@ class _ManagerScreenState extends State<ManagerScreen> {
               decoration: BoxDecoration(
                 color: isDark ? AppTheme.surfaceDark : Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                border: Border.all(
+                    color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -110,15 +116,21 @@ class _ManagerScreenState extends State<ManagerScreen> {
                     children: [
                       const Text(
                         'Kitchen Speed & SLA Telemetry',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700),
                       ),
                       Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 8, vertical: 3),
                         decoration: BoxDecoration(
                           color: AppTheme.success.withOpacity(0.12),
                           borderRadius: BorderRadius.circular(6),
                         ),
-                        child: const Text('HEALTHY', style: TextStyle(color: AppTheme.success, fontSize: 11, fontWeight: FontWeight.w800)),
+                        child: const Text('HEALTHY',
+                            style: TextStyle(
+                                color: AppTheme.success,
+                                fontSize: 11,
+                                fontWeight: FontWeight.w800)),
                       ),
                     ],
                   ),
@@ -131,12 +143,17 @@ class _ManagerScreenState extends State<ManagerScreen> {
                           children: [
                             Text(
                               'Average Kitchen Prep Time',
-                              style: TextStyle(fontSize: 12, color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? AppTheme.textMutedDark
+                                      : AppTheme.textMutedLight),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               '${manager.averagePrepMinutes} Minutes',
-                              style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800),
+                              style: const TextStyle(
+                                  fontSize: 18, fontWeight: FontWeight.w800),
                             ),
                           ],
                         ),
@@ -147,12 +164,19 @@ class _ManagerScreenState extends State<ManagerScreen> {
                           children: [
                             Text(
                               'Fastest Station',
-                              style: TextStyle(fontSize: 12, color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                              style: TextStyle(
+                                  fontSize: 12,
+                                  color: isDark
+                                      ? AppTheme.textMutedDark
+                                      : AppTheme.textMutedLight),
                             ),
                             const SizedBox(height: 4),
                             const Text(
                               'Grill (8.2 min)',
-                              style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.success),
+                              style: TextStyle(
+                                  fontSize: 18,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppTheme.success),
                             ),
                           ],
                         ),
@@ -171,7 +195,8 @@ class _ManagerScreenState extends State<ManagerScreen> {
               decoration: BoxDecoration(
                 color: isDark ? AppTheme.surfaceDark : Colors.white,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                border: Border.all(
+                    color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
               ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -181,18 +206,26 @@ class _ManagerScreenState extends State<ManagerScreen> {
                     children: [
                       const Text(
                         'Live Item Availability (86 Stock Control)',
-                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.w700),
                       ),
                       Text(
                         '${menuProv.products.where((p) => !p.isActive).length} Unavailable',
-                        style: const TextStyle(fontSize: 12, color: AppTheme.danger, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                            fontSize: 12,
+                            color: AppTheme.danger,
+                            fontWeight: FontWeight.w600),
                       ),
                     ],
                   ),
                   const SizedBox(height: 8),
                   Text(
                     'Toggle switches to immediately 86 items across all Waiter handhelds and QR digital menus.',
-                    style: TextStyle(fontSize: 12, color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                    style: TextStyle(
+                        fontSize: 12,
+                        color: isDark
+                            ? AppTheme.textMutedDark
+                            : AppTheme.textMutedLight),
                   ),
                   const Divider(height: 20),
                   ListView.separated(
@@ -209,7 +242,9 @@ class _ManagerScreenState extends State<ManagerScreen> {
                           style: TextStyle(
                             fontSize: 14,
                             fontWeight: FontWeight.w600,
-                            decoration: prod.isActive ? null : TextDecoration.lineThrough,
+                            decoration: prod.isActive
+                                ? null
+                                : TextDecoration.lineThrough,
                           ),
                         ),
                         subtitle: Text(
@@ -219,7 +254,8 @@ class _ManagerScreenState extends State<ManagerScreen> {
                         trailing: Switch(
                           value: prod.isActive,
                           activeColor: AppTheme.success,
-                          onChanged: (_) => menuProv.toggleProductAvailability(prod.id),
+                          onChanged: (_) =>
+                              menuProv.toggleProductAvailability(prod.id),
                         ),
                       );
                     },

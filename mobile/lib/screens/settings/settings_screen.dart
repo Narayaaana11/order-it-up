@@ -29,14 +29,16 @@ class SettingsScreen extends StatelessWidget {
             decoration: BoxDecoration(
               color: isDark ? AppTheme.surfaceDark : Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+              border: Border.all(
+                  color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
             ),
             child: Row(
               children: [
                 CircleAvatar(
                   radius: 24,
                   backgroundColor: AppTheme.primaryLight,
-                  child: const Icon(Icons.person, color: AppTheme.primaryDark, size: 28),
+                  child: const Icon(Icons.person,
+                      color: AppTheme.primaryDark, size: 28),
                 ),
                 const SizedBox(width: 14),
                 Expanded(
@@ -45,16 +47,24 @@ class SettingsScreen extends StatelessWidget {
                     children: [
                       Text(
                         auth.currentUser?.name ?? 'Staff User',
-                        style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16),
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w700, fontSize: 16),
                       ),
                       const SizedBox(height: 2),
                       Text(
                         'Role: ${auth.currentUser?.roleDisplayName ?? "Waiter"}',
-                        style: const TextStyle(color: AppTheme.primaryDark, fontSize: 13, fontWeight: FontWeight.w600),
+                        style: const TextStyle(
+                            color: AppTheme.primaryDark,
+                            fontSize: 13,
+                            fontWeight: FontWeight.w600),
                       ),
                       Text(
                         auth.currentUser?.email ?? '',
-                        style: TextStyle(fontSize: 12, color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                        style: TextStyle(
+                            fontSize: 12,
+                            color: isDark
+                                ? AppTheme.textMutedDark
+                                : AppTheme.textMutedLight),
                       ),
                     ],
                   ),
@@ -81,32 +91,41 @@ class SettingsScreen extends StatelessWidget {
           ),
 
           const SizedBox(height: 24),
-          const Text('Network & POS Connection', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.neutral)),
+          const Text('Network & POS Connection',
+              style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: AppTheme.neutral)),
           const SizedBox(height: 8),
 
           Container(
             decoration: BoxDecoration(
               color: isDark ? AppTheme.surfaceDark : Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+              border: Border.all(
+                  color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
             ),
             child: Column(
               children: [
                 ListTile(
                   leading: const Icon(Icons.wifi, color: AppTheme.primary),
                   title: const Text('POS Server URL'),
-                  subtitle: Text(config.isDemoMode ? 'Running in Demo Mode (Offline)' : config.serverUrl),
+                  subtitle: Text(config.isDemoMode
+                      ? 'Running in Demo Mode (Offline)'
+                      : config.serverUrl),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const ServerConnectScreen()),
+                      MaterialPageRoute(
+                          builder: (_) => const ServerConnectScreen()),
                     );
                   },
                 ),
                 const Divider(height: 1),
                 SwitchListTile(
-                  secondary: const Icon(Icons.play_circle_outline, color: AppTheme.warning),
+                  secondary: const Icon(Icons.play_circle_outline,
+                      color: AppTheme.warning),
                   title: const Text('Demo Mode (Standalone)'),
                   subtitle: const Text('Run without live desktop connection'),
                   value: config.isDemoMode,
@@ -118,14 +137,19 @@ class SettingsScreen extends StatelessWidget {
           ),
 
           const SizedBox(height: 24),
-          const Text('App Information', style: TextStyle(fontWeight: FontWeight.w700, fontSize: 13, color: AppTheme.neutral)),
+          const Text('App Information',
+              style: TextStyle(
+                  fontWeight: FontWeight.w700,
+                  fontSize: 13,
+                  color: AppTheme.neutral)),
           const SizedBox(height: 8),
 
           Container(
             decoration: BoxDecoration(
               color: isDark ? AppTheme.surfaceDark : Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+              border: Border.all(
+                  color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
             ),
             child: Column(
               children: [
@@ -134,22 +158,28 @@ class SettingsScreen extends StatelessWidget {
                     'assets/images/logo.png',
                     width: 28,
                     height: 28,
-                    errorBuilder: (_, __, ___) => const Icon(Icons.restaurant, color: AppTheme.primary),
+                    errorBuilder: (_, __, ___) =>
+                        const Icon(Icons.restaurant, color: AppTheme.primary),
                   ),
-                  title: const Text(AppConstants.appName, style: TextStyle(fontWeight: FontWeight.bold)),
+                  title: const Text(AppConstants.appName,
+                      style: TextStyle(fontWeight: FontWeight.bold)),
                   subtitle: const Text('Offline-First Mobile & Tablet POS'),
                 ),
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.info_outline),
                   title: const Text('Version'),
-                  trailing: Text(AppConstants.appVersion, style: const TextStyle(fontWeight: FontWeight.w600)),
+                  trailing: Text(AppConstants.appVersion,
+                      style: const TextStyle(fontWeight: FontWeight.w600)),
                 ),
                 const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.devices_outlined),
                   title: const Text('Responsive Engine'),
-                  trailing: const Text('Smartphones & Tablets (Active)', style: TextStyle(color: AppTheme.success, fontWeight: FontWeight.w600)),
+                  trailing: const Text('Smartphones & Tablets (Active)',
+                      style: TextStyle(
+                          color: AppTheme.success,
+                          fontWeight: FontWeight.w600)),
                 ),
               ],
             ),
@@ -163,12 +193,15 @@ class SettingsScreen extends StatelessWidget {
                 if (context.mounted) {
                   Navigator.pushReplacement(
                     context,
-                    MaterialPageRoute(builder: (_) => const ServerConnectScreen()),
+                    MaterialPageRoute(
+                        builder: (_) => const ServerConnectScreen()),
                   );
                 }
               },
               icon: const Icon(Icons.logout, color: AppTheme.danger),
-              label: const Text('Sign Out & Disconnect', style: TextStyle(color: AppTheme.danger, fontWeight: FontWeight.w600)),
+              label: const Text('Sign Out & Disconnect',
+                  style: TextStyle(
+                      color: AppTheme.danger, fontWeight: FontWeight.w600)),
             ),
           ),
         ],

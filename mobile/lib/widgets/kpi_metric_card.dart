@@ -43,7 +43,9 @@ class KpiMetricCard extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 13,
                     fontWeight: FontWeight.w600,
-                    color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                    color: isDark
+                        ? AppTheme.textMutedDark
+                        : AppTheme.textMutedLight,
                   ),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
@@ -73,7 +75,8 @@ class KpiMetricCard extends StatelessWidget {
               subtitle!,
               style: TextStyle(
                 fontSize: 11,
-                color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                color:
+                    isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
               ),
             ),
           ],

@@ -30,9 +30,11 @@ class OrderItemModel {
       productId: json['product_id']?.toString() ?? '',
       productName: json['product_name']?.toString() ?? 'Item',
       quantity: int.tryParse(json['quantity']?.toString() ?? '1') ?? 1,
-      unitPrice: double.tryParse(json['unit_price']?.toString() ?? '0.0') ?? 0.0,
+      unitPrice:
+          double.tryParse(json['unit_price']?.toString() ?? '0.0') ?? 0.0,
       status: json['status']?.toString().toLowerCase() ?? 'waiting',
-      notes: json['special_instructions']?.toString() ?? json['notes']?.toString(),
+      notes:
+          json['special_instructions']?.toString() ?? json['notes']?.toString(),
     );
   }
 
@@ -122,7 +124,9 @@ class OrderModel {
   bool get isPreparing => status == 'preparing';
   bool get isReady => status == 'ready';
   double get totalAmount => total;
-  DateTime get createdAtDateTime => createdAt != null ? (DateTime.tryParse(createdAt!) ?? DateTime.now()) : DateTime.now();
+  DateTime get createdAtDateTime => createdAt != null
+      ? (DateTime.tryParse(createdAt!) ?? DateTime.now())
+      : DateTime.now();
 
   factory OrderModel.fromJson(Map<String, dynamic> json) {
     List<OrderItemModel> parsedItems = [];
@@ -139,15 +143,22 @@ class OrderModel {
       custPhone = json['customer']['phone']?.toString();
     }
 
-    final totalVal = double.tryParse(json['total_amount']?.toString() ?? json['total']?.toString() ?? '0.0') ?? 0.0;
-    final subVal = double.tryParse(json['subtotal']?.toString() ?? totalVal.toString()) ?? totalVal;
-    final taxVal = double.tryParse(json['tax_amount']?.toString() ?? '0.0') ?? 0.0;
+    final totalVal = double.tryParse(json['total_amount']?.toString() ??
+            json['total']?.toString() ??
+            '0.0') ??
+        0.0;
+    final subVal =
+        double.tryParse(json['subtotal']?.toString() ?? totalVal.toString()) ??
+            totalVal;
+    final taxVal =
+        double.tryParse(json['tax_amount']?.toString() ?? '0.0') ?? 0.0;
 
     return OrderModel(
       id: int.tryParse(json['id']?.toString() ?? '0') ?? 0,
       orderNumber: json['order_number']?.toString() ?? '#ORD-?',
       tableId: json['table_id']?.toString(),
-      tableName: json['table_name']?.toString() ?? json['table_number']?.toString(),
+      tableName:
+          json['table_name']?.toString() ?? json['table_number']?.toString(),
       type: json['type']?.toString().toLowerCase() ?? 'dine_in',
       status: json['status']?.toString().toLowerCase() ?? 'pending',
       subtotal: subVal,

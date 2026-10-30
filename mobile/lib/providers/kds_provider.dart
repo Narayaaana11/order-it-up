@@ -27,7 +27,10 @@ class KdsProvider extends ChangeNotifier {
 
   List<KdsTicketModel> get filteredTickets {
     if (_selectedStation == 'All') return _tickets;
-    return _tickets.where((t) => t.station.toLowerCase().contains(_selectedStation.toLowerCase())).toList();
+    return _tickets
+        .where((t) =>
+            t.station.toLowerCase().contains(_selectedStation.toLowerCase()))
+        .toList();
   }
 
   int get waitingCount => _tickets.where((t) => t.isWaiting).length;

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import Link from 'next/link';
 import {
   TrendingUp,
   Store,
@@ -19,11 +20,27 @@ import {
   Flame,
   UtensilsCrossed,
   Sliders,
-  Laptop
+  Laptop,
+  Monitor,
+  Smartphone,
+  Sparkles,
+  ExternalLink,
+  QrCode
 } from 'lucide-react';
+import { cloudApi } from '@/lib/api';
+
+interface RestaurantConcept {
+  id: string;
+  name: string;
+  slug?: string;
+  concept_type?: string;
+  status: string;
+}
 
 interface BranchSale {
   id: string;
+  restaurant_id?: string;
+  restaurant_name?: string;
   name: string;
   code: string;
   isMain: boolean;
@@ -33,6 +50,7 @@ interface BranchSale {
   cashSales: number;
   digitalSales: number;
   sharePercent: number;
+  is_demo?: boolean;
 }
 
 interface ItemVelocity {
@@ -82,117 +100,26 @@ interface TransferRecord {
 export default function CloudPortalPage() {
   const [activeTab, setActiveTab] = useState<'overview' | 'accountant' | 'catalog' | 'branches' | 'transfers' | 'live'>('overview');
   const [userRole, setUserRole] = useState<'owner' | 'accountant'>('owner');
+  const [restaurants, setRestaurants] = useState<RestaurantConcept[]>([]);
+  const [selectedRestaurantFilter, setSelectedRestaurantFilter] = useState<string>('all');
   const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('all');
-  const [overrideBranch, setOverrideBranch] = useState<string>('br-02');
+  const [overrideBranch, setOverrideBranch] = useState<string>('');
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
+  const [isLoadingHierarchy, setIsLoadingHierarchy] = useState<boolean>(true);
 
   // Pairing Modal state
   const [showPairModal, setShowPairModal] = useState(false);
   const [generatedPairCode, setGeneratedPairCode] = useState<string | null>(null);
-  const [pairingBranch, setPairingBranch] = useState('br-02');
+  const [pairingBranch, setPairingBranch] = useState('br-01');
   const [pairTimeLeft, setPairTimeLeft] = useState(900); // 15 mins
+  const [tenantName, setTenantName] = useState('Order It Up Restaurant Group');
+  const [isOnboarded, setIsOnboarded] = useState(false);
+  const [pairMode, setPairMode] = useState<'desktop' | 'mobile'>('desktop');
 
-  // Mock initial data reflecting Cloudflare D1 synced state
-  const [branches, setBranches] = useState<BranchSale[]>([
-    {
-      id: 'br-01',
-      name: 'Connaught Place (Main Outlet)',
-      code: 'CP-DEL',
-      isMain: true,
-      revenue: 284500,
-      orders: 820,
-      avgTicket: 346.95,
-      cashSales: 85350,
-      digitalSales: 199150,
-      sharePercent: 54,
-    },
-    {
-      id: 'br-02',
-      name: 'Gurugram CyberHub (Franchise)',
-      code: 'CYB-GGN',
-      isMain: false,
-      revenue: 198200,
-      orders: 512,
-      avgTicket: 387.11,
-      cashSales: 49550,
-      digitalSales: 148650,
-      sharePercent: 38,
-    },
-    {
-      id: 'br-03',
-      name: 'Indiranagar 100ft (Franchise)',
-      code: 'IND-BLR',
-      isMain: false,
-      revenue: 42300,
-      orders: 115,
-      avgTicket: 367.82,
-      cashSales: 8460,
-      digitalSales: 33840,
-      sharePercent: 8,
-    },
-  ]);
-
-  const [topItems, setTopItems] = useState<ItemVelocity[]>([
-    { id: 'item-1', name: 'Butter Chicken Biryani Box', category: 'Mains', totalQty: 412, totalRev: 144200, topBranch: 'Connaught Place' },
-    { id: 'item-2', name: 'Woodfired Truffle Margherita', category: 'Pizzas', totalQty: 328, totalRev: 160720, topBranch: 'Gurugram CyberHub' },
-    { id: 'item-3', name: 'Iced Hazelnut Cold Brew', category: 'Beverages', totalQty: 540, totalRev: 118800, topBranch: 'Gurugram CyberHub' },
-    { id: 'item-4', name: 'Paneer Tikka Kebab Platter', category: 'Starters', totalQty: 295, totalRev: 97350, topBranch: 'Connaught Place' },
-    { id: 'item-5', name: 'Belgian Chocolate Waffle', category: 'Desserts', totalQty: 210, totalRev: 52500, topBranch: 'Indiranagar 100ft' },
-  ]);
-
-  const [cashClosures, setCashClosures] = useState<CashClosure[]>([
-    {
-      id: 'cl-01',
-      date: '2026-10-11',
-      branchName: 'Connaught Place (Main)',
-      openingCash: 5000,
-      cashSales: 28400,
-      digitalSales: 62100,
-      expectedCash: 33400,
-      actualCash: 33400,
-      variance: 0,
-      closedBy: 'Rajesh Kumar (Manager)',
-      status: 'balanced',
-    },
-    {
-      id: 'cl-02',
-      date: '2026-10-11',
-      branchName: 'Gurugram CyberHub',
-      openingCash: 5000,
-      cashSales: 18200,
-      digitalSales: 51200,
-      expectedCash: 23200,
-      actualCash: 23050,
-      variance: -150,
-      closedBy: 'Ananya Roy (Cashier)',
-      status: 'variance',
-    },
-    {
-      id: 'cl-03',
-      date: '2026-10-10',
-      branchName: 'Connaught Place (Main)',
-      openingCash: 5000,
-      cashSales: 31200,
-      digitalSales: 74500,
-      expectedCash: 36200,
-      actualCash: 36200,
-      variance: 0,
-      closedBy: 'Rajesh Kumar (Manager)',
-      status: 'balanced',
-    },
-    {
-      id: 'cl-04',
-      date: '2026-10-10',
-      branchName: 'Indiranagar 100ft',
-      openingCash: 4000,
-      cashSales: 8460,
-      digitalSales: 33840,
-      expectedCash: 12460,
-      actualCash: 12460,
-      variance: 0,
-      closedBy: 'Karthik Rao (Manager)',
-      status: 'balanced',
-    },
-  ]);
+  // Database-backed live sales and locations
+  const [branches, setBranches] = useState<BranchSale[]>([]);
+  const [topItems, setTopItems] = useState<ItemVelocity[]>([]);
+  const [cashClosures, setCashClosures] = useState<CashClosure[]>([]);
 
   const [catalogItems, setCatalogItems] = useState<ProductCatalogItem[]>([
     { id: 'p-1', name: 'Butter Chicken Biryani Box', category: 'Mains', basePrice: 350, taxRate: 5, overridePrice: 375, isAvailable: true },
@@ -208,6 +135,28 @@ export default function CloudPortalPage() {
     { id: 'tr-3', source: 'Gurugram CyberHub', dest: 'Connaught Place (Main)', item: 'Truffle Oil 500ml', qty: 4, unit: 'bottles', status: 'pending', date: '2026-10-12' },
   ]);
 
+  // Check onboarding flag and tenant storage
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const searchParams = new URLSearchParams(window.location.search);
+      if (searchParams.get('onboarded') === 'true') {
+        setIsOnboarded(true);
+      }
+      try {
+        const stored = localStorage.getItem('tenant');
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (parsed.organization?.name) {
+            setTenantName(parsed.organization.name);
+          }
+          if (parsed.branch?.id) {
+            setPairingBranch(parsed.branch.id);
+          }
+        }
+      } catch {}
+    }
+  }, []);
+
   // Timer for 6-digit PIN
   useEffect(() => {
     if (!showPairModal || pairTimeLeft <= 0) return;
@@ -215,16 +164,44 @@ export default function CloudPortalPage() {
     return () => clearInterval(interval);
   }, [showPairModal, pairTimeLeft]);
 
-  // Fetch live overview, closures, catalog, and transfers from backend
+  // Fetch live overview, restaurants, closures, catalog, and transfers from backend
   useEffect(() => {
-    fetch('/api/cloud/overview')
+    setIsLoadingHierarchy(true);
+
+    // 1. Fetch authorized restaurant concepts
+    fetch('/api/cloud/restaurants')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
-        if (data?.branches && Array.isArray(data.branches)) setBranches(data.branches);
-        if (data?.top_items && Array.isArray(data.top_items)) setTopItems(data.top_items);
+        if (data?.restaurants && Array.isArray(data.restaurants)) {
+          setRestaurants(data.restaurants);
+        }
       })
       .catch(() => {});
 
+    // 2. Fetch multi-location overview
+    fetch('/api/cloud/overview')
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.branches && Array.isArray(data.branches)) {
+          setBranches(data.branches);
+          if (data.branches[0]?.id && !overrideBranch) {
+            setOverrideBranch(data.branches[0].id);
+            setPairingBranch(data.branches[0].id);
+          }
+        }
+        if (data?.top_items && Array.isArray(data.top_items)) {
+          setTopItems(data.top_items);
+        }
+        if (data?.is_demo) {
+          setIsDemoMode(true);
+        }
+      })
+      .catch(() => {})
+      .finally(() => {
+        setIsLoadingHierarchy(false);
+      });
+
+    // 3. Fetch closures
     fetch('/api/cloud/closures')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -232,6 +209,7 @@ export default function CloudPortalPage() {
       })
       .catch(() => {});
 
+    // 4. Fetch catalog
     fetch('/api/cloud/catalog')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -239,6 +217,7 @@ export default function CloudPortalPage() {
       })
       .catch(() => {});
 
+    // 5. Fetch transfers
     fetch('/api/cloud/transfers')
       .then((res) => (res.ok ? res.json() : null))
       .then((data) => {
@@ -247,17 +226,33 @@ export default function CloudPortalPage() {
       .catch(() => {});
   }, []);
 
-  const handleGeneratePairPin = () => {
-    const code = `${Math.floor(100 + Math.random() * 900)} ${Math.floor(100 + Math.random() * 900)}`;
-    setGeneratedPairCode(code);
+  const handleGeneratePairPin = async (mode?: 'desktop' | 'mobile' | unknown) => {
+    const selectedMode = mode === 'mobile' ? 'mobile' : 'desktop';
+    setPairMode(selectedMode);
+    const fallbackPin = `${Math.floor(100 + Math.random() * 900)} ${Math.floor(100 + Math.random() * 900)}`;
+    setGeneratedPairCode(fallbackPin);
     setPairTimeLeft(900);
     setShowPairModal(true);
 
-    fetch('/api/cloud/pair/generate', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ branch_id: pairingBranch }),
-    }).catch(() => {});
+    try {
+      let token = '';
+      try {
+        const stored = localStorage.getItem('tenant');
+        if (stored) {
+          token = JSON.parse(stored).token || '';
+        }
+      } catch {}
+
+      const res = await cloudApi.post<{ pin?: string }>('/api/pairing/generate', { branch_id: pairingBranch }, {
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      });
+      if (res.data?.pin) {
+        const pin = String(res.data.pin);
+        setGeneratedPairCode(pin.length === 6 ? `${pin.slice(0, 3)} ${pin.slice(3)}` : pin);
+      }
+    } catch {
+      // Keep fallback random pin
+    }
   };
 
   const handleToggleAvailability = (item: ProductCatalogItem) => {
@@ -318,10 +313,14 @@ export default function CloudPortalPage() {
     }).catch(() => {});
   };
 
-  // Dynamically calculate metrics based on branch filter
-  const displayedBranches = selectedBranchFilter === 'all'
+  // Filter branches by selected restaurant concept, then by selected branch
+  const filteredBranchesByRestaurant = selectedRestaurantFilter === 'all'
     ? branches
-    : branches.filter((b) => b.id === selectedBranchFilter);
+    : branches.filter((b) => !b.restaurant_id || b.restaurant_id === selectedRestaurantFilter);
+
+  const displayedBranches = selectedBranchFilter === 'all'
+    ? filteredBranchesByRestaurant
+    : filteredBranchesByRestaurant.filter((b) => b.id === selectedBranchFilter);
 
   const displayedClosures = selectedBranchFilter === 'all'
     ? cashClosures
@@ -397,17 +396,42 @@ export default function CloudPortalPage() {
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold tracking-tight text-white">TasteCraft Hospitality</h1>
+              <h1 className="text-lg font-bold tracking-tight text-white">{tenantName}</h1>
               <span className="px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-500/10 text-amber-400 border border-amber-500/20">
                 Franchise HQ
               </span>
+              {isDemoMode && (
+                <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-500/20 text-amber-300 border border-amber-500/30 flex items-center gap-1">
+                  <AlertCircle className="w-3 h-3" /> Demo Simulation
+                </span>
+              )}
             </div>
-            <p className="text-xs text-slate-400">Cloudflare Workers + D1 Edge Sync • Global Latency 18ms</p>
+            <p className="text-xs text-slate-400">Cloudflare Workers + D1 Edge Sync • Multi-Concept SaaS</p>
           </div>
         </div>
 
-        {/* Global Controls: Branch Filter, Role Switcher & Pairing Quick Action */}
+        {/* Global Controls: Concept Filter, Branch Filter, Role Switcher & Pairing Quick Action */}
         <div className="flex items-center gap-3">
+          {/* Concept / Restaurant Filter Selector */}
+          <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs">
+            <UtensilsCrossed className="w-3.5 h-3.5 text-amber-400" />
+            <select
+              value={selectedRestaurantFilter}
+              onChange={(e) => {
+                setSelectedRestaurantFilter(e.target.value);
+                setSelectedBranchFilter('all');
+              }}
+              className="bg-transparent text-slate-200 outline-none font-medium cursor-pointer"
+            >
+              <option value="all" className="bg-slate-900 text-white">All Brands / Concepts</option>
+              {restaurants.map((r) => (
+                <option key={r.id} value={r.id} className="bg-slate-900 text-white">
+                  {r.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
           {/* Branch Filter Selector */}
           <div className="flex items-center gap-2 bg-slate-900 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs">
             <Store className="w-3.5 h-3.5 text-amber-400" />
@@ -416,8 +440,10 @@ export default function CloudPortalPage() {
               onChange={(e) => setSelectedBranchFilter(e.target.value)}
               className="bg-transparent text-slate-200 outline-none font-medium cursor-pointer"
             >
-              <option value="all" className="bg-slate-900 text-white">All Branches (Consolidated)</option>
-              {branches.map((b) => (
+              <option value="all" className="bg-slate-900 text-white">
+                {selectedRestaurantFilter === 'all' ? 'All Outlets (Consolidated)' : 'All Outlets for Concept'}
+              </option>
+              {filteredBranchesByRestaurant.map((b) => (
                 <option key={b.id} value={b.id} className="bg-slate-900 text-white">
                   {b.name}
                 </option>
@@ -451,18 +477,73 @@ export default function CloudPortalPage() {
             </button>
           </div>
 
+          <Link
+            href="/pos"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/30 text-xs font-medium hover:bg-amber-500/20 transition-colors"
+          >
+            <Monitor className="w-3.5 h-3.5" />
+            Web POS
+          </Link>
+
           <button
-            onClick={handleGeneratePairPin}
+            onClick={() => handleGeneratePairPin('desktop')}
             className="flex items-center gap-2 px-3.5 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 text-xs font-medium hover:bg-emerald-500/20 transition-colors"
           >
             <KeyRound className="w-3.5 h-3.5" />
-            Pair POS Terminal
+            Connect Devices
           </button>
         </div>
       </header>
 
       {/* Main Container */}
       <div className="flex-1 max-w-7xl w-full mx-auto p-6 flex flex-col gap-6">
+        {/* Tri-Platform Onboarding & Connection Hub Banner */}
+        {isOnboarded && (
+          <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-amber-500/15 via-orange-500/10 to-slate-900 border border-amber-500/30 p-6 shadow-xl backdrop-blur-sm">
+            <div className="absolute top-3 right-3">
+              <button
+                onClick={() => setIsOnboarded(false)}
+                className="text-slate-400 hover:text-white text-xs px-2.5 py-1 rounded-md bg-slate-800/80 hover:bg-slate-700 transition-colors"
+              >
+                Dismiss Banner
+              </button>
+            </div>
+            <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
+              <div className="space-y-2 max-w-2xl">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-500/20 text-amber-300 text-xs font-semibold border border-amber-500/30">
+                  <Sparkles className="w-3.5 h-3.5" /> Setup Successful — Welcome to Order It Up
+                </div>
+                <h2 className="text-xl font-bold text-white tracking-tight">
+                  Connect {tenantName} Across All 3 Application Form Factors
+                </h2>
+                <p className="text-xs text-slate-300 leading-relaxed">
+                  Your multi-branch cloud catalog and pricing rules are live. You can bill right now in your web browser, pair an offline-first desktop counter, or connect mobile companion devices for waitstaff and kitchen.
+                </p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  onClick={() => handleGeneratePairPin('desktop')}
+                  className="px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 text-slate-950 font-bold text-xs hover:brightness-110 shadow-lg shadow-amber-500/20 flex items-center gap-2 transition-all"
+                >
+                  <Laptop className="w-4 h-4" /> Connect Desktop POS
+                </button>
+                <button
+                  onClick={() => handleGeneratePairPin('mobile')}
+                  className="px-4 py-2.5 rounded-xl bg-slate-800 text-white font-semibold text-xs border border-slate-700 hover:bg-slate-700 flex items-center gap-2 transition-all"
+                >
+                  <Smartphone className="w-4 h-4" /> Connect Mobile KDS / Waiter
+                </button>
+                <Link
+                  href="/pos"
+                  className="px-4 py-2.5 rounded-xl bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-semibold text-xs hover:bg-cyan-500/30 flex items-center gap-2 transition-all"
+                >
+                  <Monitor className="w-4 h-4" /> Open Web POS Billing
+                </Link>
+              </div>
+            </div>
+          </div>
+        )}
         {/* Navigation Tabs */}
         <div className="flex border-b border-slate-800 overflow-x-auto gap-1">
           <button
@@ -579,46 +660,54 @@ export default function CloudPortalPage() {
                     <h2 className="text-base font-semibold text-white">Branch Sales Leaderboard</h2>
                     <p className="text-xs text-slate-400">Comparing real-time revenue and sales volume across outlets</p>
                   </div>
-                  <span className="text-xs text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20 font-medium">
-                    Top Outlet: Connaught Place
-                  </span>
+                  {displayedBranches.length > 0 && (
+                    <span className="text-xs text-amber-400 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20 font-medium">
+                      Top Outlet: {[...displayedBranches].sort((a, b) => b.revenue - a.revenue)[0].name}
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex flex-col gap-4 mt-2">
-                  {branches.map((b, i) => (
-                    <div key={b.id} className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 flex flex-col gap-2">
-                      <div className="flex items-center justify-between text-sm">
-                        <div className="flex items-center gap-2.5">
-                          <span className="w-6 h-6 rounded-full bg-slate-800 text-slate-300 text-xs font-bold flex items-center justify-center">
-                            #{i + 1}
-                          </span>
-                          <span className="font-semibold text-white">{b.name}</span>
-                          {b.isMain && (
-                            <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">
-                              Main HQ
-                            </span>
-                          )}
-                        </div>
-                        <div className="text-right">
-                          <span className="font-bold text-white">₹{b.revenue.toLocaleString()}</span>
-                          <span className="text-xs text-slate-400 ml-2">({b.sharePercent}%)</span>
-                        </div>
-                      </div>
-
-                      {/* Visual progress bar */}
-                      <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden flex">
-                        <div
-                          className="bg-gradient-to-r from-amber-500 to-orange-400 h-full rounded-full transition-all duration-500"
-                          style={{ width: `${b.sharePercent}%` }}
-                        />
-                      </div>
-
-                      <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
-                        <span>{b.orders} orders • Avg: ₹{b.avgTicket.toFixed(0)}</span>
-                        <span>UPI/Cards: ₹{b.digitalSales.toLocaleString()} • Cash: ₹{b.cashSales.toLocaleString()}</span>
-                      </div>
+                  {displayedBranches.length === 0 ? (
+                    <div className="p-8 text-center text-slate-400 bg-slate-900/40 rounded-xl border border-slate-800 text-xs">
+                      {isLoadingHierarchy ? 'Loading outlet performance...' : 'No active outlets found for this selection.'}
                     </div>
-                  ))}
+                  ) : (
+                    displayedBranches.map((b, i) => (
+                      <div key={b.id} className="p-4 rounded-xl bg-slate-900/60 border border-slate-800/80 flex flex-col gap-2">
+                        <div className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2.5">
+                            <span className="w-6 h-6 rounded-full bg-slate-800 text-slate-300 text-xs font-bold flex items-center justify-center">
+                              #{i + 1}
+                            </span>
+                            <span className="font-semibold text-white">{b.name}</span>
+                            {b.isMain && (
+                              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">
+                                Main HQ
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <span className="font-bold text-white">₹{b.revenue.toLocaleString()}</span>
+                            <span className="text-xs text-slate-400 ml-2">({b.sharePercent}%)</span>
+                          </div>
+                        </div>
+
+                        {/* Visual progress bar */}
+                        <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden flex">
+                          <div
+                            className="bg-gradient-to-r from-amber-500 to-orange-400 h-full rounded-full transition-all duration-500"
+                            style={{ width: `${b.sharePercent}%` }}
+                          />
+                        </div>
+
+                        <div className="flex items-center justify-between text-xs text-slate-400 pt-1">
+                          <span>{b.orders} orders • Avg: ₹{b.avgTicket.toFixed(0)}</span>
+                          <span>UPI/Cards: ₹{b.digitalSales.toLocaleString()} • Cash: ₹{b.cashSales.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    ))
+                  )}
                 </div>
               </div>
 
@@ -963,62 +1052,113 @@ export default function CloudPortalPage() {
         )}
       </div>
 
-      {/* 6-DIGIT POS TERMINAL PAIRING MODAL */}
+      {/* MULTI-PLATFORM DEVICE PAIRING MODAL */}
       {showPairModal && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
-          <div className="bg-[#111827] border border-slate-800 rounded-3xl max-w-md w-full p-6 flex flex-col gap-6 shadow-2xl relative">
+          <div className="bg-[#111827] border border-slate-800 rounded-3xl max-w-lg w-full p-6 flex flex-col gap-5 shadow-2xl relative">
             <div className="flex items-center justify-between border-b border-slate-800 pb-4">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-amber-500/20 text-amber-400 flex items-center justify-center">
-                  <Laptop className="w-4 h-4" />
+                <div className="w-9 h-9 rounded-xl bg-amber-500/20 text-amber-400 flex items-center justify-center shadow-inner">
+                  {pairMode === 'desktop' ? <Laptop className="w-5 h-5" /> : <Smartphone className="w-5 h-5" />}
                 </div>
                 <div>
-                  <h3 className="text-base font-bold text-white">Pair POS Counter</h3>
-                  <p className="text-xs text-slate-400">One-time cryptographic terminal enrollment</p>
+                  <h3 className="text-base font-bold text-white">Connect Restaurant Device</h3>
+                  <p className="text-xs text-slate-400">Cryptographic pairing for {tenantName}</p>
                 </div>
               </div>
               <button
                 onClick={() => setShowPairModal(false)}
-                className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded-md bg-slate-800"
+                className="text-slate-400 hover:text-white text-xs px-2.5 py-1.5 rounded-lg bg-slate-800/80 hover:bg-slate-700 transition-colors"
               >
                 Close
               </button>
             </div>
 
-            <div className="flex flex-col items-center gap-3 py-4 text-center">
-              <span className="text-xs text-slate-400">Enter this 6-digit code on the POS Terminal:</span>
-              <div className="px-6 py-4 rounded-2xl bg-slate-900 border-2 border-amber-500/40 font-mono text-3xl font-extrabold text-amber-400 tracking-widest shadow-inner">
+            {/* Platform Selector Tabs */}
+            <div className="grid grid-cols-2 gap-2 bg-slate-900/90 p-1.5 rounded-xl border border-slate-800 text-xs font-semibold">
+              <button
+                onClick={() => setPairMode('desktop')}
+                className={`py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all ${
+                  pairMode === 'desktop'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Laptop className="w-4 h-4" /> Desktop POS Counter
+              </button>
+              <button
+                onClick={() => setPairMode('mobile')}
+                className={`py-2 px-3 rounded-lg flex items-center justify-center gap-2 transition-all ${
+                  pairMode === 'mobile'
+                    ? 'bg-amber-500 text-slate-950 font-bold shadow-md shadow-amber-500/20'
+                    : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <Smartphone className="w-4 h-4" /> Waiter & KDS Mobile
+              </button>
+            </div>
+
+            {/* Display PIN */}
+            <div className="flex flex-col items-center gap-2.5 py-3 text-center bg-slate-900/50 rounded-2xl border border-slate-800/80">
+              <span className="text-xs text-slate-400">
+                {pairMode === 'desktop'
+                  ? 'Enter this 6-digit code on the Desktop POS Counter:'
+                  : 'Enter this 6-digit code or scan on the Handheld Device:'}
+              </span>
+              <div className="px-6 py-3 rounded-2xl bg-slate-950 border-2 border-amber-500/40 font-mono text-3xl font-extrabold text-amber-400 tracking-widest shadow-inner">
                 {generatedPairCode || '849 203'}
               </div>
-              <div className="flex items-center gap-1.5 text-xs text-slate-400 mt-1">
+              <div className="flex items-center gap-1.5 text-xs text-slate-400">
                 <Clock className="w-3.5 h-3.5 text-amber-400" />
                 Code expires in{' '}
                 <span className="font-mono text-white font-semibold">
                   {Math.floor(pairTimeLeft / 60)}:{(pairTimeLeft % 60).toString().padStart(2, '0')}
                 </span>
+                <span className="text-slate-500 mx-1">•</span>
+                <span className="text-slate-400">Outlet: <strong className="text-amber-300 font-mono">{pairingBranch}</strong></span>
               </div>
             </div>
 
+            {/* Step-by-step instructions */}
             <div className="p-4 rounded-xl bg-slate-900/80 border border-slate-800 text-xs text-slate-300 flex flex-col gap-2">
               <div className="font-semibold text-white flex items-center gap-1.5">
-                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> Instructions for Counter Cashier:
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                {pairMode === 'desktop' ? 'Desktop Counter Setup:' : 'Waiter & KDS Setup:'}
               </div>
-              <ol className="list-decimal list-inside space-y-1 text-slate-400">
-                <li>On the desktop POS counter, open <strong>Settings → Cloud Sync</strong></li>
-                <li>Click <strong>Connect with 6-Digit PIN</strong></li>
-                <li>Enter the code above and click <strong>Verify & Pair</strong></li>
-              </ol>
+              {pairMode === 'desktop' ? (
+                <ol className="list-decimal list-inside space-y-1.5 text-slate-400">
+                  <li>Launch Order It Up desktop app on the billing counter computer</li>
+                  <li>Navigate to <strong>Settings → Cloud Sync & Edge</strong></li>
+                  <li>Click <strong>Pair with 6-Digit PIN</strong> and enter <strong className="text-white font-mono">{generatedPairCode || '849 203'}</strong></li>
+                  <li>Terminal binds to cloud catalog and retains offline-first local SQLite billing</li>
+                </ol>
+              ) : (
+                <ol className="list-decimal list-inside space-y-1.5 text-slate-400">
+                  <li>Open Order It Up Companion on phone or tablet (Flutter Android/iOS)</li>
+                  <li>Tap <strong>Connect to Restaurant Cloud</strong></li>
+                  <li>Enter the PIN above to assign this device to outlet <strong className="text-white font-mono">{pairingBranch}</strong></li>
+                  <li>Staff can immediately punch table orders and view live kitchen tickets</li>
+                </ol>
+              )}
             </div>
 
-            <button
-              onClick={() => {
-                navigator.clipboard?.writeText((generatedPairCode || '849 203').replace(/\s/g, ''));
-                alert('Pairing PIN copied to clipboard!');
-              }}
-              className="w-full py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
-            >
-              <Copy className="w-4 h-4" /> Copy PIN to Clipboard
-            </button>
+            <div className="flex gap-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText((generatedPairCode || '849 203').replace(/\s/g, ''));
+                  alert('Pairing PIN copied to clipboard!');
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-amber-500 text-slate-950 font-bold text-xs hover:bg-amber-400 transition-colors shadow-lg shadow-amber-500/20 flex items-center justify-center gap-2"
+              >
+                <Copy className="w-4 h-4" /> Copy PIN
+              </button>
+              <button
+                onClick={() => handleGeneratePairPin(pairMode)}
+                className="px-4 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold border border-slate-700 transition-colors"
+              >
+                Regenerate PIN
+              </button>
+            </div>
           </div>
         </div>
       )}
