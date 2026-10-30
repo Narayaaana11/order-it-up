@@ -256,14 +256,14 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   let memberships = await getUserMemberships(env.DB, orgId, userId);
 
   // Backward-compatible fallback for owner/admin JWT claims if mock DB or legacy tenant lacks memberships row
-  if (memberships.length === 0 && (claims.role === 'owner' || claims.role === 'admin')) {
+  if (memberships.length === 0 && (claims.role === 'owner' || (claims.role as string) === 'admin' || claims.role === 'super_admin')) {
     memberships = [{
       id: `fallback-${userId}`,
       organization_id: orgId,
       user_id: userId,
       restaurant_id: null,
       branch_id: null,
-      role: claims.role,
+      role: (claims.role as any) === 'admin' ? 'super_admin' : claims.role,
       status: 'active'
     }];
   }
