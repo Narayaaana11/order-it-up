@@ -5,6 +5,7 @@ compatibility_flags = ["nodejs_compat"]
 
 [vars]
 ENVIRONMENT = "production"
+FRONTEND_ORIGIN = "https://app.orderitup.in, https://orderitup.in, https://orderitup.pages.dev"
 # Mandatory Security Requirement:
 # JWT_SECRET must be configured as an encrypted environment secret (minimum 32 characters / 256 bits):
 # - Production: Run `wrangler secret put JWT_SECRET`
@@ -13,7 +14,7 @@ ENVIRONMENT = "production"
 [[d1_databases]]
 binding = "DB"
 database_name = "orderitup-d1-prod"
-database_id = "orderitup-d1-prod-db-id"
+database_id = "145d0618-ed44-42ce-8209-658ad2bcc2fd"
 
 # -----------------------------------------------------------------------------
 # Staging Environment (Strictly Isolated from Production)
