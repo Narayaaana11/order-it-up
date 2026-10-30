@@ -212,8 +212,7 @@ class _ProductsScreenState extends State<ProductsScreen> {
                                       // Availability 86 toggle button
                                       TextButton(
                                         onPressed: () {
-                                          menu.toggleProductAvailability(
-                                              p.id, !p.isActive);
+                                          menu.toggleProductAvailability(p.id);
                                         },
                                         style: TextButton.styleFrom(
                                           backgroundColor: p.isActive

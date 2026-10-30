@@ -27,6 +27,7 @@ class ProductModel {
   bool get isAvailable => isActive;
   String? get categoryName => category ?? categoryId;
   String? get code => null;
+  String get kitchenStation => station;
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     final rawPrice = json['price'];
