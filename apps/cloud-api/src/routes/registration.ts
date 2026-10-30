@@ -127,7 +127,9 @@ export async function handleRegisterTenant(request: Request, env: Env): Promise<
   }
 
   const restaurantName = typeof body.restaurant_name === 'string' ? body.restaurant_name.trim() : '';
-  const ownerName = typeof body.owner_name === 'string' ? body.owner_name.trim() : '';
+  const ownerName = typeof body.owner_name === 'string' && body.owner_name.trim() 
+    ? body.owner_name.trim() 
+    : (typeof body.full_name === 'string' ? body.full_name.trim() : '');
   const email = typeof body.email === 'string' ? body.email.trim().toLowerCase() : '';
   const password = typeof body.password === 'string' ? body.password : '';
   const country = typeof body.country === 'string' && body.country.trim() ? body.country.trim().toUpperCase() : 'IN';

@@ -1137,7 +1137,7 @@ export async function handleRecordCustomerPayment(
 
   const extRef = typeof body?.external_reference_id === 'string' && body.external_reference_id.trim()
     ? body.external_reference_id.trim()
-    : null;
+    : (typeof body?.reference_number === 'string' && body.reference_number.trim() ? body.reference_number.trim() : null);
 
   // Non-cash payments REQUIRE valid external transaction reference (UTR, terminal auth code)
   if (paymentMethod !== 'cash') {
@@ -1418,7 +1418,9 @@ export async function handleRefundCustomerPayment(
     refund: {
       id: refundId,
       parent_payment_id: paymentId,
+      amount: refundAmount,
       refunded_amount: refundAmount,
+      refund_type: refundType,
       reason,
       created_at: now,
     },
@@ -1489,7 +1491,9 @@ export async function handleCreateTable(
   }
 
   const branchId = typeof body?.branch_id === 'string' ? body.branch_id.trim() : '';
-  const tableNumber = typeof body?.table_number === 'string' ? body.table_number.trim() : '';
+  const tableNumber = typeof body?.table_number === 'string' && body.table_number.trim()
+    ? body.table_number.trim()
+    : (typeof body?.name === 'string' ? body.name.trim() : '');
 
   if (!branchId || !tableNumber) {
     return Response.json({ error: 'branch_id and table_number are required' }, { status: 400 });

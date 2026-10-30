@@ -223,7 +223,7 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   }
 
   // 2b. Auth: Self-Service Tenant Registration
-  if (path === '/api/auth/register' && method === 'POST') {
+  if ((path === '/api/auth/register' || path === '/api/auth/register-saas') && method === 'POST') {
     return handleRegisterTenant(request, env);
   }
 
