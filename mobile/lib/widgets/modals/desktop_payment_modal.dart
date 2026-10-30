@@ -294,7 +294,8 @@ class _DesktopPaymentModalState extends State<DesktopPaymentModal> {
                       orderNumber:
                           'INV-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}',
                       amount: widget.grandTotal,
-                      onPaymentConfirmed: () {
+                      onPaymentConfirmed: (utr) {
+                        _cardRefController.text = utr;
                         Navigator.pop(context);
                         _completePayment();
                       },

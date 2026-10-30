@@ -109,7 +109,7 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
         builder: (_) => UpiQrDialog(
           amount: bill.totalPayable,
           orderNumber: bill.orderNumber,
-          onPaymentConfirmed: () {
+          onPaymentConfirmed: (utr) {
             setState(() => _cart.clear());
             showDialog(
                 context: context,

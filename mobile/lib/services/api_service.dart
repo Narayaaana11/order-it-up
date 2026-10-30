@@ -16,6 +16,7 @@ import 'mock_data_service.dart';
 class ApiService {
   final ApiClient apiClient;
   bool isDemoMode;
+  String? activeBranchId;
 
   // In-memory state for Demo Mode so actions persist during runtime
   List<TableModel> _demoTables = MockDataService.getTables();
@@ -28,7 +29,11 @@ class ApiService {
   List<CashClosureModel> _demoClosures = MockDataService.getCashClosures();
   List<ReservationModel> _demoReservations = MockDataService.getReservations();
 
-  ApiService({required this.apiClient, this.isDemoMode = false});
+  ApiService({
+    required this.apiClient,
+    this.isDemoMode = false,
+    this.activeBranchId,
+  });
 
   Future<bool> checkHealth() async {
     if (isDemoMode) return true;
@@ -175,9 +180,8 @@ class ApiService {
           .toList();
 
       final tableIndex = _demoTables.indexWhere((t) => t.id == tableId);
-      final tableName = tableIndex != null && tableIndex >= 0
-          ? _demoTables[tableIndex].number
-          : 'Table';
+      final tableName =
+          tableIndex >= 0 ? _demoTables[tableIndex].number : 'Table';
 
       if (existingOrderId != null) {
         // Append items to existing order
