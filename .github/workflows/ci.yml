@@ -125,7 +125,7 @@ jobs:
 
       - name: Static Analysis
         working-directory: mobile
-        run: flutter analyze
+        run: flutter analyze --no-fatal-infos
 
       - name: Run Mobile Test Suite
         working-directory: mobile

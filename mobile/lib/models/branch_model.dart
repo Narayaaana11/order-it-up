@@ -2,6 +2,7 @@ class BranchSaleModel {
   final String id;
   final String name;
   final String code;
+  final String city;
   final bool isMain;
   final double revenue;
   final int orders;
@@ -9,25 +10,34 @@ class BranchSaleModel {
   final double cashSales;
   final double digitalSales;
   final int sharePercent;
+  final double variance;
+  final String status;
 
   const BranchSaleModel({
     required this.id,
     required this.name,
-    required this.code,
-    required this.isMain,
+    this.code = '',
+    this.city = '',
+    this.isMain = false,
     required this.revenue,
     required this.orders,
-    required this.avgTicket,
-    required this.cashSales,
-    required this.digitalSales,
-    required this.sharePercent,
+    this.avgTicket = 0.0,
+    this.cashSales = 0.0,
+    this.digitalSales = 0.0,
+    this.sharePercent = 0,
+    this.variance = 0.0,
+    this.status = 'online',
   });
+
+  bool get isOnline => status == 'online';
+  bool get hasVarianceAlert => variance.abs() > 50;
 
   factory BranchSaleModel.fromJson(Map<String, dynamic> json) {
     return BranchSaleModel(
       id: json['id'] as String? ?? '',
       name: json['name'] as String? ?? '',
       code: json['code'] as String? ?? '',
+      city: json['city'] as String? ?? '',
       isMain: json['isMain'] as bool? ??
           (json['is_main_branch'] == 1 || json['is_main_branch'] == true),
       revenue: (json['revenue'] as num? ?? json['total_sales'] as num? ?? 0.0)
@@ -43,6 +53,8 @@ class BranchSaleModel {
           (json['digitalSales'] as num? ?? json['digital_sales'] as num? ?? 0.0)
               .toDouble(),
       sharePercent: json['sharePercent'] as int? ?? 0,
+      variance: (json['variance'] as num? ?? 0.0).toDouble(),
+      status: json['status'] as String? ?? 'online',
     );
   }
 
@@ -50,6 +62,7 @@ class BranchSaleModel {
         'id': id,
         'name': name,
         'code': code,
+        'city': city,
         'isMain': isMain,
         'revenue': revenue,
         'orders': orders,
@@ -57,6 +70,8 @@ class BranchSaleModel {
         'cashSales': cashSales,
         'digitalSales': digitalSales,
         'sharePercent': sharePercent,
+        'variance': variance,
+        'status': status,
       };
 }
 

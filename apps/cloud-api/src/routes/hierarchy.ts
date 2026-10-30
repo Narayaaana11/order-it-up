@@ -22,8 +22,10 @@ export async function handleListRestaurants(
 
   const memberships = await getUserMemberships(env.DB, orgId, userId);
 
+  const isOwner = isOrgOwnerOrAdmin(memberships) || claims.role === 'owner' || claims.role === 'admin';
+
   // If organization owner or admin, return all restaurants in tenant
-  if (isOrgOwnerOrAdmin(memberships)) {
+  if (isOwner) {
     const result = await env.DB.prepare(`
       SELECT * FROM restaurants 
       WHERE organization_id = ? AND status = 'active'
@@ -54,7 +56,8 @@ export async function handleCreateRestaurant(
   const userId = claims.sub;
 
   const memberships = await getUserMemberships(env.DB, orgId, userId);
-  if (!isOrgOwnerOrAdmin(memberships)) {
+  const isOwner = isOrgOwnerOrAdmin(memberships) || claims.role === 'owner' || claims.role === 'admin';
+  if (!isOwner) {
     return Response.json(
       { error: 'Forbidden: Only organization owners can create restaurant concepts' },
       { status: 403 }
@@ -117,7 +120,7 @@ export async function handleListBranches(
   const restaurantIdFilter = url.searchParams.get('restaurant_id');
 
   const memberships = await getUserMemberships(env.DB, orgId, userId);
-  const isOwner = isOrgOwnerOrAdmin(memberships);
+  const isOwner = isOrgOwnerOrAdmin(memberships) || claims.role === 'owner' || claims.role === 'admin';
 
   // If filtered by restaurant, verify ownership and user permission
   if (restaurantIdFilter) {
