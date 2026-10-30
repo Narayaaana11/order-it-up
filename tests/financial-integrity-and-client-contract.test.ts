@@ -734,14 +734,20 @@ async function runC121TestSuite(): Promise<void> {
     VALUES ('term-offline-1', 'org-a', 'br-a1', 'Register 1', ?, 'active', ?)
   `).run(tokenHash, nowIso);
 
-  const offlineOrderId = 'ord-sync-completed-001';
-  const syncEvent = {
+  // =========================================================================
+  // TEST 13: OFFLINE POS SYNC & STRICT PAYMENT SETTLEMENT DERIVATION (P0)
+  // =========================================================================
+  console.log('🧪 [Test 13/17] P0 Offline Payment Settlement Derivation & Integrity...');
+
+  // 13a. Completed order with NO payment_status -> must remain 'unpaid', NO customer_payments row
+  const offlineUnpaidOrderId = 'ord-sync-no-paystatus-001';
+  const syncEventNoPayment = {
     events: [
       {
-        id: 'evt-sync-001',
+        id: 'evt-sync-nopay-001',
         type: 'order.completed',
         payload: {
-          id: offlineOrderId,
+          id: offlineUnpaidOrderId,
           order_number: 'OFF-101',
           order_type: 'takeaway',
           status: 'completed',
@@ -756,30 +762,234 @@ async function runC121TestSuite(): Promise<void> {
     ],
   };
 
-  const syncReq = new Request('https://cloud.orderitup.internal/api/pos/events', {
+  const syncReqNoPay = new Request('https://cloud.orderitup.internal/api/pos/events', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${rawTerminalToken}`,
     },
-    body: JSON.stringify(syncEvent),
+    body: JSON.stringify(syncEventNoPayment),
   });
-  const syncRes = await cloudWorker.fetch(syncReq, env);
-  assert.equal(syncRes.status, 200);
+  const syncResNoPay = await cloudWorker.fetch(syncReqNoPay, env);
+  assert.equal(syncResNoPay.status, 200);
 
-  // Verify that customer_payments was ingested for the completed offline order
-  const syncPayment = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').get(offlineOrderId) as any;
-  assert.ok(syncPayment, 'Customer payment record must be created for offline completed order');
-  assert.equal(syncPayment.amount, 418.95);
-  assert.equal(syncPayment.payment_method, 'cash');
-  assert.equal(syncPayment.status, 'completed');
-  console.log('  ✓ Offline POS completed order ingested into customer payment ledger');
+  const orderNoPay = rawDb.prepare('SELECT payment_status, status FROM synced_orders WHERE id = ?').get(offlineUnpaidOrderId) as any;
+  assert.ok(orderNoPay, 'Order must be ingested');
+  assert.equal(orderNoPay.status, 'completed');
+  assert.equal(orderNoPay.payment_status, 'unpaid', 'Order with omitted payment_status MUST remain unpaid');
+
+  const paymentNoPay = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').get(offlineUnpaidOrderId) as any;
+  assert.equal(paymentNoPay, undefined, 'NO customer_payments row should exist for order with omitted payment_status');
+  console.log('  ✓ Completed order with no payment status → unpaid; no payment ledger row');
+
+  // 13b. Completed order with explicit unpaid status -> no payment ledger row
+  const offlineExplicitUnpaidOrderId = 'ord-sync-explicit-unpaid-002';
+  const syncEventExplicitUnpaid = {
+    events: [
+      {
+        id: 'evt-sync-unpaid-002',
+        type: 'order.completed',
+        payload: {
+          id: offlineExplicitUnpaidOrderId,
+          order_number: 'OFF-102',
+          order_type: 'takeaway',
+          status: 'completed',
+          payment_status: 'unpaid',
+          subtotal: 399.0,
+          tax_total: 19.95,
+          grand_total: 418.95,
+          payment_method: 'cash',
+          ordered_at: nowIso,
+          items: [{ product_id: 'prod-margherita', quantity: 1, unit_price: 399.0 }],
+        },
+      },
+    ],
+  };
+
+  const syncResExpUnpaid = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(syncEventExplicitUnpaid),
+  }), env);
+  assert.equal(syncResExpUnpaid.status, 200);
+
+  const orderExpUnpaid = rawDb.prepare('SELECT payment_status FROM synced_orders WHERE id = ?').get(offlineExplicitUnpaidOrderId) as any;
+  assert.equal(orderExpUnpaid.payment_status, 'unpaid');
+  const paymentExpUnpaid = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').get(offlineExplicitUnpaidOrderId) as any;
+  assert.equal(paymentExpUnpaid, undefined, 'NO customer_payments row should exist for explicit unpaid order');
+  console.log('  ✓ Completed order with explicit unpaid status → no payment ledger row');
+
+  // 13c. Completed order with explicit valid offline settlement -> exactly one appropriately classified ledger row
+  const offlineSettledOrderId = 'ord-sync-settled-003';
+  const syncEventSettled = {
+    events: [
+      {
+        id: 'evt-sync-settled-003',
+        type: 'order.completed',
+        payload: {
+          id: offlineSettledOrderId,
+          order_number: 'OFF-103',
+          order_type: 'takeaway',
+          status: 'completed',
+          payment_status: 'paid',
+          subtotal: 399.0,
+          tax_total: 19.95,
+          grand_total: 418.95,
+          payment_method: 'cash',
+          ordered_at: nowIso,
+          items: [{ product_id: 'prod-margherita', quantity: 1, unit_price: 399.0 }],
+        },
+      },
+    ],
+  };
+
+  const syncResSettled = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(syncEventSettled),
+  }), env);
+  assert.equal(syncResSettled.status, 200);
+
+  const orderSettled = rawDb.prepare('SELECT payment_status FROM synced_orders WHERE id = ?').get(offlineSettledOrderId) as any;
+  assert.equal(orderSettled.payment_status, 'paid');
+
+  const paymentsSettled = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').all(offlineSettledOrderId) as any[];
+  assert.equal(paymentsSettled.length, 1, 'Exactly one payment ledger row must be created for valid offline settlement');
+  assert.equal(paymentsSettled[0].amount, 418.95);
+  assert.equal(paymentsSettled[0].payment_method, 'cash');
+  assert.equal(paymentsSettled[0].verification_method, 'cashier_collected');
+  assert.equal(paymentsSettled[0].status, 'completed');
+  console.log('  ✓ Completed order with explicit valid offline settlement → exactly one appropriately classified ledger row');
+
+  // 13d. Replayed settlement event -> no duplicate payment
+  const syncResReplay = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(syncEventSettled),
+  }), env);
+  assert.equal(syncResReplay.status, 200);
+  const replayJson = await syncResReplay.json() as any;
+  assert.equal(replayJson.processed_count, 1, 'Idempotent replay must acknowledge processed event');
+
+  const paymentsAfterReplay = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').all(offlineSettledOrderId) as any[];
+  assert.equal(paymentsAfterReplay.length, 1, 'Replayed settlement event must NOT duplicate payment');
+  console.log('  ✓ Replayed settlement event → no duplicate payment');
+
+  // 13e. Conflicting replay using the same event ID -> rejected without changing the ledger
+  const conflictingSyncEvent = {
+    events: [
+      {
+        id: 'evt-sync-settled-003', // Reused ID
+        type: 'order.completed',
+        payload: {
+          id: offlineSettledOrderId,
+          order_number: 'OFF-103',
+          grand_total: 999999.0, // Tampered amount
+          payment_status: 'paid',
+          payment_method: 'cash',
+        },
+      },
+    ],
+  };
+
+  const syncResConflict = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(conflictingSyncEvent),
+  }), env);
+  assert.equal(syncResConflict.status, 200);
+  const conflictJson = await syncResConflict.json() as any;
+  assert.equal(conflictJson.failed_count, 1, 'Conflicting event replay must fail');
+  assert.equal(conflictJson.processed_count, 0);
+
+  const paymentAfterConflict = rawDb.prepare('SELECT amount FROM customer_payments WHERE order_id = ?').get(offlineSettledOrderId) as any;
+  assert.equal(paymentAfterConflict.amount, 418.95, 'Ledger payment amount must remain untampered');
+  console.log('  ✓ Conflicting replay using the same event ID → rejected without changing the ledger');
+
+  // 13f. Invalid amount or payment method -> rejected without changing financial state
+  const invalidPaymentSyncEvent = {
+    events: [
+      {
+        id: 'evt-sync-invalid-004',
+        type: 'order.completed',
+        payload: {
+          id: 'ord-sync-invalid-004',
+          order_number: 'OFF-104',
+          order_type: 'takeaway',
+          status: 'completed',
+          payment_status: 'paid',
+          subtotal: 100.0,
+          tax_total: 5.0,
+          grand_total: -50.0, // Invalid negative amount
+          payment_method: 'unsupported_cryptocurrency', // Invalid method
+          ordered_at: nowIso,
+          items: [{ product_id: 'prod-margherita', quantity: 1, unit_price: 100.0 }],
+        },
+      },
+    ],
+  };
+
+  const syncResInvalid = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(invalidPaymentSyncEvent),
+  }), env);
+  assert.equal(syncResInvalid.status, 200);
+
+  const paymentInvalid = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').get('ord-sync-invalid-004') as any;
+  assert.equal(paymentInvalid, undefined, 'Invalid payment method/amount must NOT create a customer_payments ledger row');
+  const orderInvalid = rawDb.prepare('SELECT payment_status FROM synced_orders WHERE id = ?').get('ord-sync-invalid-004') as any;
+  if (orderInvalid) {
+    assert.equal(orderInvalid.payment_status, 'unpaid', 'Order with invalid settlement must remain unpaid');
+  }
+  console.log('  ✓ Invalid amount or payment method → rejected without changing financial state');
+
+  // 13g. Dedicated payment.settled sync event
+  const dedicatedSettledOrderId = 'ord-sync-dedicated-005';
+  // First seed order as unpaid
+  rawDb.prepare(`
+    INSERT INTO synced_orders (id, organization_id, branch_id, order_number, order_type, status, subtotal, tax_total, discount_total, grand_total, payment_status, payment_method, ordered_at, synced_at)
+    VALUES (?, 'org-a', 'br-a1', 'ORD-DED-005', 'dine_in', 'completed', 200.0, 10.0, 0, 210.0, 'unpaid', 'none', ?, ?)
+  `).run(dedicatedSettledOrderId, nowIso, nowIso);
+
+  const dedicatedPaymentEvent = {
+    events: [
+      {
+        id: 'evt-sync-ded-pay-005',
+        type: 'payment.settled',
+        payload: {
+          order_id: dedicatedSettledOrderId,
+          amount: 210.0,
+          payment_method: 'upi',
+          external_reference_id: 'UTR-DED-883311',
+          settled_at: nowIso,
+        },
+      },
+    ],
+  };
+
+  const syncResDed = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(dedicatedPaymentEvent),
+  }), env);
+  assert.equal(syncResDed.status, 200);
+
+  const dedPayment = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').get(dedicatedSettledOrderId) as any;
+  assert.ok(dedPayment, 'Dedicated payment.settled event must create a customer_payments row');
+  assert.equal(dedPayment.amount, 210.0);
+  assert.equal(dedPayment.payment_method, 'upi');
+  assert.equal(dedPayment.verification_method, 'manual_cashier_confirmed');
+
+  const dedOrder = rawDb.prepare('SELECT payment_status, payment_method FROM synced_orders WHERE id = ?').get(dedicatedSettledOrderId) as any;
+  assert.equal(dedOrder.payment_status, 'paid');
+  assert.equal(dedOrder.payment_method, 'upi');
+  console.log('  ✓ Dedicated payment.settled event records auditable payment and marks order paid');
 
   // =========================================================================
   // TEST 14: FRONTEND ORDERS PAGE CLIENT CONTRACT (BRANCH_ID SCOPING)
   // =========================================================================
-  console.log('🧪 [Test 14/16] Frontend Orders Page Client Contract (branch_id Required)...');
-  // Attempting to list orders without branch_id query returns 400
+  console.log('🧪 [Test 14/17] Frontend Orders Page Client Contract (branch_id Required)...');
   const noBranchReq = new Request('https://cloud.orderitup.internal/api/orders', {
     method: 'GET',
     headers: { Authorization: `Bearer ${tokenOwner}` },
@@ -787,7 +997,6 @@ async function runC121TestSuite(): Promise<void> {
   const noBranchRes = await cloudWorker.fetch(noBranchReq, env);
   assert.equal(noBranchRes.status, 400);
 
-  // Listing with branch_id returns orders for that branch
   const withBranchReq = new Request('https://cloud.orderitup.internal/api/orders?branch_id=br-a1', {
     method: 'GET',
     headers: { Authorization: `Bearer ${tokenOwner}` },
@@ -799,26 +1008,110 @@ async function runC121TestSuite(): Promise<void> {
   console.log('  ✓ branch_id requirement and scoping confirmed for orders list');
 
   // =========================================================================
-  // TEST 15: MOBILE FLUTTER CLIENT CONTRACT (BRANCH PARAMETERS & NO DEMO FALLBACK)
+  // TEST 15: ACTIVE ORDER LOOKUP BRANCH SCOPE & MULTI-BRANCH ISOLATION
   // =========================================================================
-  console.log('🧪 [Test 15/16] Mobile Client Contract & Honest Empty List Guarantees...');
-  // Inspect mobile/lib/services/api_service.dart to assert branch_id parameter inclusion and no mock data
+  console.log('🧪 [Test 15/17] Active Order Lookup Branch Scope & Branch Switch Isolation...');
+  // Seed dining table and second branch for branch switch verification
+  rawDb.prepare(`
+    INSERT INTO branches (id, organization_id, restaurant_id, code, name, is_main_branch, status, created_at, updated_at)
+    VALUES ('br-a2', 'org-a', 'rest-a1', 'BR-A2', 'Branch 2', 0, 'active', ?, ?)
+  `).run(nowIso, nowIso);
+  rawDb.prepare(`
+    INSERT INTO dining_tables (id, organization_id, restaurant_id, branch_id, table_number, created_at, updated_at)
+    VALUES ('tbl-scope-1', 'org-a', 'rest-a1', 'br-a1', 'T1', ?, ?)
+  `).run(nowIso, nowIso);
+
+  const tableOrderIdBranchA = 'ord-table-branch-a-1';
+  rawDb.prepare(`
+    INSERT INTO synced_orders (id, organization_id, branch_id, table_id, order_number, order_type, status, subtotal, tax_total, discount_total, grand_total, payment_status, payment_method, ordered_at, synced_at)
+    VALUES (?, 'org-a', 'br-a1', 'tbl-scope-1', 'ORD-A-101', 'dine_in', 'pending', 150.0, 7.5, 0, 157.5, 'unpaid', 'cash', ?, ?)
+  `).run(tableOrderIdBranchA, nowIso, nowIso);
+
+  // 15a. Active order found in selected branch
+  const tableOrderReqA = new Request('https://cloud.orderitup.internal/api/orders?branch_id=br-a1&table_id=tbl-scope-1&type=dine_in&status=pending,preparing,ready&limit=1', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${tokenOwner}` },
+  });
+  const tableOrderResA = await cloudWorker.fetch(tableOrderReqA, env);
+  assert.equal(tableOrderResA.status, 200);
+  const tableOrderJsonA = await tableOrderResA.json() as any;
+  assert.equal(tableOrderJsonA.orders.length, 1);
+  assert.equal(tableOrderJsonA.orders[0].id, tableOrderIdBranchA);
+  console.log('  ✓ Active order found in the selected branch');
+
+  // 15b. No active order in selected branch for empty table
+  const tableEmptyReq = new Request('https://cloud.orderitup.internal/api/orders?branch_id=br-a1&table_id=tbl-empty-99&type=dine_in&status=pending,preparing,ready&limit=1', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${tokenOwner}` },
+  });
+  const tableEmptyRes = await cloudWorker.fetch(tableEmptyReq, env);
+  assert.equal(tableEmptyRes.status, 200);
+  const tableEmptyJson = await tableEmptyRes.json() as any;
+  assert.equal(tableEmptyJson.orders.length, 0);
+  console.log('  ✓ No active order in the selected branch');
+
+  // 15c. Branch switch does not leak the previous branch's order
+  const tableOrderReqB = new Request('https://cloud.orderitup.internal/api/orders?branch_id=br-a2&table_id=tbl-scope-1&type=dine_in&status=pending,preparing,ready&limit=1', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${tokenOwner}` },
+  });
+  const tableOrderResB = await cloudWorker.fetch(tableOrderReqB, env);
+  assert.equal(tableOrderResB.status, 200);
+  const tableOrderJsonB = await tableOrderResB.json() as any;
+  assert.equal(tableOrderJsonB.orders.length, 0, 'Branch switch to br-a2 must NOT return order from br-a1');
+  console.log('  ✓ Branch switch does not leak previous branch\'s order');
+
+  // 15d. Missing/unauthorized branch returns an honest error rather than appearing as "no active order"
+  const missingBranchReq = new Request('https://cloud.orderitup.internal/api/orders?table_id=tbl-scope-1&type=dine_in&status=pending,preparing,ready&limit=1', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${tokenOwner}` },
+  });
+  const missingBranchRes = await cloudWorker.fetch(missingBranchReq, env);
+  assert.equal(missingBranchRes.status, 400, 'Missing branch_id must return HTTP 400');
+
+  const unauthBranchReq = new Request('https://cloud.orderitup.internal/api/orders?branch_id=br-foreign&table_id=tbl-scope-1&type=dine_in&status=pending,preparing,ready&limit=1', {
+    method: 'GET',
+    headers: { Authorization: `Bearer ${tokenCashier}` },
+  });
+  const unauthBranchRes = await cloudWorker.fetch(unauthBranchReq, env);
+  assert.equal(unauthBranchRes.status, 403, 'Unauthorized branch access must return HTTP 403');
+  console.log('  ✓ Missing/unauthorized branch returns an honest error rather than silently appearing as "no active order"');
+
+  // =========================================================================
+  // TEST 16: MOBILE FLUTTER CLIENT CONTRACT (ZERO MOCK DATA LEAKAGE)
+  // =========================================================================
+  console.log('🧪 [Test 16/17] Mobile Flutter Client Contract (Zero Mock Data Leakage)...');
   const apiServiceDart = fs.readFileSync(path.resolve(__dirname, '../mobile/lib/services/api_service.dart'), 'utf-8');
-  assert.ok(apiServiceDart.includes("'branch_id': activeBranchId"), 'api_service.dart must pass branch_id in getTables');
-  assert.ok(apiServiceDart.includes("'branch_id': activeBranchId"), 'api_service.dart must pass branch_id in getAllOrders');
-  assert.ok(apiServiceDart.includes("'branch_id': activeBranchId"), 'api_service.dart must pass branch_id in getKdsTickets');
-  assert.ok(!apiServiceDart.includes('catch (_) {\n      return _demoOrders;') && !apiServiceDart.includes('catch (e) {\n      return _demoOrders;'), 'api_service.dart catch blocks must not fall back to _demoOrders');
-  assert.ok(!apiServiceDart.includes('catch (_) {\n      return _demoTables;') && !apiServiceDart.includes('catch (e) {\n      return _demoTables;'), 'api_service.dart catch blocks must not fall back to _demoTables');
-  assert.ok(!apiServiceDart.includes('catch (_) {\n      return _demoKds;') && !apiServiceDart.includes('catch (e) {\n      return _demoKds;'), 'api_service.dart catch blocks must not fall back to _demoKds');
+
+  // Verify honest empty lists on non-demo catch blocks across all entities
+  assert.ok(!apiServiceDart.includes('catch (_) {\n      return MockDataService.getCategories();'), 'getCategories must not fall back to MockDataService');
+  assert.ok(!apiServiceDart.includes('catch (_) {\n      return _demoProducts;'), 'getProducts must not fall back to _demoProducts');
+  assert.ok(!apiServiceDart.includes('catch (_) {\n      return _demoOrders;'), 'getAllOrders must not fall back to _demoOrders');
+  assert.ok(!apiServiceDart.includes('catch (_) {\n      return _demoTables;'), 'getTables must not fall back to _demoTables');
+  assert.ok(!apiServiceDart.includes('catch (_) {\n      return _demoKds;'), 'getKdsTickets must not fall back to _demoKds');
+  assert.ok(!apiServiceDart.includes('catch (_) {\n      return _demoHeldOrders;'), 'getHeldOrders must not fall back to _demoHeldOrders');
+  assert.ok(!apiServiceDart.includes('catch (_) {\n      return _demoCustomers;'), 'getCustomers must not fall back to _demoCustomers');
+  assert.ok(!apiServiceDart.includes('catch (_) {\n      return _demoIngredients;'), 'getIngredients must not fall back to _demoIngredients');
+  assert.ok(!apiServiceDart.includes('catch (_) {\n      return _demoClosures;'), 'getCashClosures must not fall back to _demoClosures');
+  assert.ok(!apiServiceDart.includes('catch (_) {\n      return _demoReservations;'), 'getReservations must not fall back to _demoReservations');
+
+  // Verify getActiveOrderForTable requires branch_id and passes limit: 1
+  assert.ok(apiServiceDart.includes("'branch_id': activeBranchId!"), 'getActiveOrderForTable must pass activeBranchId');
+  assert.ok(apiServiceDart.includes("'limit': '1'"), 'getActiveOrderForTable must pass limit 1');
+  assert.ok(apiServiceDart.includes("throw ApiException("), 'getActiveOrderForTable must throw ApiException when activeBranchId is missing');
+
+  // Verify KDS separation between Cloud and LAN
+  assert.ok(apiServiceDart.includes('final isCloud ='), 'KDS methods must explicitly detect cloud mode');
+  assert.ok(apiServiceDart.includes('/api/kitchen/tickets/$ticketId/status'), 'Cloud KDS must target /api/kitchen/tickets');
 
   const apiClientDart = fs.readFileSync(path.resolve(__dirname, '../mobile/lib/core/network/api_client.dart'), 'utf-8');
   assert.ok(apiClientDart.includes('customIdempotencyKey'), 'api_client.dart must support customIdempotencyKey for stable payment retries');
-  console.log('  ✓ Mobile Flutter contracts and non-demo safety strictly verified in code');
+  console.log('  ✓ Mobile Flutter contracts and zero mock data leakage strictly verified in code');
 
   // =========================================================================
-  // TEST 16: FRONTEND ORDER COMPONENT SAFETY (ELECTRON GUARD)
+  // TEST 17: FRONTEND ORDER COMPONENT SAFETY (ELECTRON GUARD)
   // =========================================================================
-  console.log('🧪 [Test 16/16] Frontend Orders Component Browser/Web Environment Safety...');
+  console.log('🧪 [Test 17/17] Frontend Orders Component Browser/Web Environment Safety...');
   const ordersPageTsx = fs.readFileSync(path.resolve(__dirname, '../frontend/src/app/(dashboard)/orders/page.tsx'), 'utf-8');
   assert.ok(ordersPageTsx.includes('isElectronEnvironment'), 'orders/page.tsx must guard desktop-only features with isElectronEnvironment');
   assert.ok(ordersPageTsx.includes('activeBranchId'), 'orders/page.tsx must track activeBranchId for multi-branch cloud scoping');
@@ -826,7 +1119,7 @@ async function runC121TestSuite(): Promise<void> {
   console.log('  ✓ Web dashboard orders component safety and branch isolation verified');
 
   console.log('\n================================================================');
-  console.log('✅ ALL C-12.1 FINANCIAL INTEGRITY & CLIENT CONTRACT TESTS PASSED!');
+  console.log('✅ ALL C-12.2 FINANCIAL INTEGRITY & CLIENT CONTRACT TESTS PASSED!');
   console.log('================================================================\n');
 }
 

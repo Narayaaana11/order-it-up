@@ -57,8 +57,9 @@ class ApiService {
     if (isDemoMode) {
       if (email.contains('cashier')) return MockDataService.mockCashierUser;
       if (email.contains('chef')) return MockDataService.mockChefUser;
-      if (email.contains('manager') || email.contains('owner'))
+      if (email.contains('manager') || email.contains('owner')) {
         return MockDataService.mockManagerUser;
+      }
       return MockDataService.mockWaiterUser;
     }
 
@@ -87,9 +88,9 @@ class ApiService {
             .map((c) => CategoryModel.fromJson(c as Map<String, dynamic>))
             .toList();
       }
-      return MockDataService.getCategories();
+      return [];
     } catch (_) {
-      return MockDataService.getCategories();
+      return [];
     }
   }
 
@@ -104,9 +105,9 @@ class ApiService {
             .map((p) => ProductModel.fromJson(p as Map<String, dynamic>))
             .toList();
       }
-      return _demoProducts;
+      return [];
     } catch (_) {
-      return _demoProducts;
+      return [];
     }
   }
 
@@ -140,23 +141,28 @@ class ApiService {
       }
     }
 
-    try {
-      final res = await apiClient.get('/api/orders', queryParams: {
-        'table_id': tableId,
-        'type': 'dine_in',
-        'status': 'pending,preparing,ready',
-        'per_page': '1',
-      });
-      if (res is Map &&
-          res['orders'] is List &&
-          (res['orders'] as List).isNotEmpty) {
-        return OrderModel.fromJson(
-            (res['orders'] as List).first as Map<String, dynamic>);
-      }
-      return null;
-    } catch (_) {
-      return null;
+    if (activeBranchId == null || activeBranchId!.isEmpty) {
+      throw ApiException(
+        'Active branch context required for table order lookup',
+        statusCode: 400,
+      );
     }
+
+    final res = await apiClient.get('/api/orders', queryParams: {
+      'branch_id': activeBranchId!,
+      'table_id': tableId,
+      'type': 'dine_in',
+      'status': 'pending,preparing,ready',
+      'limit': '1',
+    });
+
+    if (res is Map &&
+        res['orders'] is List &&
+        (res['orders'] as List).isNotEmpty) {
+      return OrderModel.fromJson(
+          (res['orders'] as List).first as Map<String, dynamic>);
+    }
+    return null;
   }
 
   Future<bool> sendOrder({
@@ -377,43 +383,44 @@ class ApiService {
 
   Future<List<KdsTicketModel>> getKdsTickets() async {
     if (isDemoMode) return _demoKds;
-    try {
-      // 1. Try Cloud operational tickets endpoint with active branch context
-      final cloudRes =
-          await apiClient.get('/api/kitchen/tickets', queryParams: {
-        'branch_id': activeBranchId,
-      });
-      if (cloudRes is Map && cloudRes['tickets'] is List) {
-        return (cloudRes['tickets'] as List).map((t) {
-          final map = t as Map<String, dynamic>;
-          final itemsRaw = map['items'] ?? [];
-          return KdsTicketModel(
-            id: int.tryParse(map['id']?.toString() ?? '0') ??
-                (DateTime.now().millisecondsSinceEpoch % 100000),
-            orderNumber: map['ticket_number']?.toString() ?? '#ORD',
-            tableNumber: map['station']?.toString() ?? 'Main Kitchen',
-            createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ??
-                DateTime.now(),
-            status: map['status']?.toString().toLowerCase() ?? 'waiting',
-            items: itemsRaw is List
-                ? itemsRaw
-                    .map((i) =>
-                        OrderItemModel.fromJson(i as Map<String, dynamic>))
-                    .toList()
-                : [],
-          );
-        }).toList();
-      }
-    } on ApiException catch (e) {
-      // Security Invariant (Phase 2-D): HTTP auth failures (401/403) must not fall back to local mock data
-      if (e.statusCode == 401 || e.statusCode == 403) {
+
+    final isCloud =
+        apiClient.authToken != null && apiClient.authToken!.isNotEmpty;
+    if (isCloud) {
+      try {
+        final cloudRes =
+            await apiClient.get('/api/kitchen/tickets', queryParams: {
+          'branch_id': activeBranchId,
+        });
+        if (cloudRes is Map && cloudRes['tickets'] is List) {
+          return (cloudRes['tickets'] as List).map((t) {
+            final map = t as Map<String, dynamic>;
+            final itemsRaw = map['items'] ?? [];
+            return KdsTicketModel(
+              id: int.tryParse(map['id']?.toString() ?? '0') ??
+                  (DateTime.now().millisecondsSinceEpoch % 100000),
+              orderNumber: map['ticket_number']?.toString() ?? '#ORD',
+              tableNumber: map['station']?.toString() ?? 'Main Kitchen',
+              createdAt:
+                  DateTime.tryParse(map['created_at']?.toString() ?? '') ??
+                      DateTime.now(),
+              status: map['status']?.toString().toLowerCase() ?? 'waiting',
+              items: itemsRaw is List
+                  ? itemsRaw
+                      .map((i) =>
+                          OrderItemModel.fromJson(i as Map<String, dynamic>))
+                      .toList()
+                  : [],
+            );
+          }).toList();
+        }
+        return [];
+      } catch (_) {
         return [];
       }
-    } catch (_) {
-      // Network failure on cloud: continue to local LAN desktop
     }
 
-    // 2. Fallback: Local LAN desktop /api/kds
+    // Explicitly configured local LAN desktop /api/kds
     try {
       final res = await apiClient.get('/api/kds');
       if (res is List) {
@@ -451,17 +458,20 @@ class ApiService {
       return;
     }
 
-    try {
-      // 1. Try Cloud operational kitchen bump
-      await apiClient.patch('/api/kitchen/tickets/$ticketId/status',
-          body: {'status': newStatus});
-    } catch (_) {
-      // 2. Fallback: Local LAN desktop /api/kds
-      try {
-        await apiClient
-            .put('/api/kds/$ticketId/status', body: {'status': newStatus});
-      } catch (_) {}
+    final isCloud =
+        apiClient.authToken != null && apiClient.authToken!.isNotEmpty;
+    if (isCloud) {
+      // Cloud operational kitchen bump: do not route failures to legacy LAN endpoint
+      await apiClient.patch(
+        '/api/kitchen/tickets/$ticketId/status',
+        body: {'status': newStatus},
+      );
+      return;
     }
+
+    // Explicitly configured local LAN desktop endpoint
+    await apiClient
+        .put('/api/kds/$ticketId/status', body: {'status': newStatus});
   }
 
   void toggleProductAvailability(String productId) {
@@ -483,9 +493,9 @@ class ApiService {
                 (item) => HeldOrderModel.fromJson(item as Map<String, dynamic>))
             .toList();
       }
-      return _demoHeldOrders;
+      return [];
     } catch (_) {
-      return _demoHeldOrders;
+      return [];
     }
   }
 
@@ -522,9 +532,9 @@ class ApiService {
             .map((c) => CustomerModel.fromJson(c as Map<String, dynamic>))
             .toList();
       }
-      return _demoCustomers;
+      return [];
     } catch (_) {
-      return _demoCustomers;
+      return [];
     }
   }
 
@@ -586,9 +596,9 @@ class ApiService {
             .map((i) => IngredientModel.fromJson(i as Map<String, dynamic>))
             .toList();
       }
-      return _demoIngredients;
+      return [];
     } catch (_) {
-      return _demoIngredients;
+      return [];
     }
   }
 
@@ -611,9 +621,9 @@ class ApiService {
             .map((c) => CashClosureModel.fromJson(c as Map<String, dynamic>))
             .toList();
       }
-      return _demoClosures;
+      return [];
     } catch (_) {
-      return _demoClosures;
+      return [];
     }
   }
 
@@ -665,9 +675,9 @@ class ApiService {
             .map((r) => ReservationModel.fromJson(r as Map<String, dynamic>))
             .toList();
       }
-      return _demoReservations;
+      return [];
     } catch (_) {
-      return _demoReservations;
+      return [];
     }
   }
 
@@ -992,8 +1002,9 @@ class ApiService {
     try {
       final res = await apiClient.get('/api/expenses');
       if (res is List) return res.cast<Map<String, dynamic>>();
-      if (res is Map && res['expenses'] is List)
+      if (res is Map && res['expenses'] is List) {
         return (res['expenses'] as List).cast<Map<String, dynamic>>();
+      }
       return [];
     } catch (_) {
       return [];

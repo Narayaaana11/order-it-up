@@ -371,6 +371,174 @@ async function runSmokeTests() {
   assert(!!fetchedOrder, `Order visible in branch active orders list`);
   assert(fetchedOrder.payment_status === 'partially_paid' || fetchedOrder.payment_status === 'paid', `Order status reflects payment ledger (${fetchedOrder.payment_status})`);
 
+  // 14. P0 Offline Payment Settlement Derivation & Integrity
+  console.log(`\n[Test 14] P0 Offline Payment Settlement Derivation & Integrity`);
+  // Generate pairing code & pair terminal
+  const pairCodeRes = await fetch(`${STAGING_URL}/api/pairing/generate`, {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${tokenA}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      branch_id: branchIdA,
+      terminal_name: `Smoke Terminal ${runId}`
+    })
+  });
+  const pairCodeData = await pairCodeRes.json();
+  assert(pairCodeRes.status === 200 && !!pairCodeData.code, `Pairing code generated`);
+
+  const claimPairRes = await fetch(`${STAGING_URL}/api/pos/pair`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      code: pairCodeData.code,
+      device_fingerprint: `smoke-fp-${runId}`
+    })
+  });
+  const claimPairData = await claimPairRes.json();
+  assert(claimPairRes.status === 200 && !!claimPairData.terminal_token, `Terminal paired successfully`);
+  const terminalToken = claimPairData.terminal_token;
+
+  // 14a. Completed order with no payment status → unpaid; no payment ledger row
+  const offlineUnpaidId = `ord-smoke-unpaid-${runId}`;
+  const syncUnpaidRes = await fetch(`${STAGING_URL}/api/pos/events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${terminalToken}`
+    },
+    body: JSON.stringify({
+      events: [
+        {
+          id: `evt-unpaid-${runId}`,
+          type: 'order.created',
+          payload: {
+            id: offlineUnpaidId,
+            order_number: 'OFF-UNPAID',
+            status: 'completed',
+            // payment_status omitted
+            subtotal: 100,
+            tax_total: 0,
+            discount_total: 0,
+            grand_total: 100,
+            ordered_at: new Date().toISOString(),
+            items: [{ product_name: 'Test Unpaid Item', quantity: 1, unit_price: 100, subtotal: 100 }]
+          }
+        }
+      ]
+    })
+  });
+  assert(syncUnpaidRes.status === 200, `Sync unpaid order event ingested with 200`);
+
+  const getUnpaidOrderRes = await fetch(`${STAGING_URL}/api/orders/${offlineUnpaidId}`, {
+    headers: { 'Authorization': `Bearer ${tokenA}` }
+  });
+  const unpaidOrderData = await getUnpaidOrderRes.json();
+  assert(unpaidOrderData.order?.payment_status === 'unpaid', `Completed order with missing payment status remains unpaid (got ${unpaidOrderData.order?.payment_status})`);
+
+  const getUnpaidPaymentsRes = await fetch(`${STAGING_URL}/api/orders/${offlineUnpaidId}/payments`, {
+    headers: { 'Authorization': `Bearer ${tokenA}` }
+  });
+  const unpaidPaymentsData = await getUnpaidPaymentsRes.json();
+  assert(Array.isArray(unpaidPaymentsData.payments) && unpaidPaymentsData.payments.length === 0, `No payment ledger row created for completed order without payment status`);
+
+  // 14b. Completed order with explicit valid offline settlement
+  const offlineSettledId = `ord-smoke-settled-${runId}`;
+  const syncSettledRes = await fetch(`${STAGING_URL}/api/pos/events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${terminalToken}`
+    },
+    body: JSON.stringify({
+      events: [
+        {
+          id: `evt-settled-${runId}`,
+          type: 'order.created',
+          payload: {
+            id: offlineSettledId,
+            order_number: 'OFF-SETTLED',
+            status: 'completed',
+            payment_status: 'paid',
+            payment_method: 'cash',
+            subtotal: 150,
+            tax_total: 0,
+            discount_total: 0,
+            grand_total: 150,
+            ordered_at: new Date().toISOString(),
+            items: [{ product_name: 'Test Settled Item', quantity: 1, unit_price: 150, subtotal: 150 }]
+          }
+        }
+      ]
+    })
+  });
+  assert(syncSettledRes.status === 200, `Sync settled order event ingested with 200`);
+
+  const getSettledOrderRes = await fetch(`${STAGING_URL}/api/orders/${offlineSettledId}`, {
+    headers: { 'Authorization': `Bearer ${tokenA}` }
+  });
+  const settledOrderData = await getSettledOrderRes.json();
+  assert(settledOrderData.order?.payment_status === 'paid', `Settled order marked paid`);
+
+  const getSettledPaymentsRes = await fetch(`${STAGING_URL}/api/orders/${offlineSettledId}/payments`, {
+    headers: { 'Authorization': `Bearer ${tokenA}` }
+  });
+  const settledPaymentsData = await getSettledPaymentsRes.json();
+  assert(settledPaymentsData.payments?.length === 1, `Exactly one payment ledger row created for offline settlement`);
+  assert(settledPaymentsData.payments[0].verification_method === 'cashier_collected', `Offline cash verified as cashier_collected`);
+
+  // 14c. Dedicated payment.settled event
+  const syncDedRes = await fetch(`${STAGING_URL}/api/pos/events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${terminalToken}`
+    },
+    body: JSON.stringify({
+      events: [
+        {
+          id: `evt-ded-${runId}`,
+          type: 'payment.settled',
+          payload: {
+            order_id: offlineUnpaidId,
+            amount: 100,
+            payment_method: 'upi'
+          }
+        }
+      ]
+    })
+  });
+  assert(syncDedRes.status === 200, `Dedicated payment.settled event ingested with 200`);
+
+  const getDedOrderRes = await fetch(`${STAGING_URL}/api/orders/${offlineUnpaidId}`, {
+    headers: { 'Authorization': `Bearer ${tokenA}` }
+  });
+  const dedOrderData = await getDedOrderRes.json();
+  assert(dedOrderData.order?.payment_status === 'paid', `Order transitioned to paid after dedicated payment.settled event`);
+
+  // 15. Active Order Lookup Branch Scope & Isolation
+  console.log(`\n[Test 15] Active Order Lookup Branch Scope & Branch Isolation`);
+  // Active order lookup with branchIdA and tableId
+  const activeOrderResA = await fetch(`${STAGING_URL}/api/orders?branch_id=${branchIdA}&table_id=${tableId}&type=dine_in&status=pending,preparing,ready&limit=1`, {
+    headers: { 'Authorization': `Bearer ${tokenA}` }
+  });
+  assert(activeOrderResA.status === 200, `Active order lookup for branch A returns 200`);
+
+  // Branch switch isolation: same tableId on branchIdA2 must NOT return branch A's order
+  const activeOrderResB = await fetch(`${STAGING_URL}/api/orders?branch_id=${branchIdA2}&table_id=${tableId}&type=dine_in&status=pending,preparing,ready&limit=1`, {
+    headers: { 'Authorization': `Bearer ${tokenA}` }
+  });
+  const activeOrderDataB = await activeOrderResB.json();
+  assert(activeOrderResB.status === 200, `Active order lookup for branch B returns 200`);
+  assert(Array.isArray(activeOrderDataB.orders) && activeOrderDataB.orders.length === 0, `Branch switch does not leak previous branch's order`);
+
+  // Missing branch_id returns honest error HTTP 400
+  const missingBranchRes = await fetch(`${STAGING_URL}/api/orders?table_id=${tableId}&type=dine_in&status=pending,preparing,ready&limit=1`, {
+    headers: { 'Authorization': `Bearer ${tokenA}` }
+  });
+  assert(missingBranchRes.status === 400, `Missing branch_id returns HTTP 400 (got ${missingBranchRes.status})`);
+
   console.log(`\n===============================================================`);
   console.log(`LIVE STAGING SMOKE TEST SUITE COMPLETED`);
   console.log(`Results: ${passed} PASSED, ${failed} FAILED`);

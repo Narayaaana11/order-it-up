@@ -684,6 +684,7 @@ async function runTestSuite(): Promise<void> {
           order_number: 'POS-888',
           order_type: 'takeaway',
           status: 'completed',
+          payment_status: 'paid',
           subtotal: 500,
           tax_total: 25,
           discount_total: 0,

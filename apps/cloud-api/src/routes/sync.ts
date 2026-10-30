@@ -464,7 +464,51 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
         ));
 
         const kitchenStatus = payload.kitchen_status || (payload.status === 'completed' ? 'served' : 'pending');
-        const paymentStatus = payload.payment_status || (payload.status === 'completed' ? 'paid' : 'unpaid');
+
+        // Never infer payment settlement from operational order status.
+        // An order with status: 'completed' and missing payment_status must remain unpaid.
+        const validPaymentStatuses = ['unpaid', 'partially_paid', 'paid', 'refunded'];
+        const rawPaymentStatus = typeof payload.payment_status === 'string' ? payload.payment_status.toLowerCase().trim() : '';
+        let paymentStatus = validPaymentStatuses.includes(rawPaymentStatus) ? rawPaymentStatus : 'unpaid';
+
+        // Validate explicit settlement data if paymentStatus is claimed as 'paid'
+        let validOfflineSettlement: {
+          amount: number;
+          paymentMethod: string;
+          verificationMethod: string;
+        } | null = null;
+
+        if (paymentStatus === 'paid') {
+          const settlementAmount = Number(payload.grand_total !== undefined ? payload.grand_total : payload.total);
+          const rawMethod = typeof payload.payment_method === 'string' ? payload.payment_method.toLowerCase().trim() : '';
+          const validMethods = ['cash', 'upi', 'card', 'custom', 'razorpay_pos'];
+
+          if (
+            isNonNegativeFinite(settlementAmount) &&
+            settlementAmount > 0 &&
+            settlementAmount <= MAX_MONETARY_VALUE &&
+            validMethods.includes(rawMethod)
+          ) {
+            let verificationMethod = 'manual_cashier_confirmed';
+            if (rawMethod === 'cash') {
+              verificationMethod = 'cashier_collected';
+            } else if (payload.verification_method === 'gateway_verified' && payload.gateway_signature && typeof payload.gateway_signature === 'string') {
+              verificationMethod = 'gateway_verified';
+            } else if (payload.verification_method === 'terminal_verified' && terminal.terminal_status === 'active' && payload.terminal_auth_code) {
+              verificationMethod = 'terminal_verified';
+            }
+
+            validOfflineSettlement = {
+              amount: settlementAmount,
+              paymentMethod: rawMethod,
+              verificationMethod,
+            };
+          } else {
+            // Explicit settlement was claimed as 'paid', but amount or method is invalid.
+            // Do NOT record payment and do NOT set order as paid.
+            paymentStatus = 'unpaid';
+          }
+        }
 
         // 2. Upsert order with strict tenant condition
         eventStatements.push(env.DB.prepare(`
@@ -573,14 +617,15 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
           ));
         }
 
-        // 5. Ingest offline settled payments into customer_payments ledger
-        if (paymentStatus === 'paid') {
+        // 5. Ingest explicitly validated offline settled payments into customer_payments ledger
+        // Do not create a ledger entry for missing, unpaid, pending, or partially paid status
+        if (paymentStatus === 'paid' && validOfflineSettlement) {
           eventStatements.push(env.DB.prepare(`
             INSERT INTO customer_payments (
               id, organization_id, restaurant_id, branch_id, order_id,
               payment_method, amount, currency, status, verification_method,
               terminal_id, idempotency_key, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', 'cashier_collected', ?, ?, ?, ?)
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?)
             ON CONFLICT(id) DO NOTHING
           `).bind(
             'pay_sync_' + payload.id,
@@ -588,9 +633,10 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
             terminal.restaurant_id || null,
             terminal.branch_id,
             payload.id,
-            payload.payment_method || 'cash',
-            payload.grand_total || 0,
+            validOfflineSettlement.paymentMethod,
+            validOfflineSettlement.amount,
             'INR',
+            validOfflineSettlement.verificationMethod,
             terminal.id,
             'sync_' + event.id,
             orderedAt,
@@ -600,6 +646,114 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
 
         // Execute all writes for this event atomically
         await executeBatch(env.DB, eventStatements);
+        processedIds.push(event.id);
+
+      } else if (event.type === 'payment.settled' || event.type === 'payment.recorded') {
+        const payload = event.payload as any;
+        const orderId = payload.order_id || payload.id;
+        const settlementAmount = Number(payload.amount);
+        const rawMethod = typeof payload.payment_method === 'string' ? payload.payment_method.toLowerCase().trim() : '';
+        const validMethods = ['cash', 'upi', 'card', 'custom', 'razorpay_pos'];
+
+        if (
+          !orderId ||
+          typeof orderId !== 'string' ||
+          !isNonNegativeFinite(settlementAmount) ||
+          settlementAmount <= 0 ||
+          settlementAmount > MAX_MONETARY_VALUE ||
+          !validMethods.includes(rawMethod)
+        ) {
+          console.warn(`[SyncValidation] Payment event ${event.id} rejected: invalid order, amount, or payment method`);
+          continue;
+        }
+
+        const existingOrder = await env.DB.prepare(`
+          SELECT id, organization_id, branch_id, grand_total, payment_status
+          FROM synced_orders
+          WHERE id = ?
+        `).bind(orderId).first<{
+          id: string;
+          organization_id: string;
+          branch_id: string;
+          grand_total: number;
+          payment_status: string;
+        }>();
+
+        if (!existingOrder) {
+          console.warn(`[SyncSecurity] Payment event ${event.id} refers to non-existent order ${orderId}`);
+          continue;
+        }
+
+        if (existingOrder.organization_id !== terminal.organization_id || existingOrder.branch_id !== terminal.branch_id) {
+          console.warn(`[SyncSecurity] Cross-tenant payment settlement attempt on order ${orderId}`);
+          continue;
+        }
+
+        let verificationMethod = 'manual_cashier_confirmed';
+        if (rawMethod === 'cash') {
+          verificationMethod = 'cashier_collected';
+        } else if (payload.verification_method === 'gateway_verified' && payload.gateway_signature && typeof payload.gateway_signature === 'string') {
+          verificationMethod = 'gateway_verified';
+        } else if (payload.verification_method === 'terminal_verified' && terminal.terminal_status === 'active' && payload.terminal_auth_code) {
+          verificationMethod = 'terminal_verified';
+        }
+
+        const paymentStatements: any[] = [];
+        paymentStatements.push(env.DB.prepare(`
+          INSERT INTO sync_events (
+            id, organization_id, branch_id, terminal_id, event_type,
+            entity_type, entity_id, payload_hash, status, processed_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          event.id,
+          terminal.organization_id,
+          terminal.branch_id,
+          terminal.id,
+          event.type,
+          'payment',
+          orderId,
+          payloadHash,
+          'processed',
+          now
+        ));
+
+        const paymentId = payload.payment_id || ('pay_sync_' + event.id);
+        paymentStatements.push(env.DB.prepare(`
+          INSERT INTO customer_payments (
+            id, organization_id, restaurant_id, branch_id, order_id,
+            payment_method, amount, currency, status, verification_method,
+            terminal_id, idempotency_key, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO NOTHING
+        `).bind(
+          paymentId,
+          terminal.organization_id,
+          terminal.restaurant_id || null,
+          terminal.branch_id,
+          orderId,
+          rawMethod,
+          settlementAmount,
+          'INR',
+          verificationMethod,
+          terminal.id,
+          'sync_' + event.id,
+          payload.settled_at || now,
+          now
+        ));
+
+        paymentStatements.push(env.DB.prepare(`
+          UPDATE synced_orders
+          SET payment_status = 'paid', payment_method = ?, updated_at = ?
+          WHERE id = ? AND organization_id = ? AND branch_id = ?
+        `).bind(
+          rawMethod,
+          now,
+          orderId,
+          terminal.organization_id,
+          terminal.branch_id
+        ));
+
+        await executeBatch(env.DB, paymentStatements);
         processedIds.push(event.id);
 
       } else if (event.type === 'closure.recorded') {

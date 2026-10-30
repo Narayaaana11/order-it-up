@@ -284,7 +284,8 @@ export async function handleListOrders(
   const kitchenStatus = url.searchParams.get('kitchen_status');
   const paymentStatus = url.searchParams.get('payment_status');
   const tableId = url.searchParams.get('table_id');
-  const limit = Math.min(parseInt(url.searchParams.get('limit') || '50', 10), 100);
+  const limitParam = url.searchParams.get('limit') || url.searchParams.get('per_page');
+  const limit = Math.min(parseInt(limitParam || '50', 10), 100);
   const offset = Math.max(parseInt(url.searchParams.get('offset') || '0', 10), 0);
 
   let query = `
@@ -297,8 +298,16 @@ export async function handleListOrders(
   const binds: any[] = [orgId, branchId];
 
   if (status) {
-    query += ` AND o.status = ?`;
-    binds.push(status);
+    if (status.includes(',')) {
+      const statuses = status.split(',').map((s) => s.trim()).filter(Boolean);
+      if (statuses.length > 0) {
+        query += ` AND o.status IN (${statuses.map(() => '?').join(',')})`;
+        binds.push(...statuses);
+      }
+    } else {
+      query += ` AND o.status = ?`;
+      binds.push(status);
+    }
   }
   if (kitchenStatus) {
     query += ` AND o.kitchen_status = ?`;

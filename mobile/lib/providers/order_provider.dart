@@ -23,6 +23,7 @@ class OrderProvider extends ChangeNotifier {
   bool _isPercentDiscount = false;
   double _appliedLoyaltyPoints = 0.0;
   String? _heldOrderId;
+  String? _errorMessage;
 
   OrderProvider({required this.apiService});
 
@@ -31,6 +32,7 @@ class OrderProvider extends ChangeNotifier {
   String get customerName => _customerName;
   String get customerPhone => _customerPhone;
   bool get isSubmitting => _isSubmitting;
+  String? get errorMessage => _errorMessage;
 
   String get orderType => _orderType;
   String? get selectedTableId => _selectedTableId;
@@ -209,14 +211,16 @@ class OrderProvider extends ChangeNotifier {
   }
 
   Future<void> loadActiveTableOrder(String tableId) async {
+    _errorMessage = null;
     try {
       _currentTableOrder = await apiService.getActiveOrderForTable(tableId);
       if (_currentTableOrder?.customerName != null) {
         _customerName = _currentTableOrder!.customerName!;
         _customerPhone = _currentTableOrder!.customerPhone ?? '';
       }
-    } catch (_) {
+    } catch (e) {
       _currentTableOrder = null;
+      _errorMessage = e.toString().replaceAll('ApiException: ', '');
     }
     notifyListeners();
   }
