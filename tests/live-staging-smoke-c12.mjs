@@ -443,7 +443,7 @@ async function runSmokeTests() {
   const unpaidPaymentsData = await getUnpaidPaymentsRes.json();
   assert(Array.isArray(unpaidPaymentsData.payments) && unpaidPaymentsData.payments.length === 0, `No payment ledger row created for completed order without payment status`);
 
-  // 14b. Completed order with explicit valid offline settlement
+  // 14b. Completed order claiming payment_status: 'paid' must NOT bypass ledger
   const offlineSettledId = `ord-smoke-settled-${runId}`;
   const syncSettledRes = await fetch(`${STAGING_URL}/api/pos/events`, {
     method: 'POST',
@@ -460,7 +460,7 @@ async function runSmokeTests() {
             id: offlineSettledId,
             order_number: 'OFF-SETTLED',
             status: 'completed',
-            payment_status: 'paid',
+            payment_status: 'paid', // Ordinary order claims paid
             payment_method: 'cash',
             subtotal: 150,
             tax_total: 0,
@@ -479,17 +479,17 @@ async function runSmokeTests() {
     headers: { 'Authorization': `Bearer ${tokenA}` }
   });
   const settledOrderData = await getSettledOrderRes.json();
-  assert(settledOrderData.order?.payment_status === 'paid', `Settled order marked paid`);
+  assert(settledOrderData.order?.payment_status === 'unpaid', `Order claiming paid without ledger starts unpaid`);
 
   const getSettledPaymentsRes = await fetch(`${STAGING_URL}/api/orders/${offlineSettledId}/payments`, {
     headers: { 'Authorization': `Bearer ${tokenA}` }
   });
   const settledPaymentsData = await getSettledPaymentsRes.json();
-  assert(settledPaymentsData.payments?.length === 1, `Exactly one payment ledger row created for offline settlement`);
-  assert(settledPaymentsData.payments[0].verification_method === 'cashier_collected', `Offline cash verified as cashier_collected`);
+  assert(settledPaymentsData.payments?.length === 0, `Zero payment ledger rows created from ordinary order sync`);
 
-  // 14c. Dedicated payment.settled event
-  const syncDedRes = await fetch(`${STAGING_URL}/api/pos/events`, {
+  // 14c. Partial payment (₹100 of ₹210) via dedicated payment.settled event
+  const order210Id = `ord-smoke-210-${runId}`;
+  const order210Res = await fetch(`${STAGING_URL}/api/pos/events`, {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -498,24 +498,219 @@ async function runSmokeTests() {
     body: JSON.stringify({
       events: [
         {
-          id: `evt-ded-${runId}`,
-          type: 'payment.settled',
+          id: `evt-c123-ord-210-${runId}`,
+          type: 'order.created',
           payload: {
-            order_id: offlineUnpaidId,
-            amount: 100,
-            payment_method: 'upi'
+            id: order210Id,
+            order_number: 'OFF-210',
+            status: 'completed',
+            payment_status: 'unpaid',
+            subtotal: 200,
+            tax_total: 10,
+            discount_total: 0,
+            grand_total: 210,
+            ordered_at: new Date().toISOString(),
+            items: [{ product_name: 'Item 210', quantity: 1, unit_price: 200, subtotal: 200 }]
           }
         }
       ]
     })
   });
-  assert(syncDedRes.status === 200, `Dedicated payment.settled event ingested with 200`);
+  assert(order210Res.status === 200, `Seed ₹210 order returns 200`);
 
-  const getDedOrderRes = await fetch(`${STAGING_URL}/api/orders/${offlineUnpaidId}`, {
+  const utr1 = `UTR-SMOKE-P1-${runId}`;
+  const pay100Res = await fetch(`${STAGING_URL}/api/pos/events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${terminalToken}`
+    },
+    body: JSON.stringify({
+      events: [
+        {
+          id: `evt-c123-pay-100-${runId}`,
+          type: 'payment.settled',
+          payload: {
+            order_id: order210Id,
+            amount: 100,
+            payment_method: 'upi',
+            external_reference_id: utr1,
+            settled_at: new Date().toISOString()
+          }
+        }
+      ]
+    })
+  });
+  assert(pay100Res.status === 200, `First ₹100 payment ingested with 200`);
+
+  const order210After100Res = await fetch(`${STAGING_URL}/api/orders/${order210Id}`, {
     headers: { 'Authorization': `Bearer ${tokenA}` }
   });
-  const dedOrderData = await getDedOrderRes.json();
-  assert(dedOrderData.order?.payment_status === 'paid', `Order transitioned to paid after dedicated payment.settled event`);
+  const order210After100 = await order210After100Res.json();
+  assert(order210After100.order?.payment_status === 'partially_paid', `₹210 order after ₹100 payment transitions to partially_paid`);
+
+  const paymentsAfter100Res = await fetch(`${STAGING_URL}/api/orders/${order210Id}/payments`, {
+    headers: { 'Authorization': `Bearer ${tokenA}` }
+  });
+  const paymentsAfter100Data = await paymentsAfter100Res.json();
+  assert(paymentsAfter100Data.payments?.length === 1, `Exactly 1 payment ledger row after first payment`);
+  assert(paymentsAfter100Data.payments[0].external_reference_id === utr1, `UTR persisted in payment ledger row`);
+  assert(paymentsAfter100Data.payments[0].verification_method === 'manual_cashier_confirmed', `Electronic offline payment classified as manual_cashier_confirmed`);
+
+  // 14d. Second payment (₹110) settles the order completely
+  const cardAuth = `CARD-AUTH-${runId}`;
+  const pay110Res = await fetch(`${STAGING_URL}/api/pos/events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${terminalToken}`
+    },
+    body: JSON.stringify({
+      events: [
+        {
+          id: `evt-c123-pay-110-${runId}`,
+          type: 'payment.settled',
+          payload: {
+            order_id: order210Id,
+            amount: 110,
+            payment_method: 'card',
+            external_reference_id: cardAuth,
+            settled_at: new Date().toISOString()
+          }
+        }
+      ]
+    })
+  });
+  assert(pay110Res.status === 200, `Second ₹110 payment ingested with 200`);
+
+  const order210After110Res = await fetch(`${STAGING_URL}/api/orders/${order210Id}`, {
+    headers: { 'Authorization': `Bearer ${tokenA}` }
+  });
+  const order210After110 = await order210After110Res.json();
+  assert(order210After110.order?.payment_status === 'paid', `₹210 order after full ₹210 settlement transitions to paid`);
+
+  const paymentsAfter110Res = await fetch(`${STAGING_URL}/api/orders/${order210Id}/payments`, {
+    headers: { 'Authorization': `Bearer ${tokenA}` }
+  });
+  const paymentsAfter110Data = await paymentsAfter110Res.json();
+  assert(paymentsAfter110Data.payments?.length === 2, `Exactly 2 payment ledger rows total for split settlement`);
+
+  // 14e. Attempt another ₹1 payment after full payment -> rejected
+  const payOverRes = await fetch(`${STAGING_URL}/api/pos/events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${terminalToken}`
+    },
+    body: JSON.stringify({
+      events: [
+        {
+          id: `evt-c123-over-${runId}`,
+          type: 'payment.settled',
+          payload: {
+            order_id: order210Id,
+            amount: 1,
+            payment_method: 'cash',
+            settled_at: new Date().toISOString()
+          }
+        }
+      ]
+    })
+  });
+  assert(payOverRes.status === 200, `Overpayment event processed with 200 response`);
+  const overData = await payOverRes.json();
+  assert(overData.processed_count === 0, `Overpayment event rejected (processed_count 0)`);
+  assert(overData.failed_count === 1, `Overpayment event marked failed (failed_count 1)`);
+
+  // 14f. Duplicate external transaction reference (UTR) across distinct orders -> rejected
+  const payDupUtrRes = await fetch(`${STAGING_URL}/api/pos/events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${terminalToken}`
+    },
+    body: JSON.stringify({
+      events: [
+        {
+          id: `evt-c123-dup-utr-${runId}`,
+          type: 'payment.settled',
+          payload: {
+            order_id: offlineUnpaidId,
+            amount: 100,
+            payment_method: 'upi',
+            external_reference_id: utr1, // Reusing utr1 from order210
+            settled_at: new Date().toISOString()
+          }
+        }
+      ]
+    })
+  });
+  const dupUtrData = await payDupUtrRes.json();
+  assert(dupUtrData.processed_count === 0, `Duplicate UTR event rejected (processed_count 0)`);
+  assert(dupUtrData.failed_count === 1, `Duplicate UTR event marked failed`);
+
+  // 14g. UPI settlement without external reference -> rejected
+  const payNoRefRes = await fetch(`${STAGING_URL}/api/pos/events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${terminalToken}`
+    },
+    body: JSON.stringify({
+      events: [
+        {
+          id: `evt-c123-no-ref-${runId}`,
+          type: 'payment.settled',
+          payload: {
+            order_id: offlineUnpaidId,
+            amount: 100,
+            payment_method: 'upi',
+            settled_at: new Date().toISOString()
+          }
+        }
+      ]
+    })
+  });
+  const noRefData = await payNoRefRes.json();
+  assert(noRefData.processed_count === 0, `UPI payment without external reference rejected`);
+
+  // 14h. Client-asserted verification spoofing rejected
+  const spoofUtr = `UTR-SPOOF-${runId}`;
+  const paySpoofRes = await fetch(`${STAGING_URL}/api/pos/events`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${terminalToken}`
+    },
+    body: JSON.stringify({
+      events: [
+        {
+          id: `evt-c123-spoof-${runId}`,
+          type: 'payment.settled',
+          payload: {
+            order_id: offlineUnpaidId,
+            amount: 100,
+            payment_method: 'upi',
+            external_reference_id: spoofUtr,
+            verification_method: 'gateway_verified',
+            gateway_signature: 'fake-sig',
+            settled_at: new Date().toISOString()
+          }
+        }
+      ]
+    })
+  });
+  assert(paySpoofRes.status === 200);
+  const spoofData = await paySpoofRes.json();
+  assert(spoofData.processed_count === 1, `Valid payment with spoofed claim ingested`);
+
+  const unpaidPaymentsRes = await fetch(`${STAGING_URL}/api/orders/${offlineUnpaidId}/payments`, {
+    headers: { 'Authorization': `Bearer ${tokenA}` }
+  });
+  const unpaidPaymentsData2 = await unpaidPaymentsRes.json();
+  const spoofPayment = unpaidPaymentsData2.payments?.find(p => p.external_reference_id === spoofUtr);
+  assert(!!spoofPayment, `Spoofed claim payment found in ledger`);
+  assert(spoofPayment.verification_method === 'manual_cashier_confirmed', `Client-asserted verification method overridden by server to manual_cashier_confirmed`);
 
   // 15. Active Order Lookup Branch Scope & Isolation
   console.log(`\n[Test 15] Active Order Lookup Branch Scope & Branch Isolation`);
