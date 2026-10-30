@@ -324,6 +324,7 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
       t.id,
       t.organization_id,
       t.branch_id,
+      b.restaurant_id,
       COALESCE(t.status, 'active') as terminal_status,
       COALESCE(b.status, 'active') as branch_status
     FROM terminals t
@@ -333,6 +334,7 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
     id: string;
     organization_id: string;
     branch_id: string;
+    restaurant_id: string | null;
     terminal_status: string;
     branch_status: string;
   }>();
@@ -461,21 +463,27 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
           now
         ));
 
+        const kitchenStatus = payload.kitchen_status || (payload.status === 'completed' ? 'served' : 'pending');
+        const paymentStatus = payload.payment_status || (payload.status === 'completed' ? 'paid' : 'unpaid');
+
         // 2. Upsert order with strict tenant condition
         eventStatements.push(env.DB.prepare(`
           INSERT INTO synced_orders (
             id, organization_id, branch_id, terminal_id, order_number, order_type,
             status, subtotal, tax_total, discount_total, grand_total, payment_method,
-            ordered_at, synced_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ordered_at, synced_at, restaurant_id, kitchen_status, payment_status, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             status = excluded.status,
+            kitchen_status = COALESCE(excluded.kitchen_status, synced_orders.kitchen_status),
+            payment_status = COALESCE(excluded.payment_status, synced_orders.payment_status),
             subtotal = excluded.subtotal,
             tax_total = excluded.tax_total,
             discount_total = excluded.discount_total,
             grand_total = excluded.grand_total,
             payment_method = excluded.payment_method,
-            synced_at = excluded.synced_at
+            synced_at = excluded.synced_at,
+            updated_at = excluded.updated_at
           WHERE synced_orders.organization_id = excluded.organization_id
             AND synced_orders.branch_id = excluded.branch_id
         `).bind(
@@ -492,6 +500,10 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
           grandTotal,
           payload.payment_method || 'cash',
           orderedAt,
+          now,
+          terminal.restaurant_id,
+          kitchenStatus,
+          paymentStatus,
           now
         ));
 
@@ -506,11 +518,13 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
             eventStatements.push(env.DB.prepare(`
               INSERT INTO synced_order_items (
                 id, order_id, branch_id, product_id, product_name,
-                quantity, unit_price, subtotal, tax_amount, discount_amount, ordered_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                quantity, unit_price, subtotal, tax_amount, discount_amount,
+                ordered_at, restaurant_id, kitchen_status, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               ON CONFLICT(id) DO UPDATE SET
                 quantity = excluded.quantity,
-                subtotal = excluded.subtotal
+                subtotal = excluded.subtotal,
+                updated_at = excluded.updated_at
             `).bind(
               itemId,
               payload.id,
@@ -522,9 +536,41 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
               itemSub,
               item.tax_amount || 0,
               item.discount_amount || 0,
-              orderedAt
+              orderedAt,
+              terminal.restaurant_id,
+              kitchenStatus,
+              now
             ));
           }
+
+          // 4. Upsert derived kitchen ticket so kitchen clients can track synchronized orders
+          const ticketItems = payload.items.map((i: any) => ({
+            product_name: i.name || i.product_name || 'Item',
+            quantity: i.quantity || 1,
+          }));
+
+          eventStatements.push(env.DB.prepare(`
+            INSERT INTO kitchen_tickets (
+              id, organization_id, restaurant_id, branch_id, order_id, ticket_number,
+              station, status, items_json, notes, prep_time_minutes, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 'main_kitchen', ?, ?, ?, 15, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              status = excluded.status,
+              items_json = excluded.items_json,
+              updated_at = excluded.updated_at
+          `).bind(
+            'kot_' + payload.id,
+            terminal.organization_id,
+            terminal.restaurant_id,
+            terminal.branch_id,
+            payload.id,
+            'KOT-' + (payload.order_number || payload.daily_order_number || 'ORD'),
+            payload.status === 'completed' ? 'completed' : 'pending',
+            JSON.stringify(ticketItems),
+            payload.notes || null,
+            orderedAt,
+            now
+          ));
         }
 
         // Execute all writes for this event atomically

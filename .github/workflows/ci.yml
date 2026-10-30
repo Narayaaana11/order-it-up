@@ -2,7 +2,7 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, 'release/**']
   pull_request:
     branches: [main]
 
@@ -78,6 +78,18 @@ jobs:
 
       - name: Terminal Pairing Security & PIN Rate Limiting Verification
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/pairing-security.test.ts
+
+      - name: SaaS Tenant Registration & Starter Catalog Seeding Verification
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-registration.test.ts
+
+      - name: Multi-Restaurant Hierarchy & Location-Scoped RBAC Verification
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/multi-restaurant-hierarchy.test.ts
+
+      - name: Shared Operational Backend & Multi-Device Operational Flow Verification
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/shared-operational-backend.test.ts
+
+      - name: Transaction Integrity, Catalog Pricing & Customer Payment Ledger Verification
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/transaction-integrity-and-client-integration.test.ts
 
   flutter-verify:
     name: Flutter Static Analysis & Mobile Tests

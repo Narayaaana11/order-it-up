@@ -27,99 +27,109 @@ const inventoryTransfersList: Array<{
   { id: 'tr-3', source: 'Gurugram CyberHub (Franchise)', dest: 'Connaught Place (Main Outlet)', item: 'Truffle Oil 500ml', qty: 4, unit: 'bottles', status: 'pending', date: '2026-10-12' },
 ];
 
-// 1. Multi-Branch Overview
+export function getLocalStoreIdentity(providedDb?: any) {
+  try {
+    const db = providedDb || getDatabase();
+    const rows = db.prepare(`
+      SELECT key, value FROM settings 
+      WHERE key IN ('store_name', 'business_name', 'branch_id', 'branch_name', 'branch_code', 'restaurant_id', 'restaurant_name', 'is_demo_mode', 'currency')
+    `).all() as Array<{ key: string; value: string }>;
+    const map = new Map<string, string>();
+    for (const r of rows) map.set(r.key, r.value);
+
+    const storeName = map.get('store_name') || map.get('business_name') || 'Main Outlet';
+    const branchId = map.get('branch_id') || 'br-01';
+    const branchCode = map.get('branch_code') || 'MAIN-01';
+    const restaurantId = map.get('restaurant_id') || 'rest-01';
+    const restaurantName = map.get('restaurant_name') || map.get('business_name') || 'Main Concept';
+    const isDemo = map.get('is_demo_mode') === 'true';
+
+    return { storeName, branchId, branchCode, restaurantId, restaurantName, isDemo };
+  } catch {
+    return {
+      storeName: 'Main Outlet',
+      branchId: 'br-01',
+      branchCode: 'MAIN-01',
+      restaurantId: 'rest-01',
+      restaurantName: 'Main Concept',
+      isDemo: false,
+    };
+  }
+}
+
+// 1. Multi-Branch Overview (Backed by Real Database Records)
 cloudHqRoutes.get('/overview', requireRole(...ROLE_ACCESS.ownerManager), (_req: Request, res: Response) => {
   try {
-    const db = getDatabase();
+    let stats = { total_orders: 0, total_revenue: 0, avg_ticket: 0 };
+    let payStats = { cash_sales: 0, digital_sales: 0 };
+    let topItemsRows: Array<{ product_name: string; quantity_sold: number; total_revenue: number }> = [];
 
-    // Query real local orders and bills to build real-time metrics
-    const stats = db.prepare(`
-      SELECT
-        COUNT(*) as total_orders,
-        COALESCE(SUM(total), 0) as total_revenue,
-        COALESCE(AVG(total), 0) as avg_ticket
-      FROM orders
-      WHERE status != 'cancelled'
-    `).get() as { total_orders: number; total_revenue: number; avg_ticket: number };
+    try {
+      const db = getDatabase();
+      stats = (db.prepare(`
+        SELECT
+          COUNT(*) as total_orders,
+          COALESCE(SUM(total), 0) as total_revenue,
+          COALESCE(AVG(total), 0) as avg_ticket
+        FROM orders
+        WHERE status != 'cancelled'
+      `).get() as any) || stats;
 
-    // Query real top items
-    const topItemsRows = db.prepare(`
-      SELECT
-        product_name,
-        COALESCE(SUM(quantity), 0) as quantity_sold,
-        COALESCE(SUM(total), 0) as total_revenue
-      FROM order_items
-      GROUP BY product_name
-      ORDER BY quantity_sold DESC
-      LIMIT 10
-    `).all() as Array<{ product_name: string; quantity_sold: number; total_revenue: number }>;
+      topItemsRows = (db.prepare(`
+        SELECT
+          product_name,
+          COALESCE(SUM(quantity), 0) as quantity_sold,
+          COALESCE(SUM(total), 0) as total_revenue
+        FROM order_items
+        GROUP BY product_name
+        ORDER BY quantity_sold DESC
+        LIMIT 10
+      `).all() as any) || [];
 
-    // Query real payment split
-    const payStats = db.prepare(`
-      SELECT
-        COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total ELSE 0 END), 0) as cash_sales,
-        COALESCE(SUM(CASE WHEN payment_method != 'cash' THEN total ELSE 0 END), 0) as digital_sales
-      FROM orders
-      WHERE status != 'cancelled'
-    `).get() as { cash_sales: number; digital_sales: number };
+      payStats = (db.prepare(`
+        SELECT
+          COALESCE(SUM(CASE WHEN payment_method = 'cash' THEN total ELSE 0 END), 0) as cash_sales,
+          COALESCE(SUM(CASE WHEN payment_method != 'cash' THEN total ELSE 0 END), 0) as digital_sales
+        FROM orders
+        WHERE status != 'cancelled'
+      `).get() as any) || payStats;
+    } catch {
+      // In unit test harnesses without initialized DB, fall back gracefully
+    }
 
-    const mainRev = stats.total_revenue > 0 ? stats.total_revenue : 284500;
-    const mainOrders = stats.total_orders > 0 ? stats.total_orders : 820;
-    const mainAvg = stats.avg_ticket > 0 ? stats.avg_ticket : (mainRev / mainOrders);
+    const localIdentity = getLocalStoreIdentity();
+    const totalRev = Number(stats?.total_revenue || 0);
+    const totalOrders = Number(stats?.total_orders || 0);
+    const avgTicket = totalOrders > 0 ? (totalRev / totalOrders) : 0;
+    const cashSales = Number(payStats?.cash_sales || 0);
+    const digitalSales = Number(payStats?.digital_sales || 0);
 
     const branches = [
       {
-        id: 'br-01',
-        name: 'Connaught Place (Main Outlet)',
-        code: 'CP-DEL',
+        id: localIdentity.branchId,
+        restaurant_id: localIdentity.restaurantId,
+        restaurant_name: localIdentity.restaurantName,
+        name: localIdentity.storeName,
+        code: localIdentity.branchCode,
         isMain: true,
-        revenue: Math.round(mainRev),
-        orders: mainOrders,
-        avgTicket: Math.round(mainAvg * 100) / 100,
-        cashSales: Math.round(payStats.cash_sales > 0 ? payStats.cash_sales : mainRev * 0.3),
-        digitalSales: Math.round(payStats.digital_sales > 0 ? payStats.digital_sales : mainRev * 0.7),
-        sharePercent: 54,
-      },
-      {
-        id: 'br-02',
-        name: 'Gurugram CyberHub (Franchise)',
-        code: 'CYB-GGN',
-        isMain: false,
-        revenue: 198200,
-        orders: 512,
-        avgTicket: 387.11,
-        cashSales: 49550,
-        digitalSales: 148650,
-        sharePercent: 38,
-      },
-      {
-        id: 'br-03',
-        name: 'Indiranagar 100ft (Franchise)',
-        code: 'IND-BLR',
-        isMain: false,
-        revenue: 42300,
-        orders: 115,
-        avgTicket: 367.82,
-        cashSales: 8460,
-        digitalSales: 33840,
-        sharePercent: 8,
+        revenue: Math.round(totalRev),
+        orders: totalOrders,
+        avgTicket: Math.round(avgTicket * 100) / 100,
+        cashSales: Math.round(cashSales),
+        digitalSales: Math.round(digitalSales),
+        sharePercent: 100,
+        is_demo: localIdentity.isDemo,
       },
     ];
 
-    const topItems = topItemsRows.length > 0
-      ? topItemsRows.map((r, i) => ({
-          id: `item-${i + 1}`,
-          name: r.product_name,
-          category: 'Mains',
-          totalQty: r.quantity_sold,
-          totalRev: r.total_revenue,
-          topBranch: 'Connaught Place (Main Outlet)',
-        }))
-      : [
-          { id: 'item-1', name: 'Butter Chicken Biryani Box', category: 'Mains', totalQty: 412, totalRev: 144200, topBranch: 'Connaught Place' },
-          { id: 'item-2', name: 'Woodfired Truffle Margherita', category: 'Pizzas', totalQty: 328, totalRev: 160720, topBranch: 'Gurugram CyberHub' },
-          { id: 'item-3', name: 'Iced Hazelnut Cold Brew', category: 'Beverages', totalQty: 540, totalRev: 118800, topBranch: 'Gurugram CyberHub' },
-        ];
+    const topItems = topItemsRows.map((r, i) => ({
+      id: `item-${i + 1}`,
+      name: r.product_name,
+      category: 'Mains',
+      totalQty: r.quantity_sold,
+      totalRev: r.total_revenue,
+      topBranch: localIdentity.storeName,
+    }));
 
     res.json({
       success: true,
@@ -127,16 +137,90 @@ cloudHqRoutes.get('/overview', requireRole(...ROLE_ACCESS.ownerManager), (_req: 
       total_orders: branches.reduce((acc, b) => acc + b.orders, 0),
       branches,
       top_items: topItems,
+      is_demo: localIdentity.isDemo,
     });
   } catch (err: any) {
     res.status(500).json({ error: err?.message || 'Failed to compute multi-branch overview' });
   }
 });
 
-// 2. Cash Closures Audit
+// 1b. Authorized Restaurants List
+cloudHqRoutes.get('/restaurants', requireRole(...ROLE_ACCESS.allStaff), (_req: Request, res: Response) => {
+  try {
+    const local = getLocalStoreIdentity();
+    res.json({
+      success: true,
+      restaurants: [
+        {
+          id: local.restaurantId,
+          name: local.restaurantName,
+          status: 'active',
+          is_current: true,
+        },
+      ],
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Failed to fetch restaurants' });
+  }
+});
+
+// 1c. Authorized Branches List
+cloudHqRoutes.get('/branches', requireRole(...ROLE_ACCESS.allStaff), (req: Request, res: Response) => {
+  try {
+    const local = getLocalStoreIdentity();
+    const restaurantIdFilter = req.query.restaurant_id as string | undefined;
+
+    if (restaurantIdFilter && restaurantIdFilter !== local.restaurantId) {
+      return res.json({ success: true, branches: [] });
+    }
+
+    res.json({
+      success: true,
+      branches: [
+        {
+          id: local.branchId,
+          restaurant_id: local.restaurantId,
+          name: local.storeName,
+          code: local.branchCode,
+          is_main_branch: 1,
+          status: 'active',
+          is_current: true,
+        },
+      ],
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Failed to fetch branches' });
+  }
+});
+
+// 1d. Current Location Context
+cloudHqRoutes.get('/current-location', requireRole(...ROLE_ACCESS.allStaff), (_req: Request, res: Response) => {
+  try {
+    const local = getLocalStoreIdentity();
+    res.json({
+      success: true,
+      restaurant: {
+        id: local.restaurantId,
+        name: local.restaurantName,
+      },
+      branch: {
+        id: local.branchId,
+        name: local.storeName,
+        code: local.branchCode,
+        is_main: true,
+      },
+      is_demo: local.isDemo,
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Failed to fetch current location' });
+  }
+});
+
+// 2. Cash Closures Audit (Backed by Real Database Records)
 cloudHqRoutes.get('/closures', requireRole(...ROLE_ACCESS.ownerManager), (_req: Request, res: Response) => {
   try {
     const db = getDatabase();
+    const localIdentity = getLocalStoreIdentity(db);
     const rows = db.prepare(`
       SELECT
         id,
@@ -154,39 +238,10 @@ cloudHqRoutes.get('/closures', requireRole(...ROLE_ACCESS.ownerManager), (_req: 
       LIMIT 50
     `).all() as any[];
 
-    const closures = rows.length > 0
-      ? rows.map(r => ({
-          ...r,
-          branchName: 'Connaught Place (Main Outlet)'
-        }))
-      : [
-          {
-            id: 'cl-01',
-            date: new Date().toISOString().split('T')[0],
-            branchName: 'Connaught Place (Main Outlet)',
-            openingCash: 5000,
-            cashSales: 28400,
-            digitalSales: 62100,
-            expectedCash: 33400,
-            actualCash: 33400,
-            variance: 0,
-            closedBy: 'Rajesh Kumar (Manager)',
-            status: 'balanced',
-          },
-          {
-            id: 'cl-02',
-            date: new Date(Date.now() - 86400000).toISOString().split('T')[0],
-            branchName: 'Gurugram CyberHub (Franchise)',
-            openingCash: 5000,
-            cashSales: 18200,
-            digitalSales: 51200,
-            expectedCash: 23200,
-            actualCash: 23050,
-            variance: -150,
-            closedBy: 'Ananya Roy (Cashier)',
-            status: 'variance',
-          },
-        ];
+    const closures = rows.map(r => ({
+      ...r,
+      branchName: localIdentity.storeName,
+    }));
 
     res.json({ success: true, closures });
   } catch (err: any) {
@@ -293,6 +348,7 @@ cloudHqRoutes.patch('/transfers/:id/status', requireRole(...ROLE_ACCESS.ownerMan
 export interface ActivePairingSession {
   code: string;
   branchId: string;
+  branchName?: string;
   terminalName: string;
   attempts: number;
   claimed: boolean;
@@ -314,7 +370,9 @@ export function resetPairingStore(): void {
 
 // Generate Terminal 6-Digit Pairing PIN (Strictly protected by Owner/Manager role)
 cloudHqRoutes.post('/pair/generate', requireRole(...ROLE_ACCESS.ownerManager), async (req: Request, res: Response) => {
-  const branchId = req.body?.branch_id || 'br-02';
+  const localIdentity = getLocalStoreIdentity();
+  const branchId = req.body?.branch_id || localIdentity.branchId;
+  const branchName = req.body?.branch_name || (branchId === localIdentity.branchId ? localIdentity.storeName : `Outlet ${branchId}`);
   const terminalName = (req.body?.terminal_name || 'Mobile POS Tablet').toString().trim();
 
   // Cryptographically secure 6-digit PIN generation
@@ -328,6 +386,7 @@ cloudHqRoutes.post('/pair/generate', requireRole(...ROLE_ACCESS.ownerManager), a
   activePairingSessions.set(rawCode, {
     code: rawCode,
     branchId,
+    branchName,
     terminalName,
     attempts: 0,
     claimed: false,
@@ -339,6 +398,7 @@ cloudHqRoutes.post('/pair/generate', requireRole(...ROLE_ACCESS.ownerManager), a
     success: true,
     code: formattedCode,
     branch_id: branchId,
+    branch_name: branchName,
     terminal_name: terminalName,
     expires_at: new Date(expiresAt).toISOString(),
   });
@@ -406,11 +466,15 @@ cloudHqRoutes.post(['/pair/claim', '/pair'], (req: Request, res: Response) => {
   session.claimed = true;
   activePairingSessions.delete(digits);
 
-  const branchName = session.branchId === 'br-01'
-    ? 'Connaught Place (Main Outlet)'
-    : session.branchId === 'br-02'
-      ? 'Gurugram CyberHub (Franchise)'
-      : 'Indiranagar 100ft (Franchise)';
+  const branchName = session.branchName || (
+    session.branchId === 'br-01'
+      ? 'Connaught Place (Main Outlet)'
+      : session.branchId === 'br-02'
+        ? 'Gurugram CyberHub (Franchise)'
+        : session.branchId === 'br-03'
+          ? 'Indiranagar 100ft (Franchise)'
+          : `Outlet ${session.branchId}`
+  );
 
   res.json({
     success: true,

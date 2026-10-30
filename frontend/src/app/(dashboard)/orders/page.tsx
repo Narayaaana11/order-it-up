@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import api from '@/lib/api';
+import api, { createPollingController } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { Button } from '@/components/ui/button';
 import { CreditCard, Trash2, RotateCcw, Clock, MessageCircle, Printer, XCircle, Lock, Percent, Banknote, Search, Plus, ChevronDown, ChevronRight, UserPlus, User, ShoppingBag, Send, Loader2, Ban, Download, LayoutGrid, Table as TableIcon, Calendar, CheckCircle2, Bike } from 'lucide-react';
@@ -282,6 +282,32 @@ export default function OrdersPage() {
       setLoading(false);
     }
   };
+
+  // Visibility-aware live cross-device order polling with exponential backoff (Phase 2-E)
+  useEffect(() => {
+    const controller = createPollingController(async () => {
+      try {
+        const { data } = await api.get('/orders', { params: { per_page: 50 } });
+        const orders = data.orders || [];
+        setOrders(orders);
+        orders.forEach((order: Order) => {
+          if (order.bill?.id && !fetchedBillIdsRef.current.has(order.bill.id)) {
+            fetchedBillIdsRef.current.add(order.bill.id);
+            fetchPrintHistory(order.bill.id);
+          }
+        });
+      } catch (err: any) {
+        if (err?.name === 'AbortError' || err?.code === 'ERR_CANCELED') return;
+      } finally {
+        setLoading(false);
+      }
+    }, 5000);
+
+    controller.start();
+    return () => {
+      controller.stop();
+    };
+  }, []);
 
   useEffect(() => {
     if (!activeUserId || appendRecoveryStartedUsersRef.current.has(activeUserId)) return;

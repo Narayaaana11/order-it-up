@@ -313,16 +313,39 @@ class ApiService {
     }
 
     try {
-      await apiClient.post(
-        '/api/bills',
+      // Primary: Cloud Operational Payment Ledger
+      final res = await apiClient.post(
+        '/api/orders/$orderId/payments',
         body: {
-          'order_id': orderId,
+          'amount': amount,
           'payment_method': paymentMethod,
-          'amount_paid': amount,
+          'external_reference_id': paymentMethod != 'cash' ? 'MOB-${DateTime.now().millisecondsSinceEpoch}' : null,
         },
         withIdempotency: true,
       );
-      return true;
+      if (res != null) return true;
+      return false;
+    } on ApiException catch (e) {
+      // Security Invariant (Phase 2-D): A 401, 403, 400, or 409 must NOT trigger a less restrictive fallback.
+      // Payment validation errors and auth denials must not silently fall back to LAN or claim success.
+      if (e.statusCode != null) {
+        return false;
+      }
+      // If network failed entirely (no HTTP response), attempt local desktop LAN fallback if paired
+      try {
+        await apiClient.post(
+          '/api/bills',
+          body: {
+            'order_id': orderId,
+            'payment_method': paymentMethod,
+            'amount_paid': amount,
+          },
+          withIdempotency: true,
+        );
+        return true;
+      } catch (_) {
+        return false;
+      }
     } catch (_) {
       return false;
     }
@@ -330,6 +353,35 @@ class ApiService {
 
   Future<List<KdsTicketModel>> getKdsTickets() async {
     if (isDemoMode) return _demoKds;
+    try {
+      // 1. Try Cloud operational tickets endpoint
+      final cloudRes = await apiClient.get('/api/kitchen/tickets');
+      if (cloudRes is Map && cloudRes['tickets'] is List) {
+        return (cloudRes['tickets'] as List).map((t) {
+          final map = t as Map<String, dynamic>;
+          final itemsRaw = map['items'] ?? [];
+          return KdsTicketModel(
+            id: int.tryParse(map['id']?.toString() ?? '0') ?? (DateTime.now().millisecondsSinceEpoch % 100000),
+            orderNumber: map['ticket_number']?.toString() ?? '#ORD',
+            tableNumber: map['station']?.toString() ?? 'Main Kitchen',
+            createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ?? DateTime.now(),
+            status: map['status']?.toString().toLowerCase() ?? 'waiting',
+            items: itemsRaw is List
+                ? itemsRaw.map((i) => OrderItemModel.fromJson(i as Map<String, dynamic>)).toList()
+                : [],
+          );
+        }).toList();
+      }
+    } on ApiException catch (e) {
+      // Security Invariant (Phase 2-D): HTTP auth failures (401/403) must not fall back to local mock data
+      if (e.statusCode == 401 || e.statusCode == 403) {
+        return [];
+      }
+    } catch (_) {
+      // Network failure on cloud: continue to local LAN desktop
+    }
+
+    // 2. Fallback: Local LAN desktop /api/kds
     try {
       final res = await apiClient.get('/api/kds');
       if (res is List) {
@@ -367,7 +419,14 @@ class ApiService {
     }
 
     try {
-      await apiClient.put('/api/kds/$ticketId/status', body: {'status': newStatus});
+      // 1. Try Cloud operational kitchen bump
+      await apiClient.patch('/api/kitchen/tickets/$ticketId/status', body: {'status': newStatus});
+    } catch (_) {
+      // 2. Fallback: Local LAN desktop /api/kds
+      try {
+        await apiClient.put('/api/kds/$ticketId/status', body: {'status': newStatus});
+      } catch (_) {}
+    }
     } catch (_) {}
   }
 
