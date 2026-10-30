@@ -4,14 +4,36 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'use-intl';
 import { useAuthStore } from '@/store/auth';
-import api from '@/lib/api';
+import api, { isElectronEnvironment } from '@/lib/api';
 import { showPrintLanguageLoadErrorsToast } from '@/lib/printer/warnings-toast';
 
 export function getLandingPage(): string {
+  if (typeof window !== 'undefined') {
+    try {
+      const storedUser = localStorage.getItem('user');
+      if (storedUser) {
+        const u = JSON.parse(storedUser);
+        if (u.role === 'owner' || u.role === 'super_admin') {
+          return '/cloud-portal';
+        }
+      }
+    } catch {}
+  }
   return '/pos';
 }
 
-const PUBLIC_PATHS = ['/kds', '/kds-standalone', '/server-standalone', '/auth/login', '/auth/register', '/auth/recover', '/setup'];
+const PUBLIC_PATHS = [
+  '/',
+  '/kds',
+  '/kds-standalone',
+  '/server-standalone',
+  '/auth/login',
+  '/auth/register',
+  '/auth/recover',
+  '/setup',
+  '/qr',
+  '/cloud-portal',
+];
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const t = useTranslations('common');
@@ -19,9 +41,16 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   const printLanguageLoadErrors = useAuthStore((s) => s.printLanguageLoadErrors);
   const router = useRouter();
   const pathname = usePathname();
-  const [needsSetup, setNeedsSetup] = useState<boolean | null>(null); // null = still checking
+  const [needsSetup, setNeedsSetup] = useState<boolean | null>(() => {
+    // In web / Cloudflare deployment, there is no desktop SQLite setup wizard
+    if (typeof window !== 'undefined' && !isElectronEnvironment()) {
+      return false;
+    }
+    return null;
+  });
 
-  const isPublicPath = PUBLIC_PATHS.some(p => pathname === p || pathname?.startsWith(p + '/'));
+  const isRootPath = pathname === '/';
+  const isPublicPath = isRootPath || PUBLIC_PATHS.some(p => p !== '/' && (pathname === p || pathname?.startsWith(p + '/')));
   const isSetupPath = pathname === '/setup' || pathname?.startsWith('/setup/');
   const isStandalonePath = pathname?.startsWith('/kds') || pathname?.startsWith('/server-standalone');
 
@@ -40,13 +69,13 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading) return; // wait for auth state to load
 
-    // If we don't know setup status yet, fetch it
-    if (!isStandalonePath && needsSetup === null) {
+    // If we don't know setup status yet, fetch it (desktop only)
+    if (!isStandalonePath && needsSetup === null && isElectronEnvironment()) {
       const controller = new AbortController();
       let active = true;
       api.get('/auth/setup/status', { signal: controller.signal })
         .then(({ data }) => {
-          if (active) setNeedsSetup(data.needsSetup);
+          if (active) setNeedsSetup(Boolean(data?.needsSetup));
         })
         .catch((err) => {
           if (!active || (err instanceof Error && (err.name === 'CanceledError' || err.name === 'AbortError'))) return;
@@ -57,29 +86,29 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
       return () => {
         active = false;
         controller.abort();
-      }; // wait for the result before redirecting
+      };
     }
 
-    if (needsSetup && !isSetupPath) {
+    if (needsSetup && !isSetupPath && isElectronEnvironment()) {
       router.push('/setup');
       return;
     }
 
-    if (isPublicPath) return; // don't redirect from public paths unless setup is needed
+    if (isPublicPath) return; // don't redirect from public paths
 
     // Auth loaded + setup status known + not on public path
     if (!user) {
       router.push('/auth/login');
-    } else if (!currentTenant) {
+    } else if (!currentTenant && isElectronEnvironment()) {
       router.push('/auth/login?select_tenant=true');
     }
   }, [loading, user, currentTenant, isPublicPath, isSetupPath, isStandalonePath, needsSetup, router]);
 
-  if (isStandalonePath || isSetupPath) {
+  if (isStandalonePath || isSetupPath || isPublicPath) {
     return <>{children}</>;
   }
 
-  if (loading || needsSetup === null || needsSetup === true) {
+  if (loading || (isElectronEnvironment() && (needsSetup === null || needsSetup === true))) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-muted">
         <div className="flex flex-col items-center gap-3">
@@ -90,11 +119,7 @@ export default function AuthGuard({ children }: { children: React.ReactNode }) {
     );
   }
 
-  if (isPublicPath) {
-    return <>{children}</>;
-  }
-
-  if (!user || !currentTenant) return null;
+  if (!user || (!currentTenant && isElectronEnvironment())) return null;
 
   return <>{children}</>;
 }

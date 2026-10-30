@@ -243,10 +243,26 @@ export async function handleRegisterTenant(request: Request, env: Env): Promise<
     exp,
   }, env.JWT_SECRET);
 
+  const tenantObj = {
+    id: orgId,
+    name: restaurantName,
+    business_name: restaurantName,
+    slug: restaurantSlug,
+    database_name: 'cloud_d1',
+    business_type: 'restaurant',
+    country,
+    currency,
+    timezone,
+    plan: 'saas_production',
+    status: 'active',
+    role: 'owner',
+  };
+
   return Response.json({
     success: true,
     message: 'Restaurant organization registered successfully',
     token,
+    access_token: token,
     user: {
       id: userId,
       email,
@@ -259,6 +275,8 @@ export async function handleRegisterTenant(request: Request, env: Env): Promise<
       country,
       assigned_branch_id: branchId,
     },
+    tenants: [tenantObj],
+    tenant: tenantObj,
     restaurant: {
       id: restaurantId,
       name: restaurantName,

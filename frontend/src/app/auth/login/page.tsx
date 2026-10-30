@@ -13,6 +13,7 @@ import { Card, CardContent } from '@/components/ui/card';
 import toast from 'react-hot-toast';
 import { Eye, EyeOff } from 'lucide-react';
 import { ROLE_LABEL_KEYS } from '@/lib/i18n-enums';
+import { isElectronEnvironment } from '@/lib/api';
 
 // Backend enum → leaf key maps for the tenant picker.
 type BusinessTypeKey = keyof AppConfig['Messages']['businessType'];
@@ -38,6 +39,9 @@ function LoginContent() {
   const [showPassword, setShowPassword] = useState(false);
 
   useEffect(() => {
+    // Only check local SQLite setup and health in Electron desktop environment
+    if (!isElectronEnvironment()) return;
+
     fetch('/api/auth/setup/status')
       .then(r => r.ok ? r.json() : null)
       .then(data => {
@@ -59,7 +63,7 @@ function LoginContent() {
     loadFromStorage();
   }, [loadFromStorage]);
 
-  const handleTenantSelect = useCallback(async (tenantId: number) => {
+  const handleTenantSelect = useCallback(async (tenantId: number | string) => {
     setLoading(true);
     try {
       await selectTenant(tenantId);

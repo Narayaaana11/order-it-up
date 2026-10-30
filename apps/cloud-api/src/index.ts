@@ -97,15 +97,27 @@ export default {
 };
 
 async function routeRequest(request: Request, env: Env, url: URL, method: string): Promise<Response> {
-  const path = url.pathname;
+  const rawPath = url.pathname;
+  // Normalize path to always begin with /api/ for uniform routing
+  const path = rawPath.startsWith('/api') ? rawPath : `/api${rawPath === '/' ? '' : rawPath}`;
 
   // 1. Health check
-  if (path === '/' || path === '/health') {
+  if (rawPath === '/' || rawPath === '/health' || path === '/api/health') {
     return Response.json({
       service: 'orderitup-cloud-api',
       version: '1.0.0',
       status: 'operational',
       engine: 'Cloudflare Workers + D1'
+    });
+  }
+
+  // 1b. Setup status check (Cloud SaaS is always initialized; no desktop wizard needed)
+  if (path === '/api/auth/setup/status' && method === 'GET') {
+    return Response.json({
+      needsSetup: false,
+      masterPinAvailable: false,
+      mode: 'cloud_saas',
+      status: 'operational'
     });
   }
 
@@ -206,8 +218,24 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
       exp
     }, env.JWT_SECRET);
 
+    const tenantObj = {
+      id: user.organization_id,
+      name: user.organization_name,
+      business_name: user.organization_name,
+      slug: (user.organization_name || 'store').toLowerCase().replace(/\s+/g, '-'),
+      database_name: 'cloud_d1',
+      business_type: 'restaurant',
+      country: user.country || 'IN',
+      currency: user.currency || 'INR',
+      timezone: user.timezone || 'Asia/Kolkata',
+      plan: 'saas_production',
+      status: 'active',
+      role: user.role,
+    };
+
     return Response.json({
       token,
+      access_token: token,
       user: {
         id: user.id,
         email: user.email,
@@ -218,7 +246,9 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
         currency: user.currency,
         timezone: user.timezone,
         assigned_branch_id: user.assigned_branch_id || null
-      }
+      },
+      tenants: [tenantObj],
+      tenant: tenantObj,
     });
   }
 
@@ -272,8 +302,58 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     return Response.json({ error: 'Forbidden: No active organization memberships' }, { status: 403 });
   }
 
+  // 5b. Auth: Current User & Session Validation (/api/auth/me)
+  if (path === '/api/auth/me' && method === 'GET') {
+    const user = await env.DB.prepare(`
+      SELECT u.*, o.name as organization_name, o.currency, o.timezone, o.country
+      FROM cloud_users u
+      JOIN organizations o ON u.organization_id = o.id
+      WHERE u.id = ? AND u.status = 'active'
+    `).bind(userId).first<any>();
+
+    if (!user) {
+      return Response.json({ error: 'User account not found' }, { status: 404 });
+    }
+
+    const tenantObj = {
+      id: user.organization_id,
+      name: user.organization_name,
+      business_name: user.organization_name,
+      slug: (user.organization_name || 'store').toLowerCase().replace(/\s+/g, '-'),
+      database_name: 'cloud_d1',
+      business_type: 'restaurant',
+      country: user.country || 'IN',
+      currency: user.currency || 'INR',
+      timezone: user.timezone || 'Asia/Kolkata',
+      plan: 'saas_production',
+      status: 'active',
+      role: claims.role,
+    };
+
+    return Response.json({
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: claims.role,
+        organization_id: user.organization_id,
+        organization_name: user.organization_name,
+        currency: user.currency,
+        timezone: user.timezone,
+        assigned_branch_id: claims.branch || user.assigned_branch_id || null,
+      },
+      tenants: [tenantObj],
+      tenant: tenantObj,
+    });
+  }
+
+  // 5c. Auth: Logout
+  if (path === '/api/auth/logout' && method === 'POST') {
+    return Response.json({ success: true, message: 'Logged out successfully' });
+  }
+
   // 6. Restaurants & Concepts
-  if (path === '/api/restaurants' && method === 'GET') {
+  if ((path === '/api/restaurants' || path === '/api/cloud/restaurants') && method === 'GET') {
     return handleListRestaurants(request, env, claims);
   }
   if (path === '/api/restaurants' && method === 'POST') {
@@ -376,7 +456,7 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   }
 
   // 13. Analytics Overview
-  if (path === '/api/analytics/overview' && method === 'GET') {
+  if ((path === '/api/analytics/overview' || path === '/api/cloud/overview') && method === 'GET') {
     if (!isOrgOwnerOrAdmin(memberships) && !isOrgAccountant(memberships) && !memberships.some((m) => m.role === 'manager')) {
       return Response.json({ error: 'Forbidden: Insufficient privileges to view analytics' }, { status: 403 });
     }
@@ -384,7 +464,7 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   }
 
   // 14. Accountant Hub
-  if (path === '/api/accountant/closures' && method === 'GET') {
+  if ((path === '/api/accountant/closures' || path === '/api/cloud/closures') && method === 'GET') {
     if (!isOrgOwnerOrAdmin(memberships) && !isOrgAccountant(memberships)) {
       return Response.json({ error: 'Forbidden: Insufficient privileges to access accounting data' }, { status: 403 });
     }
@@ -404,7 +484,7 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   }
 
   // 15. Master Catalog & Overrides
-  if (path === '/api/catalog/master' && method === 'GET') {
+  if ((path === '/api/catalog/master' || path === '/api/cloud/catalog') && method === 'GET') {
     return handleGetMasterCatalog(request, env, orgId);
   }
   if (path === '/api/catalog/product' && method === 'POST') {
@@ -412,6 +492,16 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
       return Response.json({ error: 'Forbidden: Insufficient privileges to modify master catalog' }, { status: 403 });
     }
     return handleSaveMasterProduct(request, env, orgId);
+  }
+  if (path === '/api/cloud/catalog/override' && method === 'POST') {
+    if (!isOrgOwnerOrAdmin(memberships) && !memberships.some((m) => m.role === 'manager')) {
+      return Response.json({ error: 'Forbidden: Insufficient privileges to modify branch catalog' }, { status: 403 });
+    }
+    const branch = await env.DB.prepare('SELECT id FROM branches WHERE organization_id = ? LIMIT 1').bind(orgId).first<{ id: string }>();
+    if (!branch) {
+      return Response.json({ error: 'No branch found' }, { status: 404 });
+    }
+    return handleSetBranchOverride(request, env, branch.id, orgId);
   }
   if (path.startsWith('/api/catalog/branch/') && path.endsWith('/override') && method === 'POST') {
     if (!isOrgOwnerOrAdmin(memberships) && !memberships.some((m) => m.role === 'manager')) {
@@ -427,16 +517,16 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   }
 
   // 16. Inventory Transfers
-  if (path === '/api/transfers' && method === 'GET') {
+  if ((path === '/api/transfers' || path === '/api/cloud/transfers') && method === 'GET') {
     return handleListTransfers(request, env, orgId);
   }
-  if (path === '/api/transfers' && method === 'POST') {
+  if ((path === '/api/transfers' || path === '/api/cloud/transfers') && method === 'POST') {
     if (!isOrgOwnerOrAdmin(memberships) && !memberships.some((m) => m.role === 'manager')) {
       return Response.json({ error: 'Forbidden: Insufficient privileges to create stock transfers' }, { status: 403 });
     }
     return handleCreateTransfer(request, env, orgId);
   }
-  if (path.startsWith('/api/transfers/') && path.endsWith('/status') && (method === 'PATCH' || method === 'PUT')) {
+  if ((path.startsWith('/api/transfers/') || path.startsWith('/api/cloud/transfers/')) && path.endsWith('/status') && (method === 'PATCH' || method === 'PUT')) {
     if (!isOrgOwnerOrAdmin(memberships) && !memberships.some((m) => m.role === 'manager')) {
       return Response.json({ error: 'Forbidden: Insufficient privileges to update stock transfers' }, { status: 403 });
     }

@@ -164,14 +164,14 @@ export default function CloudPortalPage() {
     return () => clearInterval(interval);
   }, [showPairModal, pairTimeLeft]);
 
-  // Fetch live overview, restaurants, closures, catalog, and transfers from backend
+  // Fetch live overview, restaurants, closures, catalog, and transfers from Cloudflare Edge Worker
   useEffect(() => {
     setIsLoadingHierarchy(true);
 
     // 1. Fetch authorized restaurant concepts
-    fetch('/api/cloud/restaurants')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
+    cloudApi.get('/api/restaurants')
+      .then((res) => {
+        const data = res.data;
         if (data?.restaurants && Array.isArray(data.restaurants)) {
           setRestaurants(data.restaurants);
         }
@@ -179,9 +179,9 @@ export default function CloudPortalPage() {
       .catch(() => {});
 
     // 2. Fetch multi-location overview
-    fetch('/api/cloud/overview')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
+    cloudApi.get('/api/analytics/overview')
+      .then((res) => {
+        const data = res.data;
         if (data?.branches && Array.isArray(data.branches)) {
           setBranches(data.branches);
           if (data.branches[0]?.id && !overrideBranch) {
@@ -202,25 +202,25 @@ export default function CloudPortalPage() {
       });
 
     // 3. Fetch closures
-    fetch('/api/cloud/closures')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
+    cloudApi.get('/api/accountant/closures')
+      .then((res) => {
+        const data = res.data;
         if (data?.closures && Array.isArray(data.closures)) setCashClosures(data.closures);
       })
       .catch(() => {});
 
     // 4. Fetch catalog
-    fetch('/api/cloud/catalog')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
+    cloudApi.get('/api/catalog/master')
+      .then((res) => {
+        const data = res.data;
         if (data?.items && Array.isArray(data.items)) setCatalogItems(data.items);
       })
       .catch(() => {});
 
     // 5. Fetch transfers
-    fetch('/api/cloud/transfers')
-      .then((res) => (res.ok ? res.json() : null))
-      .then((data) => {
+    cloudApi.get('/api/transfers')
+      .then((res) => {
+        const data = res.data;
         if (data?.transfers && Array.isArray(data.transfers)) setTransfers(data.transfers);
       })
       .catch(() => {});
@@ -258,10 +258,10 @@ export default function CloudPortalPage() {
   const handleToggleAvailability = (item: ProductCatalogItem) => {
     const updated = !item.isAvailable;
     setCatalogItems(catalogItems.map((p) => (p.id === item.id ? { ...p, isAvailable: updated } : p)));
-    fetch('/api/cloud/catalog/override', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ product_id: item.id, is_available: updated }),
+    cloudApi.post('/api/cloud/catalog/override', {
+      product_id: item.id,
+      is_available: updated,
+      branch_id: overrideBranch,
     }).catch(() => {});
   };
 
@@ -273,10 +273,10 @@ export default function CloudPortalPage() {
     if (newPrice !== null) {
       const priceVal = newPrice.trim() ? Number(newPrice) : null;
       setCatalogItems(catalogItems.map((p) => (p.id === item.id ? { ...p, overridePrice: priceVal } : p)));
-      fetch('/api/cloud/catalog/override', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ product_id: item.id, price_override: priceVal }),
+      cloudApi.post('/api/cloud/catalog/override', {
+        product_id: item.id,
+        price_override: priceVal,
+        branch_id: overrideBranch,
       }).catch(() => {});
     }
   };
@@ -297,20 +297,12 @@ export default function CloudPortalPage() {
       date: new Date().toISOString().split('T')[0],
     };
     setTransfers([newTransfer, ...transfers]);
-    fetch('/api/cloud/transfers', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(newTransfer),
-    }).catch(() => {});
+    cloudApi.post('/api/transfers', newTransfer).catch(() => {});
   };
 
   const handleUpdateTransferStatus = (id: string, status: 'dispatched' | 'received') => {
     setTransfers(transfers.map((tr) => (tr.id === id ? { ...tr, status } : tr)));
-    fetch(`/api/cloud/transfers/${id}/status`, {
-      method: 'PATCH',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ status }),
-    }).catch(() => {});
+    cloudApi.patch(`/api/transfers/${id}/status`, { status }).catch(() => {});
   };
 
   // Filter branches by selected restaurant concept, then by selected branch

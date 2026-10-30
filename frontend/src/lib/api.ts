@@ -4,7 +4,7 @@ let authRedirectInProgress = false;
 
 export const CLOUD_API_BASE =
   process.env.NEXT_PUBLIC_OIU_CLOUD_API_URL ||
-  'https://orderitup-cloud-api-staging.narayaaana11.workers.dev';
+  'https://orderitup-cloud-api.narayaaana11.workers.dev';
 
 /**
  * Returns true if the frontend is running embedded inside the Electron desktop shell.
@@ -64,23 +64,35 @@ function attachAuthToken(instance: typeof api) {
 attachAuthToken(api);
 attachAuthToken(cloudApi);
 
-// Handle 401 responses
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401 && typeof window !== 'undefined') {
-      const isKdsPath = window.location.pathname.startsWith('/kds');
-      localStorage.removeItem('token');
-      if (isKdsPath) return Promise.reject(error);
-      if (!window.location.pathname.includes('/auth/login') && !window.location.pathname.includes('/auth/register') && !authRedirectInProgress) {
-        authRedirectInProgress = true;
-        localStorage.removeItem('tenant');
-        window.location.href = '/auth/login';
-      }
+function handleAuthError(error: any) {
+  if (error.response?.status === 401 && typeof window !== 'undefined') {
+    const pathname = window.location.pathname;
+    const isPublicOrAuth =
+      pathname === '/' ||
+      pathname.includes('/auth/login') ||
+      pathname.includes('/auth/register') ||
+      pathname.startsWith('/setup') ||
+      pathname.startsWith('/qr') ||
+      pathname.startsWith('/cloud-portal') ||
+      pathname.startsWith('/kds') ||
+      pathname.startsWith('/server-standalone');
+
+    localStorage.removeItem('token');
+    localStorage.removeItem('cloud_token');
+
+    if (!isPublicOrAuth && !authRedirectInProgress) {
+      authRedirectInProgress = true;
+      localStorage.removeItem('tenant');
+      localStorage.removeItem('user');
+      window.location.replace('/auth/login');
     }
-    return Promise.reject(error);
   }
-);
+  return Promise.reject(error);
+}
+
+// Handle 401 responses without infinite refresh loops
+api.interceptors.response.use((response) => response, handleAuthError);
+cloudApi.interceptors.response.use((response) => response, handleAuthError);
 
 export default api;
 

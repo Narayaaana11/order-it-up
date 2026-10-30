@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import api from '@/lib/api';
+import api, { isElectronEnvironment } from '@/lib/api';
 import { useAuthStore } from '@/store/auth';
 import { usePosSettingsStore } from '@/store/pos-settings';
 import { Button } from '@/components/ui/button';
@@ -120,6 +120,10 @@ export default function SetupPage() {
   const locale = useLocale();
 
   useEffect(() => {
+    if (!isElectronEnvironment()) {
+      window.location.replace('/auth/login');
+      return;
+    }
     let mounted = true;
     api.get('/auth/setup/status')
       .then(({ data }) => {

@@ -2,16 +2,20 @@ import type { Language } from '@/lib/i18n';
 import type { CurrencyDisplay, DigitMode, CalendarMode } from '@/lib/countries';
 
 export interface User {
-  id: number;
+  id: number | string;
   name: string;
   email: string;
   phone: string | null;
-  country_code: string;
-  is_active: boolean;
+  country_code?: string;
+  is_active?: boolean;
+  role?: string;
+  organization_id?: string;
+  organization_name?: string;
 }
 
 export interface Tenant {
-  id: number;
+  id: number | string;
+  name?: string;
   business_name: string;
   slug: string;
   database_name: string;

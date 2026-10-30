@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import api from '@/lib/api';
+import api, { isElectronEnvironment } from '@/lib/api';
 import type { User, Tenant } from '@/lib/types';
 import { usePosSettingsStore } from '@/store/pos-settings';
 import { THEME_REHYDRATION_EVENT } from './theme';
@@ -30,7 +30,7 @@ interface AuthState {
   printLanguageLoadErrors: Language[];
 
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
-  selectTenant: (tenantId: number) => Promise<void>;
+  selectTenant: (tenantId: number | string) => Promise<void>;
   logout: () => void;
   loadFromStorage: () => Promise<void>;
   updateCurrentTenant: (updates: Partial<Tenant>) => void;
@@ -49,6 +49,7 @@ export class StorageUnavailableError extends Error {
 function persistSession(token: string, tenant: Tenant | null): void {
   try {
     localStorage.setItem('token', token);
+    localStorage.setItem('cloud_token', token);
     if (tenant) localStorage.setItem('tenant', JSON.stringify(tenant));
   } catch {
     throw new StorageUnavailableError();
@@ -75,9 +76,28 @@ export const useAuthStore = create<AuthState>((set) => ({
     clearBillTemplateProvenance();
     const { data } = await api.post('/auth/login', { email, password, rememberMe });
     if (operation !== authOperation) return;
-    const tenants: Tenant[] = data.tenants;
-    const currentTenant = tenants.length === 1 ? tenants[0] : null;
-    persistSession(data.access_token, currentTenant);
+    const token = data.access_token || data.token;
+    const tenants: Tenant[] = Array.isArray(data.tenants) && data.tenants.length > 0
+      ? data.tenants
+      : (data.tenant ? [data.tenant] : (data.user?.organization_id ? [{
+          id: data.user.organization_id,
+          business_name: data.user.organization_name || 'Store',
+          name: data.user.organization_name || 'Store',
+          slug: (data.user.organization_name || 'store').toLowerCase().replace(/\s+/g, '-'),
+          database_name: 'cloud_d1',
+          business_type: 'restaurant',
+          country: data.user.country || 'IN',
+          currency: data.user.currency || 'INR',
+          timezone: data.user.timezone || 'Asia/Kolkata',
+          plan: 'saas_production',
+          status: 'active',
+          role: data.user.role || 'owner',
+        }] : []));
+    const currentTenant = data.tenant || (tenants.length === 1 ? tenants[0] : null);
+    persistSession(token, currentTenant);
+    if (data.user) {
+      try { localStorage.setItem('user', JSON.stringify(data.user)); } catch {}
+    }
     syncTenantLanguage(currentTenant);
     const failedLanguages = currentTenant
       ? await syncPrintPoliciesAtBootstrap(currentTenant, usePosSettingsStore, () => operation === authOperation)
@@ -85,24 +105,35 @@ export const useAuthStore = create<AuthState>((set) => ({
     if (operation !== authOperation) return;
     set({
       user: data.user,
-      token: data.access_token,
+      token,
       tenants,
       currentTenant,
       printLanguageLoadErrors: failedLanguages,
     });
   },
 
-  selectTenant: async (tenantId: number) => {
+  selectTenant: async (tenantId: number | string) => {
     const operation = ++authOperation;
     clearBillTemplateProvenance();
+    const currentTenants = useAuthStore.getState().tenants;
+    const matched = currentTenants.find((t) => String(t.id) === String(tenantId)) || null;
+
+    if (!isElectronEnvironment() && matched) {
+      persistSession(useAuthStore.getState().token || '', matched);
+      syncTenantLanguage(matched);
+      set({ currentTenant: matched });
+      return;
+    }
+
     const { data } = await api.post('/auth/tenants/select', { tenant_id: tenantId });
     if (operation !== authOperation) return;
-    persistSession(data.access_token, data.tenant);
+    const token = data.access_token || data.token;
+    persistSession(token, data.tenant);
     syncTenantLanguage(data.tenant);
     const failedLanguages = await syncPrintPoliciesAtBootstrap(data.tenant, usePosSettingsStore, () => operation === authOperation);
     if (operation !== authOperation) return;
     set({
-      token: data.access_token,
+      token,
       currentTenant: data.tenant,
       printLanguageLoadErrors: failedLanguages,
     });
@@ -113,7 +144,9 @@ export const useAuthStore = create<AuthState>((set) => ({
     clearBillTemplateProvenance();
     api.post('/auth/logout').catch(() => {});
     localStorage.removeItem('token');
+    localStorage.removeItem('cloud_token');
     localStorage.removeItem('tenant');
+    localStorage.removeItem('user');
     set({ user: null, token: null, tenants: [], currentTenant: null, printLanguageLoadErrors: [] });
   },
 
@@ -133,13 +166,13 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ loading: false, printLanguageLoadErrors: [] });
       return;
     }
-    const token = localStorage.getItem('token');
+    const token = localStorage.getItem('token') || localStorage.getItem('cloud_token');
     const tenantStr = localStorage.getItem('tenant');
     let currentTenant: Tenant | null = null;
     if (tenantStr) {
       try {
         const parsed = JSON.parse(tenantStr);
-        if (parsed && typeof parsed === 'object' && typeof parsed.id === 'number') {
+        if (parsed && typeof parsed === 'object' && (typeof parsed.id === 'number' || typeof parsed.id === 'string')) {
           currentTenant = parsed as Tenant;
         } else {
           localStorage.removeItem('tenant');
@@ -153,11 +186,19 @@ export const useAuthStore = create<AuthState>((set) => ({
       await api.get('/auth/me')
         .then(({ data }) => {
           if (operation !== authOperation) return null;
-          const tenants: Tenant[] = data.tenants;
-          // Find the fresh version of the currently selected tenant, or default to the first one
-          const freshTenant = currentTenant ? tenants.find((t: Tenant) => t.id === currentTenant.id) : null;
-          const resolved = freshTenant ?? (tenants.length === 1 ? tenants[0] : null);
-          if (resolved) localStorage.setItem('tenant', JSON.stringify(resolved));
+          const tenants: Tenant[] = Array.isArray(data.tenants) && data.tenants.length > 0
+            ? data.tenants
+            : (data.tenant ? [data.tenant] : (currentTenant ? [currentTenant] : []));
+          const activeTenantId = currentTenant ? String(currentTenant.id) : null;
+          const freshTenant = activeTenantId ? tenants.find((t: Tenant) => String(t.id) === activeTenantId) : null;
+          const resolved = freshTenant ?? (tenants.length === 1 ? tenants[0] : (currentTenant || null));
+          if (resolved) {
+            localStorage.setItem('tenant', JSON.stringify(resolved));
+            currentTenant = resolved;
+          }
+          if (data.user) {
+            try { localStorage.setItem('user', JSON.stringify(data.user)); } catch {}
+          }
           set({
             user: data.user,
             token,
@@ -173,10 +214,16 @@ export const useAuthStore = create<AuthState>((set) => ({
           if (operation !== authOperation || failedLanguages === null) return;
           set({ loading: false, printLanguageLoadErrors: failedLanguages });
         })
-        .catch(() => {
+        .catch((err) => {
           if (operation !== authOperation) return;
-          localStorage.removeItem('token');
-          localStorage.removeItem('tenant');
+          // If unauthorized, clean up session
+          if (err?.response?.status === 401) {
+            localStorage.removeItem('token');
+            localStorage.removeItem('cloud_token');
+            localStorage.removeItem('tenant');
+            localStorage.removeItem('user');
+            set({ user: null, token: null, tenants: [], currentTenant: null });
+          }
           set({ loading: false, printLanguageLoadErrors: [] });
         });
     } else {
