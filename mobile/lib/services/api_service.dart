@@ -686,7 +686,7 @@ class ApiService {
         'total_orders': 1447,
         'branches': [
           {
-            'id': 'br-01',
+            'id': 'b-connaught',
             'name': 'Connaught Place (Main Outlet)',
             'code': 'CP-DEL',
             'isMain': true,
