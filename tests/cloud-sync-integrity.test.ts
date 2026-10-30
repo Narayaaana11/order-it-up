@@ -33,6 +33,7 @@ class MockD1SyncDatabase {
   public syncedOrderItems = new Map<string, any>();
   public syncedClosures = new Map<string, any>();
   public syncEvents = new Map<string, any>();
+  public customerPayments = new Map<string, any>();
   public rateLimits = new Map<string, any>();
   public simulateBatchFailure = false;
 
@@ -88,13 +89,24 @@ class MockD1SyncDatabase {
         }
 
         // 4. Synced orders lookup by id
-        if (normalized.includes('FROM synced_orders WHERE id = ?')) {
+        if (normalized.includes('FROM synced_orders WHERE id = ?') || normalized.includes('FROM synced_orders WHERE id = ?')) {
           const [id] = params;
           const ord = db.syncedOrders.get(id);
           return (ord || null) as T;
         }
 
-        // 5. Synced closures lookup by id
+        // 5. Customer payment duplicate external reference lookup
+        if (normalized.includes('FROM customer_payments') && normalized.includes('external_reference_id = ?')) {
+          const [branchId, method, ref] = params;
+          for (const p of db.customerPayments.values()) {
+            if (p.branch_id === branchId && p.payment_method === method && p.external_reference_id === ref && p.status !== 'failed') {
+              return { id: p.id, order_id: p.order_id } as T;
+            }
+          }
+          return null;
+        }
+
+        // 6. Synced closures lookup by id
         if (normalized.includes('FROM synced_cash_closures WHERE id = ?')) {
           const [id] = params;
           const cl = db.syncedClosures.get(id);
@@ -105,6 +117,17 @@ class MockD1SyncDatabase {
       },
 
       async all<T = any>(): Promise<{ results: T[] }> {
+        const normalized = sql.replace(/\s+/g, ' ').trim();
+        if (normalized.includes('FROM customer_payments WHERE order_id = ?')) {
+          const [orderId] = params;
+          const rows: any[] = [];
+          for (const p of db.customerPayments.values()) {
+            if (p.order_id === orderId) {
+              rows.push(p);
+            }
+          }
+          return { results: rows as T[] };
+        }
         return { results: [] };
       },
 
@@ -143,6 +166,7 @@ class MockD1SyncDatabase {
         // Insert synced_orders
         if (normalized.includes('INSERT INTO synced_orders')) {
           const [id, orgId, branchId, termId, orderNumber, orderType, status, subtotal, taxTotal, discountTotal, grandTotal, paymentMethod, orderedAt, syncedAt] = params;
+          const existingOrd = db.syncedOrders.get(id);
           db.syncedOrders.set(id, {
             id,
             organization_id: orgId,
@@ -155,7 +179,9 @@ class MockD1SyncDatabase {
             tax_total: taxTotal,
             discount_total: discountTotal,
             grand_total: grandTotal,
-            payment_method: paymentMethod,
+            payment_status: existingOrd?.payment_status || 'unpaid',
+            payment_method: existingOrd?.payment_status === 'paid' ? existingOrd.payment_method : paymentMethod,
+            version: existingOrd?.version || 1,
             ordered_at: orderedAt,
             synced_at: syncedAt,
           });
@@ -206,6 +232,49 @@ class MockD1SyncDatabase {
           return { success: true };
         }
 
+        // Insert customer_payments
+        if (normalized.includes('INSERT INTO customer_payments')) {
+          const [id, orgId, restId, branchId, orderId, method, amount, verification, extRef, userId, cashierName, termId, idemKey, isSplit, metaJson, createdAt, updatedAt] = params;
+          db.customerPayments.set(id, {
+            id,
+            organization_id: orgId,
+            restaurant_id: restId,
+            branch_id: branchId,
+            order_id: orderId,
+            payment_method: method,
+            amount: Number(amount),
+            currency: 'INR',
+            status: 'completed',
+            verification_method: verification,
+            external_reference_id: extRef,
+            cashier_user_id: userId,
+            cashier_name: cashierName,
+            terminal_id: termId,
+            idempotency_key: idemKey,
+            is_split: isSplit,
+            metadata_json: metaJson,
+            created_at: createdAt,
+            updated_at: updatedAt,
+          });
+          return { success: true };
+        }
+
+        // Update synced_orders payment status and version
+        if (normalized.includes('UPDATE synced_orders') && normalized.includes('SET payment_status = ?')) {
+          const [status, method, orderVersion, now, orderId, orgId, branchId] = params;
+          const ord = db.syncedOrders.get(orderId);
+          if (ord) {
+            if (ord.version !== undefined && ord.version !== orderVersion) {
+              throw new Error('SQLITE_ERROR: malformed JSON / concurrency_conflict');
+            }
+            ord.payment_status = status;
+            ord.payment_method = method;
+            ord.version = (ord.version || 1) + 1;
+            ord.updated_at = now;
+          }
+          return { success: true };
+        }
+
         return { success: true };
       },
     });
@@ -222,6 +291,7 @@ class MockD1SyncDatabase {
     const backupSyncedOrders = new Map(this.syncedOrders);
     const backupSyncedOrderItems = new Map(this.syncedOrderItems);
     const backupSyncedClosures = new Map(this.syncedClosures);
+    const backupCustomerPayments = new Map(this.customerPayments);
     try {
       for (const stmt of statements) {
         await stmt.run();
@@ -231,6 +301,7 @@ class MockD1SyncDatabase {
       this.syncedOrders = backupSyncedOrders;
       this.syncedOrderItems = backupSyncedOrderItems;
       this.syncedClosures = backupSyncedClosures;
+      this.customerPayments = backupCustomerPayments;
       throw err;
     }
   }
@@ -863,6 +934,180 @@ async function testMigrationCompatibility(): Promise<void> {
 }
 
 // ============================================================================
+// TEST SUITE 6: Offline Payment Ledger Correctness & Settlement Security (C-12.3)
+// ============================================================================
+async function testOfflinePaymentLedgerIntegrity(): Promise<void> {
+  console.log('🧪 [Test Suite 6/6] Offline Payment Ledger Correctness & Settlement Security...');
+  resetMemoryRateLimits();
+
+  const db = new MockD1SyncDatabase();
+  const orgId = 'org-tenant-c123';
+  const branchId = 'br-branch-c123';
+  const termId = 'term-c123';
+  const termToken = 'pos_secret_token_c123_4567890123456789';
+  const termTokenHash = await hashString(termToken);
+
+  db.organizations.set(orgId, { id: orgId, name: 'C123 Org' });
+  db.branches.set(branchId, { id: branchId, organization_id: orgId, status: 'active' });
+  db.terminals.set(termId, {
+    id: termId,
+    organization_id: orgId,
+    branch_id: branchId,
+    terminal_token_hash: termTokenHash,
+    status: 'active',
+  });
+
+  const env: any = { DB: db, JWT_SECRET: TEST_SECRET, ENVIRONMENT: 'test' };
+
+  // 1. Ordinary order.completed claiming payment_status: 'paid' must NOT mark paid or insert customer_payments
+  const orderId = 'ord-c123-sync-001';
+  db.syncedOrders.set(orderId, {
+    id: orderId,
+    organization_id: orgId,
+    branch_id: branchId,
+    order_number: 'C123-01',
+    status: 'completed',
+    payment_status: 'unpaid',
+    grand_total: 210.0,
+    version: 1,
+  });
+
+  const orderReq = makeSyncReq(termToken, [
+    {
+      id: 'evt-order-sync-claim-paid',
+      type: 'order.completed',
+      payload: {
+        id: orderId,
+        order_number: 'C123-01',
+        status: 'completed',
+        payment_status: 'paid', // Claiming paid in ordinary sync
+        grand_total: 210.0,
+        subtotal: 200.0,
+        tax_total: 10.0,
+        discount_total: 0,
+        items: [{ product_id: 'p1', name: 'Item 1', quantity: 1, unit_price: 200.0, subtotal: 200.0 }],
+        ordered_at: new Date().toISOString(),
+      },
+    },
+  ]);
+
+  const resOrder = await cloudWorker.fetch(orderReq, env);
+  assert.equal(resOrder.status, 200);
+  const ordAfter = db.syncedOrders.get(orderId);
+  assert.equal(ordAfter.payment_status, 'unpaid', 'Ordinary order event must not mark paid');
+  assert.equal(db.customerPayments.size, 0, 'Ordinary order event must not insert customer_payments');
+
+  // 2. Partial payment (₹100 on ₹210 order) -> partially_paid
+  const pay100Req = makeSyncReq(termToken, [
+    {
+      id: 'evt-pay-100',
+      type: 'payment.settled',
+      payload: {
+        order_id: orderId,
+        amount: 100.0,
+        payment_method: 'upi',
+        external_reference_id: 'UTR-C123-MOCK-100',
+      },
+    },
+  ]);
+  const res100 = await cloudWorker.fetch(pay100Req, env);
+  assert.equal(res100.status, 200);
+  assert.equal(ordAfter.payment_status, 'partially_paid');
+  assert.equal(db.customerPayments.size, 1);
+
+  // 3. Second payment (₹110 on ₹210 order) -> paid
+  const pay110Req = makeSyncReq(termToken, [
+    {
+      id: 'evt-pay-110',
+      type: 'payment.settled',
+      payload: {
+        order_id: orderId,
+        amount: 110.0,
+        payment_method: 'card',
+        external_reference_id: 'CARD-C123-MOCK-110',
+      },
+    },
+  ]);
+  const res110 = await cloudWorker.fetch(pay110Req, env);
+  assert.equal(res110.status, 200);
+  assert.equal(ordAfter.payment_status, 'paid');
+  assert.equal(db.customerPayments.size, 2);
+
+  // 4. Overpayment (₹1 after full payment) -> rejected
+  const payOverReq = makeSyncReq(termToken, [
+    {
+      id: 'evt-pay-over',
+      type: 'payment.settled',
+      payload: {
+        order_id: orderId,
+        amount: 1.0,
+        payment_method: 'cash',
+      },
+    },
+  ]);
+  const resOver = await cloudWorker.fetch(payOverReq, env);
+  assert.equal(resOver.status, 200);
+  const jsonOver = await resOver.json() as any;
+  assert.equal(jsonOver.processed_count, 0);
+  assert.equal(jsonOver.failed_count, 1);
+  assert.equal(db.customerPayments.size, 2);
+
+  // 5. Duplicate external reference -> rejected
+  const orderId2 = 'ord-c123-sync-002';
+  db.syncedOrders.set(orderId2, {
+    id: orderId2,
+    organization_id: orgId,
+    branch_id: branchId,
+    order_number: 'C123-02',
+    status: 'completed',
+    payment_status: 'unpaid',
+    grand_total: 210.0,
+    version: 1,
+  });
+
+  const payDupUtrReq = makeSyncReq(termToken, [
+    {
+      id: 'evt-pay-dup-utr',
+      type: 'payment.settled',
+      payload: {
+        order_id: orderId2,
+        amount: 100.0,
+        payment_method: 'upi',
+        external_reference_id: 'UTR-C123-MOCK-100', // Reused from payment 1
+      },
+    },
+  ]);
+  const resDupUtr = await cloudWorker.fetch(payDupUtrReq, env);
+  assert.equal(resDupUtr.status, 200);
+  const jsonDup = await resDupUtr.json() as any;
+  assert.equal(jsonDup.processed_count, 0);
+  assert.equal(jsonDup.failed_count, 1);
+
+  // 6. Client verification spoofing -> manual_cashier_confirmed
+  const paySpoofReq = makeSyncReq(termToken, [
+    {
+      id: 'evt-pay-spoof-verif',
+      type: 'payment.settled',
+      payload: {
+        order_id: orderId2,
+        amount: 210.0,
+        payment_method: 'upi',
+        external_reference_id: 'UTR-C123-SPOOF-999',
+        verification_method: 'gateway_verified',
+        gateway_signature: 'fake-sig',
+      },
+    },
+  ]);
+  const resSpoof = await cloudWorker.fetch(paySpoofReq, env);
+  assert.equal(resSpoof.status, 200);
+  const spoofPayment = Array.from(db.customerPayments.values()).find((p) => p.external_reference_id === 'UTR-C123-SPOOF-999');
+  assert.ok(spoofPayment);
+  assert.equal(spoofPayment.verification_method, 'manual_cashier_confirmed');
+
+  console.log('  ✓ Partial payment, overpayment rejection, UTR uniqueness, and verification authority verified in sync integrity suite');
+}
+
+// ============================================================================
 // MAIN RUNNER
 // ============================================================================
 async function runAllTests(): Promise<void> {
@@ -876,6 +1121,7 @@ async function runAllTests(): Promise<void> {
     await testFinancialValidation();
     await testAtomicityAndBatching();
     await testMigrationCompatibility();
+    await testOfflinePaymentLedgerIntegrity();
 
     console.log('\n================================================================');
     console.log('✅ ALL C-03 & C-03A VERIFICATION SUITES PASSED FLAWLESSLY!');

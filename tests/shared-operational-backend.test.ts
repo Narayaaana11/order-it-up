@@ -719,12 +719,40 @@ async function runTestSuite(): Promise<void> {
   assert.ok(ingestedOrder, 'Offline order must be persisted in synced_orders');
   assert.equal(ingestedOrder.branch_id, 'br-a1');
   assert.equal(ingestedOrder.grand_total, 525);
-  assert.equal(ingestedOrder.payment_status, 'paid');
+  assert.equal(ingestedOrder.payment_status, 'unpaid', 'New orders without payment ledger record start as unpaid');
   assert.equal(ingestedOrder.kitchen_status, 'served');
 
   const derivedTicket = rawDb.prepare('SELECT * FROM kitchen_tickets WHERE order_id = ?').get(offlineOrderId) as any;
   assert.ok(derivedTicket, 'Derived kitchen ticket must be automatically generated');
   assert.equal(derivedTicket.ticket_number, 'KOT-POS-888');
+
+  // Settle order via dedicated payment.settled event
+  const paySyncReq = new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${rawTerminalToken}`,
+    },
+    body: JSON.stringify({
+      events: [
+        {
+          id: 'evt-desktop-pay-999',
+          type: 'payment.settled',
+          payload: {
+            order_id: offlineOrderId,
+            amount: 525,
+            payment_method: 'cash',
+            settled_at: nowIso,
+          },
+        },
+      ],
+    }),
+  });
+  const paySyncRes = await cloudWorker.fetch(paySyncReq, env);
+  assert.equal(paySyncRes.status, 200);
+
+  const settledOrder = rawDb.prepare('SELECT * FROM synced_orders WHERE id = ?').get(offlineOrderId) as any;
+  assert.equal(settledOrder.payment_status, 'paid');
 
   // 6c. Idempotent replay: Resending identical sync batch
   const replayPushRes = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {

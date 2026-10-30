@@ -55,8 +55,21 @@ function createSqliteD1(db: DatabaseSync) {
       };
     },
     async batch(statements: any[]) {
-      for (const stmt of statements) {
-        await stmt.run();
+      db.exec('BEGIN TRANSACTION;');
+      try {
+        const results = [];
+        for (const stmt of statements) {
+          results.push(await stmt.run());
+        }
+        db.exec('COMMIT;');
+        return results;
+      } catch (err) {
+        try {
+          db.exec('ROLLBACK;');
+        } catch {
+          // ignore rollback error if already rolled back
+        }
+        throw err;
       }
     },
   };
@@ -819,19 +832,19 @@ async function runC121TestSuite(): Promise<void> {
   assert.equal(paymentExpUnpaid, undefined, 'NO customer_payments row should exist for explicit unpaid order');
   console.log('  ✓ Completed order with explicit unpaid status → no payment ledger row');
 
-  // 13c. Completed order with explicit valid offline settlement -> exactly one appropriately classified ledger row
+  // 13c. Ordinary order-sync event cannot bypass ledger or mark order paid
   const offlineSettledOrderId = 'ord-sync-settled-003';
   const syncEventSettled = {
     events: [
       {
-        id: 'evt-sync-settled-003',
+        id: 'evt-sync-settled-003-ord',
         type: 'order.completed',
         payload: {
           id: offlineSettledOrderId,
           order_number: 'OFF-103',
           order_type: 'takeaway',
           status: 'completed',
-          payment_status: 'paid',
+          payment_status: 'paid', // Ordinary order event claims paid
           subtotal: 399.0,
           tax_total: 19.95,
           grand_total: 418.95,
@@ -851,7 +864,38 @@ async function runC121TestSuite(): Promise<void> {
   assert.equal(syncResSettled.status, 200);
 
   const orderSettled = rawDb.prepare('SELECT payment_status FROM synced_orders WHERE id = ?').get(offlineSettledOrderId) as any;
-  assert.equal(orderSettled.payment_status, 'paid');
+  assert.equal(orderSettled.payment_status, 'unpaid', 'Ordinary order.completed event must NOT mark order paid');
+
+  const paymentsBeforeDedicated = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').all(offlineSettledOrderId) as any[];
+  assert.equal(paymentsBeforeDedicated.length, 0, 'Ordinary order event must NEVER create customer_payments ledger row');
+  console.log('  ✓ Ordinary order.completed claiming paid → starts unpaid with 0 payment ledger rows');
+
+  // Now settle through dedicated payment.settled event
+  const paymentSettledEvent = {
+    events: [
+      {
+        id: 'evt-sync-settled-003-pay',
+        type: 'payment.settled',
+        payload: {
+          order_id: offlineSettledOrderId,
+          amount: 418.95,
+          payment_method: 'cash',
+          settled_at: nowIso,
+        },
+      },
+    ],
+  };
+
+  const syncResPayment = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(paymentSettledEvent),
+  }), env);
+  assert.equal(syncResPayment.status, 200);
+
+  const orderAfterPay = rawDb.prepare('SELECT payment_status, payment_method FROM synced_orders WHERE id = ?').get(offlineSettledOrderId) as any;
+  assert.equal(orderAfterPay.payment_status, 'paid');
+  assert.equal(orderAfterPay.payment_method, 'cash');
 
   const paymentsSettled = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').all(offlineSettledOrderId) as any[];
   assert.equal(paymentsSettled.length, 1, 'Exactly one payment ledger row must be created for valid offline settlement');
@@ -859,13 +903,13 @@ async function runC121TestSuite(): Promise<void> {
   assert.equal(paymentsSettled[0].payment_method, 'cash');
   assert.equal(paymentsSettled[0].verification_method, 'cashier_collected');
   assert.equal(paymentsSettled[0].status, 'completed');
-  console.log('  ✓ Completed order with explicit valid offline settlement → exactly one appropriately classified ledger row');
+  console.log('  ✓ Dedicated payment.settled event records auditable payment and marks order paid');
 
-  // 13d. Replayed settlement event -> no duplicate payment
+  // 13d. Replayed settlement event -> exactly one ledger entry
   const syncResReplay = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
-    body: JSON.stringify(syncEventSettled),
+    body: JSON.stringify(paymentSettledEvent),
   }), env);
   assert.equal(syncResReplay.status, 200);
   const replayJson = await syncResReplay.json() as any;
@@ -873,19 +917,17 @@ async function runC121TestSuite(): Promise<void> {
 
   const paymentsAfterReplay = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').all(offlineSettledOrderId) as any[];
   assert.equal(paymentsAfterReplay.length, 1, 'Replayed settlement event must NOT duplicate payment');
-  console.log('  ✓ Replayed settlement event → no duplicate payment');
+  console.log('  ✓ Replayed settlement event → exactly one ledger entry');
 
   // 13e. Conflicting replay using the same event ID -> rejected without changing the ledger
   const conflictingSyncEvent = {
     events: [
       {
-        id: 'evt-sync-settled-003', // Reused ID
-        type: 'order.completed',
+        id: 'evt-sync-settled-003-pay', // Reused ID
+        type: 'payment.settled',
         payload: {
-          id: offlineSettledOrderId,
-          order_number: 'OFF-103',
-          grand_total: 999999.0, // Tampered amount
-          payment_status: 'paid',
+          order_id: offlineSettledOrderId,
+          amount: 999999.0, // Tampered amount
           payment_method: 'cash',
         },
       },
@@ -906,85 +948,444 @@ async function runC121TestSuite(): Promise<void> {
   assert.equal(paymentAfterConflict.amount, 418.95, 'Ledger payment amount must remain untampered');
   console.log('  ✓ Conflicting replay using the same event ID → rejected without changing the ledger');
 
-  // 13f. Invalid amount or payment method -> rejected without changing financial state
-  const invalidPaymentSyncEvent = {
+  // 13f. Stale order-sync event cannot downgrade an already-paid order or fake a refund
+  const staleOrderEvent = {
     events: [
       {
-        id: 'evt-sync-invalid-004',
-        type: 'order.completed',
+        id: 'evt-sync-stale-downgrade-004',
+        type: 'order.updated',
         payload: {
-          id: 'ord-sync-invalid-004',
-          order_number: 'OFF-104',
-          order_type: 'takeaway',
+          id: offlineSettledOrderId,
           status: 'completed',
-          payment_status: 'paid',
-          subtotal: 100.0,
-          tax_total: 5.0,
-          grand_total: -50.0, // Invalid negative amount
-          payment_method: 'unsupported_cryptocurrency', // Invalid method
-          ordered_at: nowIso,
-          items: [{ product_id: 'prod-margherita', quantity: 1, unit_price: 100.0 }],
+          payment_status: 'unpaid', // Stale or malicious attempt to downgrade paid order
+          grand_total: 418.95,
+        },
+      },
+      {
+        id: 'evt-sync-fake-refund-005',
+        type: 'order.updated',
+        payload: {
+          id: offlineSettledOrderId,
+          status: 'completed',
+          payment_status: 'refunded', // Fake refund attempt without refund ledger operation
+          grand_total: 418.95,
         },
       },
     ],
   };
 
-  const syncResInvalid = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+  const syncResStale = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
-    body: JSON.stringify(invalidPaymentSyncEvent),
+    body: JSON.stringify(staleOrderEvent),
   }), env);
-  assert.equal(syncResInvalid.status, 200);
+  assert.equal(syncResStale.status, 200);
 
-  const paymentInvalid = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').get('ord-sync-invalid-004') as any;
-  assert.equal(paymentInvalid, undefined, 'Invalid payment method/amount must NOT create a customer_payments ledger row');
-  const orderInvalid = rawDb.prepare('SELECT payment_status FROM synced_orders WHERE id = ?').get('ord-sync-invalid-004') as any;
-  if (orderInvalid) {
-    assert.equal(orderInvalid.payment_status, 'unpaid', 'Order with invalid settlement must remain unpaid');
-  }
-  console.log('  ✓ Invalid amount or payment method → rejected without changing financial state');
+  const orderAfterStale = rawDb.prepare('SELECT payment_status FROM synced_orders WHERE id = ?').get(offlineSettledOrderId) as any;
+  assert.equal(orderAfterStale.payment_status, 'paid', 'Stale or fake order updates cannot alter authoritative paid status');
+  console.log('  ✓ Stale order-sync event cannot downgrade an already-paid order or fake refund');
 
-  // 13g. Dedicated payment.settled sync event
-  const dedicatedSettledOrderId = 'ord-sync-dedicated-005';
-  // First seed order as unpaid
+  // 13g. ₹210 order + ₹100 payment → partially paid, outstanding ₹110
+  const order210Id = 'ord-c123-210';
   rawDb.prepare(`
-    INSERT INTO synced_orders (id, organization_id, branch_id, order_number, order_type, status, subtotal, tax_total, discount_total, grand_total, payment_status, payment_method, ordered_at, synced_at)
-    VALUES (?, 'org-a', 'br-a1', 'ORD-DED-005', 'dine_in', 'completed', 200.0, 10.0, 0, 210.0, 'unpaid', 'none', ?, ?)
-  `).run(dedicatedSettledOrderId, nowIso, nowIso);
+    INSERT INTO synced_orders (id, organization_id, branch_id, order_number, order_type, status, subtotal, tax_total, discount_total, grand_total, payment_status, payment_method, version, ordered_at, synced_at)
+    VALUES (?, 'org-a', 'br-a1', 'ORD-210', 'dine_in', 'completed', 200.0, 10.0, 0, 210.0, 'unpaid', 'none', 1, ?, ?)
+  `).run(order210Id, nowIso, nowIso);
 
-  const dedicatedPaymentEvent = {
+  const pay100Event = {
     events: [
       {
-        id: 'evt-sync-ded-pay-005',
+        id: 'evt-c123-pay-100',
         type: 'payment.settled',
         payload: {
-          order_id: dedicatedSettledOrderId,
-          amount: 210.0,
+          order_id: order210Id,
+          amount: 100.0,
           payment_method: 'upi',
-          external_reference_id: 'UTR-DED-883311',
+          external_reference_id: 'UTR-C123-PARTIAL-100',
           settled_at: nowIso,
         },
       },
     ],
   };
 
-  const syncResDed = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+  const resPay100 = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
-    body: JSON.stringify(dedicatedPaymentEvent),
+    body: JSON.stringify(pay100Event),
   }), env);
-  assert.equal(syncResDed.status, 200);
+  assert.equal(resPay100.status, 200);
 
-  const dedPayment = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').get(dedicatedSettledOrderId) as any;
-  assert.ok(dedPayment, 'Dedicated payment.settled event must create a customer_payments row');
-  assert.equal(dedPayment.amount, 210.0);
-  assert.equal(dedPayment.payment_method, 'upi');
-  assert.equal(dedPayment.verification_method, 'manual_cashier_confirmed');
+  const orderAfter100 = rawDb.prepare('SELECT payment_status, payment_method, version FROM synced_orders WHERE id = ?').get(order210Id) as any;
+  assert.equal(orderAfter100.payment_status, 'partially_paid');
+  assert.equal(orderAfter100.payment_method, 'upi');
+  assert.equal(orderAfter100.version, 2);
 
-  const dedOrder = rawDb.prepare('SELECT payment_status, payment_method FROM synced_orders WHERE id = ?').get(dedicatedSettledOrderId) as any;
-  assert.equal(dedOrder.payment_status, 'paid');
-  assert.equal(dedOrder.payment_method, 'upi');
-  console.log('  ✓ Dedicated payment.settled event records auditable payment and marks order paid');
+  const paymentsAfter100 = rawDb.prepare('SELECT amount, external_reference_id, is_split FROM customer_payments WHERE order_id = ?').all(order210Id) as any[];
+  assert.equal(paymentsAfter100.length, 1);
+  assert.equal(paymentsAfter100[0].amount, 100.0);
+  assert.equal(paymentsAfter100[0].external_reference_id, 'UTR-C123-PARTIAL-100');
+  console.log('  ✓ ₹210 order + ₹100 payment → partially paid (outstanding ₹110)');
+
+  // 13h. Same order + ₹110 payment → paid, outstanding ₹0
+  const pay110Event = {
+    events: [
+      {
+        id: 'evt-c123-pay-110',
+        type: 'payment.settled',
+        payload: {
+          order_id: order210Id,
+          amount: 110.0,
+          payment_method: 'card',
+          external_reference_id: 'CARD-AUTH-C123-110',
+          settled_at: nowIso,
+        },
+      },
+    ],
+  };
+
+  const resPay110 = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(pay110Event),
+  }), env);
+  assert.equal(resPay110.status, 200);
+
+  const orderAfter110 = rawDb.prepare('SELECT payment_status, payment_method, version FROM synced_orders WHERE id = ?').get(order210Id) as any;
+  assert.equal(orderAfter110.payment_status, 'paid');
+  assert.equal(orderAfter110.payment_method, 'card');
+  assert.equal(orderAfter110.version, 3);
+
+  const paymentsAfter110 = rawDb.prepare('SELECT amount, external_reference_id, is_split FROM customer_payments WHERE order_id = ? ORDER BY created_at ASC').all(order210Id) as any[];
+  assert.equal(paymentsAfter110.length, 2);
+  assert.equal(paymentsAfter110[1].amount, 110.0);
+  assert.equal(paymentsAfter110[1].external_reference_id, 'CARD-AUTH-C123-110');
+  assert.equal(paymentsAfter110[1].is_split, 1);
+  console.log('  ✓ Same order + ₹110 payment → paid (outstanding ₹0)');
+
+  // 13i. Attempt another ₹1 after full payment → rejected, no additional ledger row
+  const pay1OverEvent = {
+    events: [
+      {
+        id: 'evt-c123-pay-over-1',
+        type: 'payment.settled',
+        payload: {
+          order_id: order210Id,
+          amount: 1.0,
+          payment_method: 'cash',
+          settled_at: nowIso,
+        },
+      },
+    ],
+  };
+
+  const resPay1Over = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(pay1OverEvent),
+  }), env);
+  assert.equal(resPay1Over.status, 200);
+  const jsonPay1Over = await resPay1Over.json() as any;
+  assert.equal(jsonPay1Over.processed_count, 0);
+  assert.equal(jsonPay1Over.failed_count, 1);
+
+  const paymentsAfterOver = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').all(order210Id) as any[];
+  assert.equal(paymentsAfterOver.length, 2, 'No additional payment row must be created after order is fully paid');
+  console.log('  ✓ Attempt another ₹1 after full payment → rejected, no additional ledger row');
+
+  // 13j. ₹220 payment against original unpaid ₹210 order → rejected, no ledger mutation
+  const orderUnpaid210Id = 'ord-c123-unpaid-210';
+  rawDb.prepare(`
+    INSERT INTO synced_orders (id, organization_id, branch_id, order_number, order_type, status, subtotal, tax_total, discount_total, grand_total, payment_status, payment_method, version, ordered_at, synced_at)
+    VALUES (?, 'org-a', 'br-a1', 'ORD-UNPAID-210', 'dine_in', 'completed', 200.0, 10.0, 0, 210.0, 'unpaid', 'none', 1, ?, ?)
+  `).run(orderUnpaid210Id, nowIso, nowIso);
+
+  const pay220OverEvent = {
+    events: [
+      {
+        id: 'evt-c123-pay-220',
+        type: 'payment.settled',
+        payload: {
+          order_id: orderUnpaid210Id,
+          amount: 220.0,
+          payment_method: 'cash',
+          settled_at: nowIso,
+        },
+      },
+    ],
+  };
+
+  const resPay220 = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(pay220OverEvent),
+  }), env);
+  assert.equal(resPay220.status, 200);
+  const jsonPay220 = await resPay220.json() as any;
+  assert.equal(jsonPay220.processed_count, 0);
+  assert.equal(jsonPay220.failed_count, 1);
+
+  const payments220 = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').all(orderUnpaid210Id) as any[];
+  assert.equal(payments220.length, 0, 'No payment ledger row may be created for overpayment');
+  const order220 = rawDb.prepare('SELECT payment_status FROM synced_orders WHERE id = ?').get(orderUnpaid210Id) as any;
+  assert.equal(order220.payment_status, 'unpaid', 'Order remains unpaid on overpayment rejection');
+  console.log('  ✓ ₹220 payment against ₹210 order → rejected, no ledger mutation');
+
+  // 13k. Two concurrent ₹120 payments against ₹210 order → no overpayment, atomic rollback
+  const orderConcur210Id = 'ord-c123-concur-210';
+  rawDb.prepare(`
+    INSERT INTO synced_orders (id, organization_id, branch_id, order_number, order_type, status, subtotal, tax_total, discount_total, grand_total, payment_status, payment_method, version, ordered_at, synced_at)
+    VALUES (?, 'org-a', 'br-a1', 'ORD-CONCUR-210', 'dine_in', 'completed', 200.0, 10.0, 0, 210.0, 'unpaid', 'none', 1, ?, ?)
+  `).run(orderConcur210Id, nowIso, nowIso);
+
+  // First ₹120 payment succeeds
+  const payConcur1Event = {
+    events: [
+      {
+        id: 'evt-c123-concur-1',
+        type: 'payment.settled',
+        payload: {
+          order_id: orderConcur210Id,
+          amount: 120.0,
+          payment_method: 'card',
+          external_reference_id: 'CARD-CONCUR-120-A',
+          settled_at: nowIso,
+        },
+      },
+    ],
+  };
+
+  const resConcur1 = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(payConcur1Event),
+  }), env);
+  assert.equal(resConcur1.status, 200);
+  const jsonConcur1 = await resConcur1.json() as any;
+  assert.equal(jsonConcur1.processed_count, 1);
+
+  // Second ₹120 payment (against original ₹210 total, remaining balance is now ₹90)
+  // Settlement of ₹120 > remaining ₹90 -> must be rejected without overpayment
+  const payConcur2Event = {
+    events: [
+      {
+        id: 'evt-c123-concur-2',
+        type: 'payment.settled',
+        payload: {
+          order_id: orderConcur210Id,
+          amount: 120.0,
+          payment_method: 'card',
+          external_reference_id: 'CARD-CONCUR-120-B',
+          settled_at: nowIso,
+        },
+      },
+    ],
+  };
+
+  const resConcur2 = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(payConcur2Event),
+  }), env);
+  assert.equal(resConcur2.status, 200);
+  const jsonConcur2 = await resConcur2.json() as any;
+  assert.equal(jsonConcur2.processed_count, 0);
+  assert.equal(jsonConcur2.failed_count, 1);
+
+  const concurPayments = rawDb.prepare('SELECT amount, external_reference_id FROM customer_payments WHERE order_id = ?').all(orderConcur210Id) as any[];
+  assert.equal(concurPayments.length, 1);
+  assert.equal(concurPayments[0].amount, 120.0);
+  const concurOrder = rawDb.prepare('SELECT payment_status FROM synced_orders WHERE id = ?').get(orderConcur210Id) as any;
+  assert.equal(concurOrder.payment_status, 'partially_paid');
+  console.log('  ✓ Two concurrent ₹120 payment attempts against ₹210 → no overpayment; only valid committed settlements remain');
+
+  // 13l. Duplicate external transaction reference (UTR) across distinct payment events -> rejected
+  const orderUtrAId = 'ord-c123-utr-a';
+  const orderUtrBId = 'ord-c123-utr-b';
+  rawDb.prepare(`
+    INSERT INTO synced_orders (id, organization_id, branch_id, order_number, order_type, status, subtotal, tax_total, discount_total, grand_total, payment_status, payment_method, version, ordered_at, synced_at)
+    VALUES (?, 'org-a', 'br-a1', 'ORD-UTR-A', 'dine_in', 'completed', 200.0, 10.0, 0, 210.0, 'unpaid', 'none', 1, ?, ?)
+  `).run(orderUtrAId, nowIso, nowIso);
+  rawDb.prepare(`
+    INSERT INTO synced_orders (id, organization_id, branch_id, order_number, order_type, status, subtotal, tax_total, discount_total, grand_total, payment_status, payment_method, version, ordered_at, synced_at)
+    VALUES (?, 'org-a', 'br-a1', 'ORD-UTR-B', 'dine_in', 'completed', 200.0, 10.0, 0, 210.0, 'unpaid', 'none', 1, ?, ?)
+  `).run(orderUtrBId, nowIso, nowIso);
+
+  const sharedUtr = 'UTR-SHARED-REPLAY-999888';
+  const payUtrAEvent = {
+    events: [
+      {
+        id: 'evt-c123-utr-first',
+        type: 'payment.settled',
+        payload: {
+          order_id: orderUtrAId,
+          amount: 210.0,
+          payment_method: 'upi',
+          external_reference_id: sharedUtr,
+          settled_at: nowIso,
+        },
+      },
+    ],
+  };
+
+  const resUtrA = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(payUtrAEvent),
+  }), env);
+  assert.equal(resUtrA.status, 200);
+  const jsonUtrA = await resUtrA.json() as any;
+  assert.equal(jsonUtrA.processed_count, 1);
+
+  // Distinct payment event using identical UTR on a different order
+  const payUtrBEvent = {
+    events: [
+      {
+        id: 'evt-c123-utr-second',
+        type: 'payment.settled',
+        payload: {
+          order_id: orderUtrBId,
+          amount: 210.0,
+          payment_method: 'upi',
+          external_reference_id: sharedUtr,
+          settled_at: nowIso,
+        },
+      },
+    ],
+  };
+
+  const resUtrB = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(payUtrBEvent),
+  }), env);
+  assert.equal(resUtrB.status, 200);
+  const jsonUtrB = await resUtrB.json() as any;
+  assert.equal(jsonUtrB.processed_count, 0, 'Duplicate UTR must NOT be processed');
+  assert.equal(jsonUtrB.failed_count, 1);
+
+  const paymentsB = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').all(orderUtrBId) as any[];
+  assert.equal(paymentsB.length, 0, 'No payment ledger row allowed for duplicate external reference');
+  console.log('  ✓ Two distinct payment events using the same UTR → duplicate rejected');
+
+  // 13m. UPI settlement without external reference or with bogus reference -> rejected
+  const orderRefTestId = 'ord-c123-reftest';
+  rawDb.prepare(`
+    INSERT INTO synced_orders (id, organization_id, branch_id, order_number, order_type, status, subtotal, tax_total, discount_total, grand_total, payment_status, payment_method, version, ordered_at, synced_at)
+    VALUES (?, 'org-a', 'br-a1', 'ORD-REF-TEST', 'dine_in', 'completed', 200.0, 10.0, 0, 210.0, 'unpaid', 'none', 1, ?, ?)
+  `).run(orderRefTestId, nowIso, nowIso);
+
+  // Without reference
+  const payNoRef = {
+    events: [
+      {
+        id: 'evt-c123-no-ref',
+        type: 'payment.settled',
+        payload: {
+          order_id: orderRefTestId,
+          amount: 210.0,
+          payment_method: 'upi',
+          settled_at: nowIso,
+        },
+      },
+    ],
+  };
+  const resNoRef = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(payNoRef),
+  }), env);
+  const jsonNoRef = await resNoRef.json() as any;
+  assert.equal(jsonNoRef.processed_count, 0, 'UPI settlement without external reference must be rejected');
+
+  // With bogus reference ('test')
+  const payBogusRef = {
+    events: [
+      {
+        id: 'evt-c123-bogus-ref',
+        type: 'payment.settled',
+        payload: {
+          order_id: orderRefTestId,
+          amount: 210.0,
+          payment_method: 'upi',
+          external_reference_id: 'test',
+          settled_at: nowIso,
+        },
+      },
+    ],
+  };
+  const resBogusRef = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(payBogusRef),
+  }), env);
+  const jsonBogusRef = await resBogusRef.json() as any;
+  assert.equal(jsonBogusRef.processed_count, 0, 'UPI settlement with bogus reference must be rejected');
+
+  // With genuine reference -> succeeds and persists external_reference_id
+  const genuineUtr = 'UTR-AXIS-GENUINE-882211';
+  const payGenuineRef = {
+    events: [
+      {
+        id: 'evt-c123-genuine-ref',
+        type: 'payment.settled',
+        payload: {
+          order_id: orderRefTestId,
+          amount: 210.0,
+          payment_method: 'upi',
+          external_reference_id: genuineUtr,
+          settled_at: nowIso,
+        },
+      },
+    ],
+  };
+  const resGenuineRef = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(payGenuineRef),
+  }), env);
+  const jsonGenuineRef = await resGenuineRef.json() as any;
+  assert.equal(jsonGenuineRef.processed_count, 1, 'UPI settlement with genuine reference must succeed');
+
+  const refPayment = rawDb.prepare('SELECT external_reference_id FROM customer_payments WHERE order_id = ?').get(orderRefTestId) as any;
+  assert.equal(refPayment.external_reference_id, genuineUtr, 'Genuine reference must be persisted into customer_payments');
+  console.log('  ✓ UPI settlement without external reference rejected; valid reference saved in ledger');
+
+  // 13n. Client-asserted verification spoofing rejected -> classified as manual_cashier_confirmed
+  const orderSpoofId = 'ord-c123-spoof';
+  rawDb.prepare(`
+    INSERT INTO synced_orders (id, organization_id, branch_id, order_number, order_type, status, subtotal, tax_total, discount_total, grand_total, payment_status, payment_method, version, ordered_at, synced_at)
+    VALUES (?, 'org-a', 'br-a1', 'ORD-SPOOF', 'dine_in', 'completed', 200.0, 10.0, 0, 210.0, 'unpaid', 'none', 1, ?, ?)
+  `).run(orderSpoofId, nowIso, nowIso);
+
+  const paySpoofEvent = {
+    events: [
+      {
+        id: 'evt-c123-spoof-verif',
+        type: 'payment.settled',
+        payload: {
+          order_id: orderSpoofId,
+          amount: 210.0,
+          payment_method: 'upi',
+          external_reference_id: 'UTR-SPOOF-VERIF-991',
+          verification_method: 'gateway_verified', // Spoofed client claim
+          gateway_signature: 'fake-signature-string',
+          terminal_auth_code: 'fake-auth-code',
+          settled_at: nowIso,
+        },
+      },
+    ],
+  };
+
+  const resSpoof = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify(paySpoofEvent),
+  }), env);
+  assert.equal(resSpoof.status, 200);
+
+  const spoofPayment = rawDb.prepare('SELECT verification_method FROM customer_payments WHERE order_id = ?').get(orderSpoofId) as any;
+  assert.equal(spoofPayment.verification_method, 'manual_cashier_confirmed', 'Client-supplied gateway_verified or terminal_verified must NOT become verified classification');
+  console.log('  ✓ Client-supplied gateway/terminal verification string → classified as manual_cashier_confirmed');
 
   // =========================================================================
   // TEST 14: FRONTEND ORDERS PAGE CLIENT CONTRACT (BRANCH_ID SCOPING)

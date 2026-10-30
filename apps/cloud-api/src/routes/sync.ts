@@ -465,50 +465,9 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
 
         const kitchenStatus = payload.kitchen_status || (payload.status === 'completed' ? 'served' : 'pending');
 
-        // Never infer payment settlement from operational order status.
-        // An order with status: 'completed' and missing payment_status must remain unpaid.
-        const validPaymentStatuses = ['unpaid', 'partially_paid', 'paid', 'refunded'];
-        const rawPaymentStatus = typeof payload.payment_status === 'string' ? payload.payment_status.toLowerCase().trim() : '';
-        let paymentStatus = validPaymentStatuses.includes(rawPaymentStatus) ? rawPaymentStatus : 'unpaid';
-
-        // Validate explicit settlement data if paymentStatus is claimed as 'paid'
-        let validOfflineSettlement: {
-          amount: number;
-          paymentMethod: string;
-          verificationMethod: string;
-        } | null = null;
-
-        if (paymentStatus === 'paid') {
-          const settlementAmount = Number(payload.grand_total !== undefined ? payload.grand_total : payload.total);
-          const rawMethod = typeof payload.payment_method === 'string' ? payload.payment_method.toLowerCase().trim() : '';
-          const validMethods = ['cash', 'upi', 'card', 'custom', 'razorpay_pos'];
-
-          if (
-            isNonNegativeFinite(settlementAmount) &&
-            settlementAmount > 0 &&
-            settlementAmount <= MAX_MONETARY_VALUE &&
-            validMethods.includes(rawMethod)
-          ) {
-            let verificationMethod = 'manual_cashier_confirmed';
-            if (rawMethod === 'cash') {
-              verificationMethod = 'cashier_collected';
-            } else if (payload.verification_method === 'gateway_verified' && payload.gateway_signature && typeof payload.gateway_signature === 'string') {
-              verificationMethod = 'gateway_verified';
-            } else if (payload.verification_method === 'terminal_verified' && terminal.terminal_status === 'active' && payload.terminal_auth_code) {
-              verificationMethod = 'terminal_verified';
-            }
-
-            validOfflineSettlement = {
-              amount: settlementAmount,
-              paymentMethod: rawMethod,
-              verificationMethod,
-            };
-          } else {
-            // Explicit settlement was claimed as 'paid', but amount or method is invalid.
-            // Do NOT record payment and do NOT set order as paid.
-            paymentStatus = 'unpaid';
-          }
-        }
+        // Ordinary order.* events (created, updated, completed) must not independently mark an order paid,
+        // partially paid, or refunded, and cannot create payment ledger entries.
+        // New orders always start as 'unpaid', and existing orders preserve their authoritative payment status.
 
         // 2. Upsert order with strict tenant condition
         eventStatements.push(env.DB.prepare(`
@@ -516,16 +475,16 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
             id, organization_id, branch_id, terminal_id, order_number, order_type,
             status, subtotal, tax_total, discount_total, grand_total, payment_method,
             ordered_at, synced_at, restaurant_id, kitchen_status, payment_status, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpaid', ?)
           ON CONFLICT(id) DO UPDATE SET
             status = excluded.status,
             kitchen_status = COALESCE(excluded.kitchen_status, synced_orders.kitchen_status),
-            payment_status = COALESCE(excluded.payment_status, synced_orders.payment_status),
+            payment_status = synced_orders.payment_status,
             subtotal = excluded.subtotal,
             tax_total = excluded.tax_total,
             discount_total = excluded.discount_total,
             grand_total = excluded.grand_total,
-            payment_method = excluded.payment_method,
+            payment_method = CASE WHEN synced_orders.payment_status IN ('paid', 'partially_paid') THEN synced_orders.payment_method ELSE excluded.payment_method END,
             synced_at = excluded.synced_at,
             updated_at = excluded.updated_at
           WHERE synced_orders.organization_id = excluded.organization_id
@@ -547,7 +506,6 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
           now,
           terminal.restaurant_id,
           kitchenStatus,
-          paymentStatus,
           now
         ));
 
@@ -617,34 +575,7 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
           ));
         }
 
-        // 5. Ingest explicitly validated offline settled payments into customer_payments ledger
-        // Do not create a ledger entry for missing, unpaid, pending, or partially paid status
-        if (paymentStatus === 'paid' && validOfflineSettlement) {
-          eventStatements.push(env.DB.prepare(`
-            INSERT INTO customer_payments (
-              id, organization_id, restaurant_id, branch_id, order_id,
-              payment_method, amount, currency, status, verification_method,
-              terminal_id, idempotency_key, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?)
-            ON CONFLICT(id) DO NOTHING
-          `).bind(
-            'pay_sync_' + payload.id,
-            terminal.organization_id,
-            terminal.restaurant_id || null,
-            terminal.branch_id,
-            payload.id,
-            validOfflineSettlement.paymentMethod,
-            validOfflineSettlement.amount,
-            'INR',
-            validOfflineSettlement.verificationMethod,
-            terminal.id,
-            'sync_' + event.id,
-            orderedAt,
-            now
-          ));
-        }
-
-        // Execute all writes for this event atomically
+        // Execute all writes for this event atomically (order events NEVER touch customer_payments)
         await executeBatch(env.DB, eventStatements);
         processedIds.push(event.id);
 
@@ -668,15 +599,19 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
         }
 
         const existingOrder = await env.DB.prepare(`
-          SELECT id, organization_id, branch_id, grand_total, payment_status
+          SELECT id, organization_id, restaurant_id, branch_id, grand_total, payment_status, version, table_id, status
           FROM synced_orders
           WHERE id = ?
         `).bind(orderId).first<{
           id: string;
           organization_id: string;
+          restaurant_id: string | null;
           branch_id: string;
           grand_total: number;
           payment_status: string;
+          version: number;
+          table_id: string | null;
+          status: string;
         }>();
 
         if (!existingOrder) {
@@ -689,14 +624,83 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
           continue;
         }
 
+        // 1. External payment references (UTR / auth code)
+        // For UPI, card and other non-cash payments, require a genuine external transaction reference.
+        const extRef = typeof payload.external_reference_id === 'string' && payload.external_reference_id.trim()
+          ? payload.external_reference_id.trim()
+          : (typeof payload.reference_number === 'string' && payload.reference_number.trim()
+            ? payload.reference_number.trim()
+            : (typeof payload.utr === 'string' && payload.utr.trim()
+              ? payload.utr.trim()
+              : (typeof payload.transaction_id === 'string' && payload.transaction_id.trim()
+                ? payload.transaction_id.trim()
+                : null)));
+
+        const BOGUS_REFS = ['123', 'test', 'null', 'na', 'none', 'dummy', '0000', '1111', 'fake', 'abc', 'xyz'];
+        if (rawMethod !== 'cash') {
+          if (!extRef || extRef.length < 4 || BOGUS_REFS.includes(extRef.toLowerCase())) {
+            console.warn(`[SyncValidation] Payment event ${event.id} rejected: remote ${rawMethod.toUpperCase()} payment requires valid external transaction reference`);
+            continue;
+          }
+
+          // Check duplicate transaction reference within this branch
+          const existingRef = await env.DB.prepare(`
+            SELECT id, order_id FROM customer_payments
+            WHERE branch_id = ? AND payment_method = ? AND external_reference_id = ? AND status != 'failed'
+          `).bind(terminal.branch_id, rawMethod, extRef).first<{ id: string; order_id: string }>();
+
+          if (existingRef) {
+            console.warn(`[SyncSecurity] Duplicate payment reference: Transaction ${extRef} was already settled on payment ${existingRef.id} (Order ${existingRef.order_id})`);
+            continue;
+          }
+        }
+
+        // 2. Server-authoritative verification classification
+        // Never accept client-asserted gateway_verified or terminal_verified.
         let verificationMethod = 'manual_cashier_confirmed';
         if (rawMethod === 'cash') {
           verificationMethod = 'cashier_collected';
-        } else if (payload.verification_method === 'gateway_verified' && payload.gateway_signature && typeof payload.gateway_signature === 'string') {
-          verificationMethod = 'gateway_verified';
-        } else if (payload.verification_method === 'terminal_verified' && terminal.terminal_status === 'active' && payload.terminal_auth_code) {
-          verificationMethod = 'terminal_verified';
+        } else {
+          // Offline electronic payments without independently verified provider/terminal evidence must be manual_cashier_confirmed.
+          verificationMethod = 'manual_cashier_confirmed';
         }
+
+        // 3. Authoritative outstanding balance & overpayment protection
+        // Calculate net paid balance from existing parent payments minus refunded amounts (avoiding double-counting)
+        const orderPayments = await env.DB.prepare(`
+          SELECT id, amount, refunded_amount, status, parent_payment_id
+          FROM customer_payments
+          WHERE order_id = ?
+        `).bind(orderId).all<any>();
+
+        let currentNetPaid = 0;
+        for (const p of orderPayments.results || []) {
+          if (!p.parent_payment_id && Number(p.amount) > 0 && ['completed', 'refunded'].includes(p.status)) {
+            currentNetPaid += (Number(p.amount || 0) - Number(p.refunded_amount || 0));
+          }
+        }
+        currentNetPaid = Math.round(currentNetPaid * 100) / 100;
+
+        const grandTotal = Math.round(Number(existingOrder.grand_total || 0) * 100) / 100;
+        const remainingBalance = Math.round((grandTotal - currentNetPaid) * 100) / 100;
+
+        if (settlementAmount > remainingBalance + 0.05) {
+          console.warn(`[SyncValidation] Payment event ${event.id} rejected: settlement amount (${settlementAmount}) exceeds outstanding order balance (${remainingBalance}) for order ${orderId}`);
+          continue;
+        }
+
+        const newTotalPaid = Math.round((currentNetPaid + settlementAmount) * 100) / 100;
+        const newOutstanding = Math.max(0, Math.round((grandTotal - newTotalPaid) * 100) / 100);
+        const newPaymentStatus = newOutstanding <= 0.05 ? 'paid' : 'partially_paid';
+        const isSplit = currentNetPaid > 0 ? 1 : 0;
+        const orderVersion = Number(existingOrder.version || 1);
+
+        const paymentId = typeof payload.payment_id === 'string' && payload.payment_id.trim()
+          ? payload.payment_id.trim()
+          : ('pay_sync_' + event.id);
+        const paymentIdempotencyKey = typeof payload.idempotency_key === 'string' && payload.idempotency_key.trim()
+          ? payload.idempotency_key.trim()
+          : ('sync_' + event.id);
 
         const paymentStatements: any[] = [];
         paymentStatements.push(env.DB.prepare(`
@@ -717,44 +721,65 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
           now
         ));
 
-        const paymentId = payload.payment_id || ('pay_sync_' + event.id);
         paymentStatements.push(env.DB.prepare(`
           INSERT INTO customer_payments (
-            id, organization_id, restaurant_id, branch_id, order_id,
-            payment_method, amount, currency, status, verification_method,
-            terminal_id, idempotency_key, created_at, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', ?, ?, ?, ?, ?)
+            id, organization_id, restaurant_id, branch_id, order_id, payment_method,
+            amount, currency, status, verification_method, external_reference_id, cashier_user_id, cashier_name,
+            terminal_id, idempotency_key, is_split, metadata_json, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'INR', 'completed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON CONFLICT(id) DO NOTHING
         `).bind(
           paymentId,
           terminal.organization_id,
-          terminal.restaurant_id || null,
+          existingOrder.restaurant_id || terminal.restaurant_id || null,
           terminal.branch_id,
           orderId,
           rawMethod,
           settlementAmount,
-          'INR',
           verificationMethod,
+          extRef,
+          payload.cashier_user_id || null,
+          payload.cashier_name || 'Cashier',
           terminal.id,
-          'sync_' + event.id,
+          paymentIdempotencyKey,
+          isSplit,
+          JSON.stringify(payload.metadata || {}),
           payload.settled_at || now,
           now
         ));
 
         paymentStatements.push(env.DB.prepare(`
           UPDATE synced_orders
-          SET payment_status = 'paid', payment_method = ?, updated_at = ?
+          SET payment_status = ?,
+              payment_method = ?,
+              version = (CASE WHEN version = ? THEN version + 1 ELSE json_extract('{', '$.concurrency_conflict') END),
+              updated_at = ?
           WHERE id = ? AND organization_id = ? AND branch_id = ?
         `).bind(
+          newPaymentStatus,
           rawMethod,
+          orderVersion,
           now,
           orderId,
           terminal.organization_id,
           terminal.branch_id
         ));
 
-        await executeBatch(env.DB, paymentStatements);
-        processedIds.push(event.id);
+        if (newPaymentStatus === 'paid' && existingOrder.table_id && existingOrder.status === 'completed') {
+          paymentStatements.push(env.DB.prepare(`
+            UPDATE dining_tables
+            SET table_status = 'available', current_order_id = NULL, updated_at = ?
+            WHERE id = ? AND branch_id = ?
+          `).bind(now, existingOrder.table_id, terminal.branch_id));
+        }
+
+        try {
+          await executeBatch(env.DB, paymentStatements);
+          processedIds.push(event.id);
+        } catch (batchErr: any) {
+          console.warn(`[SyncPayment] Batch execution failed for event ${event.id}:`, batchErr?.message || batchErr);
+          continue;
+        }
 
       } else if (event.type === 'closure.recorded') {
         const closure = event.payload as any;
