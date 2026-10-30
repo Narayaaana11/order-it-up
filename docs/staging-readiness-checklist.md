@@ -6,8 +6,9 @@
 > **GitHub Actions CI:** [Run #41007398733 (All 2 Jobs Passed / Green)](https://github.com/Narayaaana11/order-it-up/actions/runs/41007398733)  
 > **Pull Request:** [GitHub PR #11](https://github.com/Narayaaana11/order-it-up/pull/11)  
 > **Staging Worker URL:** `https://orderitup-cloud-api-staging.narayaaana11.workers.dev`  
-> **Staging D1 Identifier:** `931431cc-45d5-47c9-bed9-37f903cdacd4` (Migrations 0001–0006 Applied)  
-> **Status:** Staging Deployed & Verified Live (39/39 C-12 Smoke Tests Passed; 16/16 Baseline Tests Passed)  
+> **Staging Worker Version ID:** `d646994e-fe82-42a6-b036-78b48456fb74`  
+> **Staging D1 Identifier:** `931431cc-45d5-47c9-bed9-37f903cdacd4` (Migrations 0001–0007 Applied; Pre-Migration Backup: `backups/staging-backup-pre-c12.1.sql`)  
+> **Status:** Staging Deployed & Verified Live (39/39 C-12 Smoke Tests Passed; 16/16 C-12.1 Financial Integrity Tests Passed; 7/7 Transaction Integrity Tests Passed; 6/6 Shared Operational Backend Tests Passed)  
 > **Rule:** Never commit credentials, API keys, or production data.  
 > **CRITICAL INVARIANT:** Staging credentials (e.g. `rzp_test_*`, staging D1 IDs, staging JWT secrets) and staging data MUST NEVER be mixed with or reused in production environments. Production and staging environments must maintain strictly separate infrastructure, secrets, and database stores.
 

@@ -573,6 +573,31 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
           ));
         }
 
+        // 5. Ingest offline settled payments into customer_payments ledger
+        if (paymentStatus === 'paid') {
+          eventStatements.push(env.DB.prepare(`
+            INSERT INTO customer_payments (
+              id, organization_id, restaurant_id, branch_id, order_id,
+              payment_method, amount, currency, status, verification_method,
+              terminal_id, idempotency_key, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'completed', 'cashier_collected', ?, ?, ?, ?)
+            ON CONFLICT(id) DO NOTHING
+          `).bind(
+            'pay_sync_' + payload.id,
+            terminal.organization_id,
+            terminal.restaurant_id || null,
+            terminal.branch_id,
+            payload.id,
+            payload.payment_method || 'cash',
+            payload.grand_total || 0,
+            'INR',
+            terminal.id,
+            'sync_' + event.id,
+            orderedAt,
+            now
+          ));
+        }
+
         // Execute all writes for this event atomically
         await executeBatch(env.DB, eventStatements);
         processedIds.push(event.id);

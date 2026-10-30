@@ -96,6 +96,8 @@ async function runTestSuite(): Promise<void> {
   const m3Path = path.join(migrationsDir, '0003_sync_integrity_and_idempotency.sql');
   const m4Path = path.join(migrationsDir, '0004_restaurant_hierarchy_and_memberships.sql');
   const m5Path = path.join(migrationsDir, '0005_shared_operations_tables_and_kitchen.sql');
+  const m6Path = path.join(migrationsDir, '0006_customer_payment_ledger.sql');
+  const m7Path = path.join(migrationsDir, '0007_repair_legacy_payments_and_financial_integrity.sql');
 
   const rawDb = new DatabaseSync(':memory:');
   rawDb.exec('PRAGMA foreign_keys = ON;');
@@ -105,6 +107,8 @@ async function runTestSuite(): Promise<void> {
   runSqlFile(rawDb, m3Path);
   runSqlFile(rawDb, m4Path);
   runSqlFile(rawDb, m5Path);
+  runSqlFile(rawDb, m6Path);
+  runSqlFile(rawDb, m7Path);
 
   const env: any = {
     DB: createSqliteD1(rawDb),
@@ -476,8 +480,8 @@ async function runTestSuite(): Promise<void> {
   const ordAfterReady = rawDb.prepare('SELECT kitchen_status FROM synced_orders WHERE id = ?').get(sharedOrderId) as any;
   assert.equal(ordAfterReady.kitchen_status, 'ready');
 
-  // Step 5: Cashier settles payment and marks order completed
-  const payReq = new Request(`https://cloud.orderitup.internal/api/orders/${sharedOrderId}/payment`, {
+  // Step 5a: Legacy payment mutation returns 410 Gone (C-12.1)
+  const legacyPayReq = new Request(`https://cloud.orderitup.internal/api/orders/${sharedOrderId}/payment`, {
     method: 'PATCH',
     headers: {
       'Content-Type': 'application/json',
@@ -485,8 +489,24 @@ async function runTestSuite(): Promise<void> {
     },
     body: JSON.stringify({ payment_status: 'paid', payment_method: 'card' }),
   });
+  const legacyPayRes = await cloudWorker.fetch(legacyPayReq, env);
+  assert.equal(legacyPayRes.status, 410);
+
+  // Step 5b: Cashier settles payment via authoritative customer payment ledger
+  const payReq = new Request(`https://cloud.orderitup.internal/api/orders/${sharedOrderId}/payments`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${tokenCashierA}`,
+      'Idempotency-Key': 'c10-cashier-pay-001',
+    },
+    body: JSON.stringify({
+      payment_method: 'cash',
+      amount: 924.0,
+    }),
+  });
   const payRes = await cloudWorker.fetch(payReq, env);
-  assert.equal(payRes.status, 200);
+  assert.equal(payRes.status, 201);
 
   const completeReq = new Request(`https://cloud.orderitup.internal/api/orders/${sharedOrderId}/status`, {
     method: 'PATCH',

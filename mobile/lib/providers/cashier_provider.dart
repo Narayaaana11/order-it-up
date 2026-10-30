@@ -68,25 +68,38 @@ class CashierProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  String _externalReference = '';
+  String get externalReference => _externalReference;
+
   void setPaymentMethod(String method) {
     _paymentMethod = method;
     notifyListeners();
   }
 
-  Future<bool> settleBill() async {
+  void setExternalReference(String ref) {
+    _externalReference = ref;
+    notifyListeners();
+  }
+
+  Future<bool> settleBill({String? externalReference}) async {
     if (_selectedOrder == null || activeBill == null) return false;
 
     _isSettling = true;
     notifyListeners();
+
+    final refToUse = externalReference ??
+        (_externalReference.isNotEmpty ? _externalReference : null);
 
     try {
       final success = await apiService.settleBill(
         orderId: _selectedOrder!.id,
         paymentMethod: _paymentMethod,
         amount: activeBill!.totalPayable,
+        externalReferenceId: refToUse,
       );
 
       if (success) {
+        _externalReference = '';
         await loadOrders();
       }
       _isSettling = false;

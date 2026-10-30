@@ -60,7 +60,7 @@ SELECT
     'INR',
     'completed',
     'legacy_reconciled',
-    'LEGACY_SETTLED',
+    CASE WHEN o.payment_method = 'cash' THEN NULL ELSE 'LEGACY_' || o.id END,
     o.created_by_user_id,
     o.created_by_name,
     o.terminal_id,
@@ -69,7 +69,7 @@ SELECT
     COALESCE(o.updated_at, o.ordered_at),
     COALESCE(o.updated_at, o.ordered_at)
 FROM synced_orders o
-WHERE (o.payment_status = 'paid' OR o.status = 'completed')
+WHERE o.payment_status = 'paid'
   AND o.grand_total > 0
   AND NOT EXISTS (
     SELECT 1 FROM customer_payments cp WHERE cp.order_id = o.id

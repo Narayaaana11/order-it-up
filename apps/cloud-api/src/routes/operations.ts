@@ -83,6 +83,12 @@ export async function validateAndPriceItem(
       if (!Number.isFinite(modPrice) || modPrice < 0) {
         return { valid: false, error: `Invalid modifier price for ${mod.name}` };
       }
+      if (modPrice > 0 && !options?.isTerminalSync) {
+        return {
+          valid: false,
+          error: `Arbitrary modifier price for "${mod.name}" is not permitted for cloud orders without authoritative catalog modifier configuration. Submit priced items via catalog or sync via authenticated terminal.`
+        };
+      }
       modifiersCostPerUnit += modPrice * (modQty > 0 ? modQty : 1);
       validModifiers.push({ name: mod.name, price: modPrice, quantity: modQty > 0 ? modQty : 1 });
     }
@@ -182,7 +188,7 @@ export async function validateAndPriceItem(
   const lineUnitPrice = finalUnitPrice + modifiersCostPerUnit;
   const rawSubtotal = Math.round((qty * lineUnitPrice) * 100) / 100;
 
-  // 6. Validate discount
+  // 6. Validate discount permissions and limits
   let discountAmount = Number(rawItem.discount_amount || 0);
   if (!Number.isFinite(discountAmount) || discountAmount < 0) {
     return { valid: false, error: `Discount for "${finalProductName}" must be a non-negative number` };
@@ -190,21 +196,35 @@ export async function validateAndPriceItem(
   if (discountAmount > rawSubtotal) {
     return { valid: false, error: `Discount for "${finalProductName}" (${discountAmount}) cannot exceed subtotal (${rawSubtotal})` };
   }
+  if (discountAmount > 0) {
+    const isManagerOrOwner = ['owner', 'super_admin', 'manager', 'branch_manager'].includes(userRole) || options?.managerAuthorized === true;
+    if (!isManagerOrOwner) {
+      if (['waiter', 'server'].includes(userRole)) {
+        return {
+          valid: false,
+          error: `Unauthorized discount on "${finalProductName}": Waiters are not permitted to apply line discounts without manager approval.`
+        };
+      }
+      if (userRole === 'cashier') {
+        const maxCashierDiscount = Math.round(rawSubtotal * 0.15 * 100) / 100;
+        if (discountAmount > maxCashierDiscount || discountAmount > 500) {
+          return {
+            valid: false,
+            error: `Discount on "${finalProductName}" (${discountAmount}) exceeds cashier limit of 15% (${maxCashierDiscount}) or ₹500 cap. Manager approval required.`
+          };
+        }
+      }
+    }
+  }
   discountAmount = Math.round(discountAmount * 100) / 100;
 
   const netSubtotal = Math.round((rawSubtotal - discountAmount) * 100) / 100;
 
-  // 7. Calculate or validate tax
+  // 7. Calculate tax strictly server-side for ordinary cloud orders
   let calculatedTax = 0;
   if (finalTaxRate > 0) {
     calculatedTax = Math.round((netSubtotal * (finalTaxRate / 100)) * 100) / 100;
-    if (rawItem.tax_amount !== undefined && rawItem.tax_amount !== null) {
-      const clientTax = Number(rawItem.tax_amount);
-      if (Math.abs(clientTax - calculatedTax) <= 0.15) {
-        calculatedTax = clientTax;
-      }
-    }
-  } else if (rawItem.tax_amount !== undefined && rawItem.tax_amount !== null) {
+  } else if (options?.isTerminalSync && rawItem.tax_amount !== undefined && rawItem.tax_amount !== null) {
     const clientTax = Number(rawItem.tax_amount);
     if (Number.isFinite(clientTax) && clientTax >= 0) {
       calculatedTax = Math.round(clientTax * 100) / 100;
@@ -390,6 +410,44 @@ export async function handleGetOrder(
 }
 
 /**
+ * Verifies that a manager or owner has explicitly approved an override.
+ */
+export async function verifyManagerApproval(
+  db: any,
+  orgId: string,
+  branchId: string,
+  approval: any
+): Promise<{ valid: boolean; error?: string; managerName?: string }> {
+  if (!approval) {
+    return { valid: false, error: 'Manager approval required: manager_approval is missing' };
+  }
+
+  const managerUserId = typeof approval === 'string'
+    ? approval.trim()
+    : (typeof approval?.manager_user_id === 'string' ? approval.manager_user_id.trim() : '');
+  if (!managerUserId) {
+    return { valid: false, error: 'Manager approval required: manager_user_id must be provided' };
+  }
+
+  const memberships = await getUserMemberships(db, orgId, managerUserId);
+  const isManager = memberships.some((m) =>
+    ['owner', 'super_admin', 'manager', 'branch_manager'].includes(m.role) &&
+    (m.branch_id === branchId || !m.branch_id) &&
+    m.status === 'active'
+  );
+
+  if (!isManager) {
+    return { valid: false, error: `User "${managerUserId}" does not hold active manager or owner privileges for this branch` };
+  }
+
+  const userRow = (await db.prepare(
+    'SELECT name FROM cloud_users WHERE id = ? AND organization_id = ?'
+  ).bind(managerUserId, orgId).first()) as { name: string } | null;
+
+  return { valid: true, managerName: userRow?.name || 'Manager' };
+}
+
+/**
  * Creates a new order idempotently with line items and automatic kitchen tickets.
  */
 export async function handleCreateOrder(
@@ -477,6 +535,17 @@ export async function handleCreateOrder(
     || memberships.find((m) => !m.restaurant_id && !m.branch_id)?.role
     || 'waiter';
 
+  // Check manager approval if provided
+  let isManagerApproved = ['owner', 'super_admin', 'manager', 'branch_manager'].includes(userRole);
+  const approvalData = body?.manager_approval || body?.manager_approval_user_id;
+  if (!isManagerApproved && approvalData) {
+    const approvalCheck = await verifyManagerApproval(env.DB, orgId, branchId, approvalData);
+    if (!approvalCheck.valid) {
+      return Response.json({ error: `Manager approval invalid: ${approvalCheck.error}` }, { status: 403 });
+    }
+    isManagerApproved = true;
+  }
+
   // Calculate financial totals safely using server-side catalog & pricing engine
   let subtotal = 0;
   let taxTotal = 0;
@@ -484,7 +553,7 @@ export async function handleCreateOrder(
 
   const processedItems: any[] = [];
   for (const rawItem of rawItems) {
-    const valResult = await validateAndPriceItem(env.DB, orgId, branchId, rawItem, userRole);
+    const valResult = await validateAndPriceItem(env.DB, orgId, branchId, rawItem, userRole, { managerAuthorized: isManagerApproved });
     if (!valResult.valid || !valResult.item) {
       return Response.json({ error: valResult.error || 'Invalid order item' }, { status: 400 });
     }
@@ -496,10 +565,36 @@ export async function handleCreateOrder(
   }
 
   // Order-level discount check
-  const orderDiscount = typeof body?.order_discount === 'number' && body.order_discount >= 0 ? body.order_discount : 0;
-  if (orderDiscount > subtotal) {
-    return Response.json({ error: `Order discount (${orderDiscount}) cannot exceed order subtotal (${subtotal})` }, { status: 400 });
+  const orderDiscount = typeof body?.order_discount === 'number' && body.order_discount >= 0
+    ? body.order_discount
+    : (typeof body?.discount_total === 'number' && body.discount_total > 0 ? body.discount_total : 0);
+  const discountReason = typeof body?.discount_reason === 'string' ? body.discount_reason.trim() : '';
+
+  if (orderDiscount > 0) {
+    if (!discountReason) {
+      return Response.json({ error: 'A valid discount_reason is required when applying an order-level discount' }, { status: 400 });
+    }
+    if (orderDiscount > subtotal) {
+      return Response.json({ error: `Order discount (${orderDiscount}) cannot exceed order subtotal (${subtotal})` }, { status: 400 });
+    }
+
+    if (!isManagerApproved) {
+      if (['waiter', 'server'].includes(userRole)) {
+        return Response.json({
+          error: 'Forbidden: Waiters are not permitted to apply order-level discounts without verified manager approval',
+        }, { status: 403 });
+      }
+      if (userRole === 'cashier') {
+        const maxCashierDiscount = Math.round(subtotal * 0.15 * 100) / 100;
+        if (orderDiscount > maxCashierDiscount || orderDiscount > 500) {
+          return Response.json({
+            error: `Order discount (${orderDiscount}) exceeds cashier limit of 15% (₹${maxCashierDiscount}) or ₹500 cap. Verified manager approval is required.`,
+          }, { status: 403 });
+        }
+      }
+    }
   }
+
   discountTotal = Math.round((discountTotal + orderDiscount) * 100) / 100;
   const grandTotal = Math.max(0, Math.round((subtotal + taxTotal - discountTotal) * 100) / 100);
 
@@ -514,81 +609,6 @@ export async function handleCreateOrder(
     }
   }
 
-  // 1. Insert order record
-  await env.DB.prepare(`
-    INSERT INTO synced_orders (
-      id, organization_id, restaurant_id, branch_id, terminal_id, order_number, order_type,
-      status, kitchen_status, payment_status, subtotal, tax_total, discount_total, grand_total,
-      payment_method, table_id, table_number, customer_name, customer_phone,
-      created_by_user_id, created_by_name, notes, version, ordered_at, synced_at, updated_at
-    ) VALUES (
-      ?, ?, ?, ?, ?, ?, ?,
-      'active', 'pending', 'unpaid', ?, ?, ?, ?,
-      ?, ?, ?, ?, ?,
-      ?, ?, ?, 1, ?, ?, ?
-    )
-  `).bind(
-    orderId,
-    orgId,
-    branch.restaurant_id,
-    branchId,
-    body.terminal_id || null,
-    orderNumber,
-    orderType,
-    subtotal,
-    taxTotal,
-    discountTotal,
-    grandTotal,
-    paymentMethod,
-    tableId,
-    tableNumber,
-    customerName,
-    customerPhone,
-    userId,
-    claims.name || 'Staff',
-    notes,
-    now,
-    now,
-    now
-  ).run();
-
-  // 2. Insert order items
-  for (const item of processedItems) {
-    await env.DB.prepare(`
-      INSERT INTO synced_order_items (
-        id, order_id, branch_id, restaurant_id, product_id, product_name,
-        quantity, unit_price, subtotal, tax_amount, discount_amount,
-        modifiers_json, special_instructions, kitchen_status, version, ordered_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1, ?, ?)
-    `).bind(
-      item.id,
-      orderId,
-      branchId,
-      branch.restaurant_id,
-      item.product_id,
-      item.product_name,
-      item.quantity,
-      item.unit_price,
-      item.subtotal,
-      item.tax_amount,
-      item.discount_amount,
-      item.modifiers_json,
-      item.special_instructions,
-      now,
-      now
-    ).run();
-  }
-
-  // 3. Mark table occupied if dine-in
-  if (tableId) {
-    await env.DB.prepare(`
-      UPDATE dining_tables
-      SET status = 'occupied', current_order_id = ?, updated_at = ?
-      WHERE id = ?
-    `).bind(orderId, now, tableId).run();
-  }
-
-  // 4. Generate derived kitchen display ticket
   const ticketId = crypto.randomUUID();
   const ticketNumber = `KOT-${orderNumber}`;
   const ticketItems = processedItems.map((i) => ({
@@ -598,23 +618,111 @@ export async function handleCreateOrder(
     instructions: i.special_instructions,
   }));
 
-  await env.DB.prepare(`
-    INSERT INTO kitchen_tickets (
-      id, organization_id, restaurant_id, branch_id, order_id, ticket_number,
-      station, status, items_json, notes, prep_time_minutes, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, 'main_kitchen', 'pending', ?, ?, 15, ?, ?)
-  `).bind(
-    ticketId,
-    orgId,
-    branch.restaurant_id,
-    branchId,
-    orderId,
-    ticketNumber,
-    JSON.stringify(ticketItems),
-    notes,
-    now,
-    now
-  ).run();
+  // Atomic batch: Order + items + table occupancy + kitchen ticket
+  const batchStatements: any[] = [];
+
+  // 1. Insert order record
+  batchStatements.push(
+    env.DB.prepare(`
+      INSERT INTO synced_orders (
+        id, organization_id, restaurant_id, branch_id, terminal_id, order_number, order_type,
+        status, kitchen_status, payment_status, subtotal, tax_total, discount_total, grand_total,
+        payment_method, table_id, table_number, customer_name, customer_phone,
+        created_by_user_id, created_by_name, notes, version, ordered_at, synced_at, updated_at
+      ) VALUES (
+        ?, ?, ?, ?, ?, ?, ?,
+        'active', 'pending', 'unpaid', ?, ?, ?, ?,
+        ?, ?, ?, ?, ?,
+        ?, ?, ?, 1, ?, ?, ?
+      )
+    `).bind(
+      orderId,
+      orgId,
+      branch.restaurant_id,
+      branchId,
+      body.terminal_id || null,
+      orderNumber,
+      orderType,
+      subtotal,
+      taxTotal,
+      discountTotal,
+      grandTotal,
+      paymentMethod,
+      tableId,
+      tableNumber,
+      customerName,
+      customerPhone,
+      userId,
+      claims.name || 'Staff',
+      notes,
+      now,
+      now,
+      now
+    )
+  );
+
+  // 2. Insert order items
+  for (const item of processedItems) {
+    batchStatements.push(
+      env.DB.prepare(`
+        INSERT INTO synced_order_items (
+          id, order_id, branch_id, restaurant_id, product_id, product_name,
+          quantity, unit_price, subtotal, tax_amount, discount_amount,
+          modifiers_json, special_instructions, kitchen_status, version, ordered_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1, ?, ?)
+      `).bind(
+        item.id,
+        orderId,
+        branchId,
+        branch.restaurant_id,
+        item.product_id,
+        item.product_name,
+        item.quantity,
+        item.unit_price,
+        item.subtotal,
+        item.tax_amount,
+        item.discount_amount,
+        item.modifiers_json,
+        item.special_instructions,
+        now,
+        now
+      )
+    );
+  }
+
+  // 3. Mark table occupied if dine-in
+  if (tableId) {
+    batchStatements.push(
+      env.DB.prepare(`
+        UPDATE dining_tables
+        SET status = 'occupied', current_order_id = ?, updated_at = ?
+        WHERE id = ?
+      `).bind(orderId, now, tableId)
+    );
+  }
+
+  // 4. Generate derived kitchen display ticket
+  batchStatements.push(
+    env.DB.prepare(`
+      INSERT INTO kitchen_tickets (
+        id, organization_id, restaurant_id, branch_id, order_id, ticket_number,
+        station, status, items_json, notes, prep_time_minutes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, 'main_kitchen', 'pending', ?, ?, 15, ?, ?)
+    `).bind(
+      ticketId,
+      orgId,
+      branch.restaurant_id,
+      branchId,
+      orderId,
+      ticketNumber,
+      JSON.stringify(ticketItems),
+      notes,
+      now,
+      now
+    )
+  );
+
+  await env.DB.batch(batchStatements);
 
   return Response.json(
     {
@@ -718,34 +826,38 @@ export async function handleAddOrderItems(
   let addedDiscount = 0;
 
   const insertedItems: any[] = [];
+  const batchStatements: any[] = [];
+
   for (const item of validatedNewItems) {
     addedSubtotal = Math.round((addedSubtotal + item.subtotal) * 100) / 100;
     addedTax = Math.round((addedTax + item.tax_amount) * 100) / 100;
     addedDiscount = Math.round((addedDiscount + item.discount_amount) * 100) / 100;
 
-    await env.DB.prepare(`
-      INSERT INTO synced_order_items (
-        id, order_id, branch_id, restaurant_id, product_id, product_name,
-        quantity, unit_price, subtotal, tax_amount, discount_amount,
-        modifiers_json, special_instructions, kitchen_status, version, ordered_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1, ?, ?)
-    `).bind(
-      item.id,
-      orderId,
-      order.branch_id,
-      order.restaurant_id,
-      item.product_id,
-      item.product_name,
-      item.quantity,
-      item.unit_price,
-      item.subtotal,
-      item.tax_amount,
-      item.discount_amount,
-      item.modifiers_json,
-      item.special_instructions,
-      now,
-      now
-    ).run();
+    batchStatements.push(
+      env.DB.prepare(`
+        INSERT INTO synced_order_items (
+          id, order_id, branch_id, restaurant_id, product_id, product_name,
+          quantity, unit_price, subtotal, tax_amount, discount_amount,
+          modifiers_json, special_instructions, kitchen_status, version, ordered_at, updated_at
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', 1, ?, ?)
+      `).bind(
+        item.id,
+        orderId,
+        order.branch_id,
+        order.restaurant_id,
+        item.product_id,
+        item.product_name,
+        item.quantity,
+        item.unit_price,
+        item.subtotal,
+        item.tax_amount,
+        item.discount_amount,
+        item.modifiers_json,
+        item.special_instructions,
+        now,
+        now
+      )
+    );
 
     insertedItems.push({
       id: item.id,
@@ -761,32 +873,49 @@ export async function handleAddOrderItems(
   const newGrandTotal = Math.max(0, Math.round((newSubtotal + newTaxTotal - newDiscountTotal) * 100) / 100);
   const newVersion = order.version + 1;
 
-  await env.DB.prepare(`
-    UPDATE synced_orders
-    SET subtotal = ?, tax_total = ?, discount_total = ?, grand_total = ?,
-        version = ?, kitchen_status = 'pending', updated_at = ?
-    WHERE id = ?
-  `).bind(newSubtotal, newTaxTotal, newDiscountTotal, newGrandTotal, newVersion, now, orderId).run();
+  // Conditional update with version check
+  batchStatements.push(
+    env.DB.prepare(`
+      UPDATE synced_orders
+      SET subtotal = ?, tax_total = ?, discount_total = ?, grand_total = ?,
+          version = (CASE WHEN version = ? THEN version + 1 ELSE json_extract('{', '$.concurrency_conflict') END),
+          kitchen_status = 'pending', updated_at = ?
+      WHERE id = ?
+    `).bind(newSubtotal, newTaxTotal, newDiscountTotal, newGrandTotal, order.version, now, orderId)
+  );
 
   // Create an amendment kitchen ticket for newly added items
   const ticketId = crypto.randomUUID();
   const ticketNumber = `KOT-${order.order_number}-A${newVersion}`;
-  await env.DB.prepare(`
-    INSERT INTO kitchen_tickets (
-      id, organization_id, restaurant_id, branch_id, order_id, ticket_number,
-      station, status, items_json, notes, prep_time_minutes, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, 'main_kitchen', 'pending', ?, 'Course Amendment', 10, ?, ?)
-  `).bind(
-    ticketId,
-    orgId,
-    order.restaurant_id,
-    order.branch_id,
-    orderId,
-    ticketNumber,
-    JSON.stringify(insertedItems),
-    now,
-    now
-  ).run();
+  batchStatements.push(
+    env.DB.prepare(`
+      INSERT INTO kitchen_tickets (
+        id, organization_id, restaurant_id, branch_id, order_id, ticket_number,
+        station, status, items_json, notes, prep_time_minutes, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, 'main_kitchen', 'pending', ?, 'Course Amendment', 10, ?, ?)
+    `).bind(
+      ticketId,
+      orgId,
+      order.restaurant_id,
+      order.branch_id,
+      orderId,
+      ticketNumber,
+      JSON.stringify(insertedItems),
+      now,
+      now
+    )
+  );
+
+  try {
+    await env.DB.batch(batchStatements);
+  } catch (err: any) {
+    if (err?.message?.includes('JSON') || err?.message?.includes('concurrency_conflict')) {
+      return Response.json({
+        error: `Conflict: Order has been modified concurrently. Expected version ${order.version}`,
+      }, { status: 409 });
+    }
+    throw err;
+  }
 
   return Response.json({
     success: true,
@@ -935,7 +1064,8 @@ export async function handleUpdateOrderStatus(
 }
 
 /**
- * Updates payment status and method on an order (legacy compatibility).
+ * Deprecated legacy payment endpoint.
+ * Direct financial state mutation is strictly disabled to prevent ledger bypass.
  */
 export async function handleUpdateOrderPayment(
   request: Request,
@@ -943,53 +1073,10 @@ export async function handleUpdateOrderPayment(
   claims: any,
   orderId: string
 ): Promise<Response> {
-  const orgId = claims.org;
-  const userId = claims.sub;
-
-  const order = await env.DB.prepare(`
-    SELECT * FROM synced_orders WHERE id = ? AND organization_id = ?
-  `).bind(orderId, orgId).first<any>();
-
-  if (!order) {
-    return Response.json({ error: 'Order not found' }, { status: 404 });
-  }
-
-  const memberships = await getUserMemberships(env.DB, orgId, userId);
-  const authCheck = await isAuthorizedForBranch(env.DB, orgId, memberships, order.branch_id, [
-    'owner',
-    'manager',
-    'cashier',
-  ]);
-
-  if (!authCheck.authorized) {
-    return Response.json({ error: 'Forbidden: Insufficient privileges to settle payments' }, { status: 403 });
-  }
-
-  let body: any;
-  try {
-    body = await request.json();
-  } catch {
-    return Response.json({ error: 'Invalid JSON payload' }, { status: 400 });
-  }
-
-  const paymentStatus = typeof body?.payment_status === 'string' ? body.payment_status : 'paid';
-  const paymentMethod = typeof body?.payment_method === 'string' ? body.payment_method : order.payment_method;
-  const now = new Date().toISOString();
-  const newVersion = order.version + 1;
-
-  await env.DB.prepare(`
-    UPDATE synced_orders
-    SET payment_status = ?, payment_method = ?, version = ?, updated_at = ?
-    WHERE id = ?
-  `).bind(paymentStatus, paymentMethod, newVersion, now, orderId).run();
-
   return Response.json({
-    success: true,
-    message: 'Payment status updated successfully',
-    payment_status: paymentStatus,
-    payment_method: paymentMethod,
-    version: newVersion,
-  });
+    error: 'Deprecated: Direct payment status mutation is disabled. Use POST /api/orders/:id/payments to record an auditable payment transaction.',
+    migration: 'POST /api/orders/:id/payments',
+  }, { status: 410 });
 }
 
 /**
@@ -1032,22 +1119,17 @@ export async function handleGetOrderPayments(
   `).bind(orderId).all<any>();
 
   const paymentList = payments.results || [];
-  let totalPaid = 0;
+  let grossPaid = 0;
   let totalRefunded = 0;
 
   for (const p of paymentList) {
-    if (p.status === 'completed') {
-      totalPaid += Number(p.amount || 0);
-    }
-    if (p.refunded_amount) {
+    if (!p.parent_payment_id && Number(p.amount) > 0 && ['completed', 'refunded'].includes(p.status)) {
+      grossPaid += Number(p.amount || 0);
       totalRefunded += Number(p.refunded_amount || 0);
-    }
-    if (p.status === 'refunded' && Number(p.amount) < 0) {
-      totalRefunded += Math.abs(Number(p.amount));
     }
   }
 
-  const netPaid = Math.round((totalPaid - totalRefunded) * 100) / 100;
+  const netPaid = Math.round((grossPaid - totalRefunded) * 100) / 100;
   const grandTotal = Number(order.grand_total || 0);
   const outstandingBalance = Math.max(0, Math.round((grandTotal - netPaid) * 100) / 100);
 
@@ -1105,26 +1187,6 @@ export async function handleRecordCustomerPayment(
     return Response.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
-  const idempotencyKey = (typeof body?.idempotency_key === 'string' && body.idempotency_key.trim())
-    ? body.idempotency_key.trim()
-    : request.headers.get('Idempotency-Key')?.trim() || null;
-
-  // 1. Check idempotency
-  if (idempotencyKey) {
-    const existing = await env.DB.prepare(`
-      SELECT * FROM customer_payments WHERE branch_id = ? AND idempotency_key = ?
-    `).bind(order.branch_id, idempotencyKey).first<any>();
-
-    if (existing) {
-      return Response.json({
-        success: true,
-        idempotent: true,
-        message: 'Payment already processed with this idempotency key',
-        payment: existing,
-      }, { status: 200 });
-    }
-  }
-
   const amount = Number(body?.amount);
   if (!Number.isFinite(amount) || amount <= 0) {
     return Response.json({ error: 'Payment amount must be a positive number' }, { status: 400 });
@@ -1135,15 +1197,48 @@ export async function handleRecordCustomerPayment(
     ? body.payment_method
     : 'cash';
 
+  const idempotencyKey = (typeof body?.idempotency_key === 'string' && body.idempotency_key.trim())
+    ? body.idempotency_key.trim()
+    : request.headers.get('Idempotency-Key')?.trim() || null;
+
+  // 1. Check idempotency & conflicting replays
+  if (idempotencyKey) {
+    const existing = await env.DB.prepare(`
+      SELECT * FROM customer_payments WHERE branch_id = ? AND idempotency_key = ?
+    `).bind(order.branch_id, idempotencyKey).first<any>();
+
+    if (existing) {
+      if (existing.order_id !== orderId || Math.abs(Number(existing.amount) - amount) > 0.001 || existing.payment_method !== paymentMethod) {
+        return Response.json({
+          error: `Conflict: Idempotency key "${idempotencyKey}" was previously used for a different payment (Order ${existing.order_id}, Method: ${existing.payment_method}, Amount: ${existing.amount})`,
+        }, { status: 409 });
+      }
+      return Response.json({
+        success: true,
+        idempotent: true,
+        message: 'Payment already processed with this idempotency key',
+        payment: existing,
+      }, { status: 200 });
+    }
+  }
+
+  // 2. Reject spoofed client-controlled verification methods
+  if (body?.verification_method === 'terminal_verified' || body?.verification_method === 'gateway_verified') {
+    return Response.json({
+      error: `Verification method "${body.verification_method}" cannot be asserted directly by the client without authoritative hardware terminal or payment gateway attestation. If direct hardware integration is not active, record as manual cashier confirmation.`,
+    }, { status: 400 });
+  }
+
   const extRef = typeof body?.external_reference_id === 'string' && body.external_reference_id.trim()
     ? body.external_reference_id.trim()
     : (typeof body?.reference_number === 'string' && body.reference_number.trim() ? body.reference_number.trim() : null);
 
-  // Non-cash payments REQUIRE valid external transaction reference (UTR, terminal auth code)
+  // Non-cash payments REQUIRE valid, genuine external transaction reference (UTR, terminal auth code)
+  const BOGUS_REFS = ['123', 'test', 'null', 'na', 'none', 'dummy', '0000', '1111', 'fake', 'abc', 'xyz'];
   if (paymentMethod !== 'cash') {
-    if (!extRef) {
+    if (!extRef || extRef.length < 4 || BOGUS_REFS.includes(extRef.toLowerCase())) {
       return Response.json({
-        error: `external_reference_id (UTR / authorization reference) is required for remote ${paymentMethod.toUpperCase()} payments`,
+        error: `Invalid external_reference_id: "${extRef || ''}". A valid, documented transaction reference (UTR, terminal authorization code, or card receipt reference of at least 4 characters) is required for remote ${paymentMethod.toUpperCase()} payments.`,
       }, { status: 400 });
     }
 
@@ -1160,14 +1255,19 @@ export async function handleRecordCustomerPayment(
     }
   }
 
-  // Calculate current paid balance
-  const currentPaidResult = await env.DB.prepare(`
-    SELECT COALESCE(SUM(amount), 0) - COALESCE(SUM(refunded_amount), 0) as net_paid
-    FROM customer_payments
-    WHERE order_id = ? AND status = 'completed'
-  `).bind(orderId).first<{ net_paid: number }>();
+  // Calculate current paid balance (sum of un-refunded amounts on original tenders)
+  const allPayments = await env.DB.prepare(`
+    SELECT * FROM customer_payments WHERE order_id = ?
+  `).bind(orderId).all<any>();
 
-  const currentNetPaid = currentPaidResult ? Number(currentPaidResult.net_paid || 0) : 0;
+  let currentNetPaid = 0;
+  for (const p of allPayments.results || []) {
+    if (!p.parent_payment_id && Number(p.amount) > 0 && ['completed', 'refunded'].includes(p.status)) {
+      currentNetPaid += (Number(p.amount || 0) - Number(p.refunded_amount || 0));
+    }
+  }
+  currentNetPaid = Math.round(currentNetPaid * 100) / 100;
+
   const grandTotal = Number(order.grand_total || 0);
   const remainingBalance = Math.round((grandTotal - currentNetPaid) * 100) / 100;
 
@@ -1180,62 +1280,72 @@ export async function handleRecordCustomerPayment(
   const paymentId = typeof body?.id === 'string' && body.id.trim() ? body.id.trim() : `pay_${crypto.randomUUID()}`;
   const now = new Date().toISOString();
   const isSplit = currentNetPaid > 0 ? 1 : 0;
+  const verificationMethod = paymentMethod === 'cash' ? 'cashier_collected' : 'manual_cashier_confirmed';
 
-  let verificationMethod = 'manual_cashier_confirmed';
-  if (paymentMethod === 'cash') {
-    verificationMethod = 'cashier_collected';
-  } else if (body?.verification_method === 'terminal_verified') {
-    verificationMethod = 'terminal_verified';
-  } else {
-    // Non-cash without provider cryptographic webhook signature is recorded as manual cashier confirmed
-    verificationMethod = 'manual_cashier_confirmed';
-  }
-
-  // 2. Insert customer payment record
-  await env.DB.prepare(`
-    INSERT INTO customer_payments (
-      id, organization_id, restaurant_id, branch_id, order_id, payment_method,
-      amount, currency, status, verification_method, external_reference_id, cashier_user_id, cashier_name,
-      terminal_id, idempotency_key, is_split, metadata_json, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'INR', 'completed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-  `).bind(
-    paymentId,
-    orgId,
-    order.restaurant_id,
-    order.branch_id,
-    orderId,
-    paymentMethod,
-    amount,
-    verificationMethod,
-    extRef,
-    userId,
-    claims.name || 'Cashier',
-    body.terminal_id || null,
-    idempotencyKey,
-    isSplit,
-    JSON.stringify(body.metadata || {}),
-    now,
-    now
-  ).run();
-
-  // 3. Derive order payment status
   const newTotalPaid = Math.round((currentNetPaid + amount) * 100) / 100;
   const newOutstanding = Math.max(0, Math.round((grandTotal - newTotalPaid) * 100) / 100);
   const newPaymentStatus = newOutstanding <= 0.05 ? 'paid' : 'partially_paid';
   const newVersion = order.version + 1;
 
-  await env.DB.prepare(`
-    UPDATE synced_orders
-    SET payment_status = ?, payment_method = ?, version = ?, updated_at = ?
-    WHERE id = ?
-  `).bind(newPaymentStatus, paymentMethod, newVersion, now, orderId).run();
+  // Atomic batch: payment insert + conditional order update with version check + optional table release
+  const paymentBatch: any[] = [];
 
-  // If order is completed and fully paid, release dining table
-  if (newPaymentStatus === 'paid' && order.table_id && order.status === 'completed') {
-    await env.DB.prepare(`
-      UPDATE dining_tables SET status = 'available', current_order_id = NULL, updated_at = ?
+  paymentBatch.push(
+    env.DB.prepare(`
+      INSERT INTO customer_payments (
+        id, organization_id, restaurant_id, branch_id, order_id, payment_method,
+        amount, currency, status, verification_method, external_reference_id, cashier_user_id, cashier_name,
+        terminal_id, idempotency_key, is_split, metadata_json, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'INR', 'completed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      paymentId,
+      orgId,
+      order.restaurant_id,
+      order.branch_id,
+      orderId,
+      paymentMethod,
+      amount,
+      verificationMethod,
+      extRef,
+      userId,
+      claims.name || 'Cashier',
+      body.terminal_id || null,
+      idempotencyKey,
+      isSplit,
+      JSON.stringify(body.metadata || {}),
+      now,
+      now
+    )
+  );
+
+  paymentBatch.push(
+    env.DB.prepare(`
+      UPDATE synced_orders
+      SET payment_status = ?, payment_method = ?,
+          version = (CASE WHEN version = ? THEN version + 1 ELSE json_extract('{', '$.concurrency_conflict') END),
+          updated_at = ?
       WHERE id = ?
-    `).bind(now, order.table_id).run();
+    `).bind(newPaymentStatus, paymentMethod, order.version, now, orderId)
+  );
+
+  if (newPaymentStatus === 'paid' && order.table_id && order.status === 'completed') {
+    paymentBatch.push(
+      env.DB.prepare(`
+        UPDATE dining_tables SET status = 'available', current_order_id = NULL, updated_at = ?
+        WHERE id = ?
+      `).bind(now, order.table_id)
+    );
+  }
+
+  try {
+    await env.DB.batch(paymentBatch);
+  } catch (err: any) {
+    if (err?.message?.includes('JSON') || err?.message?.includes('concurrency_conflict')) {
+      return Response.json({
+        error: `Conflict: Order was modified concurrently during payment processing. Expected version ${order.version}`,
+      }, { status: 409 });
+    }
+    throw err;
   }
 
   return Response.json({
@@ -1303,15 +1413,23 @@ export async function handleRefundCustomerPayment(
     ? body.idempotency_key.trim()
     : request.headers.get('Idempotency-Key')?.trim() || null;
 
+  // 1. Replay check: Immediately return existing record if already processed
   if (idempotencyKey) {
     const existingRefund = await env.DB.prepare(`
       SELECT * FROM customer_payments WHERE branch_id = ? AND idempotency_key = ?
     `).bind(order.branch_id, idempotencyKey).first<any>();
 
     if (existingRefund) {
+      const requestedAmt = typeof body?.amount === 'number' && body.amount > 0 ? Number(body.amount) : null;
+      if (existingRefund.order_id !== orderId || existingRefund.parent_payment_id !== paymentId || (requestedAmt !== null && Math.abs(Math.abs(Number(existingRefund.amount)) - requestedAmt) > 0.001)) {
+        return Response.json({
+          error: `Conflict: Idempotency key "${idempotencyKey}" was previously used for a different refund (Order ${existingRefund.order_id}, Target: ${existingRefund.parent_payment_id}, Amount: ${Math.abs(Number(existingRefund.amount))})`,
+        }, { status: 409 });
+      }
       return Response.json({
         success: true,
         idempotent: true,
+        is_idempotent_replay: true,
         message: 'Refund already processed with this idempotency key',
         refund: existingRefund,
         refunded_amount: Math.abs(Number(existingRefund.amount)),
@@ -1328,8 +1446,8 @@ export async function handleRefundCustomerPayment(
     SELECT * FROM customer_payments WHERE id = ? AND order_id = ? AND organization_id = ?
   `).bind(paymentId, orderId, orgId).first<any>();
 
-  if (!originalPayment || originalPayment.status !== 'completed') {
-    return Response.json({ error: 'Original payment transaction not found or not in completed state' }, { status: 404 });
+  if (!originalPayment || (originalPayment.status !== 'completed' && originalPayment.status !== 'refunded')) {
+    return Response.json({ error: 'Original payment transaction not found' }, { status: 404 });
   }
 
   const maxRefundable = Math.round((Number(originalPayment.amount) - Number(originalPayment.refunded_amount || 0)) * 100) / 100;
@@ -1351,65 +1469,100 @@ export async function handleRefundCustomerPayment(
     : 'manual_cashier_refund';
 
   const now = new Date().toISOString();
-  const newRefundedTotal = Math.round((Number(originalPayment.refunded_amount || 0) + refundAmount) * 100) / 100;
-  const origStatus = newRefundedTotal >= Number(originalPayment.amount) ? 'refunded' : 'completed';
-
-  // Update original payment
-  await env.DB.prepare(`
-    UPDATE customer_payments
-    SET refunded_amount = ?, status = ?, updated_at = ?
-    WHERE id = ?
-  `).bind(newRefundedTotal, origStatus, now, paymentId).run();
-
-  // Insert refund transaction
   const refundId = `ref_${crypto.randomUUID()}`;
-  await env.DB.prepare(`
-    INSERT INTO customer_payments (
-      id, organization_id, restaurant_id, branch_id, order_id, payment_method,
-      amount, currency, status, verification_method, external_reference_id, cashier_user_id, cashier_name,
-      idempotency_key, parent_payment_id, refund_reason, refund_type, is_split, created_at, updated_at
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, 'INR', 'refunded', 'cashier_collected', ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
-  `).bind(
-    refundId,
-    orgId,
-    order.restaurant_id,
-    order.branch_id,
-    orderId,
-    originalPayment.payment_method,
-    -refundAmount,
-    `REFUND_${paymentId}`,
-    userId,
-    claims.name || 'Cashier',
-    idempotencyKey,
-    paymentId,
-    reason,
-    refundType,
-    now,
-    now
-  ).run();
 
-  // Re-evaluate order payment status
-  const netPaidResult = await env.DB.prepare(`
-    SELECT COALESCE(SUM(amount), 0) - COALESCE(SUM(refunded_amount), 0) as net_paid
-    FROM customer_payments
-    WHERE order_id = ? AND status = 'completed'
-  `).bind(orderId).first<{ net_paid: number }>();
+  // Calculate new payment status after this refund
+  const allPayments = await env.DB.prepare(`
+    SELECT * FROM customer_payments WHERE order_id = ?
+  `).bind(orderId).all<any>();
 
-  const netPaid = netPaidResult ? Number(netPaidResult.net_paid || 0) : 0;
+  let newNetPaid = 0;
+  for (const p of allPayments.results || []) {
+    if (!p.parent_payment_id && Number(p.amount) > 0 && ['completed', 'refunded'].includes(p.status)) {
+      const pRefunded = p.id === paymentId ? (Number(p.refunded_amount || 0) + refundAmount) : Number(p.refunded_amount || 0);
+      newNetPaid += (Number(p.amount || 0) - pRefunded);
+    }
+  }
+  newNetPaid = Math.round(newNetPaid * 100) / 100;
+
   const grandTotal = Number(order.grand_total || 0);
   let newOrderStatus = 'unpaid';
-  if (netPaid >= grandTotal - 0.05 && netPaid > 0) {
+  if (newNetPaid >= grandTotal - 0.05 && newNetPaid > 0) {
     newOrderStatus = 'paid';
-  } else if (netPaid > 0) {
+  } else if (newNetPaid > 0) {
     newOrderStatus = 'partially_paid';
-  } else if (netPaid <= 0 && newRefundedTotal > 0) {
+  } else if (newNetPaid <= 0) {
     newOrderStatus = 'refunded';
   }
 
   const newVersion = order.version + 1;
-  await env.DB.prepare(`
-    UPDATE synced_orders SET payment_status = ?, version = ?, updated_at = ? WHERE id = ?
-  `).bind(newOrderStatus, newVersion, now, orderId).run();
+  const refundBatch: any[] = [];
+
+  // 1. Guard against concurrent over-refund of original payment
+  refundBatch.push(
+    env.DB.prepare(`
+      UPDATE customer_payments
+      SET refunded_amount = (CASE WHEN (amount - refunded_amount) >= ? THEN refunded_amount + ? ELSE json_extract('{', '$.refund_limit_exceeded') END),
+          status = (CASE WHEN (refunded_amount + ?) >= amount THEN 'refunded' ELSE 'completed' END),
+          updated_at = ?
+      WHERE id = ?
+    `).bind(refundAmount, refundAmount, refundAmount, now, paymentId)
+  );
+
+  // 2. Insert refund ledger record
+  refundBatch.push(
+    env.DB.prepare(`
+      INSERT INTO customer_payments (
+        id, organization_id, restaurant_id, branch_id, order_id, payment_method,
+        amount, currency, status, verification_method, external_reference_id, cashier_user_id, cashier_name,
+        idempotency_key, parent_payment_id, refund_reason, refund_type, is_split, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, 'INR', 'refunded', 'cashier_collected', ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+    `).bind(
+      refundId,
+      orgId,
+      order.restaurant_id,
+      order.branch_id,
+      orderId,
+      originalPayment.payment_method,
+      -refundAmount,
+      `REFUND_${paymentId}`,
+      userId,
+      claims.name || 'Cashier',
+      idempotencyKey,
+      paymentId,
+      reason,
+      refundType,
+      now,
+      now
+    )
+  );
+
+  // 3. Conditional order payment status and version update
+  refundBatch.push(
+    env.DB.prepare(`
+      UPDATE synced_orders
+      SET payment_status = ?,
+          version = (CASE WHEN version = ? THEN version + 1 ELSE json_extract('{', '$.concurrency_conflict') END),
+          updated_at = ?
+      WHERE id = ?
+    `).bind(newOrderStatus, order.version, now, orderId)
+  );
+
+  try {
+    await env.DB.batch(refundBatch);
+  } catch (err: any) {
+    if (err?.message?.includes('refund_limit_exceeded')) {
+      return Response.json({
+        error: `Conflict: Concurrent refund exceeded the available refundable balance of payment ${paymentId}`,
+      }, { status: 409 });
+    }
+    if (err?.message?.includes('concurrency_conflict') || err?.message?.includes('JSON')) {
+      return Response.json({
+        error: `Conflict: Order was modified concurrently during refund processing. Expected version ${order.version}`,
+      }, { status: 409 });
+    }
+    throw err;
+  }
 
   return Response.json({
     success: true,

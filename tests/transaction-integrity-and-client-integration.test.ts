@@ -373,7 +373,72 @@ async function runTestSuite(): Promise<void> {
   const waiterOverrideJson = await waiterOverrideRes.json() as any;
   assert.match(waiterOverrideJson.error, /Manager override required/i);
 
-  // A6. Valid Order Creation with Server-Calculated Catalog Pricing & Modifiers
+  // A5d. Waiter attempts arbitrary modifier price injection without catalog modifier schema (C-12.1)
+  const waiterModReq = new Request('https://cloud.orderitup.internal/api/orders', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${tokenWaiter}`,
+    },
+    body: JSON.stringify({
+      branch_id: 'br-a1',
+      items: [
+        {
+          product_id: 'prod-margherita',
+          quantity: 1,
+          modifiers: [{ name: 'Extra Mozzarella', price: 50.0 }],
+        },
+      ],
+    }),
+  });
+  const waiterModRes = await cloudWorker.fetch(waiterModReq, env);
+  assert.equal(waiterModRes.status, 400);
+  const waiterModJson = await waiterModRes.json() as any;
+  assert.match(waiterModJson.error, /Arbitrary modifier price/i);
+
+  // A5e. Waiter attempts unauthorized line discount (C-12.1)
+  const waiterLineDiscountReq = new Request('https://cloud.orderitup.internal/api/orders', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${tokenWaiter}`,
+    },
+    body: JSON.stringify({
+      branch_id: 'br-a1',
+      items: [
+        {
+          product_id: 'prod-margherita',
+          quantity: 1,
+          discount_amount: 50.0,
+        },
+      ],
+    }),
+  });
+  const waiterLineDiscountRes = await cloudWorker.fetch(waiterLineDiscountReq, env);
+  assert.equal(waiterLineDiscountRes.status, 400);
+  const waiterLineDiscountJson = await waiterLineDiscountRes.json() as any;
+  assert.match(waiterLineDiscountJson.error, /Waiters are not permitted to apply line discounts/i);
+
+  // A5f. Waiter attempts unauthorized order-level discount (C-12.1)
+  const waiterOrderDiscountReq = new Request('https://cloud.orderitup.internal/api/orders', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${tokenWaiter}`,
+    },
+    body: JSON.stringify({
+      branch_id: 'br-a1',
+      order_discount: 100.0,
+      discount_reason: 'VIP Friend',
+      items: [{ product_id: 'prod-margherita', quantity: 1 }],
+    }),
+  });
+  const waiterOrderDiscountRes = await cloudWorker.fetch(waiterOrderDiscountReq, env);
+  assert.equal(waiterOrderDiscountRes.status, 403);
+  const waiterOrderDiscountJson = await waiterOrderDiscountRes.json() as any;
+  assert.match(waiterOrderDiscountJson.error, /Waiters are not permitted to apply order-level discounts/i);
+
+  // A6. Valid Order Creation with Server-Calculated Catalog Pricing & Zero-Price Instruction Modifiers
   const validOrderReq = new Request('https://cloud.orderitup.internal/api/orders', {
     method: 'POST',
     headers: {
@@ -389,7 +454,7 @@ async function runTestSuite(): Promise<void> {
         {
           product_id: 'prod-margherita',
           quantity: 1,
-          modifiers: [{ name: 'Extra Mozzarella', price: 50.0 }],
+          modifiers: [{ name: 'Extra Crispy', price: 0.0 }],
         },
       ],
     }),
@@ -399,13 +464,13 @@ async function runTestSuite(): Promise<void> {
   const validOrderJson = await validOrderRes.json() as any;
   assert.equal(validOrderJson.success, true);
   // Authoritative Calculation:
-  // Base branch price: 399 + Modifier: 50 = 449 unit price
-  // Subtotal = 449
-  // Tax @ 5% = 22.45
-  // Grand Total = 471.45
-  assert.equal(validOrderJson.order.subtotal, 449.0);
-  assert.equal(validOrderJson.order.tax_total, 22.45);
-  assert.equal(validOrderJson.order.grand_total, 471.45);
+  // Base branch price: 399 + Modifier: 0 = 399 unit price
+  // Subtotal = 399
+  // Tax @ 5% = 19.95
+  // Grand Total = 418.95
+  assert.equal(validOrderJson.order.subtotal, 399.0);
+  assert.equal(validOrderJson.order.tax_total, 19.95);
+  assert.equal(validOrderJson.order.grand_total, 418.95);
 
   // A7. Menu Changes do not rewrite historic orders:
   // Modify master product price to ₹999.0
@@ -419,7 +484,7 @@ async function runTestSuite(): Promise<void> {
   });
   const getHistoricRes = await cloudWorker.fetch(getHistoricReq, env);
   const getHistoricJson = await getHistoricRes.json() as any;
-  assert.equal(getHistoricJson.order.grand_total, 471.45);
+  assert.equal(getHistoricJson.order.grand_total, 418.95);
   assert.equal(getHistoricJson.order.items[0].unit_price, 399.0);
   console.log('  ✓ Price tampering rejected; authoritative catalog pricing & sale-time snapshot preservation verified');
 
@@ -427,6 +492,18 @@ async function runTestSuite(): Promise<void> {
   // TEST B: PAYMENT INTEGRITY
   // =========================================================================
   console.log('🧪 [Test 2/7] Test B: Payment Integrity (Cashier Attribution & Remote Tender Verification)...');
+
+  // B0. Attempting direct payment mutation on legacy endpoint returns 410 Gone (C-12.1)
+  const legacyPayReq = new Request('https://cloud.orderitup.internal/api/orders/ord-integrity-001/payment', {
+    method: 'PATCH',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${tokenCashier}`,
+    },
+    body: JSON.stringify({ payment_status: 'paid', payment_method: 'cash' }),
+  });
+  const legacyPayRes = await cloudWorker.fetch(legacyPayReq, env);
+  assert.equal(legacyPayRes.status, 410);
 
   // B1. Unauthorized role (waiter) attempts to settle payment
   const waiterPayReq = new Request('https://cloud.orderitup.internal/api/orders/ord-integrity-001/payments', {
@@ -437,11 +514,44 @@ async function runTestSuite(): Promise<void> {
     },
     body: JSON.stringify({
       payment_method: 'cash',
-      amount: 471.45,
+      amount: 418.95,
     }),
   });
   const waiterPayRes = await cloudWorker.fetch(waiterPayReq, env);
   assert.equal(waiterPayRes.status, 403);
+
+  // B1b. Spoofed terminal_verified assertion rejected (C-12.1)
+  const spoofTerminalReq = new Request('https://cloud.orderitup.internal/api/orders/ord-integrity-001/payments', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${tokenCashier}`,
+    },
+    body: JSON.stringify({
+      payment_method: 'card',
+      amount: 50.0,
+      verification_method: 'terminal_verified',
+      external_reference_id: 'CARD-AUTH-999',
+    }),
+  });
+  const spoofTerminalRes = await cloudWorker.fetch(spoofTerminalReq, env);
+  assert.equal(spoofTerminalRes.status, 400);
+
+  // B1c. Fake / Bogus external reference rejected (C-12.1)
+  const fakeRefReq = new Request('https://cloud.orderitup.internal/api/orders/ord-integrity-001/payments', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${tokenCashier}`,
+    },
+    body: JSON.stringify({
+      payment_method: 'upi',
+      amount: 50.0,
+      external_reference_id: 'test',
+    }),
+  });
+  const fakeRefRes = await cloudWorker.fetch(fakeRefReq, env);
+  assert.equal(fakeRefRes.status, 400);
 
   // B2. Client attempts remote UPI payment without external transaction reference (UTR)
   const unverifiedUpiReq = new Request('https://cloud.orderitup.internal/api/orders/ord-integrity-001/payments', {
@@ -452,7 +562,7 @@ async function runTestSuite(): Promise<void> {
     },
     body: JSON.stringify({
       payment_method: 'upi',
-      amount: 471.45,
+      amount: 418.95,
       // Missing external_reference_id
     }),
   });
@@ -479,7 +589,7 @@ async function runTestSuite(): Promise<void> {
   const validCashJson = await validCashRes.json() as any;
   assert.equal(validCashJson.success, true);
   assert.equal(validCashJson.total_paid, 200.0);
-  assert.equal(validCashJson.outstanding_balance, 271.45);
+  assert.equal(validCashJson.outstanding_balance, 218.95);
   assert.equal(validCashJson.order_payment_status, 'partially_paid');
   console.log('  ✓ Payment role gating, remote UTR enforcement, and cashier attribution verified');
 
@@ -488,7 +598,7 @@ async function runTestSuite(): Promise<void> {
   // =========================================================================
   console.log('🧪 [Test 3/7] Test C: Split Payments, Outstanding Balance & Idempotent Retries...');
 
-  // C1. Attempting overpayment (paying ₹500 when remaining is only ₹271.45)
+  // C1. Attempting overpayment (paying ₹500 when remaining is only ₹218.95)
   const overpayReq = new Request('https://cloud.orderitup.internal/api/orders/ord-integrity-001/payments', {
     method: 'POST',
     headers: {
@@ -506,7 +616,7 @@ async function runTestSuite(): Promise<void> {
   const overpayJson = await overpayRes.json() as any;
   assert.match(overpayJson.error, /exceeds outstanding order balance/i);
 
-  // C2. Second tender: Valid UPI split payment for exact remaining balance ₹271.45
+  // C2. Second tender: Valid UPI split payment for exact remaining balance ₹218.95
   const splitUpiReq = new Request('https://cloud.orderitup.internal/api/orders/ord-integrity-001/payments', {
     method: 'POST',
     headers: {
@@ -516,14 +626,14 @@ async function runTestSuite(): Promise<void> {
     },
     body: JSON.stringify({
       payment_method: 'upi',
-      amount: 271.45,
+      amount: 218.95,
       external_reference_id: 'UTR-SBI-77889900',
     }),
   });
   const splitUpiRes = await cloudWorker.fetch(splitUpiReq, env);
   assert.equal(splitUpiRes.status, 201);
   const splitUpiJson = await splitUpiRes.json() as any;
-  assert.equal(splitUpiJson.total_paid, 471.45);
+  assert.equal(splitUpiJson.total_paid, 418.95);
   assert.equal(splitUpiJson.outstanding_balance, 0.0);
   assert.equal(splitUpiJson.order_payment_status, 'paid');
 
@@ -553,7 +663,7 @@ async function runTestSuite(): Promise<void> {
     },
     body: JSON.stringify({
       payment_method: 'upi',
-      amount: 271.45,
+      amount: 218.95,
       external_reference_id: 'UTR-SBI-77889900',
     }),
   });
@@ -571,7 +681,7 @@ async function runTestSuite(): Promise<void> {
   assert.equal(getLedgerRes.status, 200);
   const getLedgerJson = await getLedgerRes.json() as any;
   assert.equal(getLedgerJson.payments.length, 2);
-  assert.equal(getLedgerJson.total_paid, 471.45);
+  assert.equal(getLedgerJson.total_paid, 418.95);
   assert.equal(getLedgerJson.outstanding_balance, 0.0);
   console.log('  ✓ Split payment reconciliation, overpayment guard, and idempotent tender replay confirmed');
 

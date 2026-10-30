@@ -109,16 +109,18 @@ class ApiService {
     if (isDemoMode) return _demoTables;
 
     try {
-      final res =
-          await apiClient.get('/api/tables', queryParams: {'active': 'true'});
+      final res = await apiClient.get('/api/tables', queryParams: {
+        'active': 'true',
+        'branch_id': activeBranchId,
+      });
       if (res is Map && res['tables'] is List) {
         return (res['tables'] as List)
             .map((t) => TableModel.fromJson(t as Map<String, dynamic>))
             .toList();
       }
-      return _demoTables;
+      return [];
     } catch (_) {
-      return _demoTables;
+      return [];
     }
   }
 
@@ -257,6 +259,7 @@ class ApiService {
         await apiClient.post(
           '/api/orders',
           body: {
+            'branch_id': activeBranchId,
             'table_id': tableId,
             'type': 'dine_in',
             'items': mappedItems,
@@ -275,25 +278,31 @@ class ApiService {
   Future<List<OrderModel>> getAllOrders() async {
     if (isDemoMode) return _demoOrders;
     try {
-      final res =
-          await apiClient.get('/api/orders', queryParams: {'limit': '50'});
+      final res = await apiClient.get('/api/orders', queryParams: {
+        'limit': '50',
+        'branch_id': activeBranchId,
+      });
       if (res is Map && res['orders'] is List) {
         return (res['orders'] as List)
             .map((o) => OrderModel.fromJson(o as Map<String, dynamic>))
             .toList();
       }
-      return _demoOrders;
+      return [];
     } catch (_) {
-      return _demoOrders;
+      return [];
     }
   }
 
   Future<List<OrderModel>> getOrders() => getAllOrders();
 
+  // Stable operation/idempotency key cache per order payment attempt
+  final Map<int, String> _orderPaymentIdempotencyKeys = {};
+
   Future<bool> settleBill({
     required int orderId,
     required String paymentMethod,
     required double amount,
+    String? externalReferenceId,
   }) async {
     if (isDemoMode) {
       final orderIdx = _demoOrders.indexWhere((o) => o.id == orderId);
@@ -324,6 +333,12 @@ class ApiService {
       return true;
     }
 
+    // Stable idempotency key across retries for the same payment operation
+    final idempotencyKey = _orderPaymentIdempotencyKeys.putIfAbsent(
+      orderId,
+      () => 'mob-pay-$orderId-${DateTime.now().millisecondsSinceEpoch}',
+    );
+
     try {
       // Primary: Cloud Operational Payment Ledger
       final res = await apiClient.post(
@@ -331,13 +346,16 @@ class ApiService {
         body: {
           'amount': amount,
           'payment_method': paymentMethod,
-          'external_reference_id': paymentMethod != 'cash'
-              ? 'MOB-${DateTime.now().millisecondsSinceEpoch}'
-              : null,
+          'external_reference_id':
+              paymentMethod != 'cash' ? externalReferenceId : null,
+          'idempotency_key': idempotencyKey,
         },
-        withIdempotency: true,
+        customIdempotencyKey: idempotencyKey,
       );
-      if (res != null) return true;
+      if (res != null) {
+        _orderPaymentIdempotencyKeys.remove(orderId);
+        return true;
+      }
       return false;
     } on ApiException catch (e) {
       // Security Invariant (Phase 2-D): A 401, 403, 400, or 409 must NOT trigger a less restrictive fallback.
@@ -345,21 +363,9 @@ class ApiService {
       if (e.statusCode != null) {
         return false;
       }
-      // If network failed entirely (no HTTP response), attempt local desktop LAN fallback if paired
-      try {
-        await apiClient.post(
-          '/api/bills',
-          body: {
-            'order_id': orderId,
-            'payment_method': paymentMethod,
-            'amount_paid': amount,
-          },
-          withIdempotency: true,
-        );
-        return true;
-      } catch (_) {
-        return false;
-      }
+      // On network failure or ambiguous timeout, do NOT automatically record against LAN /api/bills!
+      // Return false so UI displays pending/retry state using the same preserved idempotency key.
+      return false;
     } catch (_) {
       return false;
     }
@@ -368,8 +374,11 @@ class ApiService {
   Future<List<KdsTicketModel>> getKdsTickets() async {
     if (isDemoMode) return _demoKds;
     try {
-      // 1. Try Cloud operational tickets endpoint
-      final cloudRes = await apiClient.get('/api/kitchen/tickets');
+      // 1. Try Cloud operational tickets endpoint with active branch context
+      final cloudRes =
+          await apiClient.get('/api/kitchen/tickets', queryParams: {
+        'branch_id': activeBranchId,
+      });
       if (cloudRes is Map && cloudRes['tickets'] is List) {
         return (cloudRes['tickets'] as List).map((t) {
           final map = t as Map<String, dynamic>;
@@ -419,9 +428,9 @@ class ApiService {
           );
         }).toList();
       }
-      return _demoKds;
+      return [];
     } catch (_) {
-      return _demoKds;
+      return [];
     }
   }
 

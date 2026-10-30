@@ -31,8 +31,8 @@ class _CashierScreenState extends State<CashierScreen> {
       builder: (_) => UpiQrDialog(
         amount: amount,
         orderNumber: orderNumber,
-        onPaymentConfirmed: () async {
-          final success = await cashier.settleBill();
+        onPaymentConfirmed: (utr) async {
+          final success = await cashier.settleBill(externalReference: utr);
           if (success && mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               const SnackBar(
@@ -42,6 +42,64 @@ class _CashierScreenState extends State<CashierScreen> {
             );
           }
         },
+      ),
+    );
+  }
+
+  void _showCardModal(double amount, String orderNumber) {
+    final cashier = Provider.of<CashierProvider>(context, listen: false);
+    final textController = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Card Terminal Payment'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+                'Amount: ${AppConstants.defaultCurrency}${amount.toStringAsFixed(2)}'),
+            const SizedBox(height: 12),
+            TextField(
+              controller: textController,
+              decoration: const InputDecoration(
+                labelText: 'Terminal Approval Code / Ref',
+                hintText: 'e.g. AUTH-982134',
+                border: OutlineInputBorder(),
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () async {
+              final ref = textController.text.trim();
+              if (ref.length < 4) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                      content: Text(
+                          'Please enter a valid terminal authorization code (min 4 chars)')),
+                );
+                return;
+              }
+              Navigator.pop(ctx);
+              final ok = await cashier.settleBill(externalReference: ref);
+              if (ok && mounted) {
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Card payment recorded & bill settled!'),
+                    backgroundColor: AppTheme.success,
+                  ),
+                );
+              }
+            },
+            child: const Text('Confirm Settle'),
+          ),
+        ],
       ),
     );
   }
@@ -253,6 +311,8 @@ class _CashierScreenState extends State<CashierScreen> {
                   : () async {
                       if (cashier.paymentMethod == 'upi') {
                         _showUpiModal(bill.totalPayable, bill.orderNumber);
+                      } else if (cashier.paymentMethod == 'card') {
+                        _showCardModal(bill.totalPayable, bill.orderNumber);
                       } else {
                         final ok = await cashier.settleBill();
                         if (ok && mounted) {

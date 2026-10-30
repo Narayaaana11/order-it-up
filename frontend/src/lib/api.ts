@@ -137,13 +137,12 @@ export async function updateSharedOrderStatus(orderId: string, status: string, c
   return res.data;
 }
 
-export async function updateSharedOrderPayment(orderId: string, paymentStatus: string, paymentMethod?: string) {
-  const client = isElectronEnvironment() ? api : cloudApi;
-  const res = await client.patch(`/orders/${orderId}/payment`, {
-    payment_status: paymentStatus,
-    payment_method: paymentMethod,
-  });
-  return res.data;
+/**
+ * @deprecated Direct payment status mutation is disabled to prevent financial ledger bypass.
+ * Use recordCustomerPayment() to record an auditable payment transaction instead.
+ */
+export async function updateSharedOrderPayment(_orderId: string, _paymentStatus: string, _paymentMethod?: string): Promise<never> {
+  throw new Error('updateSharedOrderPayment is deprecated: use recordCustomerPayment() to record an auditable payment transaction.');
 }
 
 export async function fetchSharedTables(branchId: string) {

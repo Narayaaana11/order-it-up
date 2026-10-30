@@ -83,11 +83,13 @@ class ApiClient {
     String path, {
     dynamic body,
     bool withIdempotency = false,
+    String? customIdempotencyKey,
     Map<String, String>? extraHeaders,
   }) async {
     try {
       final uri = _buildUri(path);
-      final idempotencyKey = withIdempotency ? 'mob-${_uuid.v4()}' : null;
+      final idempotencyKey = customIdempotencyKey ??
+          (withIdempotency ? 'mob-${_uuid.v4()}' : null);
       final headers = _buildHeaders(
         idempotencyKey: idempotencyKey,
         extraHeaders: extraHeaders,
