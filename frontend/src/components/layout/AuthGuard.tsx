@@ -33,6 +33,8 @@ const PUBLIC_PATHS = [
   '/setup',
   '/qr',
   '/cloud-portal',
+  '/privacy',
+  '/terms',
 ];
 
 export default function AuthGuard({ children }: { children: React.ReactNode }) {

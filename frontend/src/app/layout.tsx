@@ -23,9 +23,32 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Order It Up",
-  description: "Smart Point of Sale and billing for restaurants",
+  title: "Order It Up • Modern Offline-First Restaurant POS & Operating System",
+  description: "Sub-second offline POS billing with local SQLite durability, station-based kitchen order routing (KDS), table floorplans, and real-time multi-branch cloud reporting.",
+  metadataBase: new URL("https://orderitup.pages.dev"),
   manifest: "/manifest.json",
+  openGraph: {
+    title: "Order It Up • Restaurant POS & Cloud Operating System",
+    description: "Run your restaurant, not your paperwork. Sub-second offline counter billing, kitchen KDS, and multi-branch cloud sync.",
+    url: "https://orderitup.pages.dev",
+    siteName: "Order It Up",
+    images: [
+      {
+        url: "/icon-512.png",
+        width: 512,
+        height: 512,
+        alt: "Order It Up Restaurant POS",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Order It Up • Restaurant POS & Cloud Operating System",
+    description: "Sub-second offline POS billing with local SQLite durability, kitchen KDS, and multi-branch cloud sync.",
+    images: ["/icon-512.png"],
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

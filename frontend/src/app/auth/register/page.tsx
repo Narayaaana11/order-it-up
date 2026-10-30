@@ -396,11 +396,18 @@ export default function SaaSQuickRegisterPage() {
           )}
 
           {/* Footer Link */}
-          <div className="mt-6 pt-5 border-t border-slate-800 text-center">
-            <span className="text-xs text-slate-400">Already have an account? </span>
-            <Link href="/auth/login" className="text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors">
-              Sign in to Cloud HQ
-            </Link>
+          <div className="mt-6 pt-5 border-t border-slate-800 text-center space-y-2">
+            <div>
+              <span className="text-xs text-slate-400">Already have an account? </span>
+              <Link href="/auth/login" className="text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors">
+                Sign in to Cloud HQ
+              </Link>
+            </div>
+            <div>
+              <Link href="/" className="text-xs text-slate-500 hover:text-slate-300 transition-colors inline-flex items-center gap-1">
+                ← Back to Order It Up Home
+              </Link>
+            </div>
           </div>
         </div>
       </div>

@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /setup/
+
+Sitemap: https://orderitup.pages.dev/sitemap.xml

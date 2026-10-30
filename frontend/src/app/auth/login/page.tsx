@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations, type AppConfig } from 'use-intl';
 import { getLandingPage } from '@/components/layout/AuthGuard';
@@ -212,16 +213,32 @@ function LoginContent() {
               <Button type="submit" disabled={loading} className="w-full" size="lg">
                 {loading ? t('signingIn') : t('signIn')}
               </Button>
-              <button
-                type="button"
-                onClick={() => router.push('/auth/recover')}
-                className="w-full text-center text-sm text-muted-foreground hover:text-foreground transition-colors"
-              >
-                {t('forgotPasswordLink')}
-              </button>
+              <div className="flex items-center justify-between text-xs text-muted-foreground pt-1">
+                <button
+                  type="button"
+                  onClick={() => router.push('/auth/recover')}
+                  className="hover:text-foreground transition-colors"
+                >
+                  {t('forgotPasswordLink')}
+                </button>
+                <Link
+                  href="/auth/register"
+                  className="text-orange-500 font-semibold hover:text-orange-600 transition-colors"
+                >
+                  Start Free Trial →
+                </Link>
+              </div>
             </form>
           </CardContent>
         </Card>
+        <div className="mt-4 text-center">
+          <Link
+            href="/"
+            className="text-xs text-muted-foreground hover:text-foreground transition-colors inline-flex items-center gap-1"
+          >
+            ← Back to Order It Up Home
+          </Link>
+        </div>
         <p className="text-center text-[11px] text-muted-foreground/80 mt-4 tracking-wide">
           Order It Up POS • Developed by <span className="font-semibold text-foreground">IndentDev</span>
         </p>
