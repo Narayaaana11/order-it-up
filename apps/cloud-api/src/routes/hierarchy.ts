@@ -11,6 +11,7 @@ import {
   isAuthorizedForBranch,
   UserMembership,
 } from '../rbac';
+import { hashPassword } from '../auth';
 
 export async function handleListRestaurants(
   request: Request,
@@ -384,7 +385,23 @@ export async function handleCreateOrUpdateMembership(
     if (userRow) {
       resolvedUserId = userRow.id;
     } else {
-      return Response.json({ error: 'User with provided email does not exist in this organization' }, { status: 404 });
+      const initialPassword = typeof body?.password === 'string' && body.password.length >= 8
+        ? body.password
+        : (typeof body?.temporary_password === 'string' && body.temporary_password.length >= 8 ? body.temporary_password : null);
+
+      if (initialPassword) {
+        const staffName = typeof body?.name === 'string' && body.name.trim() ? body.name.trim() : email.split('@')[0];
+        const newUserId = crypto.randomUUID();
+        const passHash = await hashPassword(initialPassword);
+        const nowIso = new Date().toISOString();
+        await env.DB.prepare(`
+          INSERT INTO cloud_users (id, organization_id, email, password_hash, name, role, status, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, 'active', ?, ?)
+        `).bind(newUserId, orgId, email, passHash, staffName, role, nowIso, nowIso).run();
+        resolvedUserId = newUserId;
+      } else {
+        return Response.json({ error: 'User with provided email does not exist in this organization' }, { status: 404 });
+      }
     }
   }
 
