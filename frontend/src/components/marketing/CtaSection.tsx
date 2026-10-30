@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { ArrowRight, Monitor, CheckCircle2, Sparkles, ShieldCheck } from 'lucide-react';
+import { ArrowRight, Monitor, CheckCircle2 } from 'lucide-react';
 
 export default function MarketingCtaSection() {
   return (
@@ -12,7 +12,7 @@ export default function MarketingCtaSection() {
 
       <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center relative z-10">
         <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900 border border-orange-500/30 text-xs font-semibold text-orange-300 mb-6 backdrop-blur-md">
-          <Sparkles className="w-3.5 h-3.5 text-orange-400" />
+          <img src="/logo.png" alt="Order It Up" className="w-4 h-4 object-contain rounded" />
           <span>Start Your Free 14-Day Restaurant Trial Today</span>
         </div>
 

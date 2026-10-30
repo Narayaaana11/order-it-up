@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import {
-  UtensilsCrossed,
   Store,
   User,
   Mail,
@@ -126,9 +125,9 @@ export default function SaaSQuickRegisterPage() {
 
       {/* Brand Header */}
       <div className="sm:mx-auto sm:w-full sm:max-w-md text-center relative z-10">
-        <Link href="/" className="inline-flex items-center gap-2 mb-4 group">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-transform">
-            <UtensilsCrossed className="w-6 h-6 text-white" />
+        <Link href="/" className="inline-flex items-center gap-2.5 mb-4 group">
+          <div className="w-12 h-12 rounded-xl bg-slate-900 border border-slate-800 p-1 flex items-center justify-center shadow-lg shadow-orange-500/10 group-hover:scale-105 group-hover:border-orange-500/50 transition-transform">
+            <img src="/logo.png" alt="Order It Up" className="w-full h-full object-contain rounded-lg" />
           </div>
           <span className="text-2xl font-black tracking-tight text-white">Order It Up</span>
         </Link>

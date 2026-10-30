@@ -2,7 +2,6 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { UtensilsCrossed } from 'lucide-react';
 
 export default function MarketingFooter() {
   return (
@@ -12,8 +11,8 @@ export default function MarketingFooter() {
           {/* Brand & Description Column */}
           <div className="col-span-2 space-y-4">
             <Link href="/" className="flex items-center space-x-3 group">
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-600 via-orange-500 to-amber-400 flex items-center justify-center shadow-lg shadow-orange-500/25">
-                <UtensilsCrossed className="w-5 h-5 text-white" />
+              <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 p-1 flex items-center justify-center shadow-lg shadow-orange-500/10 group-hover:scale-105 group-hover:border-orange-500/50 transition-all duration-300">
+                <img src="/logo.png" alt="Order It Up" className="w-full h-full object-contain rounded-lg" />
               </div>
               <div className="flex flex-col">
                 <span className="text-xl font-black tracking-tight text-white">Order It Up</span>

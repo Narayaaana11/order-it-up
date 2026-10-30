@@ -3,22 +3,25 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import {
-  UtensilsCrossed,
   Monitor,
   Cloud,
   ChevronRight,
   WifiOff,
   Printer,
   ShieldCheck,
-  Sparkles,
   ArrowRight,
   Plus,
   Minus,
   RefreshCw,
-  Clock,
-  Flame,
   Check,
   CheckCircle2,
+  BarChart3,
+  ChefHat,
+  LayoutGrid,
+  TrendingUp,
+  Banknote,
+  Bell,
+  Volume2,
 } from 'lucide-react';
 
 interface DemoItem {
@@ -42,8 +45,10 @@ export default function MarketingHeroSection() {
     'item-1': 1,
     'item-2': 2,
   });
-  const [activeView, setActiveView] = useState<'pos' | 'kds'>('pos');
+  const [activeView, setActiveView] = useState<'pos' | 'kds' | 'display' | 'dashboard'>('pos');
   const [fired, setFired] = useState(false);
+  const [kdsBumped, setKdsBumped] = useState(false);
+  const [dashboardPeriod, setDashboardPeriod] = useState<'day' | 'month'>('day');
 
   const addItem = (id: string) => {
     setCart((prev) => ({
@@ -51,6 +56,7 @@ export default function MarketingHeroSection() {
       [id]: (prev[id] || 0) + 1,
     }));
     setFired(false);
+    setKdsBumped(false);
   };
 
   const removeItem = (id: string) => {
@@ -64,6 +70,7 @@ export default function MarketingHeroSection() {
       return next;
     });
     setFired(false);
+    setKdsBumped(false);
   };
 
   const resetCart = () => {
@@ -72,6 +79,7 @@ export default function MarketingHeroSection() {
       'item-2': 1,
     });
     setFired(false);
+    setKdsBumped(false);
   };
 
   // Calculations
@@ -87,9 +95,17 @@ export default function MarketingHeroSection() {
 
   const handleFireOrder = () => {
     setFired(true);
+    setKdsBumped(false);
     setTimeout(() => {
       setActiveView('kds');
     }, 600);
+  };
+
+  const handleBumpTicket = () => {
+    setKdsBumped(true);
+    setTimeout(() => {
+      setActiveView('display');
+    }, 700);
   };
 
   return (
@@ -101,12 +117,12 @@ export default function MarketingHeroSection() {
       </div>
 
       <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Top Announcement Pill */}
+        {/* Top Announcement Pill with Brand Emblem */}
         <div className="flex justify-center mb-6">
           <div className="inline-flex items-center gap-2.5 px-4 py-2 rounded-full bg-slate-900/90 border border-orange-500/30 text-xs font-semibold text-orange-300 backdrop-blur-md shadow-inner hover:border-orange-500/60 transition-colors">
+            <img src="/logo.png" alt="Order It Up" className="w-4 h-4 object-contain rounded" />
             <span className="flex h-2 w-2 rounded-full bg-orange-400 animate-ping" />
-            <Sparkles className="w-3.5 h-3.5 text-orange-400" />
-            <span>Next-Gen Restaurant OS: Offline Desktop • Cloud HQ • Mobile Companion</span>
+            <span>Tri-Platform Operating System: Desktop POS • Cloud HQ • Mobile Companion</span>
           </div>
         </div>
 
@@ -152,11 +168,11 @@ export default function MarketingHeroSection() {
           </div>
         </div>
 
-        {/* Realistic Interactive POS / KDS Terminal Simulation */}
+        {/* Realistic Interactive Restaurant Viewers & Dashboard Simulation */}
         <div className="mt-12 max-w-5xl mx-auto">
-          <div className="rounded-2xl sm:rounded-3xl border border-slate-800 bg-slate-950/90 shadow-2xl shadow-black/80 backdrop-blur-2xl overflow-hidden">
-            {/* Terminal Top Window Bar */}
-            <div className="px-4 sm:px-6 py-3.5 border-b border-slate-800/90 bg-slate-900/80 flex items-center justify-between">
+          <div className="rounded-2xl sm:rounded-3xl border border-slate-800 bg-slate-950/95 shadow-2xl shadow-black/80 backdrop-blur-2xl overflow-hidden">
+            {/* Terminal Top Window Bar with Official Logo */}
+            <div className="px-4 sm:px-6 py-3.5 border-b border-slate-800/90 bg-slate-900/80 flex items-center justify-between flex-wrap gap-2">
               <div className="flex items-center gap-2.5">
                 <div className="flex items-center gap-1.5">
                   <span className="w-3 h-3 rounded-full bg-rose-500/80 inline-block" />
@@ -164,50 +180,82 @@ export default function MarketingHeroSection() {
                   <span className="w-3 h-3 rounded-full bg-emerald-500/80 inline-block" />
                 </div>
                 <div className="h-4 w-px bg-slate-800 mx-1" />
-                <span className="text-xs font-mono font-medium text-slate-400 flex items-center gap-1.5">
-                  <UtensilsCrossed className="w-3.5 h-3.5 text-orange-400" />
-                  <span>Order It Up Station Terminal • Table 04</span>
-                </span>
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded bg-slate-800 p-0.5 flex items-center justify-center">
+                    <img src="/logo.png" alt="Order It Up" className="w-full h-full object-contain" />
+                  </div>
+                  <span className="text-xs font-mono font-medium text-slate-300">
+                    Order It Up • The Grand Bistro (Main Branch)
+                  </span>
+                </div>
               </div>
 
-              {/* View Toggle (POS vs KDS) */}
-              <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+              {/* 4-Mode Restaurant Operations & Viewers Suite */}
+              <div className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800 overflow-x-auto max-w-full">
                 <button
                   onClick={() => setActiveView('pos')}
-                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
+                  className={`px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap ${
                     activeView === 'pos'
                       ? 'bg-orange-500 text-white shadow-sm'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
                   <Monitor className="w-3.5 h-3.5" />
-                  <span>Counter POS</span>
+                  <span>1. POS Terminal</span>
                 </button>
+
                 <button
                   onClick={() => setActiveView('kds')}
-                  className={`px-3 py-1 text-xs font-semibold rounded-lg transition-colors flex items-center gap-1.5 ${
+                  className={`px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap ${
                     activeView === 'kds'
-                      ? 'bg-amber-500 text-white shadow-sm'
+                      ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-sm'
                       : 'text-slate-400 hover:text-slate-200'
                   }`}
                 >
-                  <Flame className="w-3.5 h-3.5" />
-                  <span>Kitchen KDS</span>
-                  {fired && (
+                  <ChefHat className="w-3.5 h-3.5" />
+                  <span>2. Kitchen KDS</span>
+                  {fired && !kdsBumped && (
+                    <span className="w-2 h-2 rounded-full bg-amber-400 animate-ping inline-block ml-0.5" />
+                  )}
+                </button>
+
+                <button
+                  onClick={() => setActiveView('display')}
+                  className={`px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                    activeView === 'display'
+                      ? 'bg-gradient-to-r from-sky-600 to-blue-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Bell className="w-3.5 h-3.5" />
+                  <span>3. Token Display</span>
+                  {kdsBumped && (
                     <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping inline-block ml-0.5" />
                   )}
+                </button>
+
+                <button
+                  onClick={() => setActiveView('dashboard')}
+                  className={`px-2.5 sm:px-3 py-1.5 text-xs font-semibold rounded-lg transition-all flex items-center gap-1.5 whitespace-nowrap ${
+                    activeView === 'dashboard'
+                      ? 'bg-gradient-to-r from-emerald-600 to-teal-600 text-white shadow-sm'
+                      : 'text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <BarChart3 className="w-3.5 h-3.5" />
+                  <span>4. Live Dashboard</span>
                 </button>
               </div>
             </div>
 
-            {/* Interactive Terminal Body */}
-            {activeView === 'pos' ? (
-              <div className="grid grid-cols-1 md:grid-cols-12 min-h-[380px]">
+            {/* VIEW 1: COUNTER POS BILLING */}
+            {activeView === 'pos' && (
+              <div className="grid grid-cols-1 md:grid-cols-12 min-h-[400px]">
                 {/* Left: Quick Tap Menu Catalog */}
                 <div className="p-4 sm:p-6 md:col-span-7 border-b md:border-b-0 md:border-r border-slate-800/80">
                   <div className="flex items-center justify-between mb-4">
                     <span className="text-xs font-bold uppercase tracking-wider text-slate-400">
-                      Tap Items To Build Live Bill
+                      Tap Dishes To Build Live Ticket
                     </span>
                     <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
                       ● Offline SQLite Ready
@@ -267,8 +315,8 @@ export default function MarketingHeroSection() {
                   <div>
                     <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-3">
                       <div>
-                        <span className="text-xs font-bold text-white">Active Ticket #1042</span>
-                        <div className="text-[11px] text-slate-400">Server: Ravi K. • Dine-in</div>
+                        <span className="text-xs font-bold text-white">Active Bill #1042</span>
+                        <div className="text-[11px] text-slate-400">Server: Ravi K. • Dine-in Table 04</div>
                       </div>
                       <button
                         onClick={resetCart}
@@ -359,7 +407,7 @@ export default function MarketingHeroSection() {
                         {fired ? (
                           <>
                             <Check className="w-4 h-4" />
-                            <span>Order Fired! Routing to KDS...</span>
+                            <span>Order Fired! Routing to Kitchen KDS...</span>
                           </>
                         ) : (
                           <>
@@ -372,86 +420,431 @@ export default function MarketingHeroSection() {
                   </div>
                 </div>
               </div>
-            ) : (
-              /* KDS View Simulation */
-              <div className="p-4 sm:p-6 min-h-[380px] bg-slate-950 flex flex-col justify-between">
+            )}
+
+            {/* VIEW 2: KITCHEN DISPLAY SYSTEM (Matches /kds) */}
+            {activeView === 'kds' && (
+              <div className="p-4 sm:p-6 min-h-[400px] bg-slate-950 flex flex-col justify-between">
                 <div>
-                  <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 flex-wrap gap-2">
                     <div className="flex items-center gap-2">
-                      <Flame className="w-4 h-4 text-amber-400" />
+                      <ChefHat className="w-4 h-4 text-amber-400" />
                       <span className="text-xs font-bold text-white uppercase tracking-wider">
-                        Kitchen Display System (KDS) • Station: Main Line
+                        Kitchen Display System (KDS) • Station Line
                       </span>
                     </div>
-                    <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/10 text-amber-400 border border-amber-500/20">
-                      WebSocket Live Feed
-                    </span>
+
+                    <div className="flex items-center gap-2">
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-300 font-mono text-xs">
+                        Station: Grill & Bar
+                      </span>
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        WebSocket: 0ms
+                      </span>
+                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
-                    {/* Active Fired Ticket */}
-                    <div className="p-3.5 rounded-xl border border-amber-500/40 bg-slate-900/90 shadow-lg shadow-amber-500/5">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
-                        <span className="text-xs font-bold text-white">#1042 • Table 04</span>
-                        <span className="text-[10px] font-mono font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-400 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>01:14 min</span>
-                        </span>
+                  {/* KDS Active Tickets Grid */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+                    {/* Ticket 1: Active bill #1042 */}
+                    <div className="p-4 rounded-xl border border-amber-500/50 bg-slate-900/90 shadow-xl flex flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-center pb-2 border-b border-slate-800 mb-2.5">
+                          <div>
+                            <span className="text-xs font-bold text-white">#1042 • Table 04</span>
+                            <div className="text-[10px] text-slate-400 font-mono">Dine-in • Server: Ravi</div>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 animate-pulse">
+                            01:14 min
+                          </span>
+                        </div>
+
+                        <div className="space-y-2 text-xs">
+                          {Object.entries(cart).map(([id, qty]) => {
+                            const item = SAMPLE_MENU.find((m) => m.id === id);
+                            if (!item) return null;
+                            return (
+                              <div key={id} className="text-slate-200">
+                                <div className="flex justify-between font-medium">
+                                  <span>{qty}× {item.name}</span>
+                                  <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-amber-400">
+                                    {item.station}
+                                  </span>
+                                </div>
+                                <div className="text-[10px] text-slate-400 pl-2">↳ Modifier: Standard Prep</div>
+                              </div>
+                            );
+                          })}
+                        </div>
                       </div>
-                      <div className="space-y-1.5 text-xs">
-                        {Object.entries(cart).map(([id, qty]) => {
-                          const item = SAMPLE_MENU.find((m) => m.id === id);
-                          if (!item) return null;
-                          return (
-                            <div key={id} className="flex justify-between items-center text-slate-200">
-                              <span className="font-medium">
-                                <span className="font-bold text-amber-400 mr-1.5">{qty}×</span>
-                                {item.name}
-                              </span>
-                              <span className="text-[10px] text-slate-400 font-mono">
-                                {item.station}
-                              </span>
-                            </div>
-                          );
-                        })}
-                      </div>
-                      <div className="mt-3 pt-2 border-t border-slate-800/80 flex justify-between items-center text-[11px]">
-                        <span className="text-slate-400">Course: All Items</span>
-                        <span className="text-emerald-400 font-bold">In Prep</span>
+
+                      <div className="mt-4 pt-3 border-t border-slate-800">
+                        {!kdsBumped ? (
+                          <button
+                            onClick={handleBumpTicket}
+                            className="w-full py-2 rounded-lg bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-md shadow-amber-500/25 transition-all active:scale-[0.98]"
+                          >
+                            <Check className="w-3.5 h-3.5" />
+                            <span>Mark Ready (Bump to Display)</span>
+                          </button>
+                        ) : (
+                          <div className="w-full py-2 rounded-lg bg-emerald-500/20 text-emerald-300 font-bold text-xs flex items-center justify-center gap-1.5 border border-emerald-500/40">
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
+                            <span>Ready! Token Bumped</span>
+                          </div>
+                        )}
                       </div>
                     </div>
 
-                    {/* Older Prior Ticket */}
-                    <div className="p-3.5 rounded-xl border border-slate-800 bg-slate-900/40 opacity-70">
-                      <div className="flex items-center justify-between pb-2 border-b border-slate-800 mb-2">
-                        <span className="text-xs font-bold text-slate-300">#1041 • Table 09</span>
-                        <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 flex items-center gap-1">
-                          <CheckCircle2 className="w-3 h-3" />
-                          <span>Ready</span>
-                        </span>
+                    {/* Ticket 2 */}
+                    <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow-xl flex flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-center pb-2 border-b border-slate-800 mb-2.5">
+                          <div>
+                            <span className="text-xs font-bold text-white">#1041 • Table 09</span>
+                            <div className="text-[10px] text-slate-400 font-mono">Takeaway • Cashier: Anita</div>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-300">
+                            05:32 min
+                          </span>
+                        </div>
+
+                        <div className="space-y-2 text-xs">
+                          <div className="text-slate-200">
+                            <div className="flex justify-between font-medium">
+                              <span>2× Truffle Margherita Pizza</span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-amber-400">Grill</span>
+                            </div>
+                            <div className="text-[10px] text-amber-300/80 pl-2">↳ Extra Basil, Crispy</div>
+                          </div>
+                          <div className="text-slate-200">
+                            <div className="flex justify-between font-medium">
+                              <span>1× Citrus Mint Refresher</span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-sky-400">Bar</span>
+                            </div>
+                          </div>
+                        </div>
                       </div>
-                      <div className="space-y-1 text-xs text-slate-400">
-                        <div>2× Classic Citrus Mocktail</div>
-                        <div>1× Truffle Margherita Pizza</div>
+
+                      <div className="mt-4 pt-3 border-t border-slate-800">
+                        <button
+                          onClick={() => setActiveView('display')}
+                          className="w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Bump to Counter</span>
+                        </button>
                       </div>
-                      <div className="mt-3 pt-2 border-t border-slate-800/80 text-[11px] text-slate-400">
-                        Server: Anita • Picked Up
+                    </div>
+
+                    {/* Ticket 3 */}
+                    <div className="p-4 rounded-xl border border-slate-800 bg-slate-900/60 shadow-xl flex flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-center pb-2 border-b border-slate-800 mb-2.5">
+                          <div>
+                            <span className="text-xs font-bold text-white">#1040 • Table 02</span>
+                            <div className="text-[10px] text-slate-400 font-mono">Dine-in • Server: Vikram</div>
+                          </div>
+                          <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">
+                            02:18 min
+                          </span>
+                        </div>
+
+                        <div className="space-y-2 text-xs">
+                          <div className="text-slate-200">
+                            <div className="flex justify-between font-medium">
+                              <span>1× Smoked Cheese Taco</span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-amber-400">Grill</span>
+                            </div>
+                          </div>
+                          <div className="text-slate-200">
+                            <div className="flex justify-between font-medium">
+                              <span>2× Cold Brew Espresso</span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-slate-800 text-sky-400">Bar</span>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="mt-4 pt-3 border-t border-slate-800">
+                        <button
+                          onClick={() => setActiveView('display')}
+                          className="w-full py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-semibold text-xs flex items-center justify-center gap-1.5 transition-colors"
+                        >
+                          <Check className="w-3.5 h-3.5 text-emerald-400" />
+                          <span>Bump to Counter</span>
+                        </button>
                       </div>
                     </div>
                   </div>
                 </div>
 
-                <div className="pt-3 border-t border-slate-800 flex items-center justify-between">
-                  <span className="text-xs text-slate-400">
-                    Live tickets automatically route to dedicated Bar or Grill kitchen displays.
+                <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
+                  <span className="text-slate-400">
+                    Matches the kitchen station screen running in restaurant kitchens at /kds.
                   </span>
                   <button
-                    onClick={() => setActiveView('pos')}
-                    className="text-xs font-semibold text-orange-400 hover:text-orange-300 flex items-center gap-1"
+                    onClick={() => setActiveView('display')}
+                    className="text-xs font-semibold text-amber-400 hover:text-amber-300 flex items-center gap-1"
                   >
-                    <span>Switch Back to Counter POS</span>
+                    <span>View Customer Token Board</span>
                     <ChevronRight className="w-3.5 h-3.5" />
                   </button>
+                </div>
+              </div>
+            )}
+
+            {/* VIEW 3: RESTAURANT CUSTOMER DISPLAY BOARD (Matches /customer-display) */}
+            {activeView === 'display' && (
+              <div className="p-4 sm:p-6 min-h-[400px] bg-slate-950 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <Bell className="w-4 h-4 text-sky-400" />
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">
+                        Customer Token Queue Viewer • Counter Display
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2 text-xs">
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-500/10 border border-amber-500/30 text-amber-400 font-medium flex items-center gap-1">
+                        <Volume2 className="w-3 h-3" /> Chime ON
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-400 font-medium">
+                        Voice Calling Active
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Dual Column Token Board (matching /customer-display layout) */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    {/* PREPARING COLUMN */}
+                    <div className="rounded-2xl bg-blue-950/30 border border-blue-900/50 p-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-blue-800/40 mb-3">
+                        <div>
+                          <div className="text-sm font-bold tracking-wide text-blue-200">PREPARING</div>
+                          <div className="text-[11px] text-blue-300/70">Chef is preparing your meal</div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-blue-500/20 text-blue-300 font-bold text-xs">
+                          {fired && !kdsBumped ? 3 : 2}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {fired && !kdsBumped && (
+                          <div className="rounded-xl bg-slate-900/90 border border-blue-500/50 p-3 text-center shadow-lg animate-in zoom-in-95">
+                            <div className="text-[10px] uppercase tracking-wider text-blue-400 font-semibold">In Cooking</div>
+                            <div className="text-2xl font-black text-white">#1042</div>
+                            <div className="text-[10px] text-slate-400 mt-0.5 font-mono">Table 04</div>
+                          </div>
+                        )}
+                        <div className="rounded-xl bg-slate-900/80 border border-blue-900/40 p-3 text-center">
+                          <div className="text-[10px] uppercase tracking-wider text-blue-400/70 font-semibold">Token</div>
+                          <div className="text-2xl font-black text-white">#1043</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5 font-mono">Takeaway</div>
+                        </div>
+                        <div className="rounded-xl bg-slate-900/80 border border-blue-900/40 p-3 text-center">
+                          <div className="text-[10px] uppercase tracking-wider text-blue-400/70 font-semibold">Token</div>
+                          <div className="text-2xl font-black text-white">#1045</div>
+                          <div className="text-[10px] text-slate-400 mt-0.5 font-mono">Table 08</div>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* READY FOR PICKUP COLUMN */}
+                    <div className="rounded-2xl bg-emerald-950/30 border border-emerald-900/50 p-4">
+                      <div className="flex items-center justify-between pb-3 border-b border-emerald-800/40 mb-3">
+                        <div>
+                          <div className="text-sm font-bold tracking-wide text-emerald-200">READY FOR PICKUP</div>
+                          <div className="text-[11px] text-emerald-300/70">Please collect at the counter</div>
+                        </div>
+                        <span className="px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-bold text-xs">
+                          {kdsBumped ? 4 : 3}
+                        </span>
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-2.5">
+                        {kdsBumped && (
+                          <div className="rounded-xl bg-gradient-to-b from-emerald-950/90 to-slate-900 border-2 border-emerald-400 p-3 text-center shadow-lg shadow-emerald-500/20 animate-bounce">
+                            <div className="text-[10px] uppercase tracking-wider text-emerald-300 font-bold">Just Called 🔔</div>
+                            <div className="text-2xl font-black text-white">#1042</div>
+                            <div className="text-[10px] text-emerald-300 mt-0.5 font-mono">Table 04</div>
+                          </div>
+                        )}
+                        <div className="rounded-xl bg-gradient-to-b from-emerald-950/90 to-slate-900 border-2 border-emerald-500/80 p-3 text-center shadow-lg shadow-emerald-950/50">
+                          <div className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold">Ready</div>
+                          <div className="text-2xl font-black text-emerald-300">#1039</div>
+                          <div className="text-[10px] text-emerald-400/80 mt-0.5 font-mono">Table 02</div>
+                        </div>
+                        <div className="rounded-xl bg-gradient-to-b from-emerald-950/90 to-slate-900 border-2 border-emerald-500/80 p-3 text-center shadow-lg shadow-emerald-950/50">
+                          <div className="text-[10px] uppercase tracking-wider text-emerald-400 font-bold">Ready</div>
+                          <div className="text-2xl font-black text-emerald-300">#1040</div>
+                          <div className="text-[10px] text-emerald-400/80 mt-0.5 font-mono">Takeaway</div>
+                        </div>
+                        <div className="rounded-xl bg-gradient-to-b from-emerald-950/90 to-slate-900 border border-emerald-600/60 p-3 text-center">
+                          <div className="text-[10px] uppercase tracking-wider text-emerald-400 font-semibold">Ready</div>
+                          <div className="text-2xl font-black text-emerald-300">#1041</div>
+                          <div className="text-[10px] text-emerald-400/80 mt-0.5 font-mono">Table 09</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
+                  <span className="text-slate-400">
+                    Matches the live customer display screen running in restaurants at /customer-display.
+                  </span>
+                  <button
+                    onClick={() => setActiveView('dashboard')}
+                    className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                  >
+                    <span>View Operations Dashboard</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* VIEW 4: REAL RESTAURANT OPERATIONS DASHBOARD (Matches /dashboard) */}
+            {activeView === 'dashboard' && (
+              <div className="p-4 sm:p-6 min-h-[400px] bg-slate-950 flex flex-col justify-between">
+                <div>
+                  <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 flex-wrap gap-2">
+                    <div className="flex items-center gap-2">
+                      <BarChart3 className="w-4 h-4 text-emerald-400" />
+                      <span className="text-xs font-bold text-white uppercase tracking-wider">
+                        Operational Dashboard • The Grand Bistro
+                      </span>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <div className="flex h-7 rounded-lg border border-slate-800 bg-slate-900 p-0.5 text-xs">
+                        <button
+                          onClick={() => setDashboardPeriod('day')}
+                          className={`px-2.5 py-0.5 rounded font-medium transition-colors ${
+                            dashboardPeriod === 'day' ? 'bg-orange-500 text-white' : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          Today
+                        </button>
+                        <button
+                          onClick={() => setDashboardPeriod('month')}
+                          className={`px-2.5 py-0.5 rounded font-medium transition-colors ${
+                            dashboardPeriod === 'month' ? 'bg-orange-500 text-white' : 'text-slate-400 hover:text-white'
+                          }`}
+                        >
+                          This Month
+                        </button>
+                      </div>
+                      <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Live Sync: Active
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* 4 Dashboard Metric Tiles (matching real dashboard stats) */}
+                  <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-5">
+                    <div className="p-3.5 rounded-xl bg-slate-900/90 border border-emerald-500/30">
+                      <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                        <span>Net Sales</span>
+                        <Banknote className="w-4 h-4 text-emerald-400" />
+                      </div>
+                      <div className="text-xl font-bold font-mono text-emerald-400">
+                        {dashboardPeriod === 'day' ? (fired ? `₹${48920 + total}.00` : '₹48,920.00') : '₹12,48,600.00'}
+                      </div>
+                      <div className="text-[10px] text-emerald-300/80 mt-1 flex items-center gap-1">
+                        <TrendingUp className="w-3 h-3" /> +14.2% vs yesterday
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-slate-900/90 border border-blue-500/30">
+                      <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                        <span>Running Orders</span>
+                        <ChefHat className="w-4 h-4 text-blue-400" />
+                      </div>
+                      <div className="text-xl font-bold font-mono text-white">
+                        {dashboardPeriod === 'day' ? (fired ? '15 Active' : '14 Active') : '482 Orders'}
+                      </div>
+                      <div className="text-[10px] text-blue-300/80 mt-1">4 pending kitchen tickets</div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-slate-900/90 border border-purple-500/30">
+                      <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                        <span>Tables Occupied</span>
+                        <LayoutGrid className="w-4 h-4 text-purple-400" />
+                      </div>
+                      <div className="text-xl font-bold font-mono text-white">8 / 14 (57%)</div>
+                      <div className="text-[10px] text-purple-300/80 mt-1">Avg turn: 28 min</div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-slate-900/90 border border-teal-500/30">
+                      <div className="flex items-center justify-between text-slate-400 text-xs mb-1">
+                        <span>Average Ticket (AOV)</span>
+                        <TrendingUp className="w-4 h-4 text-teal-400" />
+                      </div>
+                      <div className="text-xl font-bold font-mono text-white">₹612.00</div>
+                      <div className="text-[10px] text-teal-300/80 mt-1">78 Completed Bills</div>
+                    </div>
+                  </div>
+
+                  {/* Operational Recent Feed & Top Moving Items */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs font-mono">
+                    <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                      <div className="text-slate-400 font-bold mb-2 flex items-center justify-between">
+                        <span>RECENT LIVE ORDERS</span>
+                        <span className="text-[10px] text-orange-400">Real-Time</span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="p-2 rounded bg-slate-950 border border-slate-800/80 flex justify-between items-center">
+                          <span>#1042 • Table 04 (Dine-in)</span>
+                          <span className="text-emerald-400 font-bold">₹{total} • {kdsBumped ? 'Ready' : 'In Prep'}</span>
+                        </div>
+                        <div className="p-2 rounded bg-slate-950 border border-slate-800/80 flex justify-between items-center">
+                          <span>#1041 • Table 09 (Takeaway)</span>
+                          <span className="text-sky-400 font-bold">₹890 • Ready</span>
+                        </div>
+                        <div className="p-2 rounded bg-slate-950 border border-slate-800/80 flex justify-between items-center">
+                          <span>#1040 • Table 02 (Dine-in)</span>
+                          <span className="text-slate-400">₹1,420 • Settled (UPI)</span>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="p-3.5 rounded-xl bg-slate-900/60 border border-slate-800">
+                      <div className="text-slate-400 font-bold mb-2 flex items-center justify-between">
+                        <span>TOP MOVING DISHES TODAY</span>
+                        <span className="text-[10px] text-emerald-400">High Velocity</span>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="p-2 rounded bg-slate-950 border border-slate-800/80 flex justify-between items-center">
+                          <span className="text-slate-200">Wood-Fired Margherita</span>
+                          <span className="text-orange-400 font-bold">34 sold • ₹11,560</span>
+                        </div>
+                        <div className="p-2 rounded bg-slate-950 border border-slate-800/80 flex justify-between items-center">
+                          <span className="text-slate-200">Cold Brew Double Espresso</span>
+                          <span className="text-orange-400 font-bold">28 sold • ₹5,040</span>
+                        </div>
+                        <div className="p-2 rounded bg-slate-950 border border-slate-800/80 flex justify-between items-center">
+                          <span className="text-slate-200">Truffle Hand-Cut Fries</span>
+                          <span className="text-orange-400 font-bold">22 sold • ₹3,520</span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-3 border-t border-slate-800 flex items-center justify-between text-xs">
+                  <span className="text-slate-400">
+                    Matches the exact live reporting view in Order It Up /dashboard.
+                  </span>
+                  <Link
+                    href="/dashboard"
+                    className="text-xs font-semibold text-emerald-400 hover:text-emerald-300 flex items-center gap-1"
+                  >
+                    <span>View Authenticated Dashboard</span>
+                    <ChevronRight className="w-3.5 h-3.5" />
+                  </Link>
                 </div>
               </div>
             )}

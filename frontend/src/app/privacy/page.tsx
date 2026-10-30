@@ -2,7 +2,7 @@
 
 import React from 'react';
 import Link from 'next/link';
-import { UtensilsCrossed, ArrowLeft, Shield, Lock, Eye, Database, Globe, FileText, CheckCircle2 } from 'lucide-react';
+import { ArrowLeft, Shield, Lock, Database, Globe, FileText, CheckCircle2 } from 'lucide-react';
 
 export default function PrivacyPolicyPage() {
   return (
@@ -11,8 +11,8 @@ export default function PrivacyPolicyPage() {
       <header className="sticky top-0 z-50 backdrop-blur-md bg-slate-950/85 border-b border-slate-800/80">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-orange-600 to-amber-500 flex items-center justify-center shadow-lg shadow-orange-500/20 group-hover:scale-105 transition-transform">
-              <UtensilsCrossed className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 rounded-xl bg-slate-900 border border-slate-800 p-1 flex items-center justify-center shadow-lg shadow-orange-500/10 group-hover:scale-105 group-hover:border-orange-500/50 transition-transform">
+              <img src="/logo.png" alt="Order It Up" className="w-full h-full object-contain rounded-lg" />
             </div>
             <span className="text-lg font-black tracking-tight text-white">Order It Up</span>
           </Link>

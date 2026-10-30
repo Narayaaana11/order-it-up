@@ -10,7 +10,6 @@ import {
   Boxes,
   CheckCircle2,
   ArrowRight,
-  Store,
   Truck,
 } from 'lucide-react';
 
@@ -146,7 +145,12 @@ export default function MarketingProductShowcase() {
               {/* Visual Mockup for POS */}
               <div className="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 text-xs">
-                  <span className="font-mono text-slate-400">Order It Up • Quick Service POS</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded bg-slate-850 border border-slate-700/60 p-0.5 flex items-center justify-center">
+                      <img src="/logo.png" alt="Order It Up" className="w-full h-full object-contain" />
+                    </div>
+                    <span className="font-mono text-slate-300 font-medium">Order It Up • Quick Service POS</span>
+                  </div>
                   <span className="px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono font-bold">
                     ESC/POS USB Ready
                   </span>
@@ -230,9 +234,21 @@ export default function MarketingProductShowcase() {
               </div>
 
               {/* Visual Mockup for KDS */}
-              <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+              <div className="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
+                <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 text-xs">
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded bg-slate-850 border border-slate-700/60 p-0.5 flex items-center justify-center">
+                      <img src="/logo.png" alt="Order It Up" className="w-full h-full object-contain" />
+                    </div>
+                    <span className="font-mono text-slate-300 font-medium">Order It Up • Kitchen Display Station</span>
+                  </div>
+                  <span className="px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono font-bold">
+                    WebSocket LAN Sync
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
                 {/* Ticket 1 */}
-                <div className="p-4 rounded-xl border border-amber-500/40 bg-slate-900/90 shadow-xl">
+                <div className="p-4 rounded-xl border border-amber-500/40 bg-slate-950/80 shadow-xl">
                   <div className="flex justify-between items-center pb-2 border-b border-slate-800 mb-2.5">
                     <span className="text-xs font-bold text-white">#108 • Table 12 (Dine-in)</span>
                     <span className="text-[10px] font-mono font-bold px-2 py-0.5 rounded bg-rose-500/20 text-rose-400">
@@ -283,6 +299,7 @@ export default function MarketingProductShowcase() {
                     </span>
                   </div>
                 </div>
+                </div>
               </div>
             </div>
           )}
@@ -332,8 +349,10 @@ export default function MarketingProductShowcase() {
               <div className="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4">
                   <div className="flex items-center gap-2">
-                    <Store className="w-4 h-4 text-sky-400" />
-                    <span className="text-xs font-bold text-white">Culinary Arts Group (2 Outlets Active)</span>
+                    <div className="w-5 h-5 rounded bg-slate-850 border border-slate-700/60 p-0.5 flex items-center justify-center">
+                      <img src="/logo.png" alt="Order It Up" className="w-full h-full object-contain" />
+                    </div>
+                    <span className="text-xs font-bold text-white">Order It Up HQ • Culinary Arts Group</span>
                   </div>
                   <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-sky-500/20 text-sky-300">
                     Live Edge Rollup
@@ -418,7 +437,12 @@ export default function MarketingProductShowcase() {
               {/* Visual Mockup for Tables */}
               <div className="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 text-xs">
-                  <span className="font-semibold text-white">Main Dining Hall (Zone A)</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded bg-slate-850 border border-slate-700/60 p-0.5 flex items-center justify-center">
+                      <img src="/logo.png" alt="Order It Up" className="w-full h-full object-contain" />
+                    </div>
+                    <span className="font-semibold text-white">Order It Up • Floorplan (Zone A)</span>
+                  </div>
                   <div className="flex items-center gap-3 text-[11px]">
                     <span className="flex items-center gap-1 text-emerald-400">
                       <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" /> Vacant
@@ -504,7 +528,12 @@ export default function MarketingProductShowcase() {
               {/* Visual Mockup for Inventory */}
               <div className="lg:col-span-7 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 shadow-xl">
                 <div className="flex items-center justify-between pb-3 border-b border-slate-800 mb-4 text-xs">
-                  <span className="font-semibold text-white">Central Warehouse & Transfer Manifest</span>
+                  <div className="flex items-center gap-2">
+                    <div className="w-5 h-5 rounded bg-slate-850 border border-slate-700/60 p-0.5 flex items-center justify-center">
+                      <img src="/logo.png" alt="Order It Up" className="w-full h-full object-contain" />
+                    </div>
+                    <span className="font-semibold text-white">Order It Up • Central Manifest</span>
+                  </div>
                   <span className="text-slate-400 font-mono">Transfer #TR-804</span>
                 </div>
 

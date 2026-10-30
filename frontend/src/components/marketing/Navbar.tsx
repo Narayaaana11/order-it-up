@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
-  UtensilsCrossed,
+  ChefHat,
   Monitor,
   Cloud,
   Smartphone,
@@ -37,8 +37,8 @@ export default function MarketingNavbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-20 flex items-center justify-between">
         {/* Brand Logo */}
         <Link href="/" className="flex items-center space-x-3 group">
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-orange-600 via-orange-500 to-amber-400 flex items-center justify-center shadow-lg shadow-orange-500/25 group-hover:scale-105 group-hover:shadow-orange-500/40 transition-all duration-300">
-            <UtensilsCrossed className="w-5 h-5 text-white" />
+          <div className="w-10 h-10 rounded-xl bg-slate-900 border border-slate-800 p-1 flex items-center justify-center shadow-lg shadow-orange-500/10 group-hover:scale-105 group-hover:border-orange-500/50 transition-all duration-300">
+            <img src="/logo.png" alt="Order It Up" className="w-full h-full object-contain rounded-lg" />
           </div>
           <div className="flex flex-col">
             <div className="flex items-center gap-2">
@@ -122,7 +122,7 @@ export default function MarketingNavbar() {
                     className="flex items-start gap-3 p-2.5 rounded-xl hover:bg-slate-800/70 transition-colors group"
                   >
                     <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-400 flex items-center justify-center shrink-0 group-hover:bg-amber-500 group-hover:text-white transition-all">
-                      <UtensilsCrossed className="w-4 h-4" />
+                      <ChefHat className="w-4 h-4" />
                     </div>
                     <div>
                       <div className="text-xs font-semibold text-white group-hover:text-amber-400 transition-colors">
