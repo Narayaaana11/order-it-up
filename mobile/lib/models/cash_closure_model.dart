@@ -37,13 +37,19 @@ class CashClosureModel {
       id: json['id']?.toString() ?? '',
       zNumber: int.tryParse(json['z_number']?.toString() ?? '1') ?? 1,
       businessDate: json['business_date']?.toString() ?? '',
-      openingFloat: double.tryParse(json['opening_float']?.toString() ?? '0.0') ?? 0.0,
-      expectedCash: double.tryParse(json['expected_cash']?.toString() ?? '0.0') ?? 0.0,
-      countedCash: double.tryParse(json['counted_cash']?.toString() ?? '0.0') ?? 0.0,
-      cardTotal: double.tryParse(json['card_total']?.toString() ?? '0.0') ?? 0.0,
+      openingFloat:
+          double.tryParse(json['opening_float']?.toString() ?? '0.0') ?? 0.0,
+      expectedCash:
+          double.tryParse(json['expected_cash']?.toString() ?? '0.0') ?? 0.0,
+      countedCash:
+          double.tryParse(json['counted_cash']?.toString() ?? '0.0') ?? 0.0,
+      cardTotal:
+          double.tryParse(json['card_total']?.toString() ?? '0.0') ?? 0.0,
       upiTotal: double.tryParse(json['upi_total']?.toString() ?? '0.0') ?? 0.0,
-      grossSales: double.tryParse(json['gross_sales']?.toString() ?? '0.0') ?? 0.0,
-      closedAt: DateTime.tryParse(json['closed_at']?.toString() ?? '') ?? DateTime.now(),
+      grossSales:
+          double.tryParse(json['gross_sales']?.toString() ?? '0.0') ?? 0.0,
+      closedAt: DateTime.tryParse(json['closed_at']?.toString() ?? '') ??
+          DateTime.now(),
       closedBy: json['closed_by']?.toString() ?? 'Manager',
       notes: json['notes']?.toString(),
     );

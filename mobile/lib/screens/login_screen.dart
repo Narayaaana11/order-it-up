@@ -15,8 +15,10 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController = TextEditingController(text: 'waiter@restaurant.com');
-  final TextEditingController _passwordController = TextEditingController(text: '123456');
+  final TextEditingController _emailController =
+      TextEditingController(text: 'waiter@restaurant.com');
+  final TextEditingController _passwordController =
+      TextEditingController(text: '123456');
   bool _obscurePassword = true;
 
   @override
@@ -89,13 +91,18 @@ class _LoginScreenState extends State<LoginScreen> {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10),
+                          BoxShadow(
+                              color: Colors.black.withOpacity(0.06),
+                              blurRadius: 10),
                         ],
                       ),
                       padding: const EdgeInsets.all(8),
                       child: Image.asset(
                         'assets/images/logo.png',
-                        errorBuilder: (_, __, ___) => const Icon(Icons.lock_person_rounded, color: AppTheme.primary, size: 28),
+                        errorBuilder: (_, __, ___) => const Icon(
+                            Icons.lock_person_rounded,
+                            color: AppTheme.primary,
+                            size: 28),
                       ),
                     ),
                   ),
@@ -110,7 +117,9 @@ class _LoginScreenState extends State<LoginScreen> {
                     'Sign in with your server, cashier, or manager PIN/credentials',
                     style: TextStyle(
                       fontSize: 13,
-                      color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                      color: isDark
+                          ? AppTheme.textMutedDark
+                          : AppTheme.textMutedLight,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -163,7 +172,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 24),
 
                   // Email input
-                  const Text('Email Address', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Text('Email Address',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 6),
                   TextField(
                     controller: _emailController,
@@ -176,7 +187,9 @@ class _LoginScreenState extends State<LoginScreen> {
                   const SizedBox(height: 16),
 
                   // Password input
-                  const Text('Password / PIN', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                  const Text('Password / PIN',
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                   const SizedBox(height: 6),
                   TextField(
                     controller: _passwordController,
@@ -185,8 +198,13 @@ class _LoginScreenState extends State<LoginScreen> {
                       hintText: 'Enter password or PIN',
                       prefixIcon: const Icon(Icons.lock_outline, size: 18),
                       suffixIcon: IconButton(
-                        icon: Icon(_obscurePassword ? Icons.visibility_off : Icons.visibility, size: 18),
-                        onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
+                        icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility,
+                            size: 18),
+                        onPressed: () => setState(
+                            () => _obscurePassword = !_obscurePassword),
                       ),
                     ),
                   ),
@@ -202,7 +220,8 @@ class _LoginScreenState extends State<LoginScreen> {
                       ),
                       child: Text(
                         auth.errorMessage!,
-                        style: const TextStyle(color: AppTheme.danger, fontSize: 12),
+                        style: const TextStyle(
+                            color: AppTheme.danger, fontSize: 12),
                       ),
                     ),
 
@@ -224,7 +243,8 @@ class _LoginScreenState extends State<LoginScreen> {
                           ? const SizedBox(
                               width: 20,
                               height: 20,
-                              child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                              child: CircularProgressIndicator(
+                                  color: Colors.white, strokeWidth: 2),
                             )
                           : const Text('Sign In'),
                     ),

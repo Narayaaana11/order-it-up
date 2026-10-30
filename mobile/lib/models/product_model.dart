@@ -30,14 +30,20 @@ class ProductModel {
 
   factory ProductModel.fromJson(Map<String, dynamic> json) {
     final rawPrice = json['price'];
-    final parsedPrice = rawPrice != null ? (double.tryParse(rawPrice.toString()) ?? 0.0) : 0.0;
+    final parsedPrice =
+        rawPrice != null ? (double.tryParse(rawPrice.toString()) ?? 0.0) : 0.0;
     final activeVal = json['is_active'];
-    final isActive = activeVal == null || activeVal == 1 || activeVal == true || activeVal.toString() == '1';
+    final isActive = activeVal == null ||
+        activeVal == 1 ||
+        activeVal == true ||
+        activeVal.toString() == '1';
 
     return ProductModel(
       id: json['id']?.toString() ?? '',
       categoryId: json['category_id']?.toString(),
-      category: json['category']?.toString() ?? json['category_name']?.toString() ?? json['category_id']?.toString(),
+      category: json['category']?.toString() ??
+          json['category_name']?.toString() ??
+          json['category_id']?.toString(),
       name: json['name']?.toString() ?? 'Item',
       price: parsedPrice,
       description: json['description']?.toString() ?? '',

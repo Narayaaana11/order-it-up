@@ -105,7 +105,8 @@ class OrderProvider extends ChangeNotifier {
     notifyListeners();
   }
 
-  void applyDiscount({double amount = 0.0, double percent = 0.0, bool isPercent = false}) {
+  void applyDiscount(
+      {double amount = 0.0, double percent = 0.0, bool isPercent = false}) {
     _isPercentDiscount = isPercent;
     _discountPercent = percent;
     _discountAmount = amount;

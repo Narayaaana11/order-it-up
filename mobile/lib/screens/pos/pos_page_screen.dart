@@ -55,7 +55,8 @@ class _PosPageScreenState extends State<PosPageScreen> {
     }).toList();
   }
 
-  void _showTablePicker(BuildContext context, TableProvider tableProv, OrderProvider orderProv) {
+  void _showTablePicker(
+      BuildContext context, TableProvider tableProv, OrderProvider orderProv) {
     showDialog(
       context: context,
       builder: (_) => TablePickerModal(
@@ -103,7 +104,8 @@ class _PosPageScreenState extends State<PosPageScreen> {
         customerPhone: orderProv.customerPhone,
         items: orderProv.draftLines,
         onPaymentComplete: (method, tendered, change) {
-          final summaryMsg = 'Order settled via ${method.toUpperCase()}! Change: ₹${change.toStringAsFixed(2)}';
+          final summaryMsg =
+              'Order settled via ${method.toUpperCase()}! Change: ₹${change.toStringAsFixed(2)}';
           orderProv.clearDraft();
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
@@ -117,7 +119,8 @@ class _PosPageScreenState extends State<PosPageScreen> {
     );
   }
 
-  void _holdCurrentCart(BuildContext context, OrderProvider orderProv, HeldOrderProvider heldProv) async {
+  void _holdCurrentCart(BuildContext context, OrderProvider orderProv,
+      HeldOrderProvider heldProv) async {
     if (orderProv.draftLines.isEmpty) return;
     final tableName = orderProv.selectedTableName ?? 'Counter';
     final success = await heldProv.holdCart(
@@ -140,7 +143,8 @@ class _PosPageScreenState extends State<PosPageScreen> {
     }
   }
 
-  void _showHeldOrdersSheet(BuildContext context, HeldOrderProvider heldProv, OrderProvider orderProv) {
+  void _showHeldOrdersSheet(BuildContext context, HeldOrderProvider heldProv,
+      OrderProvider orderProv) {
     final isDark = Theme.of(context).brightness == Brightness.dark;
 
     showModalBottomSheet(
@@ -160,10 +164,14 @@ class _PosPageScreenState extends State<PosPageScreen> {
                   children: [
                     Icon(Icons.pause_circle_filled, color: AppTheme.heldOrder),
                     const SizedBox(width: 8),
-                    const Text('Parked & Held Orders', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const Text('Parked & Held Orders',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
                   ],
                 ),
-                IconButton(icon: const Icon(Icons.close), onPressed: () => Navigator.pop(ctx)),
+                IconButton(
+                    icon: const Icon(Icons.close),
+                    onPressed: () => Navigator.pop(ctx)),
               ],
             ),
             const SizedBox(height: 10),
@@ -176,8 +184,11 @@ class _PosPageScreenState extends State<PosPageScreen> {
                       itemBuilder: (ctx, idx) {
                         final order = heldProv.heldOrders[idx];
                         return ListTile(
-                          title: Text(order.tableName, style: const TextStyle(fontWeight: FontWeight.bold)),
-                          subtitle: Text('${order.items.length} items • ${order.guestCount} Pax'),
+                          title: Text(order.tableName,
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
+                          subtitle: Text(
+                              '${order.items.length} items • ${order.guestCount} Pax'),
                           trailing: ElevatedButton(
                             onPressed: () {
                               orderProv.loadCartItems(
@@ -204,7 +215,8 @@ class _PosPageScreenState extends State<PosPageScreen> {
     );
   }
 
-  void _showMobileCartDrawer(BuildContext context, OrderProvider orderProv, HeldOrderProvider heldProv) {
+  void _showMobileCartDrawer(BuildContext context, OrderProvider orderProv,
+      HeldOrderProvider heldProv) {
     showModalBottomSheet(
       context: context,
       isScrollControlled: true,
@@ -253,7 +265,8 @@ class _PosPageScreenState extends State<PosPageScreen> {
                   },
                   onSendKot: () async {
                     if (orderProv.selectedTableId != null) {
-                      await orderProv.sendDraftOrder(orderProv.selectedTableId!);
+                      await orderProv
+                          .sendDraftOrder(orderProv.selectedTableId!);
                       if (mounted) Navigator.pop(ctx);
                     }
                   },
@@ -278,8 +291,10 @@ class _PosPageScreenState extends State<PosPageScreen> {
     final isTablet = ResponsiveBreakpoints.isTablet(context) ||
         ResponsiveBreakpoints.isDesktop(context);
 
-    return Consumer5<OrderProvider, MenuProvider, TableProvider, HeldOrderProvider, CustomerProvider>(
-      builder: (context, orderProv, menuProv, tableProv, heldProv, custProv, _) {
+    return Consumer5<OrderProvider, MenuProvider, TableProvider,
+        HeldOrderProvider, CustomerProvider>(
+      builder:
+          (context, orderProv, menuProv, tableProv, heldProv, custProv, _) {
         final filteredProducts = _getFilteredProducts(menuProv.products);
 
         return Scaffold(
@@ -290,7 +305,8 @@ class _PosPageScreenState extends State<PosPageScreen> {
                 orderType: orderProv.orderType,
                 onOrderTypeChanged: orderProv.setOrderType,
                 selectedTableName: orderProv.selectedTableName,
-                onSelectTable: () => _showTablePicker(context, tableProv, orderProv),
+                onSelectTable: () =>
+                    _showTablePicker(context, tableProv, orderProv),
                 searchQuery: _searchQuery,
                 onSearchChanged: (q) => setState(() => _searchQuery = q),
                 onClearSearch: () => setState(() => _searchQuery = ''),
@@ -299,7 +315,8 @@ class _PosPageScreenState extends State<PosPageScreen> {
                 loyaltyPoints: 120.0,
                 onCustomerTap: () {},
                 heldOrdersCount: heldProv.heldOrders.length,
-                onHeldOrdersTap: () => _showHeldOrdersSheet(context, heldProv, orderProv),
+                onHeldOrdersTap: () =>
+                    _showHeldOrdersSheet(context, heldProv, orderProv),
               ),
 
               // 2. Main Body: Menu + Pinned Cart (Tablet) OR Floating Cart (Phone)
@@ -315,12 +332,17 @@ class _PosPageScreenState extends State<PosPageScreen> {
                           // Category Scroll Bar
                           Container(
                             height: 48,
-                            padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 10),
+                            padding: const EdgeInsets.symmetric(
+                                vertical: 6, horizontal: 10),
                             decoration: BoxDecoration(
-                              color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
+                              color: isDark
+                                  ? AppTheme.surfaceDark
+                                  : AppTheme.surfaceLight,
                               border: Border(
                                 bottom: BorderSide(
-                                  color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                                  color: isDark
+                                      ? AppTheme.borderDark
+                                      : AppTheme.borderLight,
                                 ),
                               ),
                             ),
@@ -328,15 +350,18 @@ class _PosPageScreenState extends State<PosPageScreen> {
                               scrollDirection: Axis.horizontal,
                               children: [
                                 _buildCategoryPill(
-                                  label: 'All Items (${menuProv.products.length})',
+                                  label:
+                                      'All Items (${menuProv.products.length})',
                                   isSelected: _selectedCategory == null,
-                                  onTap: () => setState(() => _selectedCategory = null),
+                                  onTap: () =>
+                                      setState(() => _selectedCategory = null),
                                 ),
                                 ...menuProv.categories.map((cat) {
                                   return _buildCategoryPill(
                                     label: cat.name,
                                     isSelected: _selectedCategory == cat.id,
-                                    onTap: () => setState(() => _selectedCategory = cat.id),
+                                    onTap: () => setState(
+                                        () => _selectedCategory = cat.id),
                                   );
                                 }),
                               ],
@@ -348,21 +373,26 @@ class _PosPageScreenState extends State<PosPageScreen> {
                             child: filteredProducts.isEmpty
                                 ? Center(
                                     child: Column(
-                                      mainAxisAlignment: MainAxisAlignment.center,
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.center,
                                       children: [
                                         Icon(
                                           Icons.fastfood_outlined,
                                           size: 48,
-                                          color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                                          color: isDark
+                                              ? AppTheme.textMutedDark
+                                              : AppTheme.textMutedLight,
                                         ),
                                         const SizedBox(height: 8),
-                                        const Text('No dishes match this category or search'),
+                                        const Text(
+                                            'No dishes match this category or search'),
                                       ],
                                     ),
                                   )
                                 : GridView.builder(
                                     padding: const EdgeInsets.all(12),
-                                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                                    gridDelegate:
+                                        SliverGridDelegateWithFixedCrossAxisCount(
                                       crossAxisCount: isTablet ? 3 : 2,
                                       mainAxisSpacing: 10,
                                       crossAxisSpacing: 10,
@@ -372,13 +402,15 @@ class _PosPageScreenState extends State<PosPageScreen> {
                                     itemBuilder: (context, index) {
                                       final product = filteredProducts[index];
                                       final cartItem = orderProv.draftLines
-                                          .where((l) => l.product.id == product.id)
+                                          .where(
+                                              (l) => l.product.id == product.id)
                                           .firstOrNull;
 
                                       return DesktopProductCard(
                                         product: product,
                                         cartQuantity: cartItem?.quantity ?? 0,
-                                        onTap: () => orderProv.addProduct(product),
+                                        onTap: () =>
+                                            orderProv.addProduct(product),
                                       );
                                     },
                                   ),
@@ -398,7 +430,8 @@ class _PosPageScreenState extends State<PosPageScreen> {
                           guestCount: orderProv.guestCount,
                           onGuestCountChanged: orderProv.setGuestCount,
                           deliveryAddress: orderProv.deliveryAddress,
-                          onDeliveryAddressChanged: orderProv.setDeliveryAddress,
+                          onDeliveryAddressChanged:
+                              orderProv.setDeliveryAddress,
                           onQuantityChanged: orderProv.changeQuantity,
                           onRemoveItem: orderProv.removeProduct,
                           onUpdateNote: orderProv.updateLineNote,
@@ -407,14 +440,18 @@ class _PosPageScreenState extends State<PosPageScreen> {
                           tax: orderProv.taxTotal,
                           grandTotal: orderProv.grandTotal,
                           appliedLoyaltyPoints: orderProv.appliedLoyaltyPoints,
-                          onAddDiscount: () => _showDiscountModal(context, orderProv),
-                          onHoldOrder: () => _holdCurrentCart(context, orderProv, heldProv),
+                          onAddDiscount: () =>
+                              _showDiscountModal(context, orderProv),
+                          onHoldOrder: () =>
+                              _holdCurrentCart(context, orderProv, heldProv),
                           onSendKot: () async {
                             if (orderProv.selectedTableId != null) {
-                              await orderProv.sendDraftOrder(orderProv.selectedTableId!);
+                              await orderProv
+                                  .sendDraftOrder(orderProv.selectedTableId!);
                             }
                           },
-                          onCheckout: () => _showPaymentModal(context, orderProv),
+                          onCheckout: () =>
+                              _showPaymentModal(context, orderProv),
                           onClearCart: orderProv.clearDraft,
                           isSubmitting: orderProv.isSubmitting,
                         ),
@@ -426,7 +463,8 @@ class _PosPageScreenState extends State<PosPageScreen> {
               // 3. Floating Bottom Cart Bar on Smartphone
               if (!isTablet && orderProv.totalItemCount > 0)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
                   decoration: BoxDecoration(
                     color: AppTheme.primary,
                     boxShadow: [
@@ -438,14 +476,16 @@ class _PosPageScreenState extends State<PosPageScreen> {
                     ],
                   ),
                   child: InkWell(
-                    onTap: () => _showMobileCartDrawer(context, orderProv, heldProv),
+                    onTap: () =>
+                        _showMobileCartDrawer(context, orderProv, heldProv),
                     child: Row(
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       children: [
                         Row(
                           children: [
                             Container(
-                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 8, vertical: 4),
                               decoration: BoxDecoration(
                                 color: Colors.white,
                                 borderRadius: BorderRadius.circular(12),
@@ -481,7 +521,8 @@ class _PosPageScreenState extends State<PosPageScreen> {
                               ),
                             ),
                             const SizedBox(width: 4),
-                            const Icon(Icons.arrow_forward_ios, color: Colors.white, size: 14),
+                            const Icon(Icons.arrow_forward_ios,
+                                color: Colors.white, size: 14),
                           ],
                         ),
                       ],
@@ -509,7 +550,8 @@ class _PosPageScreenState extends State<PosPageScreen> {
           duration: const Duration(milliseconds: 150),
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
           decoration: BoxDecoration(
-            color: isSelected ? AppTheme.primary : Colors.grey.withOpacity(0.12),
+            color:
+                isSelected ? AppTheme.primary : Colors.grey.withOpacity(0.12),
             borderRadius: BorderRadius.circular(20),
           ),
           child: Center(

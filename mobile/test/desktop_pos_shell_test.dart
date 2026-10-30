@@ -45,7 +45,8 @@ void main() {
       expect(ids.contains('settings'), true);
     });
 
-    test('OrderProvider calculates exact subtotal, 5% GST, and grand total', () {
+    test('OrderProvider calculates exact subtotal, 5% GST, and grand total',
+        () {
       orderProvider.addProduct(testProduct); // ₹300.00
       expect(orderProvider.subtotal, 300.0);
       expect(orderProvider.taxTotal, 15.0); // 5% of 300

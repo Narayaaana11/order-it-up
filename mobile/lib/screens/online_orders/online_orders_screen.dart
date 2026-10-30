@@ -17,7 +17,8 @@ class _OnlineOrdersScreenState extends State<OnlineOrdersScreen> {
   late ApiService _apiService;
   bool _isLoading = true;
   List<Map<String, dynamic>> _orders = [];
-  final NumberFormat _currencyFmt = NumberFormat.currency(symbol: '₹', decimalDigits: 2);
+  final NumberFormat _currencyFmt =
+      NumberFormat.currency(symbol: '₹', decimalDigits: 2);
 
   @override
   void initState() {
@@ -25,7 +26,9 @@ class _OnlineOrdersScreenState extends State<OnlineOrdersScreen> {
     final storage = StorageService();
     final isDemo = storage.isDemoMode();
     _apiService = ApiService(
-      apiClient: ApiClient(baseUrl: 'http://${storage.getServerHost()}:${storage.getServerPort()}'),
+      apiClient: ApiClient(
+          baseUrl:
+              'http://${storage.getServerHost()}:${storage.getServerPort()}'),
       isDemoMode: isDemo,
     );
     _loadOrders();
@@ -42,7 +45,8 @@ class _OnlineOrdersScreenState extends State<OnlineOrdersScreen> {
     }
   }
 
-  Future<void> _updateStatus(int orderId, String action, String newStatus) async {
+  Future<void> _updateStatus(
+      int orderId, String action, String newStatus) async {
     setState(() {
       final idx = _orders.indexWhere((o) => o['id'] == orderId);
       if (idx >= 0) _orders[idx]['status'] = newStatus;
@@ -73,20 +77,28 @@ class _OnlineOrdersScreenState extends State<OnlineOrdersScreen> {
                     itemCount: _orders.length,
                     itemBuilder: (context, idx) {
                       final order = _orders[idx];
-                      final platform = (order['platform'] as String? ?? 'zomato').toLowerCase();
+                      final platform =
+                          (order['platform'] as String? ?? 'zomato')
+                              .toLowerCase();
                       final isZomato = platform.contains('zomato');
                       final status = order['status'] as String? ?? 'pending';
-                      final riderStatus = order['rider_status'] as String? ?? 'assigned';
-                      final items = (order['items'] as List? ?? []).cast<Map<String, dynamic>>();
+                      final riderStatus =
+                          order['rider_status'] as String? ?? 'assigned';
+                      final items = (order['items'] as List? ?? [])
+                          .cast<Map<String, dynamic>>();
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 14),
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
+                          color: isDark
+                              ? AppTheme.surfaceDark
+                              : AppTheme.surfaceLight,
                           borderRadius: BorderRadius.circular(16),
                           border: Border.all(
-                            color: isZomato ? Colors.red.withOpacity(0.3) : Colors.orange.withOpacity(0.3),
+                            color: isZomato
+                                ? Colors.red.withOpacity(0.3)
+                                : Colors.orange.withOpacity(0.3),
                             width: 1.5,
                           ),
                         ),
@@ -100,33 +112,47 @@ class _OnlineOrdersScreenState extends State<OnlineOrdersScreen> {
                                 Row(
                                   children: [
                                     Container(
-                                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                      padding: const EdgeInsets.symmetric(
+                                          horizontal: 8, vertical: 3),
                                       decoration: BoxDecoration(
-                                        color: isZomato ? Colors.red : Colors.deepOrange,
+                                        color: isZomato
+                                            ? Colors.red
+                                            : Colors.deepOrange,
                                         borderRadius: BorderRadius.circular(6),
                                       ),
                                       child: Text(
                                         isZomato ? 'ZOMATO' : 'SWIGGY',
-                                        style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w900),
+                                        style: const TextStyle(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.w900),
                                       ),
                                     ),
                                     const SizedBox(width: 8),
                                     Text(
-                                      order['order_number'] as String? ?? '#ORD',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                      order['order_number'] as String? ??
+                                          '#ORD',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14),
                                     ),
                                   ],
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 8, vertical: 3),
                                   decoration: BoxDecoration(
-                                    color: status == 'ready' ? Colors.green.withOpacity(0.15) : Colors.blue.withOpacity(0.15),
+                                    color: status == 'ready'
+                                        ? Colors.green.withOpacity(0.15)
+                                        : Colors.blue.withOpacity(0.15),
                                     borderRadius: BorderRadius.circular(6),
                                   ),
                                   child: Text(
                                     status.toUpperCase(),
                                     style: TextStyle(
-                                      color: status == 'ready' ? Colors.green : Colors.blue,
+                                      color: status == 'ready'
+                                          ? Colors.green
+                                          : Colors.blue,
                                       fontSize: 10,
                                       fontWeight: FontWeight.bold,
                                     ),
@@ -139,12 +165,15 @@ class _OnlineOrdersScreenState extends State<OnlineOrdersScreen> {
                             // Customer & Address
                             Row(
                               children: [
-                                const Icon(Icons.person_pin, size: 16, color: Colors.grey),
+                                const Icon(Icons.person_pin,
+                                    size: 16, color: Colors.grey),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
                                     '${order['customer_name']} • ${order['customer_phone']}',
-                                    style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w600),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -153,12 +182,15 @@ class _OnlineOrdersScreenState extends State<OnlineOrdersScreen> {
                             const SizedBox(height: 4),
                             Row(
                               children: [
-                                const Icon(Icons.location_on, size: 16, color: Colors.grey),
+                                const Icon(Icons.location_on,
+                                    size: 16, color: Colors.grey),
                                 const SizedBox(width: 6),
                                 Expanded(
                                   child: Text(
-                                    order['delivery_address'] as String? ?? 'Delivery',
-                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
+                                    order['delivery_address'] as String? ??
+                                        'Delivery',
+                                    style: const TextStyle(
+                                        fontSize: 11, color: Colors.grey),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                 ),
@@ -168,44 +200,57 @@ class _OnlineOrdersScreenState extends State<OnlineOrdersScreen> {
 
                             // Items List
                             ...items.map((i) => Padding(
-                              padding: const EdgeInsets.symmetric(vertical: 2),
-                              child: Row(
-                                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      '${i['qty']}x ${i['name']}',
-                                      style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
-                                      overflow: TextOverflow.ellipsis,
-                                    ),
+                                  padding:
+                                      const EdgeInsets.symmetric(vertical: 2),
+                                  child: Row(
+                                    mainAxisAlignment:
+                                        MainAxisAlignment.spaceBetween,
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          '${i['qty']}x ${i['name']}',
+                                          style: const TextStyle(
+                                              fontSize: 13,
+                                              fontWeight: FontWeight.w500),
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ),
+                                      Text(_currencyFmt.format(i['price'] ?? 0),
+                                          style: const TextStyle(fontSize: 12)),
+                                    ],
                                   ),
-                                  Text(_currencyFmt.format(i['price'] ?? 0), style: const TextStyle(fontSize: 12)),
-                                ],
-                              ),
-                            )),
+                                )),
                             const SizedBox(height: 8),
 
                             // Rider Status Strip
                             Container(
                               padding: const EdgeInsets.all(8),
                               decoration: BoxDecoration(
-                                color: (isDark ? Colors.black : Colors.grey.shade100).withOpacity(0.5),
+                                color: (isDark
+                                        ? Colors.black
+                                        : Colors.grey.shade100)
+                                    .withOpacity(0.5),
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Row(
                                 children: [
-                                  const Icon(Icons.delivery_dining, size: 18, color: AppTheme.primary),
+                                  const Icon(Icons.delivery_dining,
+                                      size: 18, color: AppTheme.primary),
                                   const SizedBox(width: 8),
                                   Expanded(
                                     child: Text(
                                       '${order['rider_name']} (${riderStatus.toUpperCase().replaceAll('_', ' ')})',
-                                      style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.w600),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                   ),
                                   Text(
                                     _currencyFmt.format(order['total'] ?? 0),
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14),
                                   ),
                                 ],
                               ),
@@ -218,24 +263,39 @@ class _OnlineOrdersScreenState extends State<OnlineOrdersScreen> {
                               children: [
                                 if (status == 'pending')
                                   ElevatedButton.icon(
-                                    onPressed: () => _updateStatus(order['id'] as int, 'accept', 'preparing'),
+                                    onPressed: () => _updateStatus(
+                                        order['id'] as int,
+                                        'accept',
+                                        'preparing'),
                                     icon: const Icon(Icons.check, size: 16),
                                     label: const Text('Accept Order'),
-                                    style: ElevatedButton.styleFrom(backgroundColor: AppTheme.primary, foregroundColor: Colors.white),
+                                    style: ElevatedButton.styleFrom(
+                                        backgroundColor: AppTheme.primary,
+                                        foregroundColor: Colors.white),
                                   ),
                                 if (status == 'preparing')
                                   ElevatedButton.icon(
-                                    onPressed: () => _updateStatus(order['id'] as int, 'ready', 'ready'),
-                                    icon: const Icon(Icons.soup_kitchen, size: 16),
+                                    onPressed: () => _updateStatus(
+                                        order['id'] as int, 'ready', 'ready'),
+                                    icon: const Icon(Icons.soup_kitchen,
+                                        size: 16),
                                     label: const Text('Food Ready'),
-                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.green, foregroundColor: Colors.white),
+                                    style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.green,
+                                        foregroundColor: Colors.white),
                                   ),
                                 if (status == 'ready')
                                   ElevatedButton.icon(
-                                    onPressed: () => _updateStatus(order['id'] as int, 'dispatch', 'dispatched'),
-                                    icon: const Icon(Icons.sports_motorsports, size: 16),
+                                    onPressed: () => _updateStatus(
+                                        order['id'] as int,
+                                        'dispatch',
+                                        'dispatched'),
+                                    icon: const Icon(Icons.sports_motorsports,
+                                        size: 16),
                                     label: const Text('Hand Over to Rider'),
-                                    style: ElevatedButton.styleFrom(backgroundColor: Colors.blue, foregroundColor: Colors.white),
+                                    style: ElevatedButton.styleFrom(
+                                        backgroundColor: Colors.blue,
+                                        foregroundColor: Colors.white),
                                   ),
                               ],
                             ),

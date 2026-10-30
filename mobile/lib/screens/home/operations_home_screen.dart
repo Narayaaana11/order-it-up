@@ -77,7 +77,8 @@ class OperationsHomeScreen extends StatelessWidget {
                   ),
                   if (badgeText != null)
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
                       decoration: BoxDecoration(
                         color: (badgeColor ?? color).withOpacity(0.15),
                         borderRadius: BorderRadius.circular(8),
@@ -111,7 +112,9 @@ class OperationsHomeScreen extends StatelessWidget {
                     subtitle,
                     style: TextStyle(
                       fontSize: 12,
-                      color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                      color: isDark
+                          ? AppTheme.textMutedDark
+                          : AppTheme.textMutedLight,
                     ),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
@@ -150,7 +153,8 @@ class OperationsHomeScreen extends StatelessWidget {
                   color: isDark ? AppTheme.surfaceDark : Colors.white,
                   border: Border(
                     bottom: BorderSide(
-                      color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                      color:
+                          isDark ? AppTheme.borderDark : AppTheme.borderLight,
                     ),
                   ),
                 ),
@@ -167,7 +171,8 @@ class OperationsHomeScreen extends StatelessWidget {
                           color: AppTheme.primary,
                           borderRadius: BorderRadius.circular(10),
                         ),
-                        child: const Icon(Icons.restaurant, color: Colors.white, size: 20),
+                        child: const Icon(Icons.restaurant,
+                            color: Colors.white, size: 20),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -185,13 +190,17 @@ class OperationsHomeScreen extends StatelessWidget {
                           ),
                           Text(
                             'Active: ${auth.currentUser?.name ?? "Staff"} (${auth.currentUser?.roleDisplayName ?? "Server"})',
-                            style: const TextStyle(fontSize: 12, color: AppTheme.primaryDark, fontWeight: FontWeight.w600),
+                            style: const TextStyle(
+                                fontSize: 12,
+                                color: AppTheme.primaryDark,
+                                fontWeight: FontWeight.w600),
                           ),
                         ],
                       ),
                     ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 10, vertical: 4),
                       decoration: BoxDecoration(
                         color: AppTheme.success.withOpacity(0.12),
                         borderRadius: BorderRadius.circular(12),
@@ -244,12 +253,18 @@ class OperationsHomeScreen extends StatelessWidget {
                       children: [
                         const Text(
                           'TODAY\'S SALES',
-                          style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           '${AppConstants.defaultCurrency}${mgrProv.totalRevenueToday.toStringAsFixed(0)}',
-                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900),
                         ),
                       ],
                     ),
@@ -259,12 +274,18 @@ class OperationsHomeScreen extends StatelessWidget {
                       children: [
                         const Text(
                           'TABLES SEATED',
-                          style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           '${tableProv.occupiedCount} / ${tableProv.tables.length}',
-                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900),
                         ),
                       ],
                     ),
@@ -274,12 +295,18 @@ class OperationsHomeScreen extends StatelessWidget {
                       children: [
                         const Text(
                           'KDS QUEUE',
-                          style: TextStyle(color: Colors.white70, fontSize: 11, fontWeight: FontWeight.w700),
+                          style: TextStyle(
+                              color: Colors.white70,
+                              fontSize: 11,
+                              fontWeight: FontWeight.w700),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           '${kdsProv.waitingCount} Orders',
-                          style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.w900),
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.w900),
                         ),
                       ],
                     ),
@@ -297,13 +324,16 @@ class OperationsHomeScreen extends StatelessWidget {
                   children: [
                     const Text(
                       'Restaurant Operations Hub',
-                      style: TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
+                      style:
+                          TextStyle(fontSize: 15, fontWeight: FontWeight.w800),
                     ),
                     Text(
                       'All 9 Desktop Modules',
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                        color: isDark
+                            ? AppTheme.textMutedDark
+                            : AppTheme.textMutedLight,
                       ),
                     ),
                   ],
@@ -316,7 +346,9 @@ class OperationsHomeScreen extends StatelessWidget {
               padding: const EdgeInsets.fromLTRB(16, 4, 16, 24),
               sliver: SliverLayoutBuilder(
                 builder: (context, constraints) {
-                  final cols = ResponsiveBreakpoints.getGridColumnCount(constraints.crossAxisExtent, itemMinWidth: 160);
+                  final cols = ResponsiveBreakpoints.getGridColumnCount(
+                      constraints.crossAxisExtent,
+                      itemMinWidth: 160);
                   final columnCount = cols < 2 ? 2 : (cols > 4 ? 4 : cols);
 
                   return SliverGrid.count(
@@ -333,7 +365,10 @@ class OperationsHomeScreen extends StatelessWidget {
                         icon: Icons.table_restaurant,
                         color: AppTheme.primary,
                         badgeText: '${tableProv.occupiedCount} Seated',
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const WaiterScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const WaiterScreen())),
                       ),
 
                       // 2. Counter Quick POS
@@ -344,7 +379,10 @@ class OperationsHomeScreen extends StatelessWidget {
                         icon: Icons.flash_on,
                         color: AppTheme.warning,
                         badgeText: 'Instant',
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const QuickPosScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const QuickPosScreen())),
                       ),
 
                       // 3. Cashier Billing
@@ -355,7 +393,10 @@ class OperationsHomeScreen extends StatelessWidget {
                         icon: Icons.point_of_sale,
                         color: AppTheme.success,
                         badgeText: '${cashierProv.activeOrders.length} Pending',
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CashierScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const CashierScreen())),
                       ),
 
                       // 4. Held Orders
@@ -366,7 +407,10 @@ class OperationsHomeScreen extends StatelessWidget {
                         icon: Icons.pause_circle_outline,
                         color: AppTheme.info,
                         badgeText: '${heldProv.heldCount} Held',
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const HeldOrdersScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const HeldOrdersScreen())),
                       ),
 
                       // 5. Kitchen Display KDS
@@ -377,7 +421,10 @@ class OperationsHomeScreen extends StatelessWidget {
                         icon: Icons.soup_kitchen,
                         color: const Color(0xFFE11D48),
                         badgeText: '${kdsProv.filteredTickets.length} Tickets',
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const KdsScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const KdsScreen())),
                       ),
 
                       // 6. Customer CRM & Loyalty
@@ -388,7 +435,10 @@ class OperationsHomeScreen extends StatelessWidget {
                         icon: Icons.people_alt,
                         color: const Color(0xFF8B5CF6),
                         badgeText: '${custProv.customers.length} Guests',
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CustomerCrmScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const CustomerCrmScreen())),
                       ),
 
                       // 7. Inventory & Raw Stock
@@ -398,9 +448,16 @@ class OperationsHomeScreen extends StatelessWidget {
                         subtitle: 'Recipe ingredients & BOM',
                         icon: Icons.inventory_2_outlined,
                         color: const Color(0xFF0EA5E9),
-                        badgeText: invProv.lowStockCount > 0 ? '${invProv.lowStockCount} Low Stock' : 'Good',
-                        badgeColor: invProv.lowStockCount > 0 ? AppTheme.danger : AppTheme.success,
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const InventoryScreen())),
+                        badgeText: invProv.lowStockCount > 0
+                            ? '${invProv.lowStockCount} Low Stock'
+                            : 'Good',
+                        badgeColor: invProv.lowStockCount > 0
+                            ? AppTheme.danger
+                            : AppTheme.success,
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const InventoryScreen())),
                       ),
 
                       // 8. Table Reservations
@@ -411,7 +468,10 @@ class OperationsHomeScreen extends StatelessWidget {
                         icon: Icons.event_available,
                         color: const Color(0xFF14B8A6),
                         badgeText: '${resProv.confirmedCount} Bookings',
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReservationsScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const ReservationsScreen())),
                       ),
 
                       // 9. Shift Cash Closure
@@ -422,7 +482,10 @@ class OperationsHomeScreen extends StatelessWidget {
                         icon: Icons.lock_clock,
                         color: const Color(0xFF64748B),
                         badgeText: 'Z-Report',
-                        onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ShiftClosureScreen())),
+                        onTap: () => Navigator.push(
+                            context,
+                            MaterialPageRoute(
+                                builder: (_) => const ShiftClosureScreen())),
                       ),
                     ],
                   );

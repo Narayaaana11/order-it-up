@@ -41,7 +41,9 @@ class KdsTicketCard extends StatelessWidget {
         color: isDark ? AppTheme.surfaceDark : Colors.white,
         borderRadius: BorderRadius.circular(12),
         border: Border.all(
-          color: ticket.isOverdue ? AppTheme.danger : (isDark ? AppTheme.borderDark : AppTheme.borderLight),
+          color: ticket.isOverdue
+              ? AppTheme.danger
+              : (isDark ? AppTheme.borderDark : AppTheme.borderLight),
           width: ticket.isOverdue ? 2 : 1,
         ),
         boxShadow: [
@@ -60,7 +62,8 @@ class KdsTicketCard extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
               color: statusColor.withOpacity(0.08),
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(11)),
+              borderRadius:
+                  const BorderRadius.vertical(top: Radius.circular(11)),
               border: Border(
                 bottom: BorderSide(
                   color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
@@ -75,19 +78,23 @@ class KdsTicketCard extends StatelessWidget {
                   children: [
                     Text(
                       ticket.tableNumber,
-                      style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                      style: const TextStyle(
+                          fontWeight: FontWeight.w800, fontSize: 15),
                     ),
                     Text(
                       '${ticket.orderNumber} • ${ticket.serverName}',
                       style: TextStyle(
                         fontSize: 11,
-                        color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                        color: isDark
+                            ? AppTheme.textMutedDark
+                            : AppTheme.textMutedLight,
                       ),
                     ),
                   ],
                 ),
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
                     color: timerColor.withOpacity(0.15),
                     borderRadius: BorderRadius.circular(6),
@@ -127,7 +134,8 @@ class KdsTicketCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 6, vertical: 2),
                           decoration: BoxDecoration(
                             color: AppTheme.primaryLight,
                             borderRadius: BorderRadius.circular(4),

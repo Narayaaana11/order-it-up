@@ -23,7 +23,8 @@ class QuickPosScreen extends StatefulWidget {
 class _QuickPosScreenState extends State<QuickPosScreen> {
   final List<DraftLineModel> _cart = [];
   final TextEditingController _searchController = TextEditingController();
-  final TextEditingController _customerPhoneController = TextEditingController();
+  final TextEditingController _customerPhoneController =
+      TextEditingController();
   String _customerName = 'Walk-in Guest';
   double _customerLoyalty = 0.0;
   String _orderType = 'takeaway'; // 'takeaway' or 'counter'
@@ -36,12 +37,14 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
     super.dispose();
   }
 
-  double get _cartTotal => _cart.fold<double>(0.0, (sum, i) => sum + i.lineTotal);
+  double get _cartTotal =>
+      _cart.fold<double>(0.0, (sum, i) => sum + i.lineTotal);
   int get _cartCount => _cart.fold<int>(0, (sum, i) => sum + i.quantity);
 
   void _addToCart(ProductModel product) {
     setState(() {
-      final idx = _cart.indexWhere((l) => l.product.id == product.id && l.note.isEmpty);
+      final idx =
+          _cart.indexWhere((l) => l.product.id == product.id && l.note.isEmpty);
       if (idx >= 0) {
         _cart[idx].quantity += 1;
       } else {
@@ -64,7 +67,8 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
 
   Future<void> _onPhoneChanged(String phone) async {
     if (phone.length >= 10) {
-      final cust = await Provider.of<CustomerProvider>(context, listen: false).lookupByPhone(phone);
+      final cust = await Provider.of<CustomerProvider>(context, listen: false)
+          .lookupByPhone(phone);
       if (cust != null) {
         setState(() {
           _customerName = cust.name;
@@ -85,14 +89,16 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
       total: _cartTotal,
       customerName: _customerName,
       customerPhone: _customerPhoneController.text.trim(),
-      items: _cart.map((line) => OrderItemModel(
-        id: DateTime.now().millisecondsSinceEpoch % 10000,
-        productId: line.product.id,
-        productName: line.product.name,
-        quantity: line.quantity,
-        unitPrice: line.product.price,
-        status: 'served',
-      )).toList(),
+      items: _cart
+          .map((line) => OrderItemModel(
+                id: DateTime.now().millisecondsSinceEpoch % 10000,
+                productId: line.product.id,
+                productName: line.product.name,
+                quantity: line.quantity,
+                unitPrice: line.product.price,
+                status: 'served',
+              ))
+          .toList(),
     );
 
     final bill = BillModel.fromOrder(dummyOrder, paymentMethod: _paymentMethod);
@@ -105,13 +111,16 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
           orderNumber: bill.orderNumber,
           onPaymentConfirmed: () {
             setState(() => _cart.clear());
-            showDialog(context: context, builder: (_) => ReceiptPreviewDialog(bill: bill));
+            showDialog(
+                context: context,
+                builder: (_) => ReceiptPreviewDialog(bill: bill));
           },
         ),
       );
     } else {
       setState(() => _cart.clear());
-      showDialog(context: context, builder: (_) => ReceiptPreviewDialog(bill: bill));
+      showDialog(
+          context: context, builder: (_) => ReceiptPreviewDialog(bill: bill));
     }
   }
 
@@ -121,7 +130,8 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : Colors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+        border: Border.all(
+            color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -129,14 +139,16 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Current Sale', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
+              const Text('Current Sale',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
               SegmentedButton<String>(
                 segments: const [
                   ButtonSegment(value: 'takeaway', label: Text('Takeaway')),
                   ButtonSegment(value: 'counter', label: Text('Counter')),
                 ],
                 selected: {_orderType},
-                onSelectionChanged: (set) => setState(() => _orderType = set.first),
+                onSelectionChanged: (set) =>
+                    setState(() => _orderType = set.first),
               ),
             ],
           ),
@@ -150,8 +162,11 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
             decoration: InputDecoration(
               hintText: 'Customer Phone (e.g. 9876543210)',
               prefixIcon: const Icon(Icons.phone_outlined, size: 18),
-              suffixText: _customerLoyalty > 0 ? '🪙 ${_customerLoyalty.toInt()} pts' : null,
-              suffixStyle: const TextStyle(color: AppTheme.primaryDark, fontWeight: FontWeight.bold),
+              suffixText: _customerLoyalty > 0
+                  ? '🪙 ${_customerLoyalty.toInt()} pts'
+                  : null,
+              suffixStyle: const TextStyle(
+                  color: AppTheme.primaryDark, fontWeight: FontWeight.bold),
               isDense: true,
             ),
           ),
@@ -160,7 +175,9 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
           // Cart lines
           Expanded(
             child: _cart.isEmpty
-                ? const Center(child: Text('Tap products to add to counter sale', style: TextStyle(color: AppTheme.neutral)))
+                ? const Center(
+                    child: Text('Tap products to add to counter sale',
+                        style: TextStyle(color: AppTheme.neutral)))
                 : ListView.separated(
                     itemCount: _cart.length,
                     separatorBuilder: (_, __) => const Divider(height: 8),
@@ -169,25 +186,33 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
                       return Row(
                         children: [
                           Expanded(
-                            child: Text(line.product.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                            child: Text(line.product.name,
+                                style: const TextStyle(
+                                    fontSize: 13, fontWeight: FontWeight.w600)),
                           ),
                           IconButton(
                             icon: const Icon(Icons.remove, size: 16),
                             onPressed: () => _changeQty(line.product.id, -1),
-                            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                            constraints: const BoxConstraints(
+                                minWidth: 28, minHeight: 28),
                             padding: EdgeInsets.zero,
                           ),
-                          Text('${line.quantity}', style: const TextStyle(fontWeight: FontWeight.bold)),
+                          Text('${line.quantity}',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.bold)),
                           IconButton(
                             icon: const Icon(Icons.add, size: 16),
                             onPressed: () => _changeQty(line.product.id, 1),
-                            constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
+                            constraints: const BoxConstraints(
+                                minWidth: 28, minHeight: 28),
                             padding: EdgeInsets.zero,
                           ),
                           const SizedBox(width: 6),
                           Text(
                             '${AppConstants.defaultCurrency}${line.lineTotal.toStringAsFixed(0)}',
-                            style: const TextStyle(fontWeight: FontWeight.w700, color: AppTheme.primaryDark),
+                            style: const TextStyle(
+                                fontWeight: FontWeight.w700,
+                                color: AppTheme.primaryDark),
                           ),
                         ],
                       );
@@ -230,10 +255,14 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Total Payable', style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+              const Text('Total Payable',
+                  style: TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
               Text(
                 '${AppConstants.defaultCurrency}${_cartTotal.toStringAsFixed(0)}',
-                style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w900, color: AppTheme.primaryDark),
+                style: const TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w900,
+                    color: AppTheme.primaryDark),
               ),
             ],
           ),
@@ -243,7 +272,8 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
             child: ElevatedButton.icon(
               onPressed: _cart.isNotEmpty ? _processPayment : null,
               icon: const Icon(Icons.check_circle_outline),
-              label: Text('Pay & Print (${AppConstants.defaultCurrency}${_cartTotal.toStringAsFixed(0)})'),
+              label: Text(
+                  'Pay & Print (${AppConstants.defaultCurrency}${_cartTotal.toStringAsFixed(0)})'),
             ),
           ),
         ],
@@ -283,7 +313,8 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
                       Expanded(
                         child: GridView.builder(
                           padding: const EdgeInsets.symmetric(horizontal: 12),
-                          gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                          gridDelegate:
+                              const SliverGridDelegateWithFixedCrossAxisCount(
                             crossAxisCount: 3,
                             childAspectRatio: 0.95,
                             crossAxisSpacing: 10,
@@ -292,7 +323,8 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
                           itemCount: menuProv.filteredProducts.length,
                           itemBuilder: (context, index) {
                             final p = menuProv.filteredProducts[index];
-                            return ProductGridCard(product: p, onAdd: () => _addToCart(p));
+                            return ProductGridCard(
+                                product: p, onAdd: () => _addToCart(p));
                           },
                         ),
                       ),
@@ -314,13 +346,16 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
                   child: TextField(
                     controller: _searchController,
                     onChanged: menuProv.setSearchQuery,
-                    decoration: const InputDecoration(hintText: 'Search dishes...', prefixIcon: Icon(Icons.search)),
+                    decoration: const InputDecoration(
+                        hintText: 'Search dishes...',
+                        prefixIcon: Icon(Icons.search)),
                   ),
                 ),
                 Expanded(
                   child: GridView.builder(
                     padding: const EdgeInsets.all(10),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 2,
                       childAspectRatio: 0.95,
                       crossAxisSpacing: 10,
@@ -329,7 +364,8 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
                     itemCount: menuProv.filteredProducts.length,
                     itemBuilder: (context, index) {
                       final p = menuProv.filteredProducts[index];
-                      return ProductGridCard(product: p, onAdd: () => _addToCart(p));
+                      return ProductGridCard(
+                          product: p, onAdd: () => _addToCart(p));
                     },
                   ),
                 ),
@@ -339,7 +375,11 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: isDark ? AppTheme.surfaceDark : Colors.white,
-                    border: Border(top: BorderSide(color: isDark ? AppTheme.borderDark : AppTheme.borderLight)),
+                    border: Border(
+                        top: BorderSide(
+                            color: isDark
+                                ? AppTheme.borderDark
+                                : AppTheme.borderLight)),
                   ),
                   child: Column(
                     mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -347,10 +387,15 @@ class _QuickPosScreenState extends State<QuickPosScreen> {
                       Row(
                         mainAxisAlignment: MainAxisAlignment.spaceBetween,
                         children: [
-                          Text('$_cartCount items in cart', style: const TextStyle(fontWeight: FontWeight.w600)),
+                          Text('$_cartCount items in cart',
+                              style:
+                                  const TextStyle(fontWeight: FontWeight.w600)),
                           Text(
                             '${AppConstants.defaultCurrency}${_cartTotal.toStringAsFixed(0)}',
-                            style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800, color: AppTheme.primaryDark),
+                            style: const TextStyle(
+                                fontSize: 18,
+                                fontWeight: FontWeight.w800,
+                                color: AppTheme.primaryDark),
                           ),
                         ],
                       ),

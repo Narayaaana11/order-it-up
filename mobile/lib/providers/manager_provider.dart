@@ -15,10 +15,12 @@ class ManagerProvider extends ChangeNotifier {
 
   double get totalRevenueToday => _totalRevenueToday;
   int get ordersToday => _ordersToday;
-  double get averageTicketSize => _ordersToday > 0 ? _totalRevenueToday / _ordersToday : 0.0;
+  double get averageTicketSize =>
+      _ordersToday > 0 ? _totalRevenueToday / _ordersToday : 0.0;
   int get occupiedTables => _occupiedTables;
   int get totalTables => _totalTables;
-  double get occupancyPercent => _totalTables > 0 ? (_occupiedTables / _totalTables) * 100 : 0.0;
+  double get occupancyPercent =>
+      _totalTables > 0 ? (_occupiedTables / _totalTables) * 100 : 0.0;
   int get averagePrepMinutes => _averagePrepMinutes;
   bool get isLoading => _isLoading;
 
@@ -35,7 +37,8 @@ class ManagerProvider extends ChangeNotifier {
 
       if (orders.isNotEmpty) {
         _ordersToday = orders.length;
-        _totalRevenueToday = orders.fold<double>(0.0, (sum, o) => sum + o.total);
+        _totalRevenueToday =
+            orders.fold<double>(0.0, (sum, o) => sum + o.total);
       }
     } catch (_) {}
 

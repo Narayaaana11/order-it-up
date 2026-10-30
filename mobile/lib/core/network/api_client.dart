@@ -28,7 +28,8 @@ class ApiClient {
     this.authToken = authToken;
   }
 
-  Map<String, String> _buildHeaders({String? idempotencyKey, Map<String, String>? extraHeaders}) {
+  Map<String, String> _buildHeaders(
+      {String? idempotencyKey, Map<String, String>? extraHeaders}) {
     final headers = <String, String>{
       'Content-Type': 'application/json',
       'Accept': 'application/json',
@@ -70,7 +71,8 @@ class ApiClient {
 
       return _handleResponse(response);
     } on TimeoutException {
-      throw ApiException('Connection timed out. Check POS server IP or network.');
+      throw ApiException(
+          'Connection timed out. Check POS server IP or network.');
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException('Network error: ${e.toString()}');
@@ -101,7 +103,8 @@ class ApiClient {
 
       return _handleResponse(response);
     } on TimeoutException {
-      throw ApiException('Connection timed out. Check POS server IP or network.');
+      throw ApiException(
+          'Connection timed out. Check POS server IP or network.');
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException('Network error: ${e.toString()}');
@@ -145,7 +148,8 @@ class ApiClient {
 
       return _handleResponse(response);
     } on TimeoutException {
-      throw ApiException('Connection timed out. Check POS server IP or network.');
+      throw ApiException(
+          'Connection timed out. Check POS server IP or network.');
     } catch (e) {
       if (e is ApiException) rethrow;
       throw ApiException('Network error: ${e.toString()}');

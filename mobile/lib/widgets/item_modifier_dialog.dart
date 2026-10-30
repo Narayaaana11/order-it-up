@@ -64,7 +64,8 @@ class _ItemModifierDialogState extends State<ItemModifierDialog> {
                 Expanded(
                   child: Text(
                     widget.product.name,
-                    style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+                    style: const TextStyle(
+                        fontSize: 17, fontWeight: FontWeight.w700),
                   ),
                 ),
                 Text(
@@ -106,16 +107,20 @@ class _ItemModifierDialogState extends State<ItemModifierDialog> {
             Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text('Quantity', style: TextStyle(fontWeight: FontWeight.w600)),
+                const Text('Quantity',
+                    style: TextStyle(fontWeight: FontWeight.w600)),
                 Row(
                   children: [
                     IconButton(
-                      onPressed: _quantity > 1 ? () => setState(() => _quantity--) : null,
+                      onPressed: _quantity > 1
+                          ? () => setState(() => _quantity--)
+                          : null,
                       icon: const Icon(Icons.remove_circle_outline),
                     ),
                     Text(
                       '$_quantity',
-                      style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700),
+                      style: const TextStyle(
+                          fontSize: 16, fontWeight: FontWeight.w700),
                     ),
                     IconButton(
                       onPressed: () => setState(() => _quantity++),

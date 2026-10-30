@@ -70,7 +70,8 @@ void main() {
       // 10% discount on ₹1000 = ₹100 discount, taxable = ₹900
       // 5% GST on ₹900 = ₹45
       // Total payable = ₹945.00
-      final bill = BillModel.fromOrder(order, discountPercent: 10.0, taxPercent: 5.0);
+      final bill =
+          BillModel.fromOrder(order, discountPercent: 10.0, taxPercent: 5.0);
 
       expect(bill.subtotal, 1000.0);
       expect(bill.discountAmount, 100.0);

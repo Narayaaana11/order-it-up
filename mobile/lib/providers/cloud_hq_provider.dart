@@ -78,10 +78,12 @@ class CloudHqProvider with ChangeNotifier {
     }
   }
 
-  Future<void> saveCatalogOverride(String productId, double? priceOverride, bool? isAvailable) async {
+  Future<void> saveCatalogOverride(
+      String productId, double? priceOverride, bool? isAvailable) async {
     final idx = _catalogItems.indexWhere((p) => p['id'] == productId);
     if (idx >= 0) {
-      if (priceOverride != null) _catalogItems[idx]['overridePrice'] = priceOverride;
+      if (priceOverride != null)
+        _catalogItems[idx]['overridePrice'] = priceOverride;
       if (isAvailable != null) _catalogItems[idx]['isAvailable'] = isAvailable;
       notifyListeners();
     }

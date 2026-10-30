@@ -41,18 +41,22 @@ class _InventoryScreenState extends State<InventoryScreen> {
             const SizedBox(height: 12),
             TextField(
               controller: qtyCtrl,
-              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              keyboardType:
+                  const TextInputType.numberWithOptions(decimal: true),
               decoration: InputDecoration(suffixText: unit),
             ),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
               final qty = double.tryParse(qtyCtrl.text) ?? 0.0;
               if (qty > 0) {
-                Provider.of<InventoryProvider>(context, listen: false).adjustStock(id, qty);
+                Provider.of<InventoryProvider>(context, listen: false)
+                    .adjustStock(id, qty);
                 Navigator.pop(context);
               }
             },
@@ -120,7 +124,9 @@ class _InventoryScreenState extends State<InventoryScreen> {
                     border: Border.all(
                       color: item.isLowStock
                           ? AppTheme.danger.withOpacity(0.4)
-                          : (isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                          : (isDark
+                              ? AppTheme.borderDark
+                              : AppTheme.borderLight),
                       width: item.isLowStock ? 1.5 : 1.0,
                     ),
                   ),
@@ -129,12 +135,17 @@ class _InventoryScreenState extends State<InventoryScreen> {
                       Container(
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
-                          color: (item.isLowStock ? AppTheme.danger : const Color(0xFF0EA5E9)).withOpacity(0.12),
+                          color: (item.isLowStock
+                                  ? AppTheme.danger
+                                  : const Color(0xFF0EA5E9))
+                              .withOpacity(0.12),
                           borderRadius: BorderRadius.circular(10),
                         ),
                         child: Icon(
                           Icons.inventory_2,
-                          color: item.isLowStock ? AppTheme.danger : const Color(0xFF0EA5E9),
+                          color: item.isLowStock
+                              ? AppTheme.danger
+                              : const Color(0xFF0EA5E9),
                           size: 22,
                         ),
                       ),
@@ -146,18 +157,25 @@ class _InventoryScreenState extends State<InventoryScreen> {
                             Row(
                               children: [
                                 Expanded(
-                                  child: Text(item.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
+                                  child: Text(item.name,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 15)),
                                 ),
                                 if (item.isLowStock)
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 6, vertical: 2),
                                     decoration: BoxDecoration(
                                       color: AppTheme.danger.withOpacity(0.15),
                                       borderRadius: BorderRadius.circular(4),
                                     ),
                                     child: const Text(
                                       'LOW STOCK',
-                                      style: TextStyle(color: AppTheme.danger, fontSize: 10, fontWeight: FontWeight.bold),
+                                      style: TextStyle(
+                                          color: AppTheme.danger,
+                                          fontSize: 10,
+                                          fontWeight: FontWeight.bold),
                                     ),
                                   ),
                               ],
@@ -167,22 +185,30 @@ class _InventoryScreenState extends State<InventoryScreen> {
                               'Current: ${item.currentStock} ${item.unit} • Min threshold: ${item.minimumStock} ${item.unit}',
                               style: TextStyle(
                                 fontSize: 12,
-                                color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                                color: isDark
+                                    ? AppTheme.textMutedDark
+                                    : AppTheme.textMutedLight,
                               ),
                             ),
                             Text(
                               'Unit Cost: ${AppConstants.defaultCurrency}${item.costPerUnit.toStringAsFixed(0)} / ${item.unit}',
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppTheme.primaryDark),
+                              style: const TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w600,
+                                  color: AppTheme.primaryDark),
                             ),
                           ],
                         ),
                       ),
                       const SizedBox(width: 8),
                       OutlinedButton.icon(
-                        onPressed: () => _showRestockDialog(item.id, item.name, item.unit),
+                        onPressed: () =>
+                            _showRestockDialog(item.id, item.name, item.unit),
                         icon: const Icon(Icons.add, size: 14),
-                        label: const Text('Restock', style: TextStyle(fontSize: 12)),
-                        style: OutlinedButton.styleFrom(minimumSize: const Size(60, 36)),
+                        label: const Text('Restock',
+                            style: TextStyle(fontSize: 12)),
+                        style: OutlinedButton.styleFrom(
+                            minimumSize: const Size(60, 36)),
                       ),
                     ],
                   ),

@@ -19,7 +19,8 @@ class TablePickerModal extends StatefulWidget {
 }
 
 class _TablePickerModalState extends State<TablePickerModal> {
-  String _filter = 'all'; // 'all', 'available', 'occupied', 'reserved', 'billed'
+  String _filter =
+      'all'; // 'all', 'available', 'occupied', 'reserved', 'billed'
 
   List<TableModel> get _filteredTables {
     if (_filter == 'all') return widget.tables;
@@ -64,12 +65,14 @@ class _TablePickerModalState extends State<TablePickerModal> {
                         color: AppTheme.primaryLight,
                         borderRadius: BorderRadius.circular(10),
                       ),
-                      child: Icon(Icons.table_restaurant, color: AppTheme.primary, size: 20),
+                      child: Icon(Icons.table_restaurant,
+                          color: AppTheme.primary, size: 20),
                     ),
                     const SizedBox(width: 10),
                     const Text(
                       'Select Dine-In Table',
-                      style: TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 17, fontWeight: FontWeight.bold),
                     ),
                   ],
                 ),
@@ -87,7 +90,8 @@ class _TablePickerModalState extends State<TablePickerModal> {
               scrollDirection: Axis.horizontal,
               child: Row(
                 children: [
-                  _buildFilterChip('all', 'All Tables (${widget.tables.length})'),
+                  _buildFilterChip(
+                      'all', 'All Tables (${widget.tables.length})'),
                   const SizedBox(width: 6),
                   _buildFilterChip(
                     'available',
@@ -121,12 +125,15 @@ class _TablePickerModalState extends State<TablePickerModal> {
                       child: Text(
                         'No tables match this filter',
                         style: TextStyle(
-                          color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                          color: isDark
+                              ? AppTheme.textMutedDark
+                              : AppTheme.textMutedLight,
                         ),
                       ),
                     )
                   : GridView.builder(
-                      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                      gridDelegate:
+                          const SliverGridDelegateWithFixedCrossAxisCount(
                         crossAxisCount: 3,
                         mainAxisSpacing: 10,
                         crossAxisSpacing: 10,
@@ -153,7 +160,9 @@ class _TablePickerModalState extends State<TablePickerModal> {
                               border: Border.all(
                                 color: isSelected
                                     ? AppTheme.primary
-                                    : (isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                                    : (isDark
+                                        ? AppTheme.borderDark
+                                        : AppTheme.borderLight),
                                 width: isSelected ? 2.0 : 1.0,
                               ),
                               boxShadow: [
@@ -168,7 +177,8 @@ class _TablePickerModalState extends State<TablePickerModal> {
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Row(
-                                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
                                   children: [
                                     Expanded(
                                       child: Text(
@@ -195,20 +205,25 @@ class _TablePickerModalState extends State<TablePickerModal> {
                                     Icon(
                                       Icons.person_outline,
                                       size: 13,
-                                      color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                                      color: isDark
+                                          ? AppTheme.textMutedDark
+                                          : AppTheme.textMutedLight,
                                     ),
                                     const SizedBox(width: 4),
                                     Text(
                                       '${table.capacity} Pax',
                                       style: TextStyle(
                                         fontSize: 11,
-                                        color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                                        color: isDark
+                                            ? AppTheme.textMutedDark
+                                            : AppTheme.textMutedLight,
                                       ),
                                     ),
                                   ],
                                 ),
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: statusColor.withOpacity(0.15),
                                     borderRadius: BorderRadius.circular(6),

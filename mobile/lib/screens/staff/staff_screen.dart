@@ -24,7 +24,9 @@ class _StaffScreenState extends State<StaffScreen> {
     final storage = StorageService();
     final isDemo = storage.isDemoMode();
     _apiService = ApiService(
-      apiClient: ApiClient(baseUrl: 'http://${storage.getServerHost()}:${storage.getServerPort()}'),
+      apiClient: ApiClient(
+          baseUrl:
+              'http://${storage.getServerHost()}:${storage.getServerPort()}'),
       isDemoMode: isDemo,
     );
     _loadStaff();
@@ -86,15 +88,23 @@ class _StaffScreenState extends State<StaffScreen> {
                       child: SingleChildScrollView(
                         scrollDirection: Axis.horizontal,
                         child: Row(
-                          children: ['all', 'manager', 'cashier', 'server', 'chef'].map((role) {
+                          children: [
+                            'all',
+                            'manager',
+                            'cashier',
+                            'server',
+                            'chef'
+                          ].map((role) {
                             final isSelected = _roleFilter == role;
                             return Padding(
                               padding: const EdgeInsets.only(right: 8),
                               child: FilterChip(
                                 label: Text(role.toUpperCase()),
                                 selected: isSelected,
-                                onSelected: (_) => setState(() => _roleFilter = role),
-                                selectedColor: AppTheme.primary.withOpacity(0.2),
+                                onSelected: (_) =>
+                                    setState(() => _roleFilter = role),
+                                selectedColor:
+                                    AppTheme.primary.withOpacity(0.2),
                                 checkmarkColor: AppTheme.primary,
                               ),
                             );
@@ -112,24 +122,35 @@ class _StaffScreenState extends State<StaffScreen> {
                           itemCount: filteredStaff.length,
                           itemBuilder: (context, idx) {
                             final s = filteredStaff[idx];
-                            final role = (s['role'] as String? ?? 'server').toLowerCase();
+                            final role = (s['role'] as String? ?? 'server')
+                                .toLowerCase();
                             final roleColor = _getRoleColor(role);
 
                             return Container(
                               margin: const EdgeInsets.only(bottom: 10),
                               padding: const EdgeInsets.all(14),
                               decoration: BoxDecoration(
-                                color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
+                                color: isDark
+                                    ? AppTheme.surfaceDark
+                                    : AppTheme.surfaceLight,
                                 borderRadius: BorderRadius.circular(14),
-                                border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                                border: Border.all(
+                                    color: isDark
+                                        ? AppTheme.borderDark
+                                        : AppTheme.borderLight),
                               ),
                               child: Row(
                                 children: [
                                   CircleAvatar(
                                     radius: 20,
-                                    backgroundColor: roleColor.withOpacity(0.15),
+                                    backgroundColor:
+                                        roleColor.withOpacity(0.15),
                                     child: Icon(
-                                      role == 'chef' ? Icons.soup_kitchen : role == 'manager' ? Icons.badge : Icons.person,
+                                      role == 'chef'
+                                          ? Icons.soup_kitchen
+                                          : role == 'manager'
+                                              ? Icons.badge
+                                              : Icons.person,
                                       color: roleColor,
                                       size: 20,
                                     ),
@@ -137,17 +158,22 @@ class _StaffScreenState extends State<StaffScreen> {
                                   const SizedBox(width: 14),
                                   Expanded(
                                     child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
                                       children: [
                                         Text(
-                                          s['name'] as String? ?? 'Staff Member',
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                          s['name'] as String? ??
+                                              'Staff Member',
+                                          style: const TextStyle(
+                                              fontWeight: FontWeight.bold,
+                                              fontSize: 14),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                         const SizedBox(height: 2),
                                         Text(
                                           s['email'] as String? ?? '',
-                                          style: const TextStyle(fontSize: 12, color: Colors.grey),
+                                          style: const TextStyle(
+                                              fontSize: 12, color: Colors.grey),
                                           overflow: TextOverflow.ellipsis,
                                         ),
                                       ],
@@ -155,14 +181,18 @@ class _StaffScreenState extends State<StaffScreen> {
                                   ),
                                   const SizedBox(width: 8),
                                   Container(
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 4),
                                     decoration: BoxDecoration(
                                       color: roleColor.withOpacity(0.12),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
                                       role.toUpperCase(),
-                                      style: TextStyle(color: roleColor, fontSize: 11, fontWeight: FontWeight.bold),
+                                      style: TextStyle(
+                                          color: roleColor,
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold),
                                     ),
                                   ),
                                 ],

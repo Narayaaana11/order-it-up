@@ -41,22 +41,36 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: nameCtrl, decoration: const InputDecoration(labelText: 'Full Name')),
+            TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(labelText: 'Full Name')),
             const SizedBox(height: 8),
-            TextField(controller: phoneCtrl, keyboardType: TextInputType.phone, decoration: const InputDecoration(labelText: 'Phone Number')),
+            TextField(
+                controller: phoneCtrl,
+                keyboardType: TextInputType.phone,
+                decoration: const InputDecoration(labelText: 'Phone Number')),
             const SizedBox(height: 8),
-            TextField(controller: emailCtrl, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'Email (Optional)')),
+            TextField(
+                controller: emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration:
+                    const InputDecoration(labelText: 'Email (Optional)')),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () async {
               if (nameCtrl.text.isNotEmpty && phoneCtrl.text.isNotEmpty) {
-                await Provider.of<CustomerProvider>(context, listen: false).addCustomer(
+                await Provider.of<CustomerProvider>(context, listen: false)
+                    .addCustomer(
                   name: nameCtrl.text.trim(),
                   phone: phoneCtrl.text.trim(),
-                  email: emailCtrl.text.trim().isNotEmpty ? emailCtrl.text.trim() : null,
+                  email: emailCtrl.text.trim().isNotEmpty
+                      ? emailCtrl.text.trim()
+                      : null,
                 );
                 if (mounted) Navigator.pop(context);
               }
@@ -111,41 +125,61 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
                   decoration: BoxDecoration(
                     color: isDark ? AppTheme.surfaceDark : Colors.white,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                    border: Border.all(
+                        color: isDark
+                            ? AppTheme.borderDark
+                            : AppTheme.borderLight),
                   ),
                   child: Row(
                     children: [
                       CircleAvatar(
                         radius: 24,
-                        backgroundColor: const Color(0xFF8B5CF6).withOpacity(0.12),
-                        child: const Icon(Icons.person, color: Color(0xFF8B5CF6), size: 28),
+                        backgroundColor:
+                            const Color(0xFF8B5CF6).withOpacity(0.12),
+                        child: const Icon(Icons.person,
+                            color: Color(0xFF8B5CF6), size: 28),
                       ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(cust.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 16)),
+                            Text(cust.name,
+                                style: const TextStyle(
+                                    fontWeight: FontWeight.w700, fontSize: 16)),
                             const SizedBox(height: 2),
-                            Text(cust.phone, style: TextStyle(fontSize: 13, color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight)),
+                            Text(cust.phone,
+                                style: TextStyle(
+                                    fontSize: 13,
+                                    color: isDark
+                                        ? AppTheme.textMutedDark
+                                        : AppTheme.textMutedLight)),
                             const SizedBox(height: 4),
                             Row(
                               children: [
                                 Container(
-                                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                  padding: const EdgeInsets.symmetric(
+                                      horizontal: 6, vertical: 2),
                                   decoration: BoxDecoration(
                                     color: AppTheme.primaryLight,
                                     borderRadius: BorderRadius.circular(4),
                                   ),
                                   child: Text(
                                     '🪙 ${cust.loyaltyPoints.toStringAsFixed(0)} Points',
-                                    style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: AppTheme.primaryDark),
+                                    style: const TextStyle(
+                                        fontSize: 11,
+                                        fontWeight: FontWeight.bold,
+                                        color: AppTheme.primaryDark),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
                                   '${cust.totalVisits} Visits • ${AppConstants.defaultCurrency}${cust.totalSpend.toStringAsFixed(0)}',
-                                  style: TextStyle(fontSize: 11, color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                                  style: TextStyle(
+                                      fontSize: 11,
+                                      color: isDark
+                                          ? AppTheme.textMutedDark
+                                          : AppTheme.textMutedLight),
                                 ),
                               ],
                             ),
@@ -156,7 +190,10 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
                         onPressed: () {
                           orderProv.setCustomer(cust.name, cust.phone);
                           ScaffoldMessenger.of(context).showSnackBar(
-                            SnackBar(content: Text('Tagged ${cust.name} to active order!'), backgroundColor: AppTheme.success),
+                            SnackBar(
+                                content: Text(
+                                    'Tagged ${cust.name} to active order!'),
+                                backgroundColor: AppTheme.success),
                           );
                           Navigator.pop(context);
                         },
@@ -164,7 +201,8 @@ class _CustomerCrmScreenState extends State<CustomerCrmScreen> {
                           minimumSize: const Size(64, 36),
                           padding: const EdgeInsets.symmetric(horizontal: 10),
                         ),
-                        child: const Text('Tag to Order', style: TextStyle(fontSize: 12)),
+                        child: const Text('Tag to Order',
+                            style: TextStyle(fontSize: 12)),
                       ),
                     ],
                   ),

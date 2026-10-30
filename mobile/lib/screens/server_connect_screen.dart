@@ -57,7 +57,8 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
-              content: Text('Connected to ${res['branch'] ?? 'Cloud Franchise Terminal'}'),
+              content: Text(
+                  'Connected to ${res['branch'] ?? 'Cloud Franchise Terminal'}'),
               backgroundColor: AppTheme.success,
             ),
           );
@@ -68,7 +69,8 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
         }
       } else {
         setState(() {
-          _pairError = 'Invalid or expired 6-digit pairing code. Please generate a new code on your counter POS.';
+          _pairError =
+              'Invalid or expired 6-digit pairing code. Please generate a new code on your counter POS.';
         });
       }
     } catch (e) {
@@ -103,13 +105,18 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                         color: Colors.white,
                         borderRadius: BorderRadius.circular(16),
                         boxShadow: [
-                          BoxShadow(color: Colors.black.withOpacity(0.06), blurRadius: 10),
+                          BoxShadow(
+                              color: Colors.black.withOpacity(0.06),
+                              blurRadius: 10),
                         ],
                       ),
                       padding: const EdgeInsets.all(8),
                       child: Image.asset(
                         'assets/images/logo.png',
-                        errorBuilder: (_, __, ___) => const Icon(Icons.wifi_tethering, color: AppTheme.primary, size: 32),
+                        errorBuilder: (_, __, ___) => const Icon(
+                            Icons.wifi_tethering,
+                            color: AppTheme.primary,
+                            size: 32),
                       ),
                     ),
                   ),
@@ -124,7 +131,9 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                     'Pair with your Order It Up POS counter or franchise cloud to begin orders and KDS.',
                     style: TextStyle(
                       fontSize: 13,
-                      color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                      color: isDark
+                          ? AppTheme.textMutedDark
+                          : AppTheme.textMutedLight,
                     ),
                     textAlign: TextAlign.center,
                   ),
@@ -133,9 +142,13 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                   // Segmented Mode Selector
                   Container(
                     decoration: BoxDecoration(
-                      color: isDark ? AppTheme.surfaceDark : Colors.grey.shade100,
+                      color:
+                          isDark ? AppTheme.surfaceDark : Colors.grey.shade100,
                       borderRadius: BorderRadius.circular(10),
-                      border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                      border: Border.all(
+                          color: isDark
+                              ? AppTheme.borderDark
+                              : AppTheme.borderLight),
                     ),
                     padding: const EdgeInsets.all(4),
                     child: Row(
@@ -147,7 +160,9 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
-                                color: _connectionMode == 0 ? AppTheme.primary : Colors.transparent,
+                                color: _connectionMode == 0
+                                    ? AppTheme.primary
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -158,7 +173,9 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                                   fontWeight: FontWeight.w700,
                                   color: _connectionMode == 0
                                       ? Colors.white
-                                      : (isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                                      : (isDark
+                                          ? AppTheme.textMutedDark
+                                          : AppTheme.textMutedLight),
                                 ),
                               ),
                             ),
@@ -171,7 +188,9 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                             child: Container(
                               padding: const EdgeInsets.symmetric(vertical: 8),
                               decoration: BoxDecoration(
-                                color: _connectionMode == 1 ? AppTheme.primary : Colors.transparent,
+                                color: _connectionMode == 1
+                                    ? AppTheme.primary
+                                    : Colors.transparent,
                                 borderRadius: BorderRadius.circular(8),
                               ),
                               child: Text(
@@ -182,7 +201,9 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                                   fontWeight: FontWeight.w700,
                                   color: _connectionMode == 1
                                       ? Colors.white
-                                      : (isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                                      : (isDark
+                                          ? AppTheme.textMutedDark
+                                          : AppTheme.textMutedLight),
                                 ),
                               ),
                             ),
@@ -197,12 +218,17 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                     // PIN PAIRING MODE
                     const Text(
                       'Counter Pairing PIN',
-                      style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
+                      style:
+                          TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
                     ),
                     const SizedBox(height: 4),
                     Text(
                       'Enter the 6-digit PIN shown under Settings → Terminal Pairing on the counter POS.',
-                      style: TextStyle(fontSize: 11, color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: isDark
+                              ? AppTheme.textMutedDark
+                              : AppTheme.textMutedLight),
                     ),
                     const SizedBox(height: 12),
                     TextField(
@@ -231,16 +257,19 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                         decoration: BoxDecoration(
                           color: AppTheme.danger.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.danger.withOpacity(0.3)),
+                          border: Border.all(
+                              color: AppTheme.danger.withOpacity(0.3)),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.error_outline, color: AppTheme.danger, size: 18),
+                            const Icon(Icons.error_outline,
+                                color: AppTheme.danger, size: 18),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 _pairError!,
-                                style: const TextStyle(color: AppTheme.danger, fontSize: 12),
+                                style: const TextStyle(
+                                    color: AppTheme.danger, fontSize: 12),
                               ),
                             ),
                           ],
@@ -255,15 +284,19 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                             ? const SizedBox(
                                 width: 18,
                                 height: 18,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2),
                               )
                             : const Icon(Icons.phonelink_setup, size: 20),
-                        label: Text(_isPairing ? 'Pairing...' : 'Pair Device Now'),
+                        label:
+                            Text(_isPairing ? 'Pairing...' : 'Pair Device Now'),
                       ),
                     ),
                   ] else ...[
                     // LOCAL IP MODE
-                    const Text('Server IP / Hostname', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    const Text('Server IP / Hostname',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13)),
                     const SizedBox(height: 6),
                     TextField(
                       controller: _hostController,
@@ -275,7 +308,9 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    const Text('Port', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
+                    const Text('Port',
+                        style: TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 13)),
                     const SizedBox(height: 6),
                     Row(
                       children: [
@@ -310,16 +345,19 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                         decoration: BoxDecoration(
                           color: AppTheme.danger.withOpacity(0.1),
                           borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: AppTheme.danger.withOpacity(0.3)),
+                          border: Border.all(
+                              color: AppTheme.danger.withOpacity(0.3)),
                         ),
                         child: Row(
                           children: [
-                            const Icon(Icons.error_outline, color: AppTheme.danger, size: 18),
+                            const Icon(Icons.error_outline,
+                                color: AppTheme.danger, size: 18),
                             const SizedBox(width: 8),
                             Expanded(
                               child: Text(
                                 config.errorMessage!,
-                                style: const TextStyle(color: AppTheme.danger, fontSize: 12),
+                                style: const TextStyle(
+                                    color: AppTheme.danger, fontSize: 12),
                               ),
                             ),
                           ],
@@ -333,13 +371,15 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                             ? null
                             : () async {
                                 await config.setHost(_hostController.text);
-                                await config.setPort(int.tryParse(_portController.text) ?? 3003);
+                                await config.setPort(
+                                    int.tryParse(_portController.text) ?? 3003);
                                 await config.setDemoMode(false);
                                 final ok = await config.testConnection();
                                 if (ok && mounted) {
                                   Navigator.pushReplacement(
                                     context,
-                                    MaterialPageRoute(builder: (_) => const LoginScreen()),
+                                    MaterialPageRoute(
+                                        builder: (_) => const LoginScreen()),
                                   );
                                 }
                               },
@@ -347,7 +387,8 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                             ? const SizedBox(
                                 width: 20,
                                 height: 20,
-                                child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2),
+                                child: CircularProgressIndicator(
+                                    color: Colors.white, strokeWidth: 2),
                               )
                             : const Text('Test & Connect'),
                       ),
@@ -357,18 +398,28 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                   const SizedBox(height: 24),
                   Row(
                     children: [
-                      Expanded(child: Divider(color: isDark ? AppTheme.borderDark : AppTheme.borderLight)),
+                      Expanded(
+                          child: Divider(
+                              color: isDark
+                                  ? AppTheme.borderDark
+                                  : AppTheme.borderLight)),
                       Padding(
                         padding: const EdgeInsets.symmetric(horizontal: 12),
                         child: Text(
                           'OR',
                           style: TextStyle(
                             fontSize: 12,
-                            color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                            color: isDark
+                                ? AppTheme.textMutedDark
+                                : AppTheme.textMutedLight,
                           ),
                         ),
                       ),
-                      Expanded(child: Divider(color: isDark ? AppTheme.borderDark : AppTheme.borderLight)),
+                      Expanded(
+                          child: Divider(
+                              color: isDark
+                                  ? AppTheme.borderDark
+                                  : AppTheme.borderLight)),
                     ],
                   ),
                   const SizedBox(height: 20),
@@ -382,18 +433,22 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                         if (mounted) {
                           Navigator.pushReplacement(
                             context,
-                            MaterialPageRoute(builder: (_) => const LoginScreen()),
+                            MaterialPageRoute(
+                                builder: (_) => const LoginScreen()),
                           );
                         }
                       },
-                      icon: const Icon(Icons.play_circle_fill_rounded, color: AppTheme.primary),
+                      icon: const Icon(Icons.play_circle_fill_rounded,
+                          color: AppTheme.primary),
                       label: const Text(
                         'Launch Demo Mode (Offline)',
                         style: TextStyle(fontWeight: FontWeight.w700),
                       ),
                       style: OutlinedButton.styleFrom(
-                        side: const BorderSide(color: AppTheme.primary, width: 1.5),
-                        backgroundColor: AppTheme.primaryLight.withOpacity(isDark ? 0.1 : 0.4),
+                        side: const BorderSide(
+                            color: AppTheme.primary, width: 1.5),
+                        backgroundColor: AppTheme.primaryLight
+                            .withOpacity(isDark ? 0.1 : 0.4),
                       ),
                     ),
                   ),
@@ -402,7 +457,9 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                     'Full smartphone and tablet interactive demo with mock menu, tables, KDS tickets, and cashier checkout.',
                     style: TextStyle(
                       fontSize: 11,
-                      color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                      color: isDark
+                          ? AppTheme.textMutedDark
+                          : AppTheme.textMutedLight,
                     ),
                     textAlign: TextAlign.center,
                   ),

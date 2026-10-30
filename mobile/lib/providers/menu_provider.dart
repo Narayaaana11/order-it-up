@@ -25,12 +25,15 @@ class MenuProvider extends ChangeNotifier {
   List<ProductModel> get filteredProducts {
     return _products.where((product) {
       // Category filter
-      final matchesCategory = _selectedCategoryId == 'all' || product.categoryId == _selectedCategoryId;
+      final matchesCategory = _selectedCategoryId == 'all' ||
+          product.categoryId == _selectedCategoryId;
 
       // Search query filter
       final matchesSearch = _searchQuery.isEmpty ||
           product.name.toLowerCase().contains(_searchQuery.toLowerCase()) ||
-          product.description.toLowerCase().contains(_searchQuery.toLowerCase());
+          product.description
+              .toLowerCase()
+              .contains(_searchQuery.toLowerCase());
 
       // Veg filter
       final matchesDiet = !_vegOnlyFilter || product.isVeg;

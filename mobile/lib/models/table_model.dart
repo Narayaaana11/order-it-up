@@ -33,7 +33,9 @@ class TableModel {
     double? orderTot;
 
     if (activeOrder is Map<String, dynamic>) {
-      orderId = activeOrder['id'] != null ? int.tryParse(activeOrder['id'].toString()) : null;
+      orderId = activeOrder['id'] != null
+          ? int.tryParse(activeOrder['id'].toString())
+          : null;
       orderNum = activeOrder['order_number']?.toString();
       orderTot = activeOrder['total_amount'] != null
           ? double.tryParse(activeOrder['total_amount'].toString())
@@ -42,13 +44,16 @@ class TableModel {
 
     final rawStatus = json['status']?.toString().toLowerCase() ?? 'available';
     // If order exists and status was available, treat as occupied
-    final finalStatus = (orderId != null && rawStatus == 'available') ? 'occupied' : rawStatus;
+    final finalStatus =
+        (orderId != null && rawStatus == 'available') ? 'occupied' : rawStatus;
 
     return TableModel(
       id: json['id']?.toString() ?? '',
       number: json['number']?.toString() ?? json['name']?.toString() ?? 'T-?',
       capacity: int.tryParse(json['capacity']?.toString() ?? '4') ?? 4,
-      section: json['section']?.toString() ?? json['floor']?.toString() ?? 'Main Dining',
+      section: json['section']?.toString() ??
+          json['floor']?.toString() ??
+          'Main Dining',
       status: finalStatus,
       activeOrderId: orderId,
       activeOrderNumber: orderNum,

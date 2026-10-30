@@ -52,7 +52,8 @@ class ApiService {
     if (isDemoMode) {
       if (email.contains('cashier')) return MockDataService.mockCashierUser;
       if (email.contains('chef')) return MockDataService.mockChefUser;
-      if (email.contains('manager') || email.contains('owner')) return MockDataService.mockManagerUser;
+      if (email.contains('manager') || email.contains('owner'))
+        return MockDataService.mockManagerUser;
       return MockDataService.mockWaiterUser;
     }
 
@@ -74,7 +75,8 @@ class ApiService {
     if (isDemoMode) return MockDataService.getCategories();
 
     try {
-      final res = await apiClient.get('/api/categories', queryParams: {'active': 'true'});
+      final res = await apiClient
+          .get('/api/categories', queryParams: {'active': 'true'});
       if (res is Map && res['categories'] is List) {
         return (res['categories'] as List)
             .map((c) => CategoryModel.fromJson(c as Map<String, dynamic>))
@@ -90,7 +92,8 @@ class ApiService {
     if (isDemoMode) return _demoProducts;
 
     try {
-      final res = await apiClient.get('/api/products', queryParams: {'active': 'true'});
+      final res =
+          await apiClient.get('/api/products', queryParams: {'active': 'true'});
       if (res is Map && res['products'] is List) {
         return (res['products'] as List)
             .map((p) => ProductModel.fromJson(p as Map<String, dynamic>))
@@ -106,7 +109,8 @@ class ApiService {
     if (isDemoMode) return _demoTables;
 
     try {
-      final res = await apiClient.get('/api/tables', queryParams: {'active': 'true'});
+      final res =
+          await apiClient.get('/api/tables', queryParams: {'active': 'true'});
       if (res is Map && res['tables'] is List) {
         return (res['tables'] as List)
             .map((t) => TableModel.fromJson(t as Map<String, dynamic>))
@@ -136,8 +140,11 @@ class ApiService {
         'status': 'pending,preparing,ready',
         'per_page': '1',
       });
-      if (res is Map && res['orders'] is List && (res['orders'] as List).isNotEmpty) {
-        return OrderModel.fromJson((res['orders'] as List).first as Map<String, dynamic>);
+      if (res is Map &&
+          res['orders'] is List &&
+          (res['orders'] as List).isNotEmpty) {
+        return OrderModel.fromJson(
+            (res['orders'] as List).first as Map<String, dynamic>);
       }
       return null;
     } catch (_) {
@@ -166,7 +173,9 @@ class ApiService {
           .toList();
 
       final tableIndex = _demoTables.indexWhere((t) => t.id == tableId);
-      final tableName = tableIndex != null && tableIndex >= 0 ? _demoTables[tableIndex].number : 'Table';
+      final tableName = tableIndex != null && tableIndex >= 0
+          ? _demoTables[tableIndex].number
+          : 'Table';
 
       if (existingOrderId != null) {
         // Append items to existing order
@@ -174,7 +183,8 @@ class ApiService {
         if (orderIdx >= 0) {
           final updated = _demoOrders[orderIdx];
           final combined = [...updated.items, ...newItems];
-          final newTot = combined.fold<double>(0.0, (sum, i) => sum + (i.unitPrice * i.quantity));
+          final newTot = combined.fold<double>(
+              0.0, (sum, i) => sum + (i.unitPrice * i.quantity));
           _demoOrders[orderIdx] = OrderModel(
             id: updated.id,
             orderNumber: updated.orderNumber,
@@ -189,7 +199,8 @@ class ApiService {
       } else {
         // Create new order
         final newOrderId = 100 + _demoOrders.length + 1;
-        final total = newItems.fold<double>(0.0, (sum, i) => sum + (i.unitPrice * i.quantity));
+        final total = newItems.fold<double>(
+            0.0, (sum, i) => sum + (i.unitPrice * i.quantity));
         final newOrder = OrderModel(
           id: newOrderId,
           orderNumber: '#ORD-$newOrderId',
@@ -264,7 +275,8 @@ class ApiService {
   Future<List<OrderModel>> getAllOrders() async {
     if (isDemoMode) return _demoOrders;
     try {
-      final res = await apiClient.get('/api/orders', queryParams: {'limit': '50'});
+      final res =
+          await apiClient.get('/api/orders', queryParams: {'limit': '50'});
       if (res is Map && res['orders'] is List) {
         return (res['orders'] as List)
             .map((o) => OrderModel.fromJson(o as Map<String, dynamic>))
@@ -319,7 +331,9 @@ class ApiService {
         body: {
           'amount': amount,
           'payment_method': paymentMethod,
-          'external_reference_id': paymentMethod != 'cash' ? 'MOB-${DateTime.now().millisecondsSinceEpoch}' : null,
+          'external_reference_id': paymentMethod != 'cash'
+              ? 'MOB-${DateTime.now().millisecondsSinceEpoch}'
+              : null,
         },
         withIdempotency: true,
       );
@@ -361,13 +375,18 @@ class ApiService {
           final map = t as Map<String, dynamic>;
           final itemsRaw = map['items'] ?? [];
           return KdsTicketModel(
-            id: int.tryParse(map['id']?.toString() ?? '0') ?? (DateTime.now().millisecondsSinceEpoch % 100000),
+            id: int.tryParse(map['id']?.toString() ?? '0') ??
+                (DateTime.now().millisecondsSinceEpoch % 100000),
             orderNumber: map['ticket_number']?.toString() ?? '#ORD',
             tableNumber: map['station']?.toString() ?? 'Main Kitchen',
-            createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ?? DateTime.now(),
+            createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ??
+                DateTime.now(),
             status: map['status']?.toString().toLowerCase() ?? 'waiting',
             items: itemsRaw is List
-                ? itemsRaw.map((i) => OrderItemModel.fromJson(i as Map<String, dynamic>)).toList()
+                ? itemsRaw
+                    .map((i) =>
+                        OrderItemModel.fromJson(i as Map<String, dynamic>))
+                    .toList()
                 : [],
           );
         }).toList();
@@ -391,7 +410,8 @@ class ApiService {
             id: int.tryParse(map['id']?.toString() ?? '0') ?? 0,
             orderNumber: map['order_number']?.toString() ?? '#ORD',
             tableNumber: map['table_name']?.toString() ?? 'Dine-In',
-            createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ?? DateTime.now(),
+            createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ??
+                DateTime.now(),
             status: map['status']?.toString().toLowerCase() ?? 'waiting',
             items: (map['items'] as List? ?? [])
                 .map((i) => OrderItemModel.fromJson(i as Map<String, dynamic>))
@@ -420,14 +440,15 @@ class ApiService {
 
     try {
       // 1. Try Cloud operational kitchen bump
-      await apiClient.patch('/api/kitchen/tickets/$ticketId/status', body: {'status': newStatus});
+      await apiClient.patch('/api/kitchen/tickets/$ticketId/status',
+          body: {'status': newStatus});
     } catch (_) {
       // 2. Fallback: Local LAN desktop /api/kds
       try {
-        await apiClient.put('/api/kds/$ticketId/status', body: {'status': newStatus});
+        await apiClient
+            .put('/api/kds/$ticketId/status', body: {'status': newStatus});
       } catch (_) {}
     }
-    } catch (_) {}
   }
 
   void toggleProductAvailability(String productId) {
@@ -444,7 +465,10 @@ class ApiService {
     try {
       final res = await apiClient.get('/api/held-orders');
       if (res is List) {
-        return res.map((item) => HeldOrderModel.fromJson(item as Map<String, dynamic>)).toList();
+        return res
+            .map(
+                (item) => HeldOrderModel.fromJson(item as Map<String, dynamic>))
+            .toList();
       }
       return _demoHeldOrders;
     } catch (_) {
@@ -481,7 +505,9 @@ class ApiService {
     try {
       final res = await apiClient.get('/api/customers');
       if (res is Map && res['customers'] is List) {
-        return (res['customers'] as List).map((c) => CustomerModel.fromJson(c as Map<String, dynamic>)).toList();
+        return (res['customers'] as List)
+            .map((c) => CustomerModel.fromJson(c as Map<String, dynamic>))
+            .toList();
       }
       return _demoCustomers;
     } catch (_) {
@@ -492,13 +518,15 @@ class ApiService {
   Future<CustomerModel?> lookupCustomerByPhone(String phone) async {
     if (isDemoMode) {
       try {
-        return _demoCustomers.firstWhere((c) => c.phone.contains(phone) || phone.contains(c.phone));
+        return _demoCustomers.firstWhere(
+            (c) => c.phone.contains(phone) || phone.contains(c.phone));
       } catch (_) {
         return null;
       }
     }
     try {
-      final res = await apiClient.get('/api/crm/lookup', queryParams: {'phone': phone});
+      final res =
+          await apiClient.get('/api/crm/lookup', queryParams: {'phone': phone});
       if (res is Map && res['customer'] != null) {
         return CustomerModel.fromJson(res['customer'] as Map<String, dynamic>);
       }
@@ -508,7 +536,8 @@ class ApiService {
     }
   }
 
-  Future<CustomerModel?> createCustomer({required String name, required String phone, String? email}) async {
+  Future<CustomerModel?> createCustomer(
+      {required String name, required String phone, String? email}) async {
     if (isDemoMode) {
       final newCust = CustomerModel(
         id: 'cust-${DateTime.now().millisecondsSinceEpoch}',
@@ -523,7 +552,8 @@ class ApiService {
       return newCust;
     }
     try {
-      final res = await apiClient.post('/api/customers', body: {'name': name, 'phone': phone, 'email': email});
+      final res = await apiClient.post('/api/customers',
+          body: {'name': name, 'phone': phone, 'email': email});
       if (res is Map && res['customer'] != null) {
         return CustomerModel.fromJson(res['customer'] as Map<String, dynamic>);
       }
@@ -539,7 +569,9 @@ class ApiService {
     try {
       final res = await apiClient.get('/api/inventory/ingredients');
       if (res is Map && res['ingredients'] is List) {
-        return (res['ingredients'] as List).map((i) => IngredientModel.fromJson(i as Map<String, dynamic>)).toList();
+        return (res['ingredients'] as List)
+            .map((i) => IngredientModel.fromJson(i as Map<String, dynamic>))
+            .toList();
       }
       return _demoIngredients;
     } catch (_) {
@@ -551,7 +583,8 @@ class ApiService {
     final idx = _demoIngredients.indexWhere((i) => i.id == id);
     if (idx >= 0) {
       final current = _demoIngredients[idx];
-      _demoIngredients[idx] = current.copyWith(currentStock: current.currentStock + deltaStock);
+      _demoIngredients[idx] =
+          current.copyWith(currentStock: current.currentStock + deltaStock);
     }
   }
 
@@ -561,7 +594,9 @@ class ApiService {
     try {
       final res = await apiClient.get('/api/cash-closures');
       if (res is Map && res['closures'] is List) {
-        return (res['closures'] as List).map((c) => CashClosureModel.fromJson(c as Map<String, dynamic>)).toList();
+        return (res['closures'] as List)
+            .map((c) => CashClosureModel.fromJson(c as Map<String, dynamic>))
+            .toList();
       }
       return _demoClosures;
     } catch (_) {
@@ -598,7 +633,8 @@ class ApiService {
         'notes': notes,
       });
       if (res is Map && res['closure'] != null) {
-        return CashClosureModel.fromJson(res['closure'] as Map<String, dynamic>);
+        return CashClosureModel.fromJson(
+            res['closure'] as Map<String, dynamic>);
       }
       return null;
     } catch (_) {
@@ -612,7 +648,9 @@ class ApiService {
     try {
       final res = await apiClient.get('/api/reservations');
       if (res is Map && res['reservations'] is List) {
-        return (res['reservations'] as List).map((r) => ReservationModel.fromJson(r as Map<String, dynamic>)).toList();
+        return (res['reservations'] as List)
+            .map((r) => ReservationModel.fromJson(r as Map<String, dynamic>))
+            .toList();
       }
       return _demoReservations;
     } catch (_) {
@@ -723,14 +761,16 @@ class ApiService {
 
   Future<List<Map<String, dynamic>>> fetchCloudCatalog() async {
     if (isDemoMode) {
-      return _demoProducts.map((p) => {
-        'id': p.id,
-        'name': p.name,
-        'category': p.category,
-        'basePrice': p.price,
-        'overridePrice': null,
-        'isAvailable': p.isAvailable,
-      }).toList();
+      return _demoProducts
+          .map((p) => {
+                'id': p.id,
+                'name': p.name,
+                'category': p.category,
+                'basePrice': p.price,
+                'overridePrice': null,
+                'isAvailable': p.isAvailable,
+              })
+          .toList();
     }
     try {
       final res = await apiClient.get('/api/cloud/catalog');
@@ -743,7 +783,8 @@ class ApiService {
     }
   }
 
-  Future<bool> saveCatalogOverride(String productId, double? priceOverride, bool? isAvailable) async {
+  Future<bool> saveCatalogOverride(
+      String productId, double? priceOverride, bool? isAvailable) async {
     if (isDemoMode) return true;
     try {
       await apiClient.post('/api/cloud/catalog/override', body: {
@@ -818,7 +859,8 @@ class ApiService {
   Future<bool> updateStockTransferStatus(String id, String status) async {
     if (isDemoMode) return true;
     try {
-      await apiClient.patch('/api/cloud/transfers/$id/status', body: {'status': status});
+      await apiClient
+          .patch('/api/cloud/transfers/$id/status', body: {'status': status});
       return true;
     } catch (_) {
       return false;
@@ -837,7 +879,8 @@ class ApiService {
       };
     }
     try {
-      final res = await apiClient.post('/api/pos/pair', body: {'code': cleanPin});
+      final res =
+          await apiClient.post('/api/pos/pair', body: {'code': cleanPin});
       if (res is Map<String, dynamic>) return res;
       return null;
     } catch (_) {
@@ -856,7 +899,8 @@ class ApiService {
   }
 
   // ── Reports & Sales Analytics ──────────────────────────────────────
-  Future<Map<String, dynamic>> fetchReportsSummary({String? startDate, String? endDate}) async {
+  Future<Map<String, dynamic>> fetchReportsSummary(
+      {String? startDate, String? endDate}) async {
     if (isDemoMode) {
       return {
         'grossCollected': 142500.0,
@@ -870,8 +914,16 @@ class ApiService {
           {'method': 'Credit / Debit Card', 'total': 25800.0, 'count': 60},
         ],
         'topProducts': [
-          {'name': 'Butter Chicken Biryani Box', 'qty': 112, 'revenue': 42000.0},
-          {'name': 'Woodfired Truffle Margherita', 'qty': 94, 'revenue': 46060.0},
+          {
+            'name': 'Butter Chicken Biryani Box',
+            'qty': 112,
+            'revenue': 42000.0
+          },
+          {
+            'name': 'Woodfired Truffle Margherita',
+            'qty': 94,
+            'revenue': 46060.0
+          },
           {'name': 'Iced Hazelnut Cold Brew', 'qty': 156, 'revenue': 34320.0},
           {'name': 'Tandoori Paneer Tikka', 'qty': 78, 'revenue': 27300.0},
         ],
@@ -890,16 +942,45 @@ class ApiService {
   Future<List<Map<String, dynamic>>> fetchExpenses() async {
     if (isDemoMode) {
       return [
-        {'id': 'exp-1', 'category': 'Raw Ingredients', 'amount': 8500.0, 'payment_method': 'Cash', 'description': 'Fresh dairy & paneer supply', 'date': 'Today, 10:30 AM'},
-        {'id': 'exp-2', 'category': 'Utilities & Gas', 'amount': 4200.0, 'payment_method': 'UPI', 'description': 'Commercial LPG cylinders (2)', 'date': 'Today, 09:15 AM'},
-        {'id': 'exp-3', 'category': 'Staff Welfare', 'amount': 1200.0, 'payment_method': 'Cash', 'description': 'Kitchen staff evening snacks', 'date': 'Yesterday'},
-        {'id': 'exp-4', 'category': 'Maintenance', 'amount': 2500.0, 'payment_method': 'Cash', 'description': 'Espresso steam wand repair', 'date': 'Yesterday'},
+        {
+          'id': 'exp-1',
+          'category': 'Raw Ingredients',
+          'amount': 8500.0,
+          'payment_method': 'Cash',
+          'description': 'Fresh dairy & paneer supply',
+          'date': 'Today, 10:30 AM'
+        },
+        {
+          'id': 'exp-2',
+          'category': 'Utilities & Gas',
+          'amount': 4200.0,
+          'payment_method': 'UPI',
+          'description': 'Commercial LPG cylinders (2)',
+          'date': 'Today, 09:15 AM'
+        },
+        {
+          'id': 'exp-3',
+          'category': 'Staff Welfare',
+          'amount': 1200.0,
+          'payment_method': 'Cash',
+          'description': 'Kitchen staff evening snacks',
+          'date': 'Yesterday'
+        },
+        {
+          'id': 'exp-4',
+          'category': 'Maintenance',
+          'amount': 2500.0,
+          'payment_method': 'Cash',
+          'description': 'Espresso steam wand repair',
+          'date': 'Yesterday'
+        },
       ];
     }
     try {
       final res = await apiClient.get('/api/expenses');
       if (res is List) return res.cast<Map<String, dynamic>>();
-      if (res is Map && res['expenses'] is List) return (res['expenses'] as List).cast<Map<String, dynamic>>();
+      if (res is Map && res['expenses'] is List)
+        return (res['expenses'] as List).cast<Map<String, dynamic>>();
       return [];
     } catch (_) {
       return [];
@@ -998,14 +1079,50 @@ class ApiService {
     if (isDemoMode) {
       return {
         'prepItems': [
-          {'item': 'Makhani Gravy Base', 'station': 'Curry Station', 'batches': 4, 'unit': 'liters', 'urgency': 'CRITICAL', 'reason': 'High dinner biryani demand expected (Friday peak)'},
-          {'item': 'Fermented Pizza Dough Balls', 'station': 'Oven Station', 'batches': 35, 'unit': 'balls', 'urgency': 'HIGH', 'reason': 'Woodfired Margherita stock depleted to 6 portions'},
-          {'item': 'Cold Brew Infusion Concentrate', 'station': 'Bar Station', 'batches': 8, 'unit': 'liters', 'urgency': 'NORMAL', 'reason': '18-hour steep time required for tomorrow morning rush'},
+          {
+            'item': 'Makhani Gravy Base',
+            'station': 'Curry Station',
+            'batches': 4,
+            'unit': 'liters',
+            'urgency': 'CRITICAL',
+            'reason': 'High dinner biryani demand expected (Friday peak)'
+          },
+          {
+            'item': 'Fermented Pizza Dough Balls',
+            'station': 'Oven Station',
+            'batches': 35,
+            'unit': 'balls',
+            'urgency': 'HIGH',
+            'reason': 'Woodfired Margherita stock depleted to 6 portions'
+          },
+          {
+            'item': 'Cold Brew Infusion Concentrate',
+            'station': 'Bar Station',
+            'batches': 8,
+            'unit': 'liters',
+            'urgency': 'NORMAL',
+            'reason': '18-hour steep time required for tomorrow morning rush'
+          },
         ],
         'menuMatrix': [
-          {'name': 'Woodfired Truffle Margherita', 'category': 'Star', 'advice': 'High margin, high volume. Keep ingredients heavily prepped.'},
-          {'name': 'Butter Chicken Biryani Box', 'category': 'Plowhorse', 'advice': 'High volume, moderate margin. Consider pairing with beverage.'},
-          {'name': 'Truffle Oil Fries', 'category': 'Puzzle', 'advice': 'High margin, lower volume. Train servers to recommend as starter.'},
+          {
+            'name': 'Woodfired Truffle Margherita',
+            'category': 'Star',
+            'advice':
+                'High margin, high volume. Keep ingredients heavily prepped.'
+          },
+          {
+            'name': 'Butter Chicken Biryani Box',
+            'category': 'Plowhorse',
+            'advice':
+                'High volume, moderate margin. Consider pairing with beverage.'
+          },
+          {
+            'name': 'Truffle Oil Fries',
+            'category': 'Puzzle',
+            'advice':
+                'High margin, lower volume. Train servers to recommend as starter.'
+          },
         ],
         'peakRushHour': '08:30 PM - 10:15 PM (Estimated +24% volume)',
       };
@@ -1023,10 +1140,38 @@ class ApiService {
   Future<List<Map<String, dynamic>>> fetchStaffMembers() async {
     if (isDemoMode) {
       return [
-        {'id': 'st-1', 'name': 'Rajesh Kumar', 'email': 'rajesh@orderitup.com', 'role': 'manager', 'active': true, 'pin': '••••'},
-        {'id': 'st-2', 'name': 'Ananya Roy', 'email': 'ananya@orderitup.com', 'role': 'cashier', 'active': true, 'pin': '••••'},
-        {'id': 'st-3', 'name': 'Vikram Singh', 'email': 'vikram@orderitup.com', 'role': 'server', 'active': true, 'pin': '••••'},
-        {'id': 'st-4', 'name': 'Sanjay Chef', 'email': 'chef@orderitup.com', 'role': 'chef', 'active': true, 'pin': '••••'},
+        {
+          'id': 'st-1',
+          'name': 'Rajesh Kumar',
+          'email': 'rajesh@orderitup.com',
+          'role': 'manager',
+          'active': true,
+          'pin': '••••'
+        },
+        {
+          'id': 'st-2',
+          'name': 'Ananya Roy',
+          'email': 'ananya@orderitup.com',
+          'role': 'cashier',
+          'active': true,
+          'pin': '••••'
+        },
+        {
+          'id': 'st-3',
+          'name': 'Vikram Singh',
+          'email': 'vikram@orderitup.com',
+          'role': 'server',
+          'active': true,
+          'pin': '••••'
+        },
+        {
+          'id': 'st-4',
+          'name': 'Sanjay Chef',
+          'email': 'chef@orderitup.com',
+          'role': 'chef',
+          'active': true,
+          'pin': '••••'
+        },
       ];
     }
     try {
@@ -1047,9 +1192,27 @@ class ApiService {
         'phone': '+91 98765 43210',
         'billsSentToday': 142,
         'recentLogs': [
-          {'phone': '+91 98112 34567', 'bill': '#ORD-1049', 'amount': '₹890.00', 'time': '5 mins ago', 'status': 'Delivered'},
-          {'phone': '+91 98711 98765', 'bill': '#ORD-1048', 'amount': '₹1,240.00', 'time': '18 mins ago', 'status': 'Delivered'},
-          {'phone': '+91 99100 11223', 'bill': '#ORD-1047', 'amount': '₹450.00', 'time': '32 mins ago', 'status': 'Read'},
+          {
+            'phone': '+91 98112 34567',
+            'bill': '#ORD-1049',
+            'amount': '₹890.00',
+            'time': '5 mins ago',
+            'status': 'Delivered'
+          },
+          {
+            'phone': '+91 98711 98765',
+            'bill': '#ORD-1048',
+            'amount': '₹1,240.00',
+            'time': '18 mins ago',
+            'status': 'Delivered'
+          },
+          {
+            'phone': '+91 99100 11223',
+            'bill': '#ORD-1047',
+            'amount': '₹450.00',
+            'time': '32 mins ago',
+            'status': 'Read'
+          },
         ],
       };
     }

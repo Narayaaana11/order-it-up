@@ -24,9 +24,12 @@ class IngredientModel {
       id: json['id']?.toString() ?? '',
       name: json['name']?.toString() ?? 'Ingredient',
       unit: json['unit']?.toString() ?? 'kg',
-      currentStock: double.tryParse(json['current_stock']?.toString() ?? '0.0') ?? 0.0,
-      minimumStock: double.tryParse(json['minimum_stock']?.toString() ?? '5.0') ?? 5.0,
-      costPerUnit: double.tryParse(json['cost_per_unit']?.toString() ?? '0.0') ?? 0.0,
+      currentStock:
+          double.tryParse(json['current_stock']?.toString() ?? '0.0') ?? 0.0,
+      minimumStock:
+          double.tryParse(json['minimum_stock']?.toString() ?? '5.0') ?? 5.0,
+      costPerUnit:
+          double.tryParse(json['cost_per_unit']?.toString() ?? '0.0') ?? 0.0,
       isActive: json['is_active'] == 1 || json['is_active'] == true,
     );
   }

@@ -13,7 +13,8 @@ class CloudHqScreen extends StatefulWidget {
   State<CloudHqScreen> createState() => _CloudHqScreenState();
 }
 
-class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProviderStateMixin {
+class _CloudHqScreenState extends State<CloudHqScreen>
+    with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
   @override
@@ -47,15 +48,21 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
                 color: AppTheme.primary.withOpacity(0.15),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: const Icon(Icons.corporate_fare, color: AppTheme.primary, size: 20),
+              child: const Icon(Icons.corporate_fare,
+                  color: AppTheme.primary, size: 20),
             ),
             const SizedBox(width: 10),
             const Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text('Franchise Cloud HQ', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis),
-                  Text('Multi-Branch Edge Realtime', style: TextStyle(fontSize: 11, color: Colors.grey), overflow: TextOverflow.ellipsis),
+                  Text('Franchise Cloud HQ',
+                      style:
+                          TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                      overflow: TextOverflow.ellipsis),
+                  Text('Multi-Branch Edge Realtime',
+                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                      overflow: TextOverflow.ellipsis),
                 ],
               ),
             ),
@@ -65,13 +72,20 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
           controller: _tabController,
           isScrollable: true,
           labelColor: AppTheme.primary,
-          unselectedLabelColor: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+          unselectedLabelColor:
+              isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
           indicatorColor: AppTheme.primary,
           tabs: const [
             Tab(icon: Icon(Icons.trending_up, size: 18), text: 'Overview'),
-            Tab(icon: Icon(Icons.receipt_long, size: 18), text: 'Closures & Tax'),
-            Tab(icon: Icon(Icons.restaurant_menu, size: 18), text: 'Catalog Overrides'),
-            Tab(icon: Icon(Icons.compare_arrows, size: 18), text: 'Stock Transfers'),
+            Tab(
+                icon: Icon(Icons.receipt_long, size: 18),
+                text: 'Closures & Tax'),
+            Tab(
+                icon: Icon(Icons.restaurant_menu, size: 18),
+                text: 'Catalog Overrides'),
+            Tab(
+                icon: Icon(Icons.compare_arrows, size: 18),
+                text: 'Stock Transfers'),
           ],
         ),
       ),
@@ -103,15 +117,16 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
                             ),
                             const SizedBox(width: 8),
                             ...hq.branches.map((b) => Padding(
-                              padding: const EdgeInsets.only(right: 8),
-                              child: FilterChip(
-                                label: Text(b.name.split(' ')[0]),
-                                selected: hq.selectedBranchFilter == b.id,
-                                onSelected: (_) => hq.setBranchFilter(b.id),
-                                selectedColor: AppTheme.primary.withOpacity(0.2),
-                                checkmarkColor: AppTheme.primary,
-                              ),
-                            )),
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: FilterChip(
+                                    label: Text(b.name.split(' ')[0]),
+                                    selected: hq.selectedBranchFilter == b.id,
+                                    onSelected: (_) => hq.setBranchFilter(b.id),
+                                    selectedColor:
+                                        AppTheme.primary.withOpacity(0.2),
+                                    checkmarkColor: AppTheme.primary,
+                                  ),
+                                )),
                           ],
                         ),
                       ),
@@ -159,122 +174,170 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
                       const SizedBox(height: 24),
 
                       // Branch Leaderboard
-                      const Text('Branch Sales Leaderboard', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                      const Text('Branch Sales Leaderboard',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
                       const SizedBox(height: 12),
                       ...hq.displayedBranches.map((b) => Container(
-                        margin: const EdgeInsets.only(bottom: 12),
-                        padding: const EdgeInsets.all(14),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
-                          borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
-                        ),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            Row(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.all(14),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppTheme.surfaceDark
+                                  : AppTheme.surfaceLight,
+                              borderRadius: BorderRadius.circular(14),
+                              border: Border.all(
+                                  color: isDark
+                                      ? AppTheme.borderDark
+                                      : AppTheme.borderLight),
+                            ),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.stretch,
+                              children: [
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Row(
+                                        children: [
+                                          Flexible(
+                                            child: Text(
+                                              b.name,
+                                              style: const TextStyle(
+                                                  fontWeight: FontWeight.bold,
+                                                  fontSize: 14),
+                                              overflow: TextOverflow.ellipsis,
+                                            ),
+                                          ),
+                                          if (b.isMain) ...[
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding:
+                                                  const EdgeInsets.symmetric(
+                                                      horizontal: 6,
+                                                      vertical: 2),
+                                              decoration: BoxDecoration(
+                                                color: AppTheme.primary
+                                                    .withOpacity(0.15),
+                                                borderRadius:
+                                                    BorderRadius.circular(4),
+                                              ),
+                                              child: const Text('HQ',
+                                                  style: TextStyle(
+                                                      fontSize: 10,
+                                                      color: AppTheme.primary,
+                                                      fontWeight:
+                                                          FontWeight.bold)),
+                                            ),
+                                          ],
+                                        ],
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(currencyFmt.format(b.revenue),
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 14)),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(4),
+                                  child: LinearProgressIndicator(
+                                    value: (b.sharePercent / 100.0)
+                                        .clamp(0.05, 1.0),
+                                    minHeight: 6,
+                                    backgroundColor:
+                                        Colors.grey.withOpacity(0.2),
+                                    valueColor: const AlwaysStoppedAnimation(
+                                        AppTheme.primary),
+                                  ),
+                                ),
+                                const SizedBox(height: 6),
+                                Row(
+                                  mainAxisAlignment:
+                                      MainAxisAlignment.spaceBetween,
+                                  children: [
+                                    Expanded(
+                                      child: Text(
+                                        '${b.orders} orders • Avg: ₹${b.avgTicket.toStringAsFixed(0)}',
+                                        style: const TextStyle(
+                                            fontSize: 11, color: Colors.grey),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
+                                    ),
+                                    const SizedBox(width: 6),
+                                    Text('${b.sharePercent}% share',
+                                        style: const TextStyle(
+                                            fontSize: 11, color: Colors.grey)),
+                                  ],
+                                ),
+                              ],
+                            ),
+                          )),
+                      const SizedBox(height: 16),
+
+                      // Item Velocity Matrix
+                      const Text('Top-Selling Item Velocity',
+                          style: TextStyle(
+                              fontSize: 16, fontWeight: FontWeight.bold)),
+                      const SizedBox(height: 12),
+                      ...hq.topItems.map((item) => Container(
+                            margin: const EdgeInsets.only(bottom: 8),
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? AppTheme.surfaceDark
+                                  : AppTheme.surfaceLight,
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                  color: isDark
+                                      ? AppTheme.borderDark
+                                      : AppTheme.borderLight),
+                            ),
+                            child: Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
                               children: [
                                 Expanded(
-                                  child: Row(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
                                     children: [
-                                      Flexible(
-                                        child: Text(
-                                          b.name,
-                                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                          overflow: TextOverflow.ellipsis,
-                                        ),
+                                      Text(
+                                        item.name,
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.w600,
+                                            fontSize: 13),
+                                        overflow: TextOverflow.ellipsis,
                                       ),
-                                      if (b.isMain) ...[
-                                        const SizedBox(width: 6),
-                                        Container(
-                                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                          decoration: BoxDecoration(
-                                            color: AppTheme.primary.withOpacity(0.15),
-                                            borderRadius: BorderRadius.circular(4),
-                                          ),
-                                          child: const Text('HQ', style: TextStyle(fontSize: 10, color: AppTheme.primary, fontWeight: FontWeight.bold)),
-                                        ),
-                                      ],
+                                      Text(
+                                        '${item.category} • Top in ${item.topBranch}',
+                                        style: const TextStyle(
+                                            fontSize: 11, color: Colors.grey),
+                                        overflow: TextOverflow.ellipsis,
+                                      ),
                                     ],
                                   ),
                                 ),
                                 const SizedBox(width: 8),
-                                Text(currencyFmt.format(b.revenue), style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
-                              ],
-                            ),
-                            const SizedBox(height: 8),
-                            ClipRRect(
-                              borderRadius: BorderRadius.circular(4),
-                              child: LinearProgressIndicator(
-                                value: (b.sharePercent / 100.0).clamp(0.05, 1.0),
-                                minHeight: 6,
-                                backgroundColor: Colors.grey.withOpacity(0.2),
-                                valueColor: const AlwaysStoppedAnimation(AppTheme.primary),
-                              ),
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Expanded(
-                                  child: Text(
-                                    '${b.orders} orders • Avg: ₹${b.avgTicket.toStringAsFixed(0)}',
-                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
+                                Column(
+                                  crossAxisAlignment: CrossAxisAlignment.end,
+                                  children: [
+                                    Text('${item.totalQty} sold',
+                                        style: const TextStyle(
+                                            fontWeight: FontWeight.bold,
+                                            fontSize: 13)),
+                                    Text(currencyFmt.format(item.totalRev),
+                                        style: const TextStyle(
+                                            fontSize: 11,
+                                            color: Colors.green,
+                                            fontWeight: FontWeight.w600)),
+                                  ],
                                 ),
-                                const SizedBox(width: 6),
-                                Text('${b.sharePercent}% share', style: const TextStyle(fontSize: 11, color: Colors.grey)),
                               ],
                             ),
-                          ],
-                        ),
-                      )),
-                      const SizedBox(height: 16),
-
-                      // Item Velocity Matrix
-                      const Text('Top-Selling Item Velocity', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 12),
-                      ...hq.topItems.map((item) => Container(
-                        margin: const EdgeInsets.only(bottom: 8),
-                        padding: const EdgeInsets.all(12),
-                        decoration: BoxDecoration(
-                          color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
-                          borderRadius: BorderRadius.circular(12),
-                          border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    item.name,
-                                    style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  Text(
-                                    '${item.category} • Top in ${item.topBranch}',
-                                    style: const TextStyle(fontSize: 11, color: Colors.grey),
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 8),
-                            Column(
-                              crossAxisAlignment: CrossAxisAlignment.end,
-                              children: [
-                                Text('${item.totalQty} sold', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
-                                Text(currencyFmt.format(item.totalRev), style: const TextStyle(fontSize: 11, color: Colors.green, fontWeight: FontWeight.w600)),
-                              ],
-                            ),
-                          ],
-                        ),
-                      )),
+                          )),
                     ],
                   ),
                 ),
@@ -286,7 +349,9 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('Daily Shift Closures & Variances', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const Text('Daily Shift Closures & Variances',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 12),
                     _buildClosureCard(
                       date: '2026-10-12',
@@ -313,14 +378,21 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
                       currencyFmt: currencyFmt,
                     ),
                     const SizedBox(height: 20),
-                    const Text('GST & Tax Breakdown', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                    const Text('GST & Tax Breakdown',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
                     const SizedBox(height: 10),
                     Container(
                       padding: const EdgeInsets.all(14),
                       decoration: BoxDecoration(
-                        color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
+                        color: isDark
+                            ? AppTheme.surfaceDark
+                            : AppTheme.surfaceLight,
                         borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                        border: Border.all(
+                            color: isDark
+                                ? AppTheme.borderDark
+                                : AppTheme.borderLight),
                       ),
                       child: Column(
                         children: [
@@ -330,7 +402,8 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
                           const Divider(height: 16),
                           _buildTaxRow('SGST (2.5%)', '₹12,500.00'),
                           const Divider(height: 16),
-                          _buildTaxRow('Total Tax Collected', '₹25,000.00', isBold: true),
+                          _buildTaxRow('Total Tax Collected', '₹25,000.00',
+                              isBold: true),
                         ],
                       ),
                     ),
@@ -344,21 +417,32 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const Text('Store Pricing & 86 Availability', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
-                    const Text('Adjust local prices or toggle out-of-stock dishes for this outlet.', style: TextStyle(fontSize: 12, color: Colors.grey)),
+                    const Text('Store Pricing & 86 Availability',
+                        style: TextStyle(
+                            fontSize: 16, fontWeight: FontWeight.bold)),
+                    const Text(
+                        'Adjust local prices or toggle out-of-stock dishes for this outlet.',
+                        style: TextStyle(fontSize: 12, color: Colors.grey)),
                     const SizedBox(height: 16),
                     ...hq.catalogItems.map((item) {
                       final isAvailable = item['isAvailable'] as bool? ?? true;
-                      final basePrice = (item['basePrice'] as num? ?? 100.0).toDouble();
-                      final overridePrice = (item['overridePrice'] as num?)?.toDouble();
+                      final basePrice =
+                          (item['basePrice'] as num? ?? 100.0).toDouble();
+                      final overridePrice =
+                          (item['overridePrice'] as num?)?.toDouble();
 
                       return Container(
                         margin: const EdgeInsets.only(bottom: 12),
                         padding: const EdgeInsets.all(14),
                         decoration: BoxDecoration(
-                          color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
+                          color: isDark
+                              ? AppTheme.surfaceDark
+                              : AppTheme.surfaceLight,
                           borderRadius: BorderRadius.circular(14),
-                          border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                          border: Border.all(
+                              color: isDark
+                                  ? AppTheme.borderDark
+                                  : AppTheme.borderLight),
                         ),
                         child: Row(
                           mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -369,15 +453,23 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
                                 children: [
                                   Text(
                                     item['name'] as String? ?? 'Item',
-                                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                                    style: const TextStyle(
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: 14),
                                     overflow: TextOverflow.ellipsis,
                                   ),
                                   const SizedBox(height: 2),
-                                  Text('Base Price: ₹${basePrice.toStringAsFixed(0)}', style: const TextStyle(fontSize: 12, color: Colors.grey)),
+                                  Text(
+                                      'Base Price: ₹${basePrice.toStringAsFixed(0)}',
+                                      style: const TextStyle(
+                                          fontSize: 12, color: Colors.grey)),
                                   if (overridePrice != null)
                                     Text(
                                       'Branch Price: ₹${overridePrice.toStringAsFixed(0)} (Overridden)',
-                                      style: const TextStyle(fontSize: 12, color: AppTheme.primary, fontWeight: FontWeight.bold),
+                                      style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppTheme.primary,
+                                          fontWeight: FontWeight.bold),
                                       overflow: TextOverflow.ellipsis,
                                     ),
                                 ],
@@ -390,16 +482,27 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
                                 IconButton(
                                   icon: const Icon(Icons.edit, size: 18),
                                   tooltip: 'Edit Price',
-                                  onPressed: () => _showEditPriceDialog(context, hq, item),
+                                  onPressed: () =>
+                                      _showEditPriceDialog(context, hq, item),
                                 ),
                                 TextButton(
-                                  onPressed: () => hq.saveCatalogOverride(item['id'] as String, overridePrice, !isAvailable),
+                                  onPressed: () => hq.saveCatalogOverride(
+                                      item['id'] as String,
+                                      overridePrice,
+                                      !isAvailable),
                                   style: TextButton.styleFrom(
-                                    backgroundColor: isAvailable ? Colors.green.withOpacity(0.15) : Colors.red.withOpacity(0.15),
-                                    foregroundColor: isAvailable ? Colors.green : Colors.red,
-                                    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                    backgroundColor: isAvailable
+                                        ? Colors.green.withOpacity(0.15)
+                                        : Colors.red.withOpacity(0.15),
+                                    foregroundColor:
+                                        isAvailable ? Colors.green : Colors.red,
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 10, vertical: 6),
                                   ),
-                                  child: Text(isAvailable ? 'In Stock' : "86'd", style: const TextStyle(fontSize: 11, fontWeight: FontWeight.bold)),
+                                  child: Text(isAvailable ? 'In Stock' : "86'd",
+                                      style: const TextStyle(
+                                          fontSize: 11,
+                                          fontWeight: FontWeight.bold)),
                                 ),
                               ],
                             ),
@@ -423,94 +526,125 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
                         const Expanded(
                           child: Text(
                             'Inter-Branch Stock Transfers',
-                            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                            style: TextStyle(
+                                fontSize: 16, fontWeight: FontWeight.bold),
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
                         const SizedBox(width: 8),
                         ElevatedButton.icon(
-                          onPressed: () => _showRequestTransferDialog(context, hq),
+                          onPressed: () =>
+                              _showRequestTransferDialog(context, hq),
                           icon: const Icon(Icons.add, size: 16),
-                          label: const Text('Request', style: TextStyle(fontSize: 12)),
+                          label: const Text('Request',
+                              style: TextStyle(fontSize: 12)),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppTheme.primary,
                             foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                            padding: const EdgeInsets.symmetric(
+                                horizontal: 10, vertical: 6),
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 12),
                     ...hq.transfers.map((t) => Container(
-                      margin: const EdgeInsets.only(bottom: 12),
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
-                        borderRadius: BorderRadius.circular(14),
-                        border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                          margin: const EdgeInsets.only(bottom: 12),
+                          padding: const EdgeInsets.all(14),
+                          decoration: BoxDecoration(
+                            color: isDark
+                                ? AppTheme.surfaceDark
+                                : AppTheme.surfaceLight,
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(
+                                color: isDark
+                                    ? AppTheme.borderDark
+                                    : AppTheme.borderLight),
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
                             children: [
-                              Expanded(
-                                child: Text(
-                                  t.item,
-                                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                                decoration: BoxDecoration(
-                                  color: t.status == 'received'
-                                      ? Colors.green.withOpacity(0.15)
-                                      : t.status == 'dispatched'
-                                          ? Colors.cyan.withOpacity(0.15)
-                                          : Colors.amber.withOpacity(0.15),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  t.status.toUpperCase(),
-                                  style: TextStyle(
-                                    fontSize: 10,
-                                    fontWeight: FontWeight.bold,
-                                    color: t.status == 'received' ? Colors.green : t.status == 'dispatched' ? Colors.cyan : Colors.amber,
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Expanded(
+                                    child: Text(
+                                      t.item,
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 14),
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
                                   ),
-                                ),
+                                  const SizedBox(width: 8),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                        horizontal: 8, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: t.status == 'received'
+                                          ? Colors.green.withOpacity(0.15)
+                                          : t.status == 'dispatched'
+                                              ? Colors.cyan.withOpacity(0.15)
+                                              : Colors.amber.withOpacity(0.15),
+                                      borderRadius: BorderRadius.circular(6),
+                                    ),
+                                    child: Text(
+                                      t.status.toUpperCase(),
+                                      style: TextStyle(
+                                        fontSize: 10,
+                                        fontWeight: FontWeight.bold,
+                                        color: t.status == 'received'
+                                            ? Colors.green
+                                            : t.status == 'dispatched'
+                                                ? Colors.cyan
+                                                : Colors.amber,
+                                      ),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                              const SizedBox(height: 4),
+                              Text(
+                                'From ${t.source} ➔ ${t.dest}',
+                                style: const TextStyle(
+                                    fontSize: 12, color: Colors.grey),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                              const SizedBox(height: 6),
+                              Row(
+                                mainAxisAlignment:
+                                    MainAxisAlignment.spaceBetween,
+                                children: [
+                                  Text('Quantity: ${t.qty} ${t.unit}',
+                                      style: const TextStyle(
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 12)),
+                                  if (t.status == 'pending')
+                                    TextButton(
+                                      onPressed: () => hq.updateTransferStatus(
+                                          t.id, 'dispatched'),
+                                      child: const Text('Dispatch',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold)),
+                                    ),
+                                  if (t.status == 'dispatched')
+                                    TextButton(
+                                      onPressed: () => hq.updateTransferStatus(
+                                          t.id, 'received'),
+                                      style: TextButton.styleFrom(
+                                          foregroundColor: Colors.green),
+                                      child: const Text('Mark Received',
+                                          style: TextStyle(
+                                              fontSize: 12,
+                                              fontWeight: FontWeight.bold)),
+                                    ),
+                                ],
                               ),
                             ],
                           ),
-                          const SizedBox(height: 4),
-                          Text(
-                            'From ${t.source} ➔ ${t.dest}',
-                            style: const TextStyle(fontSize: 12, color: Colors.grey),
-                            overflow: TextOverflow.ellipsis,
-                          ),
-                          const SizedBox(height: 6),
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text('Quantity: ${t.qty} ${t.unit}', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12)),
-                              if (t.status == 'pending')
-                                TextButton(
-                                  onPressed: () => hq.updateTransferStatus(t.id, 'dispatched'),
-                                  child: const Text('Dispatch', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                ),
-                              if (t.status == 'dispatched')
-                                TextButton(
-                                  onPressed: () => hq.updateTransferStatus(t.id, 'received'),
-                                  style: TextButton.styleFrom(foregroundColor: Colors.green),
-                                  child: const Text('Mark Received', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
-                                ),
-                            ],
-                          ),
-                        ],
-                      ),
-                    )),
+                        )),
                   ],
                 ),
               ),
@@ -533,7 +667,8 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+        border: Border.all(
+            color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -545,7 +680,10 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
               Expanded(
                 child: Text(
                   title,
-                  style: const TextStyle(fontSize: 11, color: Colors.grey, fontWeight: FontWeight.w600),
+                  style: const TextStyle(
+                      fontSize: 11,
+                      color: Colors.grey,
+                      fontWeight: FontWeight.w600),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -555,7 +693,9 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerLeft,
-            child: Text(value, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+            child: Text(value,
+                style:
+                    const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
           ),
         ],
       ),
@@ -580,7 +720,8 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+        border: Border.all(
+            color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -591,7 +732,8 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
               Expanded(
                 child: Text(
                   branch,
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
+                  style: const TextStyle(
+                      fontWeight: FontWeight.bold, fontSize: 13),
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
@@ -599,12 +741,19 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
-                  color: variance == 0 ? Colors.green.withOpacity(0.15) : Colors.red.withOpacity(0.15),
+                  color: variance == 0
+                      ? Colors.green.withOpacity(0.15)
+                      : Colors.red.withOpacity(0.15),
                   borderRadius: BorderRadius.circular(4),
                 ),
                 child: Text(
-                  variance == 0 ? 'Exact ₹0' : '₹${variance.toStringAsFixed(0)} Short',
-                  style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: variance == 0 ? Colors.green : Colors.red),
+                  variance == 0
+                      ? 'Exact ₹0'
+                      : '₹${variance.toStringAsFixed(0)} Short',
+                  style: TextStyle(
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      color: variance == 0 ? Colors.green : Colors.red),
                 ),
               ),
             ],
@@ -632,17 +781,24 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
         Expanded(
           child: Text(
             label,
-            style: TextStyle(fontSize: 12, fontWeight: isBold ? FontWeight.bold : FontWeight.normal),
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: isBold ? FontWeight.bold : FontWeight.normal),
             overflow: TextOverflow.ellipsis,
           ),
         ),
-        Text(value, style: TextStyle(fontSize: 12, fontWeight: isBold ? FontWeight.bold : FontWeight.w600)),
+        Text(value,
+            style: TextStyle(
+                fontSize: 12,
+                fontWeight: isBold ? FontWeight.bold : FontWeight.w600)),
       ],
     );
   }
 
-  void _showEditPriceDialog(BuildContext context, CloudHqProvider hq, Map<String, dynamic> item) {
-    final controller = TextEditingController(text: item['overridePrice']?.toString() ?? '');
+  void _showEditPriceDialog(
+      BuildContext context, CloudHqProvider hq, Map<String, dynamic> item) {
+    final controller =
+        TextEditingController(text: item['overridePrice']?.toString() ?? '');
     showDialog(
       context: context,
       builder: (_) => AlertDialog(
@@ -650,14 +806,18 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
         content: TextField(
           controller: controller,
           keyboardType: TextInputType.number,
-          decoration: const InputDecoration(labelText: 'Custom Branch Price (₹)'),
+          decoration:
+              const InputDecoration(labelText: 'Custom Branch Price (₹)'),
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
               final val = double.tryParse(controller.text);
-              hq.saveCatalogOverride(item['id'] as String, val, item['isAvailable'] as bool?);
+              hq.saveCatalogOverride(
+                  item['id'] as String, val, item['isAvailable'] as bool?);
               Navigator.pop(context);
             },
             child: const Text('Save'),
@@ -677,16 +837,26 @@ class _CloudHqScreenState extends State<CloudHqScreen> with SingleTickerProvider
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            TextField(controller: itemController, decoration: const InputDecoration(labelText: 'Raw Material / Ingredient')),
-            TextField(controller: qtyController, keyboardType: TextInputType.number, decoration: const InputDecoration(labelText: 'Quantity')),
+            TextField(
+                controller: itemController,
+                decoration: const InputDecoration(
+                    labelText: 'Raw Material / Ingredient')),
+            TextField(
+                controller: qtyController,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(labelText: 'Quantity')),
           ],
         ),
         actions: [
-          TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+          TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel')),
           ElevatedButton(
             onPressed: () {
               if (itemController.text.isNotEmpty) {
-                hq.requestTransfer(item: itemController.text, qty: double.tryParse(qtyController.text) ?? 10.0);
+                hq.requestTransfer(
+                    item: itemController.text,
+                    qty: double.tryParse(qtyController.text) ?? 10.0);
               }
               Navigator.pop(context);
             },

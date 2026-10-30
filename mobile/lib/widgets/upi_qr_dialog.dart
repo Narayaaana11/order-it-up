@@ -47,7 +47,8 @@ class UpiQrDialog extends StatelessWidget {
               orderNumber,
               style: TextStyle(
                 fontSize: 13,
-                color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                color:
+                    isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
               ),
             ),
             const SizedBox(height: 16),
@@ -74,18 +75,23 @@ class UpiQrDialog extends StatelessWidget {
                   // Stylized QR code representation using custom grid
                   GridView.builder(
                     physics: const NeverScrollableScrollPhysics(),
-                    gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+                    gridDelegate:
+                        const SliverGridDelegateWithFixedCrossAxisCount(
                       crossAxisCount: 7,
                       mainAxisSpacing: 4,
                       crossAxisSpacing: 4,
                     ),
                     itemCount: 49,
                     itemBuilder: (context, index) {
-                      final isCorner = (index < 3 || (index >= 7 && index < 10) || (index >= 14 && index < 17)) ||
-                          (index >= 42 && index < 45 || index >= 49 - 14 && index < 49 - 11) ||
+                      final isCorner = (index < 3 ||
+                              (index >= 7 && index < 10) ||
+                              (index >= 14 && index < 17)) ||
+                          (index >= 42 && index < 45 ||
+                              index >= 49 - 14 && index < 49 - 11) ||
                           (index % 7 >= 4 && index < 21);
                       final isCenter = index == 24;
-                      final isBlack = (index * 7 + 13) % 3 != 0 || isCorner || isCenter;
+                      final isBlack =
+                          (index * 7 + 13) % 3 != 0 || isCorner || isCenter;
 
                       return Container(
                         decoration: BoxDecoration(

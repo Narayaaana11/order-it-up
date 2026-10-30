@@ -62,7 +62,8 @@ class MockDataService {
         categoryId: 'cat-1',
         name: 'Paneer Tikka',
         price: 240.0,
-        description: 'Cottage cheese cubes marinated in spiced yogurt and grilled in tandoor.',
+        description:
+            'Cottage cheese cubes marinated in spiced yogurt and grilled in tandoor.',
         dietaryType: 'veg',
         station: 'grill',
       ),
@@ -71,7 +72,8 @@ class MockDataService {
         categoryId: 'cat-1',
         name: 'Chicken Malai Tikka',
         price: 320.0,
-        description: 'Tender chicken cubes in creamy cashew and cardamom marinade.',
+        description:
+            'Tender chicken cubes in creamy cashew and cardamom marinade.',
         dietaryType: 'non_veg',
         station: 'grill',
       ),
@@ -80,7 +82,8 @@ class MockDataService {
         categoryId: 'cat-1',
         name: 'Crispy Corn Salt & Pepper',
         price: 190.0,
-        description: 'Fried sweet corn tossed with bell peppers and fresh scallions.',
+        description:
+            'Fried sweet corn tossed with bell peppers and fresh scallions.',
         dietaryType: 'veg',
         station: 'kitchen',
       ),
@@ -89,7 +92,8 @@ class MockDataService {
         categoryId: 'cat-1',
         name: 'Crispy Chilli Chicken',
         price: 290.0,
-        description: 'Indo-Chinese style battered chicken with soy, green chillies, and garlic.',
+        description:
+            'Indo-Chinese style battered chicken with soy, green chillies, and garlic.',
         dietaryType: 'non_veg',
         station: 'kitchen',
       ),
@@ -100,7 +104,8 @@ class MockDataService {
         categoryId: 'cat-2',
         name: 'Butter Chicken (Murgh Makhani)',
         price: 380.0,
-        description: 'Smoked chicken tikka simmered in rich velvety tomato-butter gravy.',
+        description:
+            'Smoked chicken tikka simmered in rich velvety tomato-butter gravy.',
         dietaryType: 'non_veg',
         station: 'kitchen',
       ),
@@ -109,7 +114,8 @@ class MockDataService {
         categoryId: 'cat-2',
         name: 'Paneer Butter Masala',
         price: 310.0,
-        description: 'Fresh cottage cheese cubes in aromatic tomato and cashew cream sauce.',
+        description:
+            'Fresh cottage cheese cubes in aromatic tomato and cashew cream sauce.',
         dietaryType: 'veg',
         station: 'kitchen',
       ),
@@ -118,7 +124,8 @@ class MockDataService {
         categoryId: 'cat-2',
         name: 'Dal Makhani',
         price: 260.0,
-        description: 'Black lentils slow cooked overnight with butter, cream, and spices.',
+        description:
+            'Black lentils slow cooked overnight with butter, cream, and spices.',
         dietaryType: 'veg',
         station: 'kitchen',
       ),
@@ -127,7 +134,8 @@ class MockDataService {
         categoryId: 'cat-2',
         name: 'Mutton Rogan Josh',
         price: 460.0,
-        description: 'Kashmiri style tender mutton braised in aromatic red gravy.',
+        description:
+            'Kashmiri style tender mutton braised in aromatic red gravy.',
         dietaryType: 'non_veg',
         station: 'kitchen',
       ),
@@ -138,7 +146,8 @@ class MockDataService {
         categoryId: 'cat-3',
         name: 'Hyderabadi Chicken Dum Biryani',
         price: 360.0,
-        description: 'Aromatic basmati rice cooked on dum with marinated chicken and saffron.',
+        description:
+            'Aromatic basmati rice cooked on dum with marinated chicken and saffron.',
         dietaryType: 'non_veg',
         station: 'kitchen',
       ),
@@ -147,7 +156,8 @@ class MockDataService {
         categoryId: 'cat-3',
         name: 'Special Veg Dum Biryani',
         price: 280.0,
-        description: 'Layers of long grain rice and fresh garden vegetables with fried onions.',
+        description:
+            'Layers of long grain rice and fresh garden vegetables with fried onions.',
         dietaryType: 'veg',
         station: 'kitchen',
       ),
@@ -156,7 +166,8 @@ class MockDataService {
         categoryId: 'cat-3',
         name: 'Jeera Rice with Dal Tadka',
         price: 220.0,
-        description: 'Cumin tempered basmati rice served with yellow lentil tadka.',
+        description:
+            'Cumin tempered basmati rice served with yellow lentil tadka.',
         dietaryType: 'veg',
         station: 'kitchen',
       ),
@@ -167,7 +178,8 @@ class MockDataService {
         categoryId: 'cat-4',
         name: 'Butter Garlic Naan',
         price: 65.0,
-        description: 'Tandoori flatbread topped with minced garlic and melted butter.',
+        description:
+            'Tandoori flatbread topped with minced garlic and melted butter.',
         dietaryType: 'veg',
         station: 'kitchen',
       ),
@@ -185,7 +197,8 @@ class MockDataService {
         categoryId: 'cat-4',
         name: 'Cheese Stuffed Kulcha',
         price: 110.0,
-        description: 'Crispy leavened bread filled with melted cheddar and mozzarella.',
+        description:
+            'Crispy leavened bread filled with melted cheddar and mozzarella.',
         dietaryType: 'veg',
         station: 'kitchen',
       ),
@@ -196,7 +209,8 @@ class MockDataService {
         categoryId: 'cat-5',
         name: 'Mango Lassi',
         price: 130.0,
-        description: 'Thick churned sweet yogurt blended with Alphonso mango pulp.',
+        description:
+            'Thick churned sweet yogurt blended with Alphonso mango pulp.',
         dietaryType: 'veg',
         station: 'bar',
       ),
@@ -205,7 +219,8 @@ class MockDataService {
         categoryId: 'cat-5',
         name: 'Fresh Mint Lime Soda',
         price: 90.0,
-        description: 'Crisp club soda with fresh lime juice, mint leaves, and rock salt.',
+        description:
+            'Crisp club soda with fresh lime juice, mint leaves, and rock salt.',
         dietaryType: 'veg',
         station: 'bar',
       ),
@@ -214,7 +229,8 @@ class MockDataService {
         categoryId: 'cat-5',
         name: 'Iced Cold Coffee with Vanilla',
         price: 150.0,
-        description: 'Espresso whipped with chilled milk and a scoop of vanilla gelato.',
+        description:
+            'Espresso whipped with chilled milk and a scoop of vanilla gelato.',
         dietaryType: 'veg',
         station: 'bar',
       ),
@@ -225,7 +241,8 @@ class MockDataService {
         categoryId: 'cat-6',
         name: 'Warm Gulab Jamun (2 pcs)',
         price: 120.0,
-        description: 'Soft milk solids dumplings soaked in rose water sugar syrup.',
+        description:
+            'Soft milk solids dumplings soaked in rose water sugar syrup.',
         dietaryType: 'veg',
         station: 'dessert',
       ),
@@ -234,7 +251,8 @@ class MockDataService {
         categoryId: 'cat-6',
         name: 'Sizzling Brownie with Ice Cream',
         price: 220.0,
-        description: 'Fudge chocolate brownie served sizzling with hot chocolate drizzle.',
+        description:
+            'Fudge chocolate brownie served sizzling with hot chocolate drizzle.',
         dietaryType: 'veg',
         station: 'dessert',
       ),
@@ -243,7 +261,8 @@ class MockDataService {
         categoryId: 'cat-6',
         name: 'Rasmalai (2 pcs)',
         price: 140.0,
-        description: 'Soft cottage cheese patties soaked in saffron and cardamom milk.',
+        description:
+            'Soft cottage cheese patties soaked in saffron and cardamom milk.',
         dietaryType: 'veg',
         station: 'dessert',
       ),
@@ -696,7 +715,8 @@ class MockDataService {
         grossSales: 42850.0,
         closedAt: now.subtract(const Duration(days: 1)),
         closedBy: 'Vikram (Manager)',
-        notes: 'Shift balanced perfectly. All card settlements matched EDC slip.',
+        notes:
+            'Shift balanced perfectly. All card settlements matched EDC slip.',
       ),
     ];
   }

@@ -26,13 +26,16 @@ class DashboardPageScreen extends StatelessWidget {
                   children: [
                     const Text(
                       'Store Dashboard',
-                      style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
+                      style:
+                          TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
                     ),
                     Text(
                       'Today: ${DateFormat('dd MMM yyyy').format(DateTime.now())}',
                       style: TextStyle(
                         fontSize: 12,
-                        color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                        color: isDark
+                            ? AppTheme.textMutedDark
+                            : AppTheme.textMutedLight,
                       ),
                     ),
                   ],
@@ -41,15 +44,19 @@ class DashboardPageScreen extends StatelessWidget {
                   onPressed: () {
                     Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (_) => const ShiftClosureScreen()),
+                      MaterialPageRoute(
+                          builder: (_) => const ShiftClosureScreen()),
                     );
                   },
                   icon: const Icon(Icons.point_of_sale, size: 16),
-                  label: const Text('Cash Close & Z-Report', style: TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
+                  label: const Text('Cash Close & Z-Report',
+                      style:
+                          TextStyle(fontSize: 12, fontWeight: FontWeight.bold)),
                   style: ElevatedButton.styleFrom(
                     backgroundColor: AppTheme.primary,
                     foregroundColor: Colors.white,
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                   ),
                 ),
               ],
@@ -117,11 +124,14 @@ class DashboardPageScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 12),
-                  _buildPaymentRow('UPI / Dynamic QR', '₹26,400.00', '54.7%', Colors.purple, isDark),
+                  _buildPaymentRow('UPI / Dynamic QR', '₹26,400.00', '54.7%',
+                      Colors.purple, isDark),
                   const SizedBox(height: 8),
-                  _buildPaymentRow('Cash Drawer', '₹16,350.00', '33.9%', Colors.green, isDark),
+                  _buildPaymentRow('Cash Drawer', '₹16,350.00', '33.9%',
+                      Colors.green, isDark),
                   const SizedBox(height: 8),
-                  _buildPaymentRow('Credit / Debit Cards', '₹5,500.00', '11.4%', Colors.blue, isDark),
+                  _buildPaymentRow('Credit / Debit Cards', '₹5,500.00', '11.4%',
+                      Colors.blue, isDark),
                 ],
               ),
             ),
@@ -146,13 +156,17 @@ class DashboardPageScreen extends StatelessWidget {
                     style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
                   ),
                   const SizedBox(height: 10),
-                  _buildTopItem('Chicken Dum Biryani', '42 orders', '₹15,960.00', isDark),
+                  _buildTopItem(
+                      'Chicken Dum Biryani', '42 orders', '₹15,960.00', isDark),
                   const Divider(height: 12),
-                  _buildTopItem('Paneer Butter Masala', '28 orders', '₹8,400.00', isDark),
+                  _buildTopItem(
+                      'Paneer Butter Masala', '28 orders', '₹8,400.00', isDark),
                   const Divider(height: 12),
-                  _buildTopItem('Butter Naan', '64 orders', '₹3,840.00', isDark),
+                  _buildTopItem(
+                      'Butter Naan', '64 orders', '₹3,840.00', isDark),
                   const Divider(height: 12),
-                  _buildTopItem('Masala Chai', '55 orders', '₹2,200.00', isDark),
+                  _buildTopItem(
+                      'Masala Chai', '55 orders', '₹2,200.00', isDark),
                 ],
               ),
             ),
@@ -197,7 +211,9 @@ class DashboardPageScreen extends StatelessWidget {
                   style: TextStyle(
                     fontSize: 11,
                     fontWeight: FontWeight.w600,
-                    color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                    color: isDark
+                        ? AppTheme.textMutedDark
+                        : AppTheme.textMutedLight,
                   ),
                   overflow: TextOverflow.ellipsis,
                 ),
@@ -214,40 +230,66 @@ class DashboardPageScreen extends StatelessWidget {
     );
   }
 
-  Widget _buildPaymentRow(String label, String amount, String pct, Color color, bool isDark) {
+  Widget _buildPaymentRow(
+      String label, String amount, String pct, Color color, bool isDark) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Row(
           children: [
-            Container(width: 8, height: 8, decoration: BoxDecoration(color: color, shape: BoxShape.circle)),
+            Container(
+                width: 8,
+                height: 8,
+                decoration:
+                    BoxDecoration(color: color, shape: BoxShape.circle)),
             const SizedBox(width: 8),
-            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
+            Text(label,
+                style:
+                    const TextStyle(fontSize: 12, fontWeight: FontWeight.w500)),
           ],
         ),
         Row(
           children: [
-            Text(pct, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight)),
+            Text(pct,
+                style: TextStyle(
+                    fontSize: 11,
+                    color: isDark
+                        ? AppTheme.textMutedDark
+                        : AppTheme.textMutedLight)),
             const SizedBox(width: 8),
-            Text(amount, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+            Text(amount,
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildTopItem(String name, String orders, String revenue, bool isDark) {
+  Widget _buildTopItem(
+      String name, String orders, String revenue, bool isDark) {
     return Row(
       mainAxisAlignment: MainAxisAlignment.spaceBetween,
       children: [
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Text(name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
-            Text(orders, style: TextStyle(fontSize: 11, color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight)),
+            Text(name,
+                style:
+                    const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+            Text(orders,
+                style: TextStyle(
+                    fontSize: 11,
+                    color: isDark
+                        ? AppTheme.textMutedDark
+                        : AppTheme.textMutedLight)),
           ],
         ),
-        Text(revenue, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppTheme.primary)),
+        Text(revenue,
+            style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.primary)),
       ],
     );
   }

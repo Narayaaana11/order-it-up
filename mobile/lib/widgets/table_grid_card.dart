@@ -79,7 +79,8 @@ class TableGridCard extends StatelessWidget {
                     ),
                   ),
                   Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                    padding:
+                        const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                     decoration: BoxDecoration(
                       color: statusColor.withOpacity(0.15),
                       borderRadius: BorderRadius.circular(6),
@@ -104,19 +105,24 @@ class TableGridCard extends StatelessWidget {
                       Icon(
                         Icons.people_alt_outlined,
                         size: 14,
-                        color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                        color: isDark
+                            ? AppTheme.textMutedDark
+                            : AppTheme.textMutedLight,
                       ),
                       const SizedBox(width: 4),
                       Text(
                         '${table.capacity}',
                         style: TextStyle(
                           fontSize: 12,
-                          color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                          color: isDark
+                              ? AppTheme.textMutedDark
+                              : AppTheme.textMutedLight,
                         ),
                       ),
                     ],
                   ),
-                  if (table.activeOrderTotal != null && table.activeOrderTotal! > 0)
+                  if (table.activeOrderTotal != null &&
+                      table.activeOrderTotal! > 0)
                     Text(
                       '${AppConstants.defaultCurrency}${table.activeOrderTotal!.toStringAsFixed(0)}',
                       style: const TextStyle(
@@ -130,7 +136,9 @@ class TableGridCard extends StatelessWidget {
                       table.seatedAt!,
                       style: TextStyle(
                         fontSize: 11,
-                        color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                        color: isDark
+                            ? AppTheme.textMutedDark
+                            : AppTheme.textMutedLight,
                       ),
                     ),
                 ],

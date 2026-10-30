@@ -162,7 +162,9 @@ class PosTopbarWidget extends StatelessWidget {
                     border: Border.all(
                       color: heldOrdersCount > 0
                           ? AppTheme.heldOrder.withOpacity(0.5)
-                          : (isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                          : (isDark
+                              ? AppTheme.borderDark
+                              : AppTheme.borderLight),
                     ),
                   ),
                   child: Row(
@@ -173,12 +175,15 @@ class PosTopbarWidget extends StatelessWidget {
                         size: 17,
                         color: heldOrdersCount > 0
                             ? AppTheme.heldOrder
-                            : (isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                            : (isDark
+                                ? AppTheme.textMutedDark
+                                : AppTheme.textMutedLight),
                       ),
                       if (heldOrdersCount > 0) ...[
                         const SizedBox(width: 5),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 5, vertical: 1),
                           decoration: BoxDecoration(
                             color: AppTheme.heldOrder,
                             borderRadius: BorderRadius.circular(8),
@@ -215,7 +220,9 @@ class PosTopbarWidget extends StatelessWidget {
                       hintText: 'Search products by name or code...',
                       hintStyle: TextStyle(
                         fontSize: 13,
-                        color: isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight,
+                        color: isDark
+                            ? AppTheme.textMutedDark
+                            : AppTheme.textMutedLight,
                       ),
                       prefixIcon: const Icon(Icons.search, size: 18),
                       suffixIcon: searchQuery.isNotEmpty
@@ -226,7 +233,8 @@ class PosTopbarWidget extends StatelessWidget {
                           : null,
                       contentPadding: EdgeInsets.zero,
                       filled: true,
-                      fillColor: isDark ? AppTheme.cardDark : Colors.grey.shade100,
+                      fillColor:
+                          isDark ? AppTheme.cardDark : Colors.grey.shade100,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(10),
                         borderSide: BorderSide.none,
@@ -253,7 +261,9 @@ class PosTopbarWidget extends StatelessWidget {
                     border: Border.all(
                       color: customerName != null && customerName!.isNotEmpty
                           ? AppTheme.primary.withOpacity(0.5)
-                          : (isDark ? AppTheme.borderDark : AppTheme.borderLight),
+                          : (isDark
+                              ? AppTheme.borderDark
+                              : AppTheme.borderLight),
                     ),
                   ),
                   child: Row(
@@ -264,7 +274,9 @@ class PosTopbarWidget extends StatelessWidget {
                         size: 17,
                         color: customerName != null && customerName!.isNotEmpty
                             ? AppTheme.primary
-                            : (isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                            : (isDark
+                                ? AppTheme.textMutedDark
+                                : AppTheme.textMutedLight),
                       ),
                       const SizedBox(width: 5),
                       Text(
@@ -274,15 +286,19 @@ class PosTopbarWidget extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w600,
-                          color: customerName != null && customerName!.isNotEmpty
-                              ? AppTheme.primaryDark
-                              : (isDark ? AppTheme.textDark : AppTheme.textLight),
+                          color:
+                              customerName != null && customerName!.isNotEmpty
+                                  ? AppTheme.primaryDark
+                                  : (isDark
+                                      ? AppTheme.textDark
+                                      : AppTheme.textLight),
                         ),
                       ),
                       if (loyaltyPoints != null && loyaltyPoints! > 0) ...[
                         const SizedBox(width: 4),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 4, vertical: 1),
                           decoration: BoxDecoration(
                             color: Colors.amber.shade100,
                             borderRadius: BorderRadius.circular(6),
@@ -356,7 +372,9 @@ class PosTopbarWidget extends StatelessWidget {
                 fontWeight: isActive ? FontWeight.bold : FontWeight.w500,
                 color: isActive
                     ? AppTheme.primary
-                    : (isDark ? AppTheme.textMutedDark : AppTheme.textMutedLight),
+                    : (isDark
+                        ? AppTheme.textMutedDark
+                        : AppTheme.textMutedLight),
               ),
             ),
           ],

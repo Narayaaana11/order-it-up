@@ -25,7 +25,9 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
     final storage = StorageService();
     final isDemo = storage.isDemoMode();
     _apiService = ApiService(
-      apiClient: ApiClient(baseUrl: 'http://${storage.getServerHost()}:${storage.getServerPort()}'),
+      apiClient: ApiClient(
+          baseUrl:
+              'http://${storage.getServerHost()}:${storage.getServerPort()}'),
       isDemoMode: isDemo,
     );
     _loadStatus();
@@ -72,7 +74,8 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
           'status': 'Sent',
         });
         _statusData['recentLogs'] = logs;
-        _statusData['billsSentToday'] = (_statusData['billsSentToday'] as int? ?? 142) + 1;
+        _statusData['billsSentToday'] =
+            (_statusData['billsSentToday'] as int? ?? 142) + 1;
       });
       _testPhoneController.clear();
       ScaffoldMessenger.of(context).showSnackBar(
@@ -92,7 +95,8 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
     final isConnected = _statusData['connected'] as bool? ?? true;
     final phone = _statusData['phone'] as String? ?? '+91 98765 43210';
     final billsToday = _statusData['billsSentToday'] as int? ?? 142;
-    final logs = (_statusData['recentLogs'] as List? ?? []).cast<Map<String, dynamic>>();
+    final logs =
+        (_statusData['recentLogs'] as List? ?? []).cast<Map<String, dynamic>>();
 
     return Scaffold(
       appBar: AppBar(
@@ -155,7 +159,8 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
     );
   }
 
-  Widget _buildStatusBanner(bool isDark, bool isConnected, String phone, int billsToday) {
+  Widget _buildStatusBanner(
+      bool isDark, bool isConnected, String phone, int billsToday) {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
@@ -180,7 +185,9 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
           Container(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: isConnected ? Colors.green.withOpacity(0.12) : Colors.red.withOpacity(0.12),
+              color: isConnected
+                  ? Colors.green.withOpacity(0.12)
+                  : Colors.red.withOpacity(0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(
@@ -197,8 +204,11 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
                 Row(
                   children: [
                     Text(
-                      isConnected ? 'Gateway Active & Linked' : 'Gateway Offline',
-                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                      isConnected
+                          ? 'Gateway Active & Linked'
+                          : 'Gateway Offline',
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold, fontSize: 16),
                     ),
                     const SizedBox(width: 8),
                     Container(
@@ -213,7 +223,9 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  isConnected ? 'Paired Phone: $phone' : 'Pair via QR code on server',
+                  isConnected
+                      ? 'Paired Phone: $phone'
+                      : 'Pair via QR code on server',
                   style: TextStyle(
                     fontSize: 13,
                     color: isDark ? Colors.white70 : Colors.grey.shade700,
@@ -253,7 +265,8 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+        border: Border.all(
+            color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -262,13 +275,16 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
             children: [
               Icon(Icons.send_outlined, size: 20, color: AppTheme.primary),
               SizedBox(width: 8),
-              Text('Send Instant E-Bill Receipt', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              Text('Send Instant E-Bill Receipt',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
             ],
           ),
           const SizedBox(height: 8),
           Text(
             'Test live WhatsApp transmission or dispatch digital bill to customer on demand.',
-            style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.grey.shade600),
+            style: TextStyle(
+                fontSize: 12,
+                color: isDark ? Colors.white60 : Colors.grey.shade600),
           ),
           const SizedBox(height: 14),
           Row(
@@ -281,8 +297,10 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
                     hintText: '+91 98765 00000',
                     prefixIcon: const Icon(Icons.phone_android, size: 20),
                     isDense: true,
-                    contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-                    border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+                    contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 12, vertical: 12),
+                    border: OutlineInputBorder(
+                        borderRadius: BorderRadius.circular(10)),
                   ),
                 ),
               ),
@@ -290,14 +308,20 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
               ElevatedButton.icon(
                 onPressed: _isSendingTest ? null : _sendTestReceipt,
                 icon: _isSendingTest
-                    ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(
+                            strokeWidth: 2, color: Colors.white))
                     : const Icon(Icons.send, size: 16),
                 label: const Text('Send'),
                 style: ElevatedButton.styleFrom(
                   backgroundColor: AppTheme.primary,
                   foregroundColor: Colors.white,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(10)),
                 ),
               ),
             ],
@@ -324,7 +348,11 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
               const SizedBox(width: 8),
               Text(
                 'Default WhatsApp Bill Template',
-                style: TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: isDark ? Colors.green.shade300 : Colors.green.shade900),
+                style: TextStyle(
+                    fontWeight: FontWeight.bold,
+                    fontSize: 14,
+                    color:
+                        isDark ? Colors.green.shade300 : Colors.green.shade900),
               ),
             ],
           ),
@@ -348,7 +376,8 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
                   '• 3x Garlic Naan: ₹180\n'
                   '• Total Bill: *₹890.00* (Paid via UPI)\n\n'
                   'View tax invoice & loyalty points: orderitup.app/b/1049',
-                  style: TextStyle(fontSize: 12, height: 1.4, fontFamily: 'monospace'),
+                  style: TextStyle(
+                      fontSize: 12, height: 1.4, fontFamily: 'monospace'),
                 ),
               ],
             ),
@@ -364,7 +393,8 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
       decoration: BoxDecoration(
         color: isDark ? AppTheme.surfaceDark : AppTheme.surfaceLight,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
+        border: Border.all(
+            color: isDark ? AppTheme.borderDark : AppTheme.borderLight),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -372,7 +402,8 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
           const Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              Text('Recent Transmission Log', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
+              Text('Recent Transmission Log',
+                  style: TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
               Icon(Icons.history, size: 20, color: Colors.grey),
             ],
           ),
@@ -380,25 +411,31 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
           if (logs.isEmpty)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 24),
-              child: Center(child: Text('No recent transmissions recorded today.')),
+              child: Center(
+                  child: Text('No recent transmissions recorded today.')),
             )
           else
             ListView.separated(
               shrinkWrap: true,
               physics: const NeverScrollableScrollPhysics(),
               itemCount: logs.length,
-              separatorBuilder: (_, __) => Divider(color: isDark ? AppTheme.borderDark : AppTheme.borderLight, height: 16),
+              separatorBuilder: (_, __) => Divider(
+                  color: isDark ? AppTheme.borderDark : AppTheme.borderLight,
+                  height: 16),
               itemBuilder: (context, index) {
                 final log = logs[index];
                 final status = log['status']?.toString() ?? 'Delivered';
-                final isDelivered = status.toLowerCase() == 'delivered' || status.toLowerCase() == 'read';
+                final isDelivered = status.toLowerCase() == 'delivered' ||
+                    status.toLowerCase() == 'read';
 
                 return Row(
                   children: [
                     Container(
                       padding: const EdgeInsets.all(8),
                       decoration: BoxDecoration(
-                        color: isDelivered ? Colors.green.withOpacity(0.1) : Colors.blue.withOpacity(0.1),
+                        color: isDelivered
+                            ? Colors.green.withOpacity(0.1)
+                            : Colors.blue.withOpacity(0.1),
                         shape: BoxShape.circle,
                       ),
                       child: Icon(
@@ -412,11 +449,17 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Text(log['phone'] ?? '', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),
+                          Text(log['phone'] ?? '',
+                              style: const TextStyle(
+                                  fontWeight: FontWeight.bold, fontSize: 13)),
                           const SizedBox(height: 2),
                           Text(
                             '${log['bill'] ?? ''} • ${log['amount'] ?? ''}',
-                            style: TextStyle(fontSize: 12, color: isDark ? Colors.white60 : Colors.grey.shade600),
+                            style: TextStyle(
+                                fontSize: 12,
+                                color: isDark
+                                    ? Colors.white60
+                                    : Colors.grey.shade600),
                           ),
                         ],
                       ),
@@ -425,25 +468,37 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
                           decoration: BoxDecoration(
-                            color: isDelivered ? Colors.green.shade50 : Colors.blue.shade50,
+                            color: isDelivered
+                                ? Colors.green.shade50
+                                : Colors.blue.shade50,
                             borderRadius: BorderRadius.circular(10),
-                            border: Border.all(color: isDelivered ? Colors.green.shade200 : Colors.blue.shade200),
+                            border: Border.all(
+                                color: isDelivered
+                                    ? Colors.green.shade200
+                                    : Colors.blue.shade200),
                           ),
                           child: Text(
                             status,
                             style: TextStyle(
                               fontSize: 11,
                               fontWeight: FontWeight.bold,
-                              color: isDelivered ? Colors.green.shade800 : Colors.blue.shade800,
+                              color: isDelivered
+                                  ? Colors.green.shade800
+                                  : Colors.blue.shade800,
                             ),
                           ),
                         ),
                         const SizedBox(height: 2),
                         Text(
                           log['time'] ?? '',
-                          style: TextStyle(fontSize: 10, color: isDark ? Colors.white38 : Colors.grey.shade500),
+                          style: TextStyle(
+                              fontSize: 10,
+                              color: isDark
+                                  ? Colors.white38
+                                  : Colors.grey.shade500),
                         ),
                       ],
                     ),
