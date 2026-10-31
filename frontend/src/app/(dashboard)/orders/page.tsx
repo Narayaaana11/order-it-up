@@ -59,19 +59,19 @@ const itemStatusConfig: Record<OrderItem['status'], { dot: string; color: string
   void_adjustment: { dot: 'bg-red-300', color: 'text-red-500 italic', labelKey: 'itemStatusVoidAdjustment' },
 };
 
-const orderStatusBadge: Record<Order['status'], { bg: string; text: string; labelKey: OrdersKey }> = {
-  pending: { bg: 'bg-yellow-100', text: 'text-yellow-700', labelKey: 'pending' },
-  preparing: { bg: 'bg-blue-100', text: 'text-blue-700', labelKey: 'preparing' },
-  ready: { bg: 'bg-green-100', text: 'text-green-700', labelKey: 'ready' },
-  served: { bg: 'bg-purple-100', text: 'text-purple-700', labelKey: 'served' },
-  completed: { bg: 'bg-muted', text: 'text-muted-foreground', labelKey: 'completed' },
-  cancelled: { bg: 'bg-red-100', text: 'text-red-700', labelKey: 'cancelled' },
+const orderStatusBadge: Record<Order['status'], { bg: string; text: string; border: string; labelKey: OrdersKey }> = {
+  pending: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', labelKey: 'pending' },
+  preparing: { bg: 'bg-blue-50', text: 'text-blue-700', border: 'border-blue-200', labelKey: 'preparing' },
+  ready: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', labelKey: 'ready' },
+  served: { bg: 'bg-purple-50', text: 'text-purple-700', border: 'border-purple-200', labelKey: 'served' },
+  completed: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', labelKey: 'completed' },
+  cancelled: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', labelKey: 'cancelled' },
 };
 
-const paymentStatusBadge: Record<'paid' | 'partial' | 'unpaid', { bg: string; text: string; labelKey: OrdersKey }> = {
-  paid: { bg: 'bg-green-100', text: 'text-green-700', labelKey: 'paid' },
-  partial: { bg: 'bg-amber-100', text: 'text-amber-700', labelKey: 'partiallyPaid' },
-  unpaid: { bg: 'bg-red-100', text: 'text-red-700', labelKey: 'unpaidBadge' },
+const paymentStatusBadge: Record<'paid' | 'partial' | 'unpaid', { bg: string; text: string; border: string; labelKey: OrdersKey }> = {
+  paid: { bg: 'bg-emerald-50', text: 'text-emerald-700', border: 'border-emerald-200', labelKey: 'paid' },
+  partial: { bg: 'bg-amber-50', text: 'text-amber-700', border: 'border-amber-200', labelKey: 'partiallyPaid' },
+  unpaid: { bg: 'bg-rose-50', text: 'text-rose-700', border: 'border-rose-200', labelKey: 'unpaidBadge' },
 };
 
 // Typed leaf-key order-type map.
@@ -1060,10 +1060,10 @@ export default function OrdersPage() {
             <button
               key={f}
               onClick={() => setTabFilter(f)}
-              className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+              className={`px-4 py-1.5 rounded-xl text-sm font-semibold transition-all ${
                 tabFilter === f
-                  ? 'bg-brand text-white'
-                  : 'bg-card text-muted-foreground border border-border hover:border-gray-400'
+                  ? 'bg-brand text-white shadow-xs'
+                  : 'bg-card text-muted-foreground border border-border hover:border-brand/40 hover:text-foreground'
               }`}
             >
               {tOrders(tabLabelKey[f])}
@@ -1365,7 +1365,7 @@ export default function OrdersPage() {
                       </td>
                       <td className="py-3 px-4">
                         {payBadge ? (
-                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${payBadge.bg} ${payBadge.text}`}>
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${payBadge.bg} ${payBadge.text} ${payBadge.border}`}>
                             {tOrders(payBadge.labelKey)}
                           </span>
                         ) : (
@@ -1374,7 +1374,7 @@ export default function OrdersPage() {
                       </td>
                       <td className="py-3 px-4">
                         {statusBadge ? (
-                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${statusBadge.bg} ${statusBadge.text}`}>
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${statusBadge.bg} ${statusBadge.text} ${statusBadge.border}`}>
                             {tOrders(statusBadge.labelKey)}
                           </span>
                         ) : (
@@ -1485,7 +1485,7 @@ export default function OrdersPage() {
                   <div className="flex items-center gap-2 flex-wrap min-w-0">
                     <span className="font-black text-lg text-foreground">#<Ltr>{order.order_number}</Ltr></span>
                     {(() => { const badge = orderStatusBadge[order.status]; return badge ? (
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${badge.bg} ${badge.text}`}>{tOrders(badge.labelKey)}</span>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${badge.bg} ${badge.text} ${badge.border}`}>{tOrders(badge.labelKey)}</span>
                     ) : null; })()}
                     <span className="text-sm text-muted-foreground font-medium">{tOrders(ORDER_TYPE_KEYS[order.type])}</span>
                     {order.table && (
@@ -1498,7 +1498,7 @@ export default function OrdersPage() {
                       {getTimeSince(order.created_at)}
                     </span>
                     {payBadge && (
-                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold ${payBadge.bg} ${payBadge.text}`}>
+                      <span className={`px-2.5 py-0.5 rounded-full text-xs font-semibold border ${payBadge.bg} ${payBadge.text} ${payBadge.border}`}>
                         {tOrders(payBadge.labelKey)}
                       </span>
                     )}

@@ -395,11 +395,15 @@ export default function SaaSQuickRegisterPage() {
             </div>
           )}
 
-          {/* Footer Link */}
-          <div className="mt-6 pt-5 border-t border-slate-800 text-center">
-            <span className="text-xs text-slate-400">Already have an account? </span>
-            <Link href="/auth/login" className="text-xs font-semibold text-orange-400 hover:text-orange-300 transition-colors">
-              Sign in to Cloud HQ
+          {/* Reciprocal Auth Navigation Footer */}
+          <div className="mt-6 pt-5 border-t border-slate-800 text-center flex flex-col sm:flex-row items-center justify-center gap-1.5 text-xs">
+            <span className="text-slate-400">Already have an account or store login?</span>
+            <Link
+              href="/auth/login"
+              className="font-semibold text-orange-400 hover:text-orange-300 hover:underline transition-colors inline-flex items-center gap-1"
+            >
+              <span>Sign in to Cloud HQ / Login</span>
+              <ArrowRight className="w-3.5 h-3.5" />
             </Link>
           </div>
         </div>

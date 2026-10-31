@@ -85,9 +85,15 @@ export default function RootLayout({
           dangerouslySetInnerHTML={{
             __html: `
               if ('serviceWorker' in navigator) {
-                window.addEventListener('load', () => {
-                  navigator.serviceWorker.register('/sw.js').catch(() => {});
-                });
+                if (window.location.hostname !== 'localhost' && window.location.hostname !== '127.0.0.1') {
+                  window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/sw.js').catch(() => {});
+                  });
+                } else {
+                  navigator.serviceWorker.getRegistrations().then((registrations) => {
+                    for (const r of registrations) { r.unregister(); }
+                  });
+                }
               }
             `,
           }}

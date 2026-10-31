@@ -204,7 +204,7 @@ export default function ReportsPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl sm:text-3xl font-bold tracking-tight">Business Intelligence & Reports</h1>
-            <span className="text-xs px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20 font-medium">
+            <span className="text-xs px-2.5 py-0.5 rounded-full bg-brand-light text-brand border border-brand/20 font-semibold">
               Real-time Analytics
             </span>
           </div>
@@ -218,32 +218,32 @@ export default function ReportsPage() {
           <div className="bg-muted/60 p-1 rounded-lg flex items-center gap-1 border border-border/40">
             <button
               onClick={() => handlePreset('today')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                preset === 'today' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                preset === 'today' ? 'bg-brand text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Today
             </button>
             <button
               onClick={() => handlePreset('yesterday')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                preset === 'yesterday' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                preset === 'yesterday' ? 'bg-brand text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               Yesterday
             </button>
             <button
               onClick={() => handlePreset('7days')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                preset === '7days' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                preset === '7days' ? 'bg-brand text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               7 Days
             </button>
             <button
               onClick={() => handlePreset('30days')}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-all ${
-                preset === '30days' ? 'bg-background shadow-sm text-foreground' : 'text-muted-foreground hover:text-foreground'
+              className={`px-3 py-1.5 text-xs font-semibold rounded-md transition-all ${
+                preset === '30days' ? 'bg-brand text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               30 Days
@@ -427,7 +427,7 @@ export default function ReportsPage() {
                   topStaff.map((staff, i) => (
                     <tr key={staff.user_id || i} className="hover:bg-muted/20">
                       <td className="py-2.5 font-medium flex items-center gap-2">
-                        <span className="w-6 h-6 rounded-full bg-primary/10 text-primary flex items-center justify-center text-[10px] font-bold">
+                        <span className="w-6 h-6 rounded-full bg-brand/10 text-brand flex items-center justify-center text-[10px] font-bold">
                           {staff.name.charAt(0)}
                         </span>
                         {staff.name}

@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import api from '@/lib/api';
+import api, { isElectronEnvironment } from '@/lib/api';
+import Link from 'next/link';
+import { useIsClient } from '@/hooks/useIsClient';
 import { useAuthStore } from '@/store/auth';
 import { useCartStore } from '@/store/cart';
 import { useHeldOrdersStore } from '@/store/held-orders';
@@ -78,6 +80,7 @@ export default function POSPage() {
   const { open: leftSidebarOpen } = useSidebar();
   const t = useTranslations('pos');
   const tSupport = useTranslations('support');
+  const isClient = useIsClient();
   const currencyFmt = useFormatCurrency();
   const { confirm, ConfirmDialog } = useConfirm();
 
@@ -398,6 +401,9 @@ export default function POSPage() {
   }, [activeUserId]);
 
   useEffect(() => {
+    if (!isElectronEnvironment()) {
+      return;
+    }
     const fetchData = async () => {
       try {
         // 1. Fetch business settings first
@@ -964,6 +970,37 @@ export default function POSPage() {
   };
 
   const itemCount = cart.itemCount();
+
+  if (isClient && !isElectronEnvironment()) {
+    return (
+      <div className="min-h-[75vh] flex flex-col items-center justify-center p-6 text-center">
+        <div className="w-16 h-16 rounded-2xl bg-orange-500/10 border border-orange-500/20 text-orange-500 flex items-center justify-center mb-4">
+          <ShoppingCart className="w-8 h-8" />
+        </div>
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">Desktop & Mobile POS Only</h2>
+        <p className="mt-3 max-w-lg text-sm text-muted-foreground leading-relaxed">
+          Point of Sale billing is exclusively supported on the Order It Up Desktop Application (Windows, macOS, Linux) with offline SQLite and thermal hardware, and the Flutter Mobile/Tablet Companion for waitstaff and kitchen.
+        </p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          The Web Portal is reserved for SaaS Management, CRM, and Restaurant Owner Dashboards.
+        </p>
+        <div className="mt-6 flex flex-wrap gap-3 justify-center">
+          <Link
+            href="/dashboard"
+            className="px-5 py-2.5 rounded-xl bg-orange-600 hover:bg-orange-700 text-white font-semibold text-sm transition-colors shadow-sm"
+          >
+            Go to Owner Dashboard
+          </Link>
+          <Link
+            href="/cloud-portal"
+            className="px-5 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-100 font-semibold text-sm transition-colors border border-slate-700"
+          >
+            Open Cloud HQ Portal
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <>

@@ -314,7 +314,7 @@ export default function InventoryPage() {
                 setShowAddModal(true);
               }}
               size="sm"
-              className="gap-2 bg-primary text-primary-foreground"
+              className="gap-2 bg-brand hover:bg-brand-hover text-white shadow-xs"
             >
               <Plus className="w-4 h-4" />
               Add Ingredient
@@ -365,7 +365,7 @@ export default function InventoryPage() {
           onClick={() => setActiveTab('ingredients')}
           className={`pb-3 border-b-2 flex items-center gap-2 transition-all ${
             activeTab === 'ingredients'
-              ? 'border-primary text-primary font-semibold'
+              ? 'border-brand text-brand font-semibold'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -377,7 +377,7 @@ export default function InventoryPage() {
           onClick={() => setActiveTab('recipes')}
           className={`pb-3 border-b-2 flex items-center gap-2 transition-all ${
             activeTab === 'recipes'
-              ? 'border-primary text-primary font-semibold'
+              ? 'border-brand text-brand font-semibold'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -389,7 +389,7 @@ export default function InventoryPage() {
           onClick={() => setActiveTab('audit')}
           className={`pb-3 border-b-2 flex items-center gap-2 transition-all ${
             activeTab === 'audit'
-              ? 'border-primary text-primary font-semibold'
+              ? 'border-brand text-brand font-semibold'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -537,7 +537,7 @@ export default function InventoryPage() {
                   onClick={() => setSelectedProductId(prod.id)}
                   className={`w-full text-left p-3 rounded-xl text-xs transition-all flex items-center justify-between ${
                     selectedProductId === prod.id
-                      ? 'bg-primary text-primary-foreground font-semibold shadow-sm'
+                      ? 'bg-brand text-white font-semibold shadow-xs'
                       : 'hover:bg-muted/40 text-foreground'
                   }`}
                 >
@@ -687,7 +687,7 @@ export default function InventoryPage() {
                       onClick={handleSaveRecipe}
                       disabled={savingRecipe}
                       size="sm"
-                      className="gap-2"
+                      className="gap-2 bg-brand hover:bg-brand-hover text-white shadow-xs"
                     >
                       <CheckCircle2 className="w-4 h-4" />
                       {savingRecipe ? 'Saving...' : 'Save Recipe BOM'}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, Suspense, useCallback } from 'react';
+import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useTranslations, type AppConfig } from 'use-intl';
 import { getLandingPage } from '@/components/layout/AuthGuard';
@@ -219,6 +220,17 @@ function LoginContent() {
               >
                 {t('forgotPasswordLink')}
               </button>
+              <div className="pt-4 border-t border-border text-center">
+                <p className="text-xs text-muted-foreground">
+                  Don&apos;t have a store account?{' '}
+                  <Link
+                    href="/auth/register"
+                    className="font-semibold text-primary hover:underline transition-colors"
+                  >
+                    Create an account / Register here
+                  </Link>
+                </p>
+              </div>
             </form>
           </CardContent>
         </Card>

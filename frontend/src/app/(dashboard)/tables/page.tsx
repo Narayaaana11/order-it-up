@@ -402,16 +402,16 @@ export default function TablesPage() {
           <div className="flex items-center gap-1 rounded-xl bg-muted p-1">
             <button
               onClick={() => { setView('list'); setLayoutMode(false); }}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
-                view === 'list' ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-all ${
+                view === 'list' ? 'bg-brand text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <List size={14} /> {tTables('floorplanViewList')}
             </button>
             <button
               onClick={() => { setView('plan'); setLayoutMode(false); }}
-              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
-                view === 'plan' ? 'bg-card text-foreground shadow' : 'text-muted-foreground hover:text-foreground'
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold transition-all ${
+                view === 'plan' ? 'bg-brand text-white shadow-xs' : 'text-muted-foreground hover:text-foreground'
               }`}
             >
               <MapPinned size={14} /> {tTables('floorplanViewPlan')}
@@ -439,7 +439,7 @@ export default function TablesPage() {
             </label>
           )}
           {view === 'list' && canManageTables && (
-            <Button onClick={() => openCreate(activeFloor === 'all' ? 'Ground' : activeFloor)}>
+            <Button onClick={() => openCreate(activeFloor === 'all' ? 'Ground' : activeFloor)} className="bg-brand hover:bg-brand-hover text-white shadow-xs">
               <Plus size={16} className="me-1" /> {tTables('addTable')}
             </Button>
           )}
@@ -469,7 +469,7 @@ export default function TablesPage() {
               onClick={() => setSelectedFloor(floor)}
               className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
                 activeFloor === floor
-                  ? 'border-brand bg-brand text-white'
+                  ? 'border-brand bg-brand text-white shadow-xs'
                   : 'border-border bg-card text-muted-foreground hover:border-brand hover:text-brand'
               }`}
             >
@@ -513,12 +513,13 @@ export default function TablesPage() {
                       <div key={order.id} className="bg-muted rounded-lg p-3">
                         <div className="flex items-center justify-between mb-2">
                           <span className="text-sm font-semibold text-foreground">#<Ltr>{order.order_number}</Ltr></span>
-                          <span className={`text-xs px-2 py-0.5 rounded-full ${
-                            order.status === 'pending' ? 'bg-yellow-100 text-yellow-700' :
-                            order.status === 'preparing' ? 'bg-blue-100 text-blue-700' :
-                            order.status === 'ready' ? 'bg-green-100 text-green-700' :
-                            order.status === 'served' ? 'bg-purple-100 text-purple-700' :
-                            'bg-muted text-muted-foreground'
+                          <span className={`text-xs px-2.5 py-0.5 rounded-full font-semibold border ${
+                            order.status === 'pending' ? 'bg-amber-50 text-amber-700 border-amber-200' :
+                            order.status === 'preparing' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                            order.status === 'ready' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            order.status === 'served' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                            order.status === 'completed' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                            'bg-muted text-muted-foreground border-border'
                           }`}>
                             {tOrders(ORDER_STATUS_LABEL_KEYS[order.status])}
                           </span>

@@ -249,7 +249,7 @@ export default function ExpensesPage() {
             <Button
               onClick={() => setShowAddExpense(true)}
               size="sm"
-              className="gap-2 bg-primary text-primary-foreground"
+              className="gap-2 bg-brand hover:bg-brand-hover text-white shadow-xs"
             >
               <Plus className="w-4 h-4" />
               Record Expense
@@ -259,7 +259,7 @@ export default function ExpensesPage() {
             <Button
               onClick={() => setShowAddCategory(true)}
               size="sm"
-              className="gap-2 bg-primary text-primary-foreground"
+              className="gap-2 bg-brand hover:bg-brand-hover text-white shadow-xs"
             >
               <Plus className="w-4 h-4" />
               New Category
@@ -269,7 +269,7 @@ export default function ExpensesPage() {
             <Button
               onClick={() => setShowAddVendor(true)}
               size="sm"
-              className="gap-2 bg-primary text-primary-foreground"
+              className="gap-2 bg-brand hover:bg-brand-hover text-white shadow-xs"
             >
               <Plus className="w-4 h-4" />
               Add Vendor
@@ -336,7 +336,7 @@ export default function ExpensesPage() {
           onClick={() => setActiveTab('expenses')}
           className={`pb-3 border-b-2 flex items-center gap-2 transition-all ${
             activeTab === 'expenses'
-              ? 'border-primary text-primary font-semibold'
+              ? 'border-brand text-brand font-semibold'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -348,7 +348,7 @@ export default function ExpensesPage() {
           onClick={() => setActiveTab('categories')}
           className={`pb-3 border-b-2 flex items-center gap-2 transition-all ${
             activeTab === 'categories'
-              ? 'border-primary text-primary font-semibold'
+              ? 'border-brand text-brand font-semibold'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >
@@ -360,7 +360,7 @@ export default function ExpensesPage() {
           onClick={() => setActiveTab('vendors')}
           className={`pb-3 border-b-2 flex items-center gap-2 transition-all ${
             activeTab === 'vendors'
-              ? 'border-primary text-primary font-semibold'
+              ? 'border-brand text-brand font-semibold'
               : 'border-transparent text-muted-foreground hover:text-foreground'
           }`}
         >

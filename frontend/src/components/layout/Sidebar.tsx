@@ -33,7 +33,8 @@ import { useTranslations, type AppConfig } from 'use-intl';
 import { useAuthStore } from '@/store/auth';
 import { usePosSettingsStore } from '@/store/pos-settings';
 import { getLandingPage } from '@/components/layout/AuthGuard';
-import api from '@/lib/api';
+import api, { isElectronEnvironment } from '@/lib/api';
+import { useIsClient } from '@/hooks/useIsClient';
 import { useConfirm } from '@/hooks/use-confirm';
 import { useThemeModeToggle } from '@/hooks/useThemeModeToggle';
 import { ROLE_ACCESS, hasRole, type Role } from '@shared/role-permissions';
@@ -98,6 +99,8 @@ export default function AppSidebar() {
   const t = useTranslations('nav');
   const tCommon = useTranslations('common');
   const { confirm, ConfirmDialog } = useConfirm();
+  const isClient = useIsClient();
+  const isElectron = isClient ? isElectronEnvironment() : false;
   const [emailNeedsAttention, setEmailNeedsAttention] = useState(false);
   const closeMobile = () => { if (isMobile) setOpenMobile(false); };
   const tSettings = useTranslations('settings');
@@ -113,6 +116,8 @@ export default function AppSidebar() {
   const role = currentTenant?.role || 'cashier';
   const businessType = currentTenant?.business_type || 'restaurant';
   const navItems = ALL_NAV_ITEMS.filter((item) => {
+    // POS billing is exclusive to Desktop Electron App and Flutter Mobile; hide from web portal navigation
+    if (item.href === '/pos' && !isElectron) return false;
     if (item.href === '/tables' && !tablesRequired) return false;
     // Hide KDS settings navigation when KDS is disabled.
     if (item.href === '/settings?tab=kds' && !kdsEnabled) return false;

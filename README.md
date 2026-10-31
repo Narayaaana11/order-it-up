@@ -12,6 +12,12 @@ Orders, menus, tables, customer tabs, and receipts are stored securely in a loca
 
 ---
 
+## 👥 User Roles, Credentials & Architecture
+
+For the complete reference of all user types, operator credentials, seed accounts, and platform boundaries across the **Desktop POS App** (Electron), **Mobile POS App** (Flutter), and **Cloud Web Portal** (SaaS & CRM), see [users.md](users.md).
+
+---
+
 ## 🚀 Key Features
 
 * **Complete Order Workflows:** Fast checkout for Quick Service / Counter, Dine-in (with interactive floor plan), Takeaway, and Delivery orders.

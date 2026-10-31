@@ -6,20 +6,20 @@ import { useTranslations } from 'use-intl';
 import { useAuthStore } from '@/store/auth';
 import api, { isElectronEnvironment } from '@/lib/api';
 import { showPrintLanguageLoadErrorsToast } from '@/lib/printer/warnings-toast';
+import { getRoleDefaultRoute, type UserRoleInfo } from '@/lib/role-routing';
 
 export function getLandingPage(): string {
+  const isElectron = isElectronEnvironment();
   if (typeof window !== 'undefined') {
     try {
       const storedUser = localStorage.getItem('user');
       if (storedUser) {
-        const u = JSON.parse(storedUser);
-        if (u.role === 'owner' || u.role === 'super_admin') {
-          return '/cloud-portal';
-        }
+        const u: UserRoleInfo = JSON.parse(storedUser);
+        return getRoleDefaultRoute(u, isElectron);
       }
     } catch {}
   }
-  return '/pos';
+  return getRoleDefaultRoute(null, isElectron);
 }
 
 const PUBLIC_PATHS = [
@@ -32,6 +32,7 @@ const PUBLIC_PATHS = [
   '/auth/recover',
   '/setup',
   '/qr',
+  '/menu',
   '/cloud-portal',
 ];
 
