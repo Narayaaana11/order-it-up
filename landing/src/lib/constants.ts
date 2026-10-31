@@ -41,7 +41,7 @@ export const NAV_LINKS = [
   { label: "Features", href: "#features" },
   { label: "Dashboard", href: "#dashboard" },
   { label: "Interactive Demo", href: "#ui-preview" },
-  { label: "Architecture", href: "#architecture" },
+  { label: "Role Personas", href: "#roles" },
   { label: "Hardware & Specs", href: "#specs" },
 ];
 

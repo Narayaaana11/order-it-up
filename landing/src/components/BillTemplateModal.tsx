@@ -7,7 +7,8 @@ import {
   QrCode,
   CheckCircle2,
   ZoomIn,
-  Maximize2,
+  ZoomOut,
+  Scissors,
 } from "lucide-react";
 import { MOCK_ORDER } from "@/lib/constants";
 
@@ -25,7 +26,7 @@ export default function BillTemplateModal({
   const [format, setFormat] = useState<"standard" | "gst" | "zreport" | "kot">(initialFormat);
   const [prevInitial, setPrevInitial] = useState(initialFormat);
   const [isPrinting, setIsPrinting] = useState(false);
-  const [scaleMode, setScaleMode] = useState<"fit" | "full">("fit");
+  const [zoomLevel, setZoomLevel] = useState<number>(95); // 95% default fits beautifully
   const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   // Sync format if initialFormat changes during render (standard React 19 pattern)
@@ -39,7 +40,7 @@ export default function BillTemplateModal({
     if (isOpen && scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
     }
-  }, [isOpen, format, scaleMode]);
+  }, [isOpen, format]);
 
   if (!isOpen) return null;
 
@@ -48,24 +49,29 @@ export default function BillTemplateModal({
     setTimeout(() => {
       setIsPrinting(false);
       window.print();
-    }, 800);
+    }, 600);
+  };
+
+  const handleZoom = (delta: number) => {
+    setZoomLevel((prev) => Math.min(130, Math.max(75, prev + delta)));
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/65 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-950/70 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-2xl bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[94vh] flex flex-col"
+        className="relative w-full max-w-2xl bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[95vh] flex flex-col"
         role="dialog"
         aria-modal="true"
+        aria-labelledby="bill-modal-title"
       >
         {/* Modal Top Header */}
         <div className="px-5 py-4 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border-b border-orange-100/80 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 rounded-xl bg-white border border-orange-200 shadow-xs">
+            <div className="p-2.5 rounded-2xl bg-white border border-orange-200 shadow-xs">
               <Printer className="w-5 h-5 text-orange-600" />
             </div>
             <div>
-              <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
+              <h3 id="bill-modal-title" className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
                 Authentic 80mm ESC/POS Thermal Bill Template
               </h3>
               <p className="text-[11px] text-slate-600">
@@ -94,7 +100,7 @@ export default function BillTemplateModal({
           </div>
         </div>
 
-        {/* Format Selector Bar & View Toggle */}
+        {/* Format Selector Bar & Zoom Controls */}
         <div className="px-4 sm:px-6 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
           <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <button
@@ -144,51 +150,72 @@ export default function BillTemplateModal({
           </div>
 
           <div className="flex items-center gap-2">
-            {/* View Scale Toggle */}
+            {/* Zoom Controls */}
             <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 text-xs text-slate-600">
               <button
                 type="button"
-                onClick={() => setScaleMode("fit")}
-                className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1 ${
-                  scaleMode === "fit" ? "bg-orange-100 text-orange-800 font-bold" : "hover:text-slate-900"
-                }`}
-                title="Fit full receipt in window"
+                onClick={() => handleZoom(-10)}
+                className="p-1 hover:text-slate-900 transition-colors cursor-pointer"
+                title="Zoom Out (Fit more on screen)"
               >
-                <Maximize2 className="w-3 h-3" />
-                <span>Fit View</span>
+                <ZoomOut className="w-3.5 h-3.5" />
               </button>
               <button
                 type="button"
-                onClick={() => setScaleMode("full")}
-                className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1 ${
-                  scaleMode === "full" ? "bg-orange-100 text-orange-800 font-bold" : "hover:text-slate-900"
-                }`}
-                title="100% full thermal scale"
+                onClick={() => setZoomLevel(95)}
+                className="px-2 py-0.5 font-mono text-[11px] font-semibold hover:text-orange-600 transition-colors cursor-pointer"
+                title="Reset Zoom to 95%"
               >
-                <ZoomIn className="w-3 h-3" />
-                <span>100% Scale</span>
+                {zoomLevel}%
+              </button>
+              <button
+                type="button"
+                onClick={() => handleZoom(10)}
+                className="p-1 hover:text-slate-900 transition-colors cursor-pointer"
+                title="Zoom In"
+              >
+                <ZoomIn className="w-3.5 h-3.5" />
               </button>
             </div>
 
             <span className="text-[11px] font-mono text-emerald-700 font-semibold hidden sm:flex items-center gap-1">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              ESC/POS Verified
+              ESC/POS Bytecode
             </span>
           </div>
         </div>
 
-        {/* Scrollable Receipt Body with guaranteed top visibility & bottom margin */}
+        {/* Scrollable Receipt Body with guaranteed top-to-bottom visibility & margins */}
         <div
           ref={scrollContainerRef}
-          className="p-4 sm:p-6 pb-20 overflow-y-auto bg-slate-100/90 flex flex-col items-center min-h-0"
+          className="p-4 sm:p-6 pb-12 overflow-y-auto bg-slate-200/70 flex flex-col items-center min-h-0 flex-1"
         >
+          {/* Authentic Sawtooth Top Tear Edge */}
+          <div className="w-full max-w-md h-2.5 overflow-hidden flex items-end">
+            <svg
+              className="w-full h-2.5 text-white fill-current"
+              preserveAspectRatio="none"
+              viewBox="0 0 100 10"
+            >
+              <polygon points="0,10 2,0 4,10 6,0 8,10 10,0 12,10 14,0 16,10 18,0 20,10 22,0 24,10 26,0 28,10 30,0 32,10 34,0 36,10 38,0 40,10 42,0 44,10 46,0 48,10 50,0 52,10 54,0 56,10 58,0 60,10 62,0 64,10 66,0 68,10 70,0 72,10 74,0 76,10 78,0 80,10 82,0 84,10 86,0 88,10 90,0 92,10 94,0 96,10 98,0 100,10 100,10 0,10" />
+            </svg>
+          </div>
+
+          {/* Thermal Receipt Paper Card */}
           <div
-            className={`w-full max-w-md receipt-paper rounded-lg font-mono text-slate-900 select-all border border-slate-300 relative shadow-xl transition-all duration-300 ${
-              scaleMode === "fit" ? "p-4 sm:p-6 text-[11px] origin-top scale-[0.94] sm:scale-100" : "p-6 sm:p-8 text-xs scale-100"
-            } ${isPrinting ? "translate-y-1 scale-[0.98] opacity-95" : ""}`}
+            style={{ transform: `scale(${zoomLevel / 100})`, transformOrigin: "top center" }}
+            className={`w-full max-w-md bg-white font-mono text-slate-900 select-all border-x border-slate-300 relative shadow-2xl transition-all duration-200 p-5 sm:p-7 text-[11px] ${
+              isPrinting ? "translate-y-1 scale-[0.98] opacity-95" : ""
+            }`}
           >
-            {/* Receipt Header - Guaranteed visible at the top */}
-            <div className="text-center font-bold pb-2 border-b-2 border-dashed border-zinc-400">
+            {/* Cut Line Indicator */}
+            <div className="text-center text-[9px] text-zinc-400 font-sans pb-2 border-b border-dashed border-zinc-300 flex items-center justify-center gap-1">
+              <Scissors className="w-3 h-3 text-zinc-400" />
+              <span>ESC/POS 80mm FEED &amp; CUT (GS V 66 0)</span>
+            </div>
+
+            {/* Receipt Header */}
+            <div className="text-center font-bold py-2 border-b-2 border-dashed border-zinc-400">
               <p className="text-base font-extrabold tracking-wide uppercase">
                 {MOCK_ORDER.restaurant}
               </p>
@@ -406,13 +433,13 @@ export default function BillTemplateModal({
               </>
             )}
 
-            {/* Footer QR - Fully padded & guaranteed not clipped */}
-            <div className="pt-3 text-center text-[10px] space-y-1">
-              <p className="font-semibold">Thank you for dining with us!</p>
-              <div className="w-16 h-16 mx-auto my-2 border border-zinc-400 rounded flex items-center justify-center bg-zinc-100">
-                <QrCode className="w-12 h-12 text-zinc-800" />
+            {/* Complete Footer QR - Guaranteed Fully Padded & Visible */}
+            <div className="pt-3 pb-3 text-center text-[10px] space-y-1 border-t border-dashed border-zinc-300 mt-2">
+              <p className="font-semibold text-slate-800">Thank you for dining with us!</p>
+              <div className="w-16 h-16 mx-auto my-2 border-2 border-zinc-900 rounded-lg flex items-center justify-center bg-white p-1 shadow-xs">
+                <QrCode className="w-12 h-12 text-zinc-900" />
               </div>
-              <p className="text-[9px] text-zinc-500 uppercase tracking-wider">
+              <p className="text-[9px] text-zinc-600 font-bold uppercase tracking-wider">
                 Scan for E-Invoice &amp; Review
               </p>
               <p className="text-[9px] text-zinc-500">
@@ -421,12 +448,42 @@ export default function BillTemplateModal({
             </div>
           </div>
 
-          {/* Gentle scroll indicator if in full scale mode */}
-          {scaleMode === "full" && (
-            <div className="mt-3 text-center text-[11px] text-slate-500 font-sans">
-              ↕ Scroll down to view full thermal receipt &amp; QR code
-            </div>
-          )}
+          {/* Authentic Sawtooth Bottom Tear Edge */}
+          <div className="w-full max-w-md h-2.5 overflow-hidden flex items-start mb-6">
+            <svg
+              className="w-full h-2.5 text-white fill-current"
+              preserveAspectRatio="none"
+              viewBox="0 0 100 10"
+            >
+              <polygon points="0,0 2,10 4,0 6,10 8,0 10,10 12,0 14,10 16,0 18,10 20,0 22,10 24,0 26,10 28,0 30,10 32,0 34,10 36,0 38,10 40,0 42,10 44,0 46,10 48,0 50,10 52,0 54,10 56,0 58,10 60,0 62,10 64,0 66,10 68,0 70,10 72,0 74,10 76,0 78,10 80,0 82,10 84,0 86,10 88,0 90,10 92,0 94,10 96,0 98,10 100,0 100,0 0,0" />
+            </svg>
+          </div>
+        </div>
+
+        {/* Modal Bottom Action Bar - Anchors and frames the modal perfectly */}
+        <div className="px-5 py-3.5 bg-white border-t border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0 rounded-b-3xl">
+          <div className="flex items-center gap-2 text-xs text-slate-600 font-mono">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span className="font-semibold text-slate-800">ESC/POS 80mm Emulation:</span>
+            <span className="hidden sm:inline text-slate-500">Complete Receipt Rendered (0 Clipped Lines)</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={handlePrint}
+              className="px-4 py-2 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-[0.98] cursor-pointer"
+            >
+              <Printer className="w-3.5 h-3.5" />
+              <span>Print Thermal Bill</span>
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="px-4 py-2 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition-colors cursor-pointer"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
