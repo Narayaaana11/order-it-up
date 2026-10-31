@@ -123,3 +123,4 @@ export function setStoredUser(user: AuthUser | null): void {
     // ignore
   }
 }
+
