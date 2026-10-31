@@ -1,6 +1,7 @@
 import React from "react";
 import Navbar from "@/components/Navbar";
 import Hero from "@/components/Hero";
+import HardwareMarquee from "@/components/HardwareMarquee";
 import TrustMetrics from "@/components/TrustMetrics";
 import FeaturesGrid from "@/components/FeaturesGrid";
 import OfflineArchitecture from "@/components/OfflineArchitecture";
@@ -19,6 +20,9 @@ export default function Home() {
       <main className="flex-1">
         {/* Hero Section with Value Proposition and Ambient Lighting */}
         <Hero />
+
+        {/* Hardware & Offline Protocol Infinite Marquee Ticker */}
+        <HardwareMarquee />
 
         {/* High-Contrast Trust & Performance Metrics Ribbon */}
         <TrustMetrics />

@@ -70,3 +70,130 @@ body {
   animation: pulse-subtle 3s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }
 
+/* React Bits: Shiny Text sheen */
+@keyframes shine {
+  0% {
+    background-position: 200% 0;
+  }
+  100% {
+    background-position: -200% 0;
+  }
+}
+
+.animate-shine {
+  animation: shine 4s linear infinite;
+}
+
+/* React Bits: Infinite Marquee */
+@keyframes marquee-left {
+  0% {
+    transform: translateX(0%);
+  }
+  100% {
+    transform: translateX(-50%);
+  }
+}
+
+@keyframes marquee-right {
+  0% {
+    transform: translateX(-50%);
+  }
+  100% {
+    transform: translateX(0%);
+  }
+}
+
+.animate-marquee-left {
+  display: flex;
+  width: max-content;
+  animation: marquee-left 28s linear infinite;
+}
+
+.animate-marquee-right {
+  display: flex;
+  width: max-content;
+  animation: marquee-right 28s linear infinite;
+}
+
+/* React Bits: StarBorder */
+.star-border-container {
+  position: relative;
+  display: inline-block;
+  border-radius: 14px;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.star-border-content {
+  position: relative;
+  border-radius: inherit;
+  z-index: 1;
+}
+
+@keyframes star-movement-bottom {
+  0% {
+    transform: translate(0%, 0%);
+    opacity: 1;
+  }
+  25% {
+    transform: translate(100%, 0%);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translate(100%, 100%);
+    opacity: 1;
+  }
+  75% {
+    transform: translate(0%, 100%);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(0%, 0%);
+    opacity: 1;
+  }
+}
+
+@keyframes star-movement-top {
+  0% {
+    transform: translate(0%, 0%);
+    opacity: 1;
+  }
+  25% {
+    transform: translate(-100%, 0%);
+    opacity: 0.8;
+  }
+  50% {
+    transform: translate(-100%, -100%);
+    opacity: 1;
+  }
+  75% {
+    transform: translate(0%, -100%);
+    opacity: 0.8;
+  }
+  100% {
+    transform: translate(0%, 0%);
+    opacity: 1;
+  }
+}
+
+.star-border-bottom,
+.star-border-top {
+  position: absolute;
+  width: 300%;
+  height: 300%;
+  pointer-events: none;
+}
+
+.star-border-bottom {
+  bottom: -50%;
+  right: -50%;
+  animation: star-movement-bottom 5s infinite linear;
+}
+
+.star-border-top {
+  top: -50%;
+  left: -50%;
+  animation: star-movement-top 5s infinite linear;
+}
+
+

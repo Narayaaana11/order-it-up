@@ -12,26 +12,48 @@ import {
   Sparkles,
 } from "lucide-react";
 import { HARDWARE_SPECS } from "@/lib/constants";
+import Squares from "@/components/reactbits/Squares";
+import StarBorder from "@/components/reactbits/StarBorder";
+import Magnet from "@/components/reactbits/Magnet";
+import SpotlightCard from "@/components/reactbits/SpotlightCard";
+import BlurText from "@/components/reactbits/BlurText";
+import ShinyText from "@/components/reactbits/ShinyText";
 
 export default function CtaSection() {
   return (
-    <section id="download" className="py-20 lg:py-28 relative overflow-hidden">
-      {/* Background Glow */}
+    <section id="download" className="py-20 lg:py-28 relative overflow-hidden bg-white">
+      {/* Background Interactive Squares Canvas */}
+      <div className="absolute inset-0 z-0 opacity-35 pointer-events-none">
+        <Squares
+          direction="diagonal"
+          speed={0.35}
+          squareSize={48}
+          borderColor="rgba(226, 232, 240, 0.7)"
+          hoverFillColor="rgba(240, 121, 40, 0.12)"
+          backgroundColor="transparent"
+        />
+      </div>
+
+      {/* Background Radial Glow */}
       <div
-        className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-orange-500/10 blur-[140px] rounded-full"
+        className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 w-[700px] h-[350px] bg-orange-500/12 blur-[140px] rounded-full z-1"
         aria-hidden="true"
       />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10">
         {/* Main CTA Banner Box */}
-        <div className="p-8 sm:p-12 lg:p-16 rounded-3xl bg-gradient-to-b from-orange-50/70 via-white to-white border border-orange-200/80 shadow-xl text-center relative overflow-hidden">
+        <div className="p-8 sm:p-12 lg:p-16 rounded-3xl bg-gradient-to-b from-orange-50/80 via-white to-white border border-orange-200 shadow-2xl text-center relative overflow-hidden backdrop-blur-xs">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold mb-6">
-            <Sparkles className="w-3.5 h-3.5" />
-            <span>Ready for Immediate Deployment</span>
+            <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+            <ShinyText text="Ready for Immediate Deployment" speed={3.5} />
           </div>
 
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight max-w-4xl mx-auto leading-tight">
-            Ready to Eliminate Restaurant POS Downtime Forever?
+            <BlurText
+              text="Ready to Eliminate Restaurant POS Downtime Forever?"
+              delay={40}
+              className="justify-center"
+            />
           </h2>
 
           <p className="mt-6 text-base sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed font-normal">
@@ -39,82 +61,97 @@ export default function CtaSection() {
             counter terminal — 100% offline with zero cloud lock-in.
           </p>
 
-          {/* Download Platforms Buttons Grid */}
+          {/* Download Platforms Buttons Grid with React Bits StarBorder & Magnet */}
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            {/* Windows */}
-            <a
-              href="#download-windows"
-              className="h-14 px-6 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-sm shadow-xl shadow-orange-500/25 active:scale-[0.98] transition-all flex items-center gap-3"
-            >
-              <Laptop className="w-5 h-5" />
-              <div className="text-left">
-                <div className="text-[10px] uppercase tracking-wider text-orange-100">Download for</div>
-                <div className="text-sm font-extrabold">Windows (x64 / ARM)</div>
-              </div>
-            </a>
+            {/* Windows Download with StarBorder & Magnet */}
+            <Magnet padding={40} magnetStrength={3}>
+              <StarBorder color="#F07928" speed="4.5s" thickness={2}>
+                <a
+                  href="#download-windows"
+                  className="h-14 px-7 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-sm shadow-xl shadow-orange-500/25 active:scale-[0.98] transition-all flex items-center gap-3"
+                >
+                  <Laptop className="w-5 h-5" />
+                  <div className="text-left">
+                    <div className="text-[10px] uppercase tracking-wider text-orange-100 font-semibold">
+                      Download for
+                    </div>
+                    <div className="text-sm font-extrabold">Windows (x64 / ARM)</div>
+                  </div>
+                </a>
+              </StarBorder>
+            </Magnet>
 
-            {/* macOS */}
-            <a
-              href="#download-mac"
-              className="h-14 px-6 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-sm active:scale-[0.98] transition-all flex items-center gap-3 shadow-xs"
-            >
-              <Apple className="w-5 h-5 text-slate-700" />
-              <div className="text-left">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">Download for</div>
-                <div className="text-sm font-extrabold">macOS (Universal DMG)</div>
-              </div>
-            </a>
+            {/* macOS Download with Magnet */}
+            <Magnet padding={40} magnetStrength={3}>
+              <a
+                href="#download-mac"
+                className="h-14 px-6 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-sm active:scale-[0.98] transition-all flex items-center gap-3 shadow-xs"
+              >
+                <Apple className="w-5 h-5 text-slate-700" />
+                <div className="text-left">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
+                    Download for
+                  </div>
+                  <div className="text-sm font-extrabold">macOS (Universal DMG)</div>
+                </div>
+              </a>
+            </Magnet>
 
-            {/* Linux */}
-            <a
-              href="#download-linux"
-              className="h-14 px-6 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-sm active:scale-[0.98] transition-all flex items-center gap-3 shadow-xs"
-            >
-              <Terminal className="w-5 h-5 text-slate-700" />
-              <div className="text-left">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">Download for</div>
-                <div className="text-sm font-extrabold">Linux (.AppImage / .deb)</div>
-              </div>
-            </a>
+            {/* Linux Download with Magnet */}
+            <Magnet padding={40} magnetStrength={3}>
+              <a
+                href="#download-linux"
+                className="h-14 px-6 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-sm active:scale-[0.98] transition-all flex items-center gap-3 shadow-xs"
+              >
+                <Terminal className="w-5 h-5 text-slate-700" />
+                <div className="text-left">
+                  <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
+                    Download for
+                  </div>
+                  <div className="text-sm font-extrabold">Linux (.AppImage / .deb)</div>
+                </div>
+              </a>
+            </Magnet>
           </div>
 
           {/* Reassurance Checklist */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-600">
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1.5 font-medium">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
               Open-source MIT Core
             </span>
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1.5 font-medium">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              No Credit Card or Subscription
+              No Credit Card or Subscription Required
             </span>
-            <span className="flex items-center gap-1.5">
+            <span className="flex items-center gap-1.5 font-medium">
               <HardDrive className="w-4 h-4 text-orange-600" />
-              Your Data Stays on Your Hardware
+              Your Customer Data Stays on Your Machine
             </span>
           </div>
         </div>
 
-        {/* Hardware Compatibility Section */}
+        {/* Hardware Compatibility Section with SpotlightCards */}
         <div id="specs" className="mt-16 pt-16 border-t border-slate-200">
           <div className="text-center max-w-2xl mx-auto mb-10">
-            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-mono mb-2">
+            <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-mono mb-3">
               <Printer className="w-3.5 h-3.5 text-orange-600" />
               <span>Plug-and-Play Hardware Specifications</span>
             </div>
-            <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-              Runs on the Hardware You Already Own
+            <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
+              Runs on the POS Hardware You Already Own
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 mt-2">
-              No proprietary terminals or expensive locked hardware required.
+              No proprietary terminals or expensive vendor lock-in hardware required.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
             {HARDWARE_SPECS.map((spec, i) => (
-              <div
+              <SpotlightCard
                 key={i}
-                className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-slate-300 flex flex-col justify-between"
+                spotlightColor="rgba(240, 121, 40, 0.14)"
+                className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs hover:border-orange-300 transition-all flex flex-col justify-between"
               >
                 <div>
                   <h4 className="text-sm font-bold text-orange-600">{spec.category}</h4>
@@ -149,7 +186,7 @@ export default function CtaSection() {
                     Runtime: {spec.runtime}
                   </p>
                 )}
-              </div>
+              </SpotlightCard>
             ))}
           </div>
         </div>

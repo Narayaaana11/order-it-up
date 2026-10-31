@@ -17,6 +17,11 @@ import {
   RotateCcw,
 } from "lucide-react";
 import { MOCK_ORDER } from "@/lib/constants";
+import BlurText from "@/components/reactbits/BlurText";
+import ShinyText from "@/components/reactbits/ShinyText";
+import Magnet from "@/components/reactbits/Magnet";
+import TiltedCard from "@/components/reactbits/TiltedCard";
+import SpotlightCard from "@/components/reactbits/SpotlightCard";
 
 export default function UiPreviews() {
   const [activeTab, setActiveTab] = useState<"cart" | "kds" | "receipt">("cart");
@@ -100,11 +105,16 @@ export default function UiPreviews() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-600 text-xs font-bold uppercase tracking-widest mb-3">
-            Real Interactive Simulations
+          <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-widest mb-4">
+            <Sparkles className="w-3.5 h-3.5 text-orange-600" />
+            <ShinyText text="Real Interactive Simulations" speed={3.5} />
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
-            Experience the Desktop POS in Action
+            <BlurText
+              text="Experience the Desktop POS in Action"
+              delay={40}
+              className="justify-center"
+            />
           </h2>
           <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed font-normal">
             Interact with live, authentic representations of the counter billing simulator,
@@ -112,47 +122,53 @@ export default function UiPreviews() {
           </p>
         </div>
 
-        {/* Tab Navigation Pill Selector */}
+        {/* Tab Navigation Pill Selector with React Bits Magnet */}
         <div className="mt-10 flex justify-center">
-          <div className="inline-flex p-1.5 rounded-2xl bg-slate-100 border border-slate-200 shadow-inner max-w-full overflow-x-auto">
-            <button
-              type="button"
-              onClick={() => setActiveTab("cart")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] ${
-                activeTab === "cart"
-                  ? "bg-[#F07928] text-white shadow-md shadow-orange-500/20"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <ShoppingCart className="w-4 h-4" />
-              <span>1. POS Order Cart</span>
-            </button>
+          <div className="inline-flex p-1.5 rounded-2xl bg-slate-100 border border-slate-200 shadow-inner max-w-full overflow-x-auto gap-1">
+            <Magnet padding={25} magnetStrength={3}>
+              <button
+                type="button"
+                onClick={() => setActiveTab("cart")}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] ${
+                  activeTab === "cart"
+                    ? "bg-[#F07928] text-white shadow-md shadow-orange-500/20"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <ShoppingCart className="w-4 h-4" />
+                <span>1. POS Order Cart</span>
+              </button>
+            </Magnet>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab("kds")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] ${
-                activeTab === "kds"
-                  ? "bg-[#F07928] text-white shadow-md shadow-orange-500/20"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <ChefHat className="w-4 h-4" />
-              <span>2. Live KDS Kitchen Ticket</span>
-            </button>
+            <Magnet padding={25} magnetStrength={3}>
+              <button
+                type="button"
+                onClick={() => setActiveTab("kds")}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] ${
+                  activeTab === "kds"
+                    ? "bg-[#F07928] text-white shadow-md shadow-orange-500/20"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <ChefHat className="w-4 h-4" />
+                <span>2. Live KDS Kitchen Ticket</span>
+              </button>
+            </Magnet>
 
-            <button
-              type="button"
-              onClick={() => setActiveTab("receipt")}
-              className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] ${
-                activeTab === "receipt"
-                  ? "bg-[#F07928] text-white shadow-md shadow-orange-500/20"
-                  : "text-slate-600 hover:text-slate-900"
-              }`}
-            >
-              <Receipt className="w-4 h-4" />
-              <span>3. 80mm Thermal Slip</span>
-            </button>
+            <Magnet padding={25} magnetStrength={3}>
+              <button
+                type="button"
+                onClick={() => setActiveTab("receipt")}
+                className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all active:scale-[0.98] ${
+                  activeTab === "receipt"
+                    ? "bg-[#F07928] text-white shadow-md shadow-orange-500/20"
+                    : "text-slate-600 hover:text-slate-900"
+                }`}
+              >
+                <Receipt className="w-4 h-4" />
+                <span>3. 80mm Thermal Slip</span>
+              </button>
+            </Magnet>
           </div>
         </div>
 
@@ -160,7 +176,8 @@ export default function UiPreviews() {
         <div className="mt-10 max-w-4xl mx-auto">
           {/* TAB 1: POS ORDER CART */}
           {activeTab === "cart" && (
-            <div className="rounded-2xl bg-white border border-slate-200 shadow-xl overflow-hidden animate-in fade-in duration-300">
+            <TiltedCard maxAngle={4} perspective={1400} scaleOnHover={1.01} showGlare={true} className="w-full">
+              <div className="rounded-2xl bg-white border border-slate-200 shadow-xl overflow-hidden animate-in fade-in duration-300">
               {/* Window Header */}
               <div className="px-5 py-3.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
                 <div className="flex items-center gap-2">
@@ -342,10 +359,12 @@ export default function UiPreviews() {
                 </div>
               </div>
             </div>
-          )}
+          </TiltedCard>
+        )}
 
-          {/* TAB 2: LIVE KDS KITCHEN TICKET */}
-          {activeTab === "kds" && (
+        {/* TAB 2: LIVE KDS KITCHEN TICKET */}
+        {activeTab === "kds" && (
+          <TiltedCard maxAngle={4} perspective={1400} scaleOnHover={1.01} showGlare={true} className="w-full">
             <div className="rounded-2xl bg-white border border-slate-200 shadow-xl overflow-hidden animate-in fade-in duration-300">
               {/* Ticket Topbar */}
               <div className="px-5 py-4 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3">
@@ -443,17 +462,19 @@ export default function UiPreviews() {
                 <span>Tap &ldquo;Bump&rdquo; to cycle: Pending &rarr; Preparing &rarr; Ready &rarr; Served</span>
               </div>
             </div>
-          )}
+          </TiltedCard>
+        )}
 
-          {/* TAB 3: AUTHENTIC 80MM ESC/POS THERMAL RECEIPT */}
-          {activeTab === "receipt" && (
-            <div className="flex flex-col items-center">
-              {/* Receipt Control Bar */}
-              <div className="w-full max-w-md mb-4 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-xs font-mono text-slate-600">
-                  <Printer className="w-4 h-4 text-orange-600" />
-                  <span>ESC/POS 80mm Direct Spooler</span>
-                </div>
+        {/* TAB 3: AUTHENTIC 80MM ESC/POS THERMAL RECEIPT */}
+        {activeTab === "receipt" && (
+          <div className="flex flex-col items-center">
+            {/* Receipt Control Bar */}
+            <div className="w-full max-w-md mb-4 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-xs font-mono text-slate-600">
+                <Printer className="w-4 h-4 text-orange-600" />
+                <span>ESC/POS 80mm Direct Spooler</span>
+              </div>
+              <Magnet padding={20} magnetStrength={3}>
                 <button
                   type="button"
                   onClick={triggerPrintReceipt}
@@ -462,14 +483,16 @@ export default function UiPreviews() {
                   <Sparkles className="w-3.5 h-3.5" />
                   <span>{isPrintingReceipt ? "Printing..." : "Simulate Thermal Print"}</span>
                 </button>
-              </div>
+              </Magnet>
+            </div>
 
-              {/* Physical Monospace Thermal Receipt Mockup */}
-              <div
-                className={`w-full max-w-md receipt-paper rounded-lg p-6 sm:p-8 font-mono text-xs text-slate-900 select-all border border-slate-300 relative transition-all duration-300 shadow-xl ${
-                  isPrintingReceipt ? "translate-y-2 opacity-95 scale-[0.99]" : ""
-                }`}
-              >
+            {/* Physical Monospace Thermal Receipt Mockup with Spotlight */}
+            <SpotlightCard
+              spotlightColor="rgba(240, 121, 40, 0.15)"
+              className={`w-full max-w-md receipt-paper rounded-lg p-6 sm:p-8 font-mono text-xs text-slate-900 select-all border border-slate-300 relative transition-all duration-300 shadow-xl ${
+                isPrintingReceipt ? "translate-y-2 opacity-95 scale-[0.99]" : ""
+              }`}
+            >
                 {/* Paper Tear Zig-Zag Top Indicator */}
                 <div className="text-center font-bold pb-2 border-b-2 border-dashed border-zinc-400">
                   <p className="text-base font-extrabold tracking-wide uppercase">
@@ -600,7 +623,7 @@ export default function UiPreviews() {
                     Powered by Order It Up (IndentDev)
                   </p>
                 </div>
-              </div>
+              </SpotlightCard>
             </div>
           )}
         </div>
