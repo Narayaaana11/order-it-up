@@ -1,0 +1,15 @@
+# Cloudflare Pages Cache Rules for Order It Up Landing Page
+
+# HTML documents must always revalidate so deployments never serve stale asset hashes:
+/*
+  Cache-Control: public, max-age=0, must-revalidate
+
+# Hashed Next.js chunks are immutable and safe to cache for 1 year:
+/_next/static/*
+  Cache-Control: public, max-age=31536000, immutable
+
+# Static media and logos:
+/logo.png
+  Cache-Control: public, max-age=86400
+/logo.svg
+  Cache-Control: public, max-age=86400
