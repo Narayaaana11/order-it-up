@@ -121,6 +121,16 @@ export default function Navbar() {
 
           {/* Right Header Desktop CTAs & Auth Controls */}
           <div className="hidden md:flex items-center gap-2 shrink-0">
+            {/* Direct Dashboard Button */}
+            <a
+              href="#dashboard"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs text-slate-800 bg-slate-100 hover:bg-orange-50 hover:text-orange-700 hover:border-orange-200 border border-slate-200 shadow-xs active:scale-[0.98] transition-all whitespace-nowrap"
+              title="View Live Role Dashboards"
+            >
+              <LayoutDashboard className="w-3.5 h-3.5 text-orange-600" />
+              <span>Dashboard</span>
+            </a>
+
             {/* Compact 80mm Bill Template for md/lg/xl screens */}
             <button
               type="button"
@@ -278,6 +288,16 @@ export default function Navbar() {
                   </button>
                 </div>
               )}
+
+              {/* Direct Dashboard Link in Mobile */}
+              <a
+                href="#dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="w-full flex items-center justify-center gap-2 py-2.5 px-3 rounded-xl font-bold text-xs text-slate-800 bg-slate-100 hover:bg-orange-50 hover:text-orange-700 border border-slate-200 shadow-xs active:scale-[0.98] transition-all"
+              >
+                <LayoutDashboard className="w-4 h-4 text-orange-600" />
+                <span>Live Role Dashboards</span>
+              </a>
 
               {/* Direct Bill Template & Roles in Mobile */}
               <div className="grid grid-cols-2 gap-2">

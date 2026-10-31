@@ -79,7 +79,8 @@ export default function RolePersonas() {
   };
 
   return (
-    <section id="roles" className="py-20 lg:py-28 bg-slate-50 border-t border-slate-200 relative">
+    <section id="roles" className="py-20 lg:py-28 bg-slate-50 border-t border-slate-200 relative scroll-mt-16">
+      <span id="dashboard" className="absolute -top-24 block" />
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section Header */}
         <div className="text-center max-w-3xl mx-auto">
