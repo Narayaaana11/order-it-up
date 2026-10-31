@@ -11,7 +11,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   HardDrive,
-  Flame,
   Receipt,
 } from "lucide-react";
 import { BRAND } from "@/lib/constants";
@@ -282,38 +281,43 @@ export default function Hero() {
                   </div>
                 </div>
 
-                {/* Teaser Content inside Mock Window */}
-                <div className="p-4 sm:p-6 bg-slate-50/70 grid grid-cols-1 md:grid-cols-3 gap-4">
-                  <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-slate-500 font-medium">Active Dining Tables</p>
-                      <p className="text-2xl font-bold text-slate-900 mt-1">14 / 18</p>
-                      <p className="text-[11px] text-emerald-600 mt-0.5 font-medium">Avg Turn: 34 mins</p>
-                    </div>
-                    <div className="p-3 rounded-xl bg-orange-50 text-orange-600">
-                      <Flame className="w-6 h-6" />
-                    </div>
-                  </div>
+                {/* Authentic POS Desktop Window Content */}
+                <div className="relative group overflow-hidden bg-slate-900">
+                  <img
+                    src="https://images.unsplash.com/photo-1556740738-b6a63e27c4df?auto=format&fit=crop&w=1200&q=80"
+                    alt="Order It Up Counter POS Terminal in Action"
+                    className="w-full h-72 sm:h-96 object-cover object-center group-hover:scale-102 transition-transform duration-500 opacity-90"
+                    loading="eager"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-slate-950/90 via-slate-950/30 to-transparent" />
 
-                  <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-slate-500 font-medium">KDS Active Tickets</p>
-                      <p className="text-2xl font-bold text-slate-900 mt-1">6 In-Flight</p>
-                      <p className="text-[11px] text-amber-600 mt-0.5 font-medium">Avg Prep SLA: 7m 40s</p>
+                  {/* Telemetry Floating Glass Overlay */}
+                  <div className="absolute bottom-4 left-4 right-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+                    <div className="p-3 rounded-xl bg-white/95 backdrop-blur-md border border-white/20 shadow-lg text-slate-900">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-slate-600">Active Tables</span>
+                        <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      </div>
+                      <p className="text-xl font-black mt-0.5">14 / 18 Occupied</p>
+                      <p className="text-[10px] text-emerald-600 font-medium">Avg Turn: 34 mins</p>
                     </div>
-                    <div className="p-3 rounded-xl bg-amber-50 text-amber-600">
-                      <Zap className="w-6 h-6" />
-                    </div>
-                  </div>
 
-                  <div className="p-4 rounded-xl bg-white border border-slate-200 shadow-xs flex items-center justify-between">
-                    <div>
-                      <p className="text-xs text-slate-500 font-medium">Hardware Status</p>
-                      <p className="text-lg font-bold text-slate-900 mt-1">80mm Thermal</p>
-                      <p className="text-[11px] text-emerald-600 mt-0.5 font-medium">USB &amp; DK Solenoid Ready</p>
+                    <div className="p-3 rounded-xl bg-white/95 backdrop-blur-md border border-white/20 shadow-lg text-slate-900">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-slate-600">KDS Active Tickets</span>
+                        <span className="text-xs font-mono font-bold text-orange-600">:3002</span>
+                      </div>
+                      <p className="text-xl font-black mt-0.5">6 In-Flight</p>
+                      <p className="text-[10px] text-amber-600 font-medium">SLA: 7m 40s avg prep</p>
                     </div>
-                    <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600">
-                      <Printer className="w-6 h-6" />
+
+                    <div className="p-3 rounded-xl bg-white/95 backdrop-blur-md border border-white/20 shadow-lg text-slate-900">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-semibold text-slate-600">Hardware Bus</span>
+                        <span className="text-xs font-mono text-emerald-600 font-bold">24V Ready</span>
+                      </div>
+                      <p className="text-xl font-black mt-0.5">80mm Thermal</p>
+                      <p className="text-[10px] text-slate-500 font-medium">USB DK Pulse Verified</p>
                     </div>
                   </div>
                 </div>

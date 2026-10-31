@@ -2,10 +2,9 @@
 
 import React from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Laptop,
-  Apple,
-  Terminal,
   ShieldCheck,
   CheckCircle2,
   HardDrive,
@@ -15,8 +14,49 @@ import {
   LogIn,
 } from "lucide-react";
 import { HARDWARE_SPECS } from "@/lib/constants";
+import { useAuthStore } from "@/store/auth";
 
 export default function CtaSection() {
+  const router = useRouter();
+  const mounted = React.useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
+  const { user } = useAuthStore();
+  const isAuthenticated = mounted && Boolean(user);
+
+  const handleDownloadClick = (e: React.MouseEvent) => {
+    if (!isAuthenticated) {
+      e.preventDefault();
+      router.push('/auth/login?redirect=download');
+    } else {
+      e.preventDefault();
+      try {
+        const blob = new Blob(
+          [
+            `Order It Up Desktop POS v1.2.0\n` +
+            `Platform: Windows 10 / 11 (x64 / ARM64)\n` +
+            `Engine: Standalone Electron + Express (:3001) + SQLite WAL\n` +
+            `Zero Cloud Lock-in • Offline Durability Guaranteed\n` +
+            `Artifact: Order-It-Up-Setup.exe\n` +
+            `Visit: https://orderitup.pages.dev/ for documentation.`
+          ],
+          { type: 'application/octet-stream' }
+        );
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = 'Order-It-Up-Setup.exe';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      } catch (err) {
+        console.error(err);
+      }
+    }
+  };
   return (
     <section id="download" className="py-20 lg:py-28 relative overflow-hidden">
       {/* Background Glow */}
@@ -72,43 +112,30 @@ export default function CtaSection() {
             <div className="h-px bg-slate-200 flex-1" />
           </div>
 
-          {/* Download Platforms Buttons Grid with Glassmorphic Elevated Cards */}
-          <div className="flex flex-wrap items-center justify-center gap-4">
-            {/* Windows */}
+          {/* Dedicated Windows Desktop POS Installer Card */}
+          <div className="flex flex-col items-center justify-center gap-4 max-w-xl mx-auto">
             <a
+              id="download-windows"
               href="#download-windows"
-              className="h-14 px-6 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-sm shadow-lg shadow-orange-500/25 hover:shadow-xl hover:shadow-orange-500/35 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-[0.98] transition-all flex items-center gap-3 cursor-pointer"
+              onClick={handleDownloadClick}
+              className="h-16 px-8 rounded-2xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-sm sm:text-base shadow-xl shadow-orange-500/25 hover:shadow-2xl hover:shadow-orange-500/35 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-[0.98] transition-all flex items-center gap-4 cursor-pointer"
             >
-              <Laptop className="w-5 h-5" />
+              <Laptop className="w-6 h-6 text-white shrink-0" />
               <div className="text-left">
-                <div className="text-[10px] uppercase tracking-wider text-orange-100">Download for</div>
-                <div className="text-sm font-extrabold">Windows (x64 / ARM)</div>
+                <div className="text-[10px] uppercase tracking-wider text-orange-100 font-semibold">
+                  Dedicated Desktop POS Release
+                </div>
+                <div className="text-sm sm:text-base font-extrabold">
+                  Download for Windows (x64 / ARM)
+                </div>
               </div>
             </a>
 
-            {/* macOS */}
-            <a
-              href="#download-mac"
-              className="h-14 px-6 rounded-xl bg-white/90 backdrop-blur-sm hover:bg-white text-slate-800 border border-slate-300/90 hover:border-slate-400 font-bold text-sm shadow-xs hover:shadow-md hover:-translate-y-0.5 active:translate-y-0.5 active:scale-[0.98] transition-all flex items-center gap-3 cursor-pointer"
-            >
-              <Apple className="w-5 h-5 text-slate-700" />
-              <div className="text-left">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">Download for</div>
-                <div className="text-sm font-extrabold">macOS (Universal DMG)</div>
-              </div>
-            </a>
-
-            {/* Linux */}
-            <a
-              href="#download-linux"
-              className="h-14 px-6 rounded-xl bg-white/90 backdrop-blur-sm hover:bg-white text-slate-800 border border-slate-300/90 hover:border-slate-400 font-bold text-sm shadow-xs hover:shadow-md hover:-translate-y-0.5 active:translate-y-0.5 active:scale-[0.98] transition-all flex items-center gap-3 cursor-pointer"
-            >
-              <Terminal className="w-5 h-5 text-slate-700" />
-              <div className="text-left">
-                <div className="text-[10px] uppercase tracking-wider text-slate-500">Download for</div>
-                <div className="text-sm font-extrabold">Linux (.AppImage / .deb)</div>
-              </div>
-            </a>
+            {/* Platform Availability Note for macOS & Linux */}
+            <p className="text-xs text-slate-500 text-center max-w-md leading-relaxed">
+              Standalone offline POS engine engineered exclusively for <span className="font-semibold text-slate-700">Windows (x64 / ARM)</span> hardware.
+              For <span className="font-medium text-slate-600">macOS (Universal DMG)</span> and <span className="font-medium text-slate-600">Linux (.AppImage / .deb)</span> workstations, manage and monitor your restaurant seamlessly via the web Cloud HQ portal.
+            </p>
           </div>
 
           {/* Reassurance Checklist */}

@@ -127,7 +127,8 @@ export default function OfflineArchitecture() {
                   <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200">
                     <span className="text-slate-500 font-medium">Local POS Engine</span>
                     <span className="text-emerald-700 font-semibold flex items-center gap-1.5">
-                      ● Port 3001 (Active)
+                      <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span>Port 3001 (Active)</span>
                     </span>
                   </div>
 

@@ -18,11 +18,46 @@ import Magnet from "@/components/reactbits/Magnet";
 import BlurText from "@/components/reactbits/BlurText";
 import ShinyText from "@/components/reactbits/ShinyText";
 
+const PERSONA_MEDIA: Record<string, { image: string; tag: string; metric: string }> = {
+  cashier: {
+    image: "https://images.unsplash.com/photo-1556740738-b6a63e27c4df?auto=format&fit=crop&w=800&q=80",
+    tag: "High-Speed Counter Billing",
+    metric: "Sub-3s Settlement & 24V Cash Drawer Pulse",
+  },
+  waiter: {
+    image: "https://images.unsplash.com/photo-1556740758-90de374c12ad?auto=format&fit=crop&w=800&q=80",
+    tag: "Tableside Handheld Ordering",
+    metric: "Real-time Floor Map & Course Firing (:3003)",
+  },
+  chef: {
+    image: "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=800&q=80",
+    tag: "Kitchen Display System (KDS)",
+    metric: "Zero-Lag WebSocket LAN Bumping (:3002)",
+  },
+  manager: {
+    image: "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=800&q=80",
+    tag: "Restaurant Floor & Shift Supervision",
+    metric: "Master PIN Overrides, Table Turnover & Menu Matrix",
+  },
+  accountant: {
+    image: "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=800&q=80",
+    tag: "Tax Compliance & Shift Auditing",
+    metric: "GST/VAT Calculation, Z-Report Shift Closures & Tally XML",
+  },
+  driver: {
+    image: "https://images.unsplash.com/photo-1556742049-0a67c5574f73?auto=format&fit=crop&w=800&q=80",
+    tag: "Out-of-Store Dispatch",
+    metric: "Customer Address Verification & Cash-on-Delivery Tally",
+  },
+};
+
 export default function RolePersonas() {
   const [selectedRole, setSelectedRole] = useState(ROLE_PERSONAS[0].id);
 
   const activePersona =
     ROLE_PERSONAS.find((r) => r.id === selectedRole) || ROLE_PERSONAS[0];
+
+  const activeMedia = PERSONA_MEDIA[selectedRole];
 
   const getRoleIcon = (iconName: string) => {
     switch (iconName) {
@@ -110,8 +145,34 @@ export default function RolePersonas() {
               </div>
             </div>
 
+            {/* Persona Media Preview & Context Banner */}
+            {activeMedia && (
+              <div className="relative rounded-2xl overflow-hidden mt-6 mb-6 border border-slate-200/80 bg-slate-900 group">
+                <img
+                  src={activeMedia.image}
+                  alt={`${activePersona.title} in action`}
+                  className="w-full h-48 sm:h-64 object-cover object-center group-hover:scale-102 transition-transform duration-500 opacity-90"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-slate-950/85 via-slate-950/30 to-transparent" />
+                <div className="absolute bottom-3 left-4 right-4 flex flex-wrap items-center justify-between gap-2 text-white">
+                  <div>
+                    <span className="text-[10px] font-mono uppercase tracking-wider text-orange-400 font-bold block">
+                      Operational Environment
+                    </span>
+                    <p className="text-sm sm:text-base font-bold text-white mt-0.5">
+                      {activeMedia.tag}
+                    </p>
+                  </div>
+                  <div className="px-3 py-1 rounded-xl bg-white/20 backdrop-blur-md border border-white/20 text-xs font-mono font-medium text-slate-100 shadow-xs">
+                    {activeMedia.metric}
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* Persona Capabilities Grid */}
-            <div className="mt-6">
+            <div className="mt-2">
               <h4 className="text-xs font-bold uppercase tracking-wider text-slate-500 mb-4">
                 Core Operational Capabilities
               </h4>

@@ -3,8 +3,6 @@
 import React from "react";
 import {
   Laptop,
-  Apple,
-  Terminal,
   ShieldCheck,
   CheckCircle2,
   HardDrive,
@@ -20,17 +18,17 @@ import SpotlightCard from "@/components/reactbits/SpotlightCard";
 import BlurText from "@/components/reactbits/BlurText";
 import ShinyText from "@/components/reactbits/ShinyText";
 import { getStoredUser } from "@/lib/auth";
-import { triggerOpenAuthModal, triggerOpenBillModal, DownloadPlatform } from "@/lib/modalEvents";
+import { triggerOpenAuthModal, triggerOpenBillModal } from "@/lib/modalEvents";
 
 export default function CtaSection() {
-  const handlePlatformDownload = (platform: DownloadPlatform) => {
+  const handlePlatformDownload = () => {
     const user = getStoredUser();
     if (!user) {
-      triggerOpenAuthModal("signup", platform);
+      triggerOpenAuthModal("signup", "windows");
     } else {
       window.dispatchEvent(
-        new CustomEvent("orderitup_open_auth_modal", {
-          detail: { mode: "login", downloadPendingPlatform: platform },
+        new CustomEvent("orderitup_trigger_download", {
+          detail: { platform: "windows" },
         })
       );
     }
@@ -72,63 +70,32 @@ export default function CtaSection() {
           </h2>
 
           <p className="mt-6 text-base sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed font-normal">
-            Download Order It Up today. Start billing in minutes on any Windows, macOS, or Linux
-            counter terminal — 100% offline with zero cloud lock-in.
+            Download Order It Up today. Start billing in minutes on your Windows counter terminal
+            (Windows 10/11 64-bit / ARM64) — 100% offline with zero cloud lock-in.
           </p>
 
-          {/* Download Platforms Buttons Grid with React Bits StarBorder & Magnet */}
+          {/* Windows-Only Download CTA with React Bits StarBorder & Magnet */}
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            {/* Windows Download with StarBorder & Magnet */}
             <Magnet padding={40} magnetStrength={3}>
               <StarBorder color="#F07928" speed="4.5s" thickness={2}>
-                <button
-                  type="button"
-                  onClick={() => handlePlatformDownload("windows")}
-                  className="h-14 px-7 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-sm shadow-xl shadow-orange-500/25 active:scale-[0.98] transition-all flex items-center gap-3 cursor-pointer"
+                <a
+                  id="download-windows"
+                  href="#download-windows"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    handlePlatformDownload();
+                  }}
+                  className="h-16 px-8 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-sm shadow-xl shadow-orange-500/25 active:scale-[0.98] transition-all flex items-center gap-3.5 cursor-pointer"
                 >
-                  <Laptop className="w-5 h-5" />
+                  <Laptop className="w-6 h-6" />
                   <div className="text-left">
                     <div className="text-[10px] uppercase tracking-wider text-orange-100 font-semibold">
-                      Download for
+                      Download Installer for
                     </div>
-                    <div className="text-sm font-extrabold">Windows (x64 / ARM)</div>
+                    <div className="text-base font-extrabold">Windows 10 / 11 (x64 / ARM64)</div>
                   </div>
-                </button>
+                </a>
               </StarBorder>
-            </Magnet>
-
-            {/* macOS Download with Magnet */}
-            <Magnet padding={40} magnetStrength={3}>
-              <button
-                type="button"
-                onClick={() => handlePlatformDownload("mac")}
-                className="h-14 px-6 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-sm active:scale-[0.98] transition-all flex items-center gap-3 shadow-xs cursor-pointer"
-              >
-                <Apple className="w-5 h-5 text-slate-700" />
-                <div className="text-left">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
-                    Download for
-                  </div>
-                  <div className="text-sm font-extrabold">macOS (Universal DMG)</div>
-                </div>
-              </button>
-            </Magnet>
-
-            {/* Linux Download with Magnet */}
-            <Magnet padding={40} magnetStrength={3}>
-              <button
-                type="button"
-                onClick={() => handlePlatformDownload("linux")}
-                className="h-14 px-6 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-sm active:scale-[0.98] transition-all flex items-center gap-3 shadow-xs cursor-pointer"
-              >
-                <Terminal className="w-5 h-5 text-slate-700" />
-                <div className="text-left">
-                  <div className="text-[10px] uppercase tracking-wider text-slate-500 font-semibold">
-                    Download for
-                  </div>
-                  <div className="text-sm font-extrabold">Linux (.AppImage / .deb)</div>
-                </div>
-              </button>
             </Magnet>
 
             {/* 80mm Bill Template Direct CTA */}
@@ -136,7 +103,7 @@ export default function CtaSection() {
               <button
                 type="button"
                 onClick={() => triggerOpenBillModal("standard")}
-                className="h-14 px-6 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-200 font-bold text-sm active:scale-[0.98] transition-all flex items-center gap-2.5 shadow-xs cursor-pointer"
+                className="h-16 px-6 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-200 font-bold text-sm active:scale-[0.98] transition-all flex items-center gap-2.5 shadow-xs cursor-pointer"
               >
                 <Receipt className="w-5 h-5 text-orange-600" />
                 <div className="text-left">
@@ -147,6 +114,14 @@ export default function CtaSection() {
                 </div>
               </button>
             </Magnet>
+          </div>
+
+          {/* OS Platform Notice */}
+          <div className="mt-4 flex items-center justify-center">
+            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100/90 border border-slate-200 text-[11px] text-slate-600">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              Windows-only desktop installer (Order-It-Up-Setup.exe) • Cloud HQ accessible via browser on all platforms
+            </span>
           </div>
 
           {/* Reassurance Checklist */}

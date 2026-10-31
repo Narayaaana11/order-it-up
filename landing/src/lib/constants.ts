@@ -1,11 +1,40 @@
 export const BRAND = {
   name: "Order It Up",
   tagline: "The Modern Offline-First Restaurant Operating System",
-  eyebrow: "⚡ 100% Offline-First POS • Zero Cloud Lock-In • Hardware Native",
+  eyebrow: "100% Offline-First POS • Zero Cloud Lock-In • Hardware Native",
   description:
     "Run lightning-fast counter billing with zero cloud dependency, orchestrate real-time kitchen displays over your local LAN, and print thermal receipts directly over USB and network — completely offline with embedded SQLite reliability.",
   company: "IndentDev",
   version: "v1.2.0-desktop",
+};
+
+export const UNSPLASH_ASSETS = {
+  posTerminalCounter:
+    "https://images.unsplash.com/photo-1556740738-b6a63e27c4df?auto=format&fit=crop&w=1200&q=80",
+  posCashierRegister:
+    "https://images.unsplash.com/photo-1556742049-0a67c5574f73?auto=format&fit=crop&w=1200&q=80",
+  kitchenChefPrep:
+    "https://images.unsplash.com/photo-1577219491135-ce391730fb2c?auto=format&fit=crop&w=1200&q=80",
+  kitchenBrigadeLine:
+    "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&w=1200&q=80",
+  restaurantFloorTables:
+    "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1200&q=80",
+  restaurantAtmosphere:
+    "https://images.unsplash.com/photo-1552566626-52f8b828add9?auto=format&fit=crop&w=1200&q=80",
+  waiterMobileTablet:
+    "https://images.unsplash.com/photo-1556740758-90de374c12ad?auto=format&fit=crop&w=1200&q=80",
+  accountingLedger:
+    "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=1200&q=80",
+  dishes: {
+    trufflePizza:
+      "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=160&q=80",
+    paneerTikka:
+      "https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?auto=format&fit=crop&w=160&q=80",
+    coldBrewLatte:
+      "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=160&q=80",
+    chocolateLavaCake:
+      "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=160&q=80",
+  },
 };
 
 export const NAV_LINKS = [

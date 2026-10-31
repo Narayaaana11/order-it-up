@@ -36,16 +36,9 @@ export default function ModalProvider() {
     filename: "",
   });
 
-  const triggerFileDownload = (platform: DownloadPlatform) => {
-    let filename = "OrderItUp-POS-Setup-1.2.0.exe";
-    let platformLabel = "Windows (x64)";
-    if (platform === "mac") {
-      filename = "OrderItUp-POS-1.2.0-universal.dmg";
-      platformLabel = "macOS (Apple Silicon & Intel)";
-    } else if (platform === "linux") {
-      filename = "OrderItUp-POS-1.2.0.AppImage";
-      platformLabel = "Linux (Universal)";
-    }
+  const triggerFileDownload = () => {
+    const filename = "Order-It-Up-Setup.exe";
+    const platformLabel = "Windows 10 / 11 (64-bit / ARM64)";
 
     setDownloadToast({
       show: true,
@@ -61,9 +54,10 @@ export default function ModalProvider() {
           `Platform: ${platformLabel}\n` +
           `Engine: Standalone Electron + Express (:3001) + SQLite WAL\n` +
           `Zero Cloud Lock-in • Offline Durability Guaranteed\n` +
+          `Artifact: ${filename}\n` +
           `Visit: https://orderitup.pages.dev/ for documentation.`
         ],
-        { type: "text/plain;charset=utf-8" }
+        { type: "application/octet-stream" }
       );
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -115,11 +109,16 @@ export default function ModalProvider() {
       setCredentialsOpen(true);
     };
 
+    const handleTriggerDownload = () => {
+      triggerFileDownload();
+    };
+
     window.addEventListener("orderitup_open_auth_modal", handleOpenAuth);
     window.addEventListener("orderitup_open_bill_modal", handleOpenBill);
     window.addEventListener("orderitup_open_terms_modal", handleOpenTerms);
     window.addEventListener("orderitup_open_license_modal", handleOpenLicense);
     window.addEventListener("orderitup_open_credentials_modal", handleOpenCredentials);
+    window.addEventListener("orderitup_trigger_download", handleTriggerDownload);
 
     return () => {
       window.removeEventListener("orderitup_open_auth_modal", handleOpenAuth);
@@ -127,12 +126,13 @@ export default function ModalProvider() {
       window.removeEventListener("orderitup_open_terms_modal", handleOpenTerms);
       window.removeEventListener("orderitup_open_license_modal", handleOpenLicense);
       window.removeEventListener("orderitup_open_credentials_modal", handleOpenCredentials);
+      window.removeEventListener("orderitup_trigger_download", handleTriggerDownload);
     };
   }, []);
 
   const handleAuthSuccess = () => {
     if (pendingDownloadPlatform) {
-      triggerFileDownload(pendingDownloadPlatform);
+      triggerFileDownload();
       setPendingDownloadPlatform(null);
     }
   };

@@ -11,6 +11,8 @@ import {
   LogOut,
   Key,
   UserPlus,
+  LayoutDashboard,
+  LogIn,
 } from "lucide-react";
 import { NAV_LINKS } from "@/lib/constants";
 import Magnet from "@/components/reactbits/Magnet";
@@ -45,12 +47,12 @@ export default function Navbar() {
   const handleDownloadClick = (e: React.MouseEvent) => {
     e.preventDefault();
     if (!currentUser) {
-      triggerOpenAuthModal("login", "any");
+      triggerOpenAuthModal("login", "windows");
     } else {
       // User is logged in, trigger download directly
       window.dispatchEvent(
-        new CustomEvent("orderitup_open_auth_modal", {
-          detail: { mode: "login", downloadPendingPlatform: "any" },
+        new CustomEvent("orderitup_trigger_download", {
+          detail: { platform: "windows" },
         })
       );
     }
@@ -144,21 +146,39 @@ export default function Navbar() {
                   </div>
                 </div>
 
+                {/* Prominent Dashboard Button */}
+                <a
+                  href="/dashboard"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl font-bold text-xs text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-xs active:scale-[0.98] transition-all whitespace-nowrap"
+                  title="Open Role Dashboard"
+                >
+                  <LayoutDashboard className="w-3.5 h-3.5" />
+                  <span>Dashboard</span>
+                </a>
+
                 <button
                   type="button"
                   onClick={handleSignOut}
-                  className="p-2 rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors"
+                  className="p-2 rounded-xl text-slate-500 hover:text-red-600 hover:bg-red-50 border border-transparent hover:border-red-200 transition-colors cursor-pointer"
                   title="Sign Out"
                 >
                   <LogOut className="w-4 h-4" />
                 </button>
               </div>
             ) : (
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => triggerOpenAuthModal("login")}
+                  className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl font-semibold text-xs text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors cursor-pointer"
+                >
+                  <LogIn className="w-3.5 h-3.5 text-slate-600" />
+                  <span>Login</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => triggerOpenAuthModal("signup")}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 active:scale-[0.98] transition-all cursor-pointer"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs text-white bg-[#F07928] hover:bg-[#EA580C] shadow-xs active:scale-[0.98] transition-all cursor-pointer"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   <span>Sign Up</span>
@@ -198,38 +218,60 @@ export default function Navbar() {
             <div className="flex flex-col gap-2.5">
               {/* User Session Bar in Mobile */}
               {currentUser ? (
-                <div className="p-3 rounded-xl bg-slate-100 border border-slate-200 flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center font-bold text-xs">
-                      {currentUser.name.charAt(0)}
+                <div className="flex flex-col gap-2 p-3 rounded-xl bg-slate-100 border border-slate-200">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-7 h-7 rounded-full bg-orange-500 text-white flex items-center justify-center font-bold text-xs">
+                        {currentUser.name.charAt(0)}
+                      </div>
+                      <div>
+                        <p className="text-xs font-bold text-slate-900">{currentUser.name}</p>
+                        <p className="text-[10px] text-orange-600 font-mono uppercase">
+                          {currentUser.role} • {currentUser.email}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-xs font-bold text-slate-900">{currentUser.name}</p>
-                      <p className="text-[10px] text-orange-600 font-mono uppercase">
-                        {currentUser.role} • {currentUser.email}
-                      </p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleSignOut();
+                        setMobileMenuOpen(false);
+                      }}
+                      className="p-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-white transition-colors cursor-pointer"
+                      title="Sign Out"
+                    >
+                      <LogOut className="w-4 h-4" />
+                    </button>
                   </div>
+                  <a
+                    href="/dashboard"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="w-full flex items-center justify-center gap-2 py-2 px-3 rounded-lg font-bold text-xs text-white bg-gradient-to-r from-orange-500 to-amber-500 shadow-xs active:scale-[0.98] transition-all"
+                  >
+                    <LayoutDashboard className="w-3.5 h-3.5" />
+                    <span>Go to Dashboard</span>
+                  </a>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-200">
                   <button
                     type="button"
                     onClick={() => {
-                      handleSignOut();
                       setMobileMenuOpen(false);
+                      triggerOpenAuthModal("login");
                     }}
-                    className="p-2 rounded-lg text-slate-500 hover:text-red-600 hover:bg-white transition-colors"
+                    className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 shadow-xs active:scale-[0.98] transition-all cursor-pointer"
                   >
-                    <LogOut className="w-4 h-4" />
+                    <LogIn className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Login</span>
                   </button>
-                </div>
-              ) : (
-                <div className="pb-2 border-b border-slate-200">
                   <button
                     type="button"
                     onClick={() => {
                       setMobileMenuOpen(false);
                       triggerOpenAuthModal("signup");
                     }}
-                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#F07928] hover:bg-[#EA580C] shadow-xs active:scale-[0.98] transition-all cursor-pointer"
+                    className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#F07928] hover:bg-[#EA580C] shadow-xs active:scale-[0.98] transition-all cursor-pointer"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
                     <span>Sign Up</span>

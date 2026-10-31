@@ -115,8 +115,47 @@ export function setStoredUser(user: AuthUser | null): void {
   try {
     if (user) {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
+      // Dual-write keys for frontend unified session storage
+      const token = user.token || `demo_jwt_token_${user.id}`;
+      localStorage.setItem("token", token);
+      localStorage.setItem("cloud_token", token);
+      localStorage.setItem(
+        "user",
+        JSON.stringify({
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          isOwner: user.role === "owner" || user.role === "SUPER_ADMIN",
+          organization_id: user.organizationId || "org_demo_showcase_01",
+          organization_name: user.organizationName || "The Rustic Olive Bistro & Bar",
+          currency: "INR",
+          timezone: "Asia/Kolkata",
+        })
+      );
+      localStorage.setItem(
+        "tenant",
+        JSON.stringify({
+          id: user.organizationId || "org_demo_showcase_01",
+          business_name: user.organizationName || "The Rustic Olive Bistro & Bar",
+          name: user.organizationName || "The Rustic Olive Bistro & Bar",
+          slug: (user.organizationName || "the-rustic-olive").toLowerCase().replace(/\s+/g, "-"),
+          database_name: "cloud_d1",
+          business_type: "restaurant",
+          country: "IN",
+          currency: "INR",
+          timezone: "Asia/Kolkata",
+          plan: "saas_production",
+          status: "active",
+          role: user.role,
+        })
+      );
     } else {
       localStorage.removeItem(AUTH_STORAGE_KEY);
+      localStorage.removeItem("token");
+      localStorage.removeItem("cloud_token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("tenant");
     }
     window.dispatchEvent(new Event("orderitup_auth_change"));
   } catch {

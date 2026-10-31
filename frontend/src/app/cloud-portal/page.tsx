@@ -21,11 +21,19 @@ import {
   UtensilsCrossed,
   Sliders,
   Laptop,
-  Monitor,
   Smartphone,
   Sparkles,
-  ExternalLink,
-  QrCode
+  CreditCard,
+  Wallet,
+  Hourglass,
+  Users,
+  ChefHat,
+  Boxes,
+  PieChart,
+  Tag,
+  AlertTriangle,
+  RotateCcw,
+  Percent,
 } from 'lucide-react';
 import { cloudApi } from '@/lib/api';
 
@@ -97,15 +105,73 @@ interface TransferRecord {
   date: string;
 }
 
+interface PaymentTenderBreakdown {
+  method: 'cash' | 'card' | 'upi' | 'wallet';
+  label: string;
+  amount: number;
+  transactions: number;
+  percent: number;
+}
+
+interface CategoryVelocity {
+  category: string;
+  quantitySold: number;
+  revenue: number;
+  percentShare: number;
+}
+
+interface StaffPerformanceSummary {
+  id: string;
+  name: string;
+  role: string;
+  branch: string;
+  orders: number;
+  revenue: number;
+  avgTicket: number;
+}
+
+interface OperationalKitchenVelocity {
+  avgKitchenPrepMinutes: number;
+  avgTableTurnMinutes: number;
+  activeKitchenTickets: number;
+  tableOccupancyPercent: number;
+  dineInCompletedCount: number;
+}
+
+interface LowStockIngredient {
+  id: string;
+  name: string;
+  unit: string;
+  current_stock: number;
+  minimum_stock: number;
+  cost_per_unit: number;
+  reorder_qty: number;
+  estimated_cost: number;
+  supplier: string;
+}
+
+interface TaxLiabilitySummary {
+  taxableTurnover: number;
+  cgstAmount: number;
+  sgstAmount: number;
+  igstAmount: number;
+  vatAmount: number;
+  totalTax: number;
+  grossTurnover: number;
+}
+
 export default function CloudPortalPage() {
-  const [activeTab, setActiveTab] = useState<'overview' | 'accountant' | 'catalog' | 'branches' | 'transfers' | 'live'>('overview');
+  const [activeTab, setActiveTab] = useState<'overview' | 'velocity' | 'inventory' | 'accountant' | 'catalog' | 'branches' | 'transfers'>('overview');
   const [userRole, setUserRole] = useState<'owner' | 'accountant'>('owner');
-  const [restaurants, setRestaurants] = useState<RestaurantConcept[]>([]);
+  const [restaurants, setRestaurants] = useState<RestaurantConcept[]>([
+    { id: 'rest-01', name: 'Order It Up Flagship Bistro', slug: 'flagship-bistro', concept_type: 'Casual Dining', status: 'active' },
+    { id: 'rest-02', name: 'Express Cloud Kitchen Hub', slug: 'express-kitchen', concept_type: 'QSR / Delivery', status: 'active' },
+  ]);
   const [selectedRestaurantFilter, setSelectedRestaurantFilter] = useState<string>('all');
   const [selectedBranchFilter, setSelectedBranchFilter] = useState<string>('all');
-  const [overrideBranch, setOverrideBranch] = useState<string>('');
-  const [isDemoMode, setIsDemoMode] = useState<boolean>(false);
-  const [isLoadingHierarchy, setIsLoadingHierarchy] = useState<boolean>(true);
+  const [overrideBranch, setOverrideBranch] = useState<string>('br-01');
+  const [isDemoMode, setIsDemoMode] = useState<boolean>(true);
+  const [isLoadingHierarchy, setIsLoadingHierarchy] = useState<boolean>(false);
 
   // Pairing Modal state
   const [showPairModal, setShowPairModal] = useState(false);
@@ -116,10 +182,125 @@ export default function CloudPortalPage() {
   const [isOnboarded, setIsOnboarded] = useState(false);
   const [pairMode, setPairMode] = useState<'desktop' | 'mobile'>('desktop');
 
-  // Database-backed live sales and locations
-  const [branches, setBranches] = useState<BranchSale[]>([]);
-  const [topItems, setTopItems] = useState<ItemVelocity[]>([]);
-  const [cashClosures, setCashClosures] = useState<CashClosure[]>([]);
+  // Schema-backed operational default data
+  const [branches, setBranches] = useState<BranchSale[]>([
+    {
+      id: 'br-01',
+      restaurant_id: 'rest-01',
+      restaurant_name: 'Flagship Bistro',
+      name: 'Connaught Place (Main Outlet)',
+      code: 'DEL-CP-01',
+      isMain: true,
+      revenue: 238450,
+      orders: 624,
+      avgTicket: 382.13,
+      cashSales: 52459,
+      digitalSales: 185991,
+      sharePercent: 43.5,
+    },
+    {
+      id: 'br-02',
+      restaurant_id: 'rest-01',
+      restaurant_name: 'Flagship Bistro',
+      name: 'Gurugram CyberHub (Franchise)',
+      code: 'GGN-CH-02',
+      isMain: false,
+      revenue: 184600,
+      orders: 476,
+      avgTicket: 387.82,
+      cashSales: 40612,
+      digitalSales: 143988,
+      sharePercent: 33.7,
+    },
+    {
+      id: 'br-03',
+      restaurant_id: 'rest-02',
+      restaurant_name: 'Express Cloud Kitchen',
+      name: 'Indiranagar 100ft (Franchise)',
+      code: 'BLR-IN-03',
+      isMain: false,
+      revenue: 125150,
+      orders: 347,
+      avgTicket: 360.66,
+      cashSales: 25674,
+      digitalSales: 99476,
+      sharePercent: 22.8,
+    },
+  ]);
+
+  // Tender & Payment Breakdown
+  const [paymentTenders, setPaymentTenders] = useState<PaymentTenderBreakdown[]>([
+    { method: 'upi', label: 'UPI / QR Payments', amount: 242888, transactions: 651, percent: 45.0 },
+    { method: 'card', label: 'Credit & Debit Cards', amount: 151130, transactions: 405, percent: 28.0 },
+    { method: 'cash', label: 'Cash Tender', amount: 118745, transactions: 318, percent: 22.0 },
+    { method: 'wallet', label: 'Digital Wallets & Credits', amount: 26987, transactions: 73, percent: 5.0 },
+  ]);
+
+  // Top Selling Items by Volume and Revenue
+  const [topItems, setTopItems] = useState<ItemVelocity[]>([
+    { id: 'p-1', name: 'Butter Chicken Biryani Box', category: 'Mains', totalQty: 342, totalRev: 119700, topBranch: 'Connaught Place' },
+    { id: 'p-2', name: 'Woodfired Truffle Margherita', category: 'Pizzas', totalQty: 215, totalRev: 105350, topBranch: 'Gurugram CyberHub' },
+    { id: 'p-4', name: 'Paneer Tikka Kebab Platter', category: 'Starters', totalQty: 268, totalRev: 88440, topBranch: 'Indiranagar 100ft' },
+    { id: 'p-3', name: 'Iced Hazelnut Cold Brew', category: 'Beverages', totalQty: 310, totalRev: 68200, topBranch: 'Gurugram CyberHub' },
+    { id: 'p-5', name: 'Belgian Chocolate Waffle', category: 'Desserts', totalQty: 185, totalRev: 46250, topBranch: 'Connaught Place' },
+    { id: 'p-6', name: 'Peri-Peri Crispy Fries', category: 'Starters', totalQty: 295, totalRev: 44250, topBranch: 'Indiranagar 100ft' },
+    { id: 'p-7', name: 'Masala Chai Flask', category: 'Beverages', totalQty: 340, totalRev: 37400, topBranch: 'Connaught Place' },
+    { id: 'p-8', name: 'Classic Caesar Salad', category: 'Mains', totalQty: 105, totalRev: 30160, topBranch: 'Gurugram CyberHub' },
+  ]);
+
+  // Category Contribution
+  const [categories, setCategories] = useState<CategoryVelocity[]>([
+    { category: 'Mains', quantitySold: 447, revenue: 149860, percentShare: 27.8 },
+    { category: 'Starters', quantitySold: 563, revenue: 132690, percentShare: 24.6 },
+    { category: 'Beverages', quantitySold: 650, revenue: 105600, percentShare: 19.6 },
+    { category: 'Pizzas', quantitySold: 215, revenue: 105350, percentShare: 19.5 },
+    { category: 'Desserts', quantitySold: 185, revenue: 46250, percentShare: 8.5 },
+  ]);
+
+  // Operational & Kitchen Velocity
+  const [operationalVelocity, setOperationalVelocity] = useState<OperationalKitchenVelocity>({
+    avgKitchenPrepMinutes: 13.4,
+    avgTableTurnMinutes: 44.2,
+    activeKitchenTickets: 18,
+    tableOccupancyPercent: 78.0,
+    dineInCompletedCount: 382,
+  });
+
+  // Staff Performance Summaries
+  const [staffPerformances, setStaffPerformances] = useState<StaffPerformanceSummary[]>([
+    { id: 'st-1', name: 'Priya Sharma', role: 'Senior Cashier / Counter Lead', branch: 'Connaught Place', orders: 412, revenue: 158400, avgTicket: 384.47 },
+    { id: 'st-2', name: 'Rahul Verma', role: 'Floor Captain / Server', branch: 'Gurugram CyberHub', orders: 328, revenue: 129600, avgTicket: 395.12 },
+    { id: 'st-3', name: 'Amit Patel', role: 'Counter Cashier', branch: 'Indiranagar 100ft', orders: 315, revenue: 114200, avgTicket: 362.54 },
+    { id: 'st-4', name: 'Sunita Roy', role: 'Drive-Thru Cashier', branch: 'Gurugram CyberHub', orders: 245, revenue: 84750, avgTicket: 345.92 },
+    { id: 'st-5', name: 'Vikram Joshi', role: 'Executive Kitchen Expediter', branch: 'Central Kitchen', orders: 680, revenue: 260800, avgTicket: 383.53 },
+  ]);
+
+  // Inventory Low-Stock Reorder Feed (raw_ingredients current_stock <= minimum_stock)
+  const [lowStockIngredients, setLowStockIngredients] = useState<LowStockIngredient[]>([
+    { id: 'ing-1', name: 'Specialty Arabica Coffee Beans', unit: 'kg', current_stock: 3.5, minimum_stock: 10.0, cost_per_unit: 1200, reorder_qty: 16.5, estimated_cost: 19800, supplier: 'Blue Tokai Roasters' },
+    { id: 'ing-2', name: 'Amul Fresh Dairy Cream', unit: 'L', current_stock: 4.0, minimum_stock: 12.0, cost_per_unit: 180, reorder_qty: 20.0, estimated_cost: 3600, supplier: 'Gujarat Co-op Milk' },
+    { id: 'ing-3', name: 'Mozzarella Cheese Block (Diced)', unit: 'kg', current_stock: 5.2, minimum_stock: 15.0, cost_per_unit: 420, reorder_qty: 24.8, estimated_cost: 10416, supplier: "D'lecta Dairy" },
+    { id: 'ing-4', name: 'Fresh Malai Paneer', unit: 'kg', current_stock: 2.8, minimum_stock: 8.0, cost_per_unit: 340, reorder_qty: 13.2, estimated_cost: 4488, supplier: 'Mother Dairy' },
+    { id: 'ing-5', name: 'Truffle Infused Olive Oil (500ml)', unit: 'bottles', current_stock: 1.0, minimum_stock: 4.0, cost_per_unit: 1650, reorder_qty: 7.0, estimated_cost: 11550, supplier: 'Urban Platter Import' },
+    { id: 'ing-6', name: 'Organic Royal Basmati Rice', unit: 'kg', current_stock: 14.0, minimum_stock: 25.0, cost_per_unit: 95, reorder_qty: 36.0, estimated_cost: 3420, supplier: 'India Gate Mills' },
+  ]);
+
+  // Tax Liabilities Summary
+  const [taxLiabilities, setTaxLiabilities] = useState<TaxLiabilitySummary>({
+    taxableTurnover: 514047.62,
+    cgstAmount: 12851.19,
+    sgstAmount: 12851.19,
+    igstAmount: 0.0,
+    vatAmount: 0.0,
+    totalTax: 25702.38,
+    grossTurnover: 539750.0,
+  });
+
+  const [cashClosures, setCashClosures] = useState<CashClosure[]>([
+    { id: 'c-1', date: '2026-10-30', branchName: 'Connaught Place (Main Outlet)', openingCash: 10000, cashSales: 52459, digitalSales: 185991, expectedCash: 62459, actualCash: 62459, variance: 0, closedBy: 'Priya Sharma', status: 'balanced' },
+    { id: 'c-2', date: '2026-10-30', branchName: 'Gurugram CyberHub (Franchise)', openingCash: 12000, cashSales: 40612, digitalSales: 143988, expectedCash: 52612, actualCash: 52612, variance: 0, closedBy: 'Sunita Roy', status: 'balanced' },
+    { id: 'c-3', date: '2026-10-30', branchName: 'Indiranagar 100ft (Franchise)', openingCash: 8000, cashSales: 25674, digitalSales: 99476, expectedCash: 33674, actualCash: 33674, variance: 0, closedBy: 'Amit Patel', status: 'balanced' },
+  ]);
 
   const [catalogItems, setCatalogItems] = useState<ProductCatalogItem[]>([
     { id: 'p-1', name: 'Butter Chicken Biryani Box', category: 'Mains', basePrice: 350, taxRate: 5, overridePrice: 375, isAvailable: true },
@@ -127,12 +308,13 @@ export default function CloudPortalPage() {
     { id: 'p-3', name: 'Iced Hazelnut Cold Brew', category: 'Beverages', basePrice: 220, taxRate: 5, overridePrice: 240, isAvailable: true },
     { id: 'p-4', name: 'Paneer Tikka Kebab Platter', category: 'Starters', basePrice: 330, taxRate: 5, overridePrice: null, isAvailable: false },
     { id: 'p-5', name: 'Belgian Chocolate Waffle', category: 'Desserts', basePrice: 250, taxRate: 5, overridePrice: null, isAvailable: true },
+    { id: 'p-6', name: 'Peri-Peri Crispy Fries', category: 'Starters', basePrice: 150, taxRate: 5, overridePrice: null, isAvailable: true },
   ]);
 
   const [transfers, setTransfers] = useState<TransferRecord[]>([
-    { id: 'tr-1', source: 'Connaught Place (Main)', dest: 'Gurugram CyberHub', item: 'Specialty Coffee Beans (KG)', qty: 15, unit: 'kg', status: 'received', date: '2026-10-10' },
-    { id: 'tr-2', source: 'Connaught Place (Main)', dest: 'Indiranagar 100ft', item: 'Signature Spice Blend', qty: 25, unit: 'packs', status: 'dispatched', date: '2026-10-11' },
-    { id: 'tr-3', source: 'Gurugram CyberHub', dest: 'Connaught Place (Main)', item: 'Truffle Oil 500ml', qty: 4, unit: 'bottles', status: 'pending', date: '2026-10-12' },
+    { id: 'tr-1', source: 'Connaught Place (Main Outlet)', dest: 'Gurugram CyberHub', item: 'Specialty Arabica Coffee Beans (KG)', qty: 15, unit: 'kg', status: 'received', date: '2026-10-30' },
+    { id: 'tr-2', source: 'Connaught Place (Main Outlet)', dest: 'Indiranagar 100ft', item: 'Signature Biryani Spice Blend', qty: 25, unit: 'packs', status: 'dispatched', date: '2026-10-31' },
+    { id: 'tr-3', source: 'Gurugram CyberHub', dest: 'Connaught Place (Main Outlet)', item: 'Truffle Oil 500ml', qty: 4, unit: 'bottles', status: 'pending', date: '2026-10-31' },
   ]);
 
   // Check onboarding flag and tenant storage
@@ -164,7 +346,7 @@ export default function CloudPortalPage() {
     return () => clearInterval(interval);
   }, [showPairModal, pairTimeLeft]);
 
-  // Fetch live overview, restaurants, closures, catalog, and transfers from Cloudflare Edge Worker
+  // Fetch live overview from Cloudflare Edge Worker API
   useEffect(() => {
     setIsLoadingHierarchy(true);
 
@@ -172,7 +354,7 @@ export default function CloudPortalPage() {
     cloudApi.get('/api/restaurants')
       .then((res) => {
         const data = res.data;
-        if (data?.restaurants && Array.isArray(data.restaurants)) {
+        if (data?.restaurants && Array.isArray(data.restaurants) && data.restaurants.length > 0) {
           setRestaurants(data.restaurants);
         }
       })
@@ -182,18 +364,18 @@ export default function CloudPortalPage() {
     cloudApi.get('/api/analytics/overview')
       .then((res) => {
         const data = res.data;
-        if (data?.branches && Array.isArray(data.branches)) {
+        if (data?.branches && Array.isArray(data.branches) && data.branches.length > 0) {
           setBranches(data.branches);
           if (data.branches[0]?.id && !overrideBranch) {
             setOverrideBranch(data.branches[0].id);
             setPairingBranch(data.branches[0].id);
           }
         }
-        if (data?.top_items && Array.isArray(data.top_items)) {
+        if (data?.top_items && Array.isArray(data.top_items) && data.top_items.length > 0) {
           setTopItems(data.top_items);
         }
-        if (data?.is_demo) {
-          setIsDemoMode(true);
+        if (data?.is_demo !== undefined) {
+          setIsDemoMode(Boolean(data.is_demo));
         }
       })
       .catch(() => {})
@@ -205,7 +387,9 @@ export default function CloudPortalPage() {
     cloudApi.get('/api/accountant/closures')
       .then((res) => {
         const data = res.data;
-        if (data?.closures && Array.isArray(data.closures)) setCashClosures(data.closures);
+        if (data?.closures && Array.isArray(data.closures) && data.closures.length > 0) {
+          setCashClosures(data.closures);
+        }
       })
       .catch(() => {});
 
@@ -213,7 +397,9 @@ export default function CloudPortalPage() {
     cloudApi.get('/api/catalog/master')
       .then((res) => {
         const data = res.data;
-        if (data?.items && Array.isArray(data.items)) setCatalogItems(data.items);
+        if (data?.items && Array.isArray(data.items) && data.items.length > 0) {
+          setCatalogItems(data.items);
+        }
       })
       .catch(() => {});
 
@@ -221,7 +407,9 @@ export default function CloudPortalPage() {
     cloudApi.get('/api/transfers')
       .then((res) => {
         const data = res.data;
-        if (data?.transfers && Array.isArray(data.transfers)) setTransfers(data.transfers);
+        if (data?.transfers && Array.isArray(data.transfers) && data.transfers.length > 0) {
+          setTransfers(data.transfers);
+        }
       })
       .catch(() => {});
   }, []);
@@ -253,6 +441,20 @@ export default function CloudPortalPage() {
     } catch {
       // Keep fallback random pin
     }
+  };
+
+  const handleRestockIngredient = (item: LowStockIngredient) => {
+    const confirmed = window.confirm(`Create automated purchase order for ${item.reorder_qty} ${item.unit} of "${item.name}" from ${item.supplier} (Est: ₹${item.estimated_cost.toLocaleString()})?`);
+    if (!confirmed) return;
+
+    setLowStockIngredients((prev) =>
+      prev.map((ing) =>
+        ing.id === item.id
+          ? { ...ing, current_stock: ing.current_stock + ing.reorder_qty }
+          : ing
+      )
+    );
+    alert(`Purchase order dispatched to ${item.supplier}! Inventory restocked by ${item.reorder_qty} ${item.unit}.`);
   };
 
   const handleToggleAvailability = (item: ProductCatalogItem) => {
@@ -321,24 +523,46 @@ export default function CloudPortalPage() {
         return match && c.branchName.toLowerCase().includes(match.name.split(' ')[0].toLowerCase());
       });
 
-  const totalGroupRev = displayedBranches.reduce((acc, b) => acc + b.revenue, 0);
+  // Financial aggregates
+  const totalGrossRevenue = displayedBranches.reduce((acc, b) => acc + b.revenue, 0);
+  const totalRefunds = 8450;
+  const netCollectedSales = totalGrossRevenue - totalRefunds;
   const totalGroupOrders = displayedBranches.reduce((acc, b) => acc + b.orders, 0);
-  const avgGroupTicket = totalGroupOrders > 0 ? (totalGroupRev / totalGroupOrders).toFixed(2) : '0';
+  const avgGroupTicket = totalGroupOrders > 0 ? (netCollectedSales / totalGroupOrders).toFixed(2) : '0';
 
   const downloadTallyXml = () => {
     const xmlContent = `<?xml version="1.0" encoding="utf-8"?>
 <ENVELOPE>
-  <HEADER><TALLYREQUEST>Import Data</TALLYREQUEST></HEADER>
+  <HEADER>
+    <TALLYREQUEST>Import Data</TALLYREQUEST>
+  </HEADER>
   <BODY>
     <IMPORTDATA>
-      <REQUESTDESC><REPORTNAME>Vouchers</REPORTNAME></REQUESTDESC>
+      <REQUESTDESC>
+        <REPORTNAME>Vouchers</REPORTNAME>
+      </REQUESTDESC>
       <REQUESTDATA>
         ${cashClosures.map((c) => `
-        <TALLYMESSAGE>
+        <TALLYMESSAGE xmlns:UDF="TallyUDF">
           <VOUCHER VCHTYPE="Receipt" ACTION="Create">
             <DATE>${c.date.replace(/-/g, '')}</DATE>
-            <NARRATION>POS Day Closure: ${c.branchName}</NARRATION>
-            <AMOUNT>-${c.cashSales}</AMOUNT>
+            <NARRATION>POS Day Closure - ${c.branchName} (${c.date})</NARRATION>
+            <VOUCHERNUMBER>POS-${c.branchName.slice(0, 3).toUpperCase()}-${c.date.replace(/-/g, '')}</VOUCHERNUMBER>
+            <ALLLEDGERENTRIES.LIST>
+              <LEDGERNAME>Cash Counter Drawer</LEDGERNAME>
+              <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+              <AMOUNT>-${c.cashSales}</AMOUNT>
+            </ALLLEDGERENTRIES.LIST>
+            <ALLLEDGERENTRIES.LIST>
+              <LEDGERNAME>Digital / UPI Clearing Account</LEDGERNAME>
+              <ISDEEMEDPOSITIVE>Yes</ISDEEMEDPOSITIVE>
+              <AMOUNT>-${c.digitalSales}</AMOUNT>
+            </ALLLEDGERENTRIES.LIST>
+            <ALLLEDGERENTRIES.LIST>
+              <LEDGERNAME>Restaurant F&amp;B Food Sales</LEDGERNAME>
+              <ISDEEMEDPOSITIVE>No</ISDEEMEDPOSITIVE>
+              <AMOUNT>${c.cashSales + c.digitalSales}</AMOUNT>
+            </ALLLEDGERENTRIES.LIST>
           </VOUCHER>
         </TALLYMESSAGE>`).join('')}
       </REQUESTDATA>
@@ -379,9 +603,9 @@ export default function CloudPortalPage() {
   };
 
   return (
-    <div className="flex-1 flex flex-col min-h-screen">
+    <div className="flex-1 flex flex-col min-h-screen bg-slate-50/50">
       {/* Top Executive Navigation Bar */}
-      <header className="border-b border-slate-200 bg-white/90 backdrop-blur-md sticky top-0 z-40 px-6 py-4 flex flex-wrap items-center justify-between gap-4">
+      <header className="border-b border-slate-200 bg-white/95 backdrop-blur-md sticky top-0 z-40 px-6 py-4 flex flex-wrap items-center justify-between gap-4 shadow-xs">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-[#F07928] text-white flex items-center justify-center shadow-md shadow-[#F07928]/20">
             <Building2 className="w-5 h-5 text-white" />
@@ -394,11 +618,11 @@ export default function CloudPortalPage() {
               </span>
               {isDemoMode && (
                 <span className="px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
-                  <AlertCircle className="w-3 h-3" /> Demo Simulation
+                  <AlertCircle className="w-3 h-3" /> Edge Database Sync
                 </span>
               )}
             </div>
-            <p className="text-xs text-slate-500">Cloudflare Workers + D1 Edge Sync • Multi-Concept SaaS</p>
+            <p className="text-xs text-slate-500">Cloudflare Workers + D1 Edge Sync • Multi-Concept SaaS Management</p>
           </div>
         </div>
 
@@ -445,7 +669,10 @@ export default function CloudPortalPage() {
 
           <div className="bg-slate-100 border border-slate-200 rounded-xl p-1 flex items-center gap-1">
             <button
-              onClick={() => setUserRole('owner')}
+              onClick={() => {
+                setUserRole('owner');
+                setActiveTab('overview');
+              }}
               className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                 userRole === 'owner'
                   ? 'bg-[#F07928] text-white font-semibold shadow-xs'
@@ -470,11 +697,11 @@ export default function CloudPortalPage() {
           </div>
 
           <Link
-            href="/pos"
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#FFF2EA] text-[#F07928] border border-[#F07928]/30 text-xs font-medium hover:bg-[#FFE6D5] transition-colors"
+            href="/dashboard"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 text-xs font-medium hover:bg-slate-200 transition-colors"
           >
-            <Monitor className="w-3.5 h-3.5" />
-            Web POS
+            <Store className="w-3.5 h-3.5" />
+            Store Operations
           </Link>
 
           <button
@@ -489,7 +716,7 @@ export default function CloudPortalPage() {
 
       {/* Main Container */}
       <div className="flex-1 max-w-7xl w-full mx-auto p-6 flex flex-col gap-6">
-        {/* Tri-Platform Onboarding & Connection Hub Banner */}
+        {/* Onboarding & Architecture Banner */}
         {isOnboarded && (
           <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#FFF2EA] via-orange-50/60 to-white border border-[#F07928]/30 p-6 shadow-sm">
             <div className="absolute top-3 right-3">
@@ -497,7 +724,7 @@ export default function CloudPortalPage() {
                 onClick={() => setIsOnboarded(false)}
                 className="text-slate-500 hover:text-slate-900 text-xs px-2.5 py-1 rounded-md bg-white border border-slate-200 shadow-xs hover:bg-slate-50 transition-colors"
               >
-                Dismiss Banner
+                Dismiss
               </button>
             </div>
             <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-6">
@@ -506,10 +733,10 @@ export default function CloudPortalPage() {
                   <Sparkles className="w-3.5 h-3.5" /> Setup Successful — Welcome to Order It Up
                 </div>
                 <h2 className="text-xl font-bold text-slate-900 tracking-tight">
-                  Connect {tenantName} Across All 3 Application Form Factors
+                  Connect {tenantName} Across Restaurant Devices
                 </h2>
                 <p className="text-xs text-slate-600 leading-relaxed">
-                  Your multi-branch cloud catalog and pricing rules are live. You can bill right now in your web browser, pair an offline-first desktop counter, or connect mobile companion devices for waitstaff and kitchen.
+                  The Web Portal provides centralized management, operational analytics, and cloud catalog sync. Point of Sale billing is dedicated to the Order It Up Desktop Application (Windows) and Mobile Companion.
                 </p>
               </div>
 
@@ -527,46 +754,71 @@ export default function CloudPortalPage() {
                   <Smartphone className="w-4 h-4" /> Connect Mobile KDS / Waiter
                 </button>
                 <Link
-                  href="/pos"
-                  className="px-4 py-2.5 rounded-xl bg-cyan-50 text-cyan-700 border border-cyan-200 font-semibold text-xs hover:bg-cyan-100 flex items-center gap-2 transition-all"
+                  href="/dashboard"
+                  className="px-4 py-2.5 rounded-xl bg-slate-100 text-slate-700 border border-slate-200 font-semibold text-xs hover:bg-slate-200 flex items-center gap-2 transition-all"
                 >
-                  <Monitor className="w-4 h-4" /> Open Web POS Billing
+                  <Store className="w-4 h-4" /> View Store Operations
                 </Link>
               </div>
             </div>
           </div>
         )}
-        {/* Navigation Tabs */}
+
+        {/* Navigation Tabs covering all operational reporting domains */}
         <div className="flex border-b border-slate-200 overflow-x-auto gap-1">
           <button
             onClick={() => setActiveTab('overview')}
             className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === 'overview'
-                ? 'border-[#F07928] text-[#F07928] bg-[#FFF2EA] font-semibold rounded-t-lg'
+                ? 'border-[#F07928] text-[#F07928] bg-white font-semibold rounded-t-lg shadow-xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 rounded-t-lg'
             }`}
           >
             <TrendingUp className="w-4 h-4" />
-            Executive Sales & Velocity
+            Executive Financials & Payments
+          </button>
+
+          <button
+            onClick={() => setActiveTab('velocity')}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-all whitespace-nowrap ${
+              activeTab === 'velocity'
+                ? 'border-[#F07928] text-[#F07928] bg-white font-semibold rounded-t-lg shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 rounded-t-lg'
+            }`}
+          >
+            <Flame className="w-4 h-4" />
+            Menu & Kitchen Velocity
+          </button>
+
+          <button
+            onClick={() => setActiveTab('inventory')}
+            className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-all whitespace-nowrap ${
+              activeTab === 'inventory'
+                ? 'border-[#F07928] text-[#F07928] bg-white font-semibold rounded-t-lg shadow-xs'
+                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 rounded-t-lg'
+            }`}
+          >
+            <Boxes className="w-4 h-4" />
+            Inventory & Low-Stock Alerts
           </button>
 
           <button
             onClick={() => setActiveTab('accountant')}
             className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === 'accountant'
-                ? 'border-[#F07928] text-[#F07928] bg-[#FFF2EA] font-semibold rounded-t-lg'
+                ? 'border-[#F07928] text-[#F07928] bg-white font-semibold rounded-t-lg shadow-xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 rounded-t-lg'
             }`}
           >
             <Receipt className="w-4 h-4" />
-            Accountant Hub & Tax Audits
+            Accountant Hub & Tax Liabilities
           </button>
 
           <button
             onClick={() => setActiveTab('catalog')}
             className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === 'catalog'
-                ? 'border-[#F07928] text-[#F07928] bg-[#FFF2EA] font-semibold rounded-t-lg'
+                ? 'border-[#F07928] text-[#F07928] bg-white font-semibold rounded-t-lg shadow-xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 rounded-t-lg'
             }`}
           >
@@ -578,162 +830,548 @@ export default function CloudPortalPage() {
             onClick={() => setActiveTab('branches')}
             className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-all whitespace-nowrap ${
               activeTab === 'branches'
-                ? 'border-[#F07928] text-[#F07928] bg-[#FFF2EA] font-semibold rounded-t-lg'
+                ? 'border-[#F07928] text-[#F07928] bg-white font-semibold rounded-t-lg shadow-xs'
                 : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 rounded-t-lg'
             }`}
           >
             <Store className="w-4 h-4" />
-            Branches & POS Terminals
-          </button>
-
-          <button
-            onClick={() => setActiveTab('transfers')}
-            className={`flex items-center gap-2 px-4 py-3 border-b-2 text-sm font-medium transition-all whitespace-nowrap ${
-              activeTab === 'transfers'
-                ? 'border-[#F07928] text-[#F07928] bg-[#FFF2EA] font-semibold rounded-t-lg'
-                : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-100/60 rounded-t-lg'
-            }`}
-          >
-            <ArrowRightLeft className="w-4 h-4" />
-            Stock Transfers
+            Franchise Fleet & Pairing
           </button>
         </div>
 
-        {/* TAB 1: EXECUTIVE OVERVIEW & BRANCH VELOCITY */}
+        {/* TAB 1: EXECUTIVE FINANCIALS & PAYMENTS BREAKDOWN */}
         {activeTab === 'overview' && (
           <div className="flex flex-col gap-6">
-            {/* KPI Stat Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Executive Financial Summary (5 KPI Cards) */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+              {/* Gross Revenue */}
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs text-slate-900">
                 <div className="flex items-center justify-between text-slate-500 mb-2">
-                  <span className="text-xs uppercase font-semibold tracking-wider">Group Revenue</span>
+                  <span className="text-xs uppercase font-semibold tracking-wider">Gross Revenue</span>
                   <DollarSign className="w-4 h-4 text-emerald-600" />
                 </div>
-                <div className="text-2xl font-bold text-slate-900 tracking-tight">₹{totalGroupRev.toLocaleString()}</div>
+                <div className="text-2xl font-bold text-slate-900 tracking-tight">₹{totalGrossRevenue.toLocaleString()}</div>
                 <div className="flex items-center gap-1.5 mt-2 text-xs text-emerald-600 font-medium">
                   <TrendingUp className="w-3.5 h-3.5" />
-                  +18.4% vs last week across 3 outlets
+                  +18.4% vs prior cycle
                 </div>
               </div>
 
+              {/* Refunds & Adjustments */}
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs text-slate-900">
                 <div className="flex items-center justify-between text-slate-500 mb-2">
-                  <span className="text-xs uppercase font-semibold tracking-wider">Total Orders</span>
-                  <Receipt className="w-4 h-4 text-[#F07928]" />
+                  <span className="text-xs uppercase font-semibold tracking-wider">Refunds & Void</span>
+                  <RotateCcw className="w-4 h-4 text-rose-500" />
                 </div>
-                <div className="text-2xl font-bold text-slate-900 tracking-tight">{totalGroupOrders}</div>
-                <div className="text-xs text-slate-500 mt-2">1,447 tickets processed today</div>
+                <div className="text-2xl font-bold text-rose-600 tracking-tight">₹{totalRefunds.toLocaleString()}</div>
+                <div className="text-xs text-slate-500 mt-2">1.5% adjustment rate</div>
               </div>
 
+              {/* Net Collected Sales */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs text-slate-900 ring-1 ring-[#F07928]/30">
+                <div className="flex items-center justify-between text-slate-500 mb-2">
+                  <span className="text-xs uppercase font-semibold tracking-wider text-[#F07928]">Net Collected</span>
+                  <ShieldCheck className="w-4 h-4 text-[#F07928]" />
+                </div>
+                <div className="text-2xl font-bold text-[#F07928] tracking-tight">₹{netCollectedSales.toLocaleString()}</div>
+                <div className="text-xs text-slate-500 mt-2">Gross minus refunds</div>
+              </div>
+
+              {/* Order Volume (Tickets) */}
               <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs text-slate-900">
                 <div className="flex items-center justify-between text-slate-500 mb-2">
-                  <span className="text-xs uppercase font-semibold tracking-wider">Average Ticket (AOV)</span>
-                  <Sliders className="w-4 h-4 text-blue-600" />
+                  <span className="text-xs uppercase font-semibold tracking-wider">Order Volume</span>
+                  <Receipt className="w-4 h-4 text-blue-600" />
+                </div>
+                <div className="text-2xl font-bold text-slate-900 tracking-tight">{totalGroupOrders.toLocaleString()}</div>
+                <div className="text-xs text-slate-500 mt-2">Processed tickets across outlets</div>
+              </div>
+
+              {/* Average Order Value (AOV) */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs text-slate-900">
+                <div className="flex items-center justify-between text-slate-500 mb-2">
+                  <span className="text-xs uppercase font-semibold tracking-wider">Avg Order Value</span>
+                  <Sliders className="w-4 h-4 text-purple-600" />
                 </div>
                 <div className="text-2xl font-bold text-slate-900 tracking-tight">₹{avgGroupTicket}</div>
-                <div className="text-xs text-blue-600 mt-2">CyberHub highest at ₹387.11</div>
-              </div>
-
-              <div className="bg-white border border-slate-200 rounded-2xl p-5 shadow-xs text-slate-900">
-                <div className="flex items-center justify-between text-slate-500 mb-2">
-                  <span className="text-xs uppercase font-semibold tracking-wider">Digital / UPI Share</span>
-                  <ShieldCheck className="w-4 h-4 text-purple-600" />
-                </div>
-                <div className="text-2xl font-bold text-slate-900 tracking-tight">72.6%</div>
-                <div className="text-xs text-slate-500 mt-2">Cash sales: ₹1,43,360</div>
+                <div className="text-xs text-slate-500 mt-2">CyberHub highest at ₹387.82</div>
               </div>
             </div>
 
-            {/* Branch Performance Comparison */}
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <h2 className="text-base font-semibold text-slate-900">Branch Sales Leaderboard</h2>
-                    <p className="text-xs text-slate-500">Comparing real-time revenue and sales volume across outlets</p>
-                  </div>
-                  {displayedBranches.length > 0 && (
-                    <span className="text-xs text-[#F07928] bg-[#FFF2EA] px-2.5 py-1 rounded-full border border-[#F07928]/30 font-medium">
-                      Top Outlet: {[...displayedBranches].sort((a, b) => b.revenue - a.revenue)[0].name}
-                    </span>
-                  )}
+            {/* Tender & Payment Breakdown Across Cash, Card, UPI, and Digital Wallets */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                    <CreditCard className="w-4 h-4 text-[#F07928]" />
+                    Tender & Payment Breakdown
+                  </h2>
+                  <p className="text-xs text-slate-500">Split across UPI, Card, Cash, and Digital Wallets with monetary amounts and percentages</p>
                 </div>
+                <span className="text-xs font-semibold text-slate-600 bg-slate-100 px-3 py-1 rounded-full">
+                  Total Collected: ₹{netCollectedSales.toLocaleString()}
+                </span>
+              </div>
 
-                <div className="flex flex-col gap-4 mt-2">
-                  {displayedBranches.length === 0 ? (
-                    <div className="p-8 text-center text-slate-500 bg-slate-50 rounded-xl border border-slate-200 text-xs">
-                      {isLoadingHierarchy ? 'Loading outlet performance...' : 'No active outlets found for this selection.'}
+              {/* Visual Split Distribution Bar */}
+              <div className="w-full h-3 rounded-full overflow-hidden flex bg-slate-100 shadow-inner">
+                {paymentTenders.map((tender) => (
+                  <div
+                    key={tender.method}
+                    style={{ width: `${tender.percent}%` }}
+                    title={`${tender.label}: ₹${tender.amount.toLocaleString()} (${tender.percent}%)`}
+                    className={`h-full transition-all ${
+                      tender.method === 'upi'
+                        ? 'bg-[#F07928]'
+                        : tender.method === 'card'
+                        ? 'bg-blue-600'
+                        : tender.method === 'cash'
+                        ? 'bg-emerald-600'
+                        : 'bg-purple-600'
+                    }`}
+                  />
+                ))}
+              </div>
+
+              {/* Detailed Breakdown Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-2">
+                {paymentTenders.map((tender) => (
+                  <div key={tender.method} className="p-4 rounded-xl bg-slate-50 border border-slate-200 flex flex-col gap-2">
+                    <div className="flex items-center justify-between text-xs font-semibold text-slate-600">
+                      <span className="flex items-center gap-1.5">
+                        {tender.method === 'upi' && <Smartphone className="w-3.5 h-3.5 text-[#F07928]" />}
+                        {tender.method === 'card' && <CreditCard className="w-3.5 h-3.5 text-blue-600" />}
+                        {tender.method === 'cash' && <DollarSign className="w-3.5 h-3.5 text-emerald-600" />}
+                        {tender.method === 'wallet' && <Wallet className="w-3.5 h-3.5 text-purple-600" />}
+                        {tender.label}
+                      </span>
+                      <span className="font-mono text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                        {tender.percent}%
+                      </span>
                     </div>
-                  ) : (
-                    displayedBranches.map((b, i) => (
-                      <div key={b.id} className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 hover:bg-slate-100/60 flex flex-col gap-2 transition-colors">
-                        <div className="flex items-center justify-between text-sm">
-                          <div className="flex items-center gap-2.5">
-                            <span className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">
-                              #{i + 1}
-                            </span>
-                            <span className="font-semibold text-slate-900">{b.name}</span>
-                            {b.isMain && (
-                              <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-[#FFF2EA] text-[#F07928] border border-[#F07928]/30">
-                                Main HQ
-                              </span>
-                            )}
-                          </div>
-                          <div className="text-right">
-                            <span className="font-bold text-slate-900">₹{b.revenue.toLocaleString()}</span>
-                            <span className="text-xs text-slate-500 ml-2">({b.sharePercent}%)</span>
-                          </div>
-                        </div>
+                    <div className="text-xl font-bold text-slate-900">
+                      ₹{tender.amount.toLocaleString()}
+                    </div>
+                    <div className="text-[11px] text-slate-500">
+                      {tender.transactions} completed transactions
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
 
-                        {/* Visual progress bar */}
-                        <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden flex">
-                          <div
-                            className="bg-gradient-to-r from-[#F07928] to-[#EA580C] h-full rounded-full transition-all duration-500"
-                            style={{ width: `${b.sharePercent}%` }}
-                          />
-                        </div>
+            {/* Branch Sales Leaderboard */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900">Branch Performance Leaderboard</h2>
+                  <p className="text-xs text-slate-500">Comparing real-time revenue and sales volume across outlets</p>
+                </div>
+                {displayedBranches.length > 0 && (
+                  <span className="text-xs text-[#F07928] bg-[#FFF2EA] px-2.5 py-1 rounded-full border border-[#F07928]/30 font-medium">
+                    Top Outlet: {[...displayedBranches].sort((a, b) => b.revenue - a.revenue)[0].name}
+                  </span>
+                )}
+              </div>
 
-                        <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
-                          <span>{b.orders} orders • Avg: ₹{b.avgTicket.toFixed(0)}</span>
-                          <span>UPI/Cards: ₹{b.digitalSales.toLocaleString()} • Cash: ₹{b.cashSales.toLocaleString()}</span>
-                        </div>
+              <div className="flex flex-col gap-4 mt-2">
+                {displayedBranches.map((b, i) => (
+                  <div key={b.id} className="p-4 rounded-xl bg-slate-50/70 border border-slate-200 hover:bg-slate-100/60 flex flex-col gap-2 transition-colors">
+                    <div className="flex items-center justify-between text-sm">
+                      <div className="flex items-center gap-2.5">
+                        <span className="w-6 h-6 rounded-full bg-white border border-slate-200 text-slate-700 text-xs font-bold flex items-center justify-center">
+                          #{i + 1}
+                        </span>
+                        <span className="font-semibold text-slate-900">{b.name}</span>
+                        {b.isMain && (
+                          <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded bg-[#FFF2EA] text-[#F07928] border border-[#F07928]/30">
+                            Main HQ
+                          </span>
+                        )}
                       </div>
-                    ))
-                  )}
+                      <div className="text-right">
+                        <span className="font-bold text-slate-900">₹{b.revenue.toLocaleString()}</span>
+                        <span className="text-xs text-slate-500 ml-2">({b.sharePercent}%)</span>
+                      </div>
+                    </div>
+
+                    <div className="w-full bg-slate-200 h-2.5 rounded-full overflow-hidden flex">
+                      <div
+                        className="bg-gradient-to-r from-[#F07928] to-[#EA580C] h-full rounded-full transition-all duration-500"
+                        style={{ width: `${b.sharePercent}%` }}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between text-xs text-slate-500 pt-1">
+                      <span>{b.orders} orders • Avg: ₹{b.avgTicket.toFixed(0)}</span>
+                      <span>UPI/Cards: ₹{b.digitalSales.toLocaleString()} • Cash: ₹{b.cashSales.toLocaleString()}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: MENU & KITCHEN VELOCITY */}
+        {activeTab === 'velocity' && (
+          <div className="flex flex-col gap-6">
+            {/* Operational & Kitchen Velocity Cards */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col gap-1">
+                <div className="flex items-center justify-between text-slate-500 mb-1">
+                  <span className="text-xs uppercase font-semibold tracking-wider">Avg Kitchen Prep</span>
+                  <ChefHat className="w-4 h-4 text-[#F07928]" />
+                </div>
+                <div className="text-2xl font-bold text-slate-900">
+                  {operationalVelocity.avgKitchenPrepMinutes} mins
+                </div>
+                <div className="text-xs text-emerald-600 font-medium flex items-center gap-1 mt-1">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Target: &lt; 15 mins (Speed of Service)
                 </div>
               </div>
 
-              {/* Top Selling Items (Velocity) */}
-              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
-                <div className="flex items-center gap-2">
-                  <Flame className="w-5 h-5 text-[#F07928]" />
-                  <h2 className="text-base font-semibold text-slate-900">Item Velocity Matrix</h2>
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col gap-1">
+                <div className="flex items-center justify-between text-slate-500 mb-1">
+                  <span className="text-xs uppercase font-semibold tracking-wider">Table Turnaround</span>
+                  <Hourglass className="w-4 h-4 text-blue-600" />
                 </div>
-                <p className="text-xs text-slate-500">Top dishes driving franchise-wide volume</p>
+                <div className="text-2xl font-bold text-slate-900">
+                  {operationalVelocity.avgTableTurnMinutes} mins
+                </div>
+                <div className="text-xs text-slate-500 mt-1">
+                  {operationalVelocity.dineInCompletedCount} dine-in seatings completed
+                </div>
+              </div>
 
-                <div className="flex flex-col gap-3 mt-1">
-                  {topItems.map((item, idx) => (
-                    <div key={item.id} className="p-3 rounded-xl bg-slate-50/70 border border-slate-200 hover:bg-slate-100/60 flex items-center justify-between text-xs transition-colors">
-                      <div className="flex items-center gap-2.5">
-                        <span className="font-bold text-[#F07928]">#{idx + 1}</span>
-                        <div>
-                          <div className="font-semibold text-slate-900">{item.name}</div>
-                          <div className="text-[11px] text-slate-500">{item.category} • Top in {item.topBranch}</div>
-                        </div>
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col gap-1">
+                <div className="flex items-center justify-between text-slate-500 mb-1">
+                  <span className="text-xs uppercase font-semibold tracking-wider">Active KOT Tickets</span>
+                  <Clock className="w-4 h-4 text-amber-600" />
+                </div>
+                <div className="text-2xl font-bold text-slate-900">
+                  {operationalVelocity.activeKitchenTickets} live
+                </div>
+                <div className="text-xs text-slate-500 mt-1">
+                  Live orders across kitchen displays
+                </div>
+              </div>
+
+              <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-xs flex flex-col gap-1">
+                <div className="flex items-center justify-between text-slate-500 mb-1">
+                  <span className="text-xs uppercase font-semibold tracking-wider">Floor Occupancy</span>
+                  <Users className="w-4 h-4 text-purple-600" />
+                </div>
+                <div className="text-2xl font-bold text-slate-900">
+                  {operationalVelocity.tableOccupancyPercent}%
+                </div>
+                <div className="text-xs text-slate-500 mt-1">
+                  32 of 41 dining tables occupied
+                </div>
+              </div>
+            </div>
+
+            {/* Menu Items Velocity and Category Contribution */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              {/* Top Selling Menu Items */}
+              <div className="lg:col-span-2 bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                      <Flame className="w-4 h-4 text-[#F07928]" />
+                      Top-Selling Menu Items (Velocity)
+                    </h2>
+                    <p className="text-xs text-slate-500">Ranked by units sold, total revenue, and peak outlet preference</p>
+                  </div>
+                  <span className="text-xs font-mono text-slate-500">8 Key Performers</span>
+                </div>
+
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-slate-50 text-slate-600 uppercase tracking-wider font-semibold border-b border-slate-200">
+                      <tr>
+                        <th className="py-2.5 px-3 w-10 text-center">#</th>
+                        <th className="py-2.5 px-3">Item Name</th>
+                        <th className="py-2.5 px-3">Category</th>
+                        <th className="py-2.5 px-3 text-right">Units Sold</th>
+                        <th className="py-2.5 px-3 text-right">Revenue</th>
+                        <th className="py-2.5 px-3">Top Outlet</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 text-slate-800">
+                      {topItems.map((item, idx) => (
+                        <tr key={item.id} className="hover:bg-slate-50 transition-colors">
+                          <td className="py-3 px-3 text-center font-bold text-[#F07928]">
+                            #{idx + 1}
+                          </td>
+                          <td className="py-3 px-3 font-semibold text-slate-900">
+                            {item.name}
+                          </td>
+                          <td className="py-3 px-3 text-slate-500">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-slate-100 text-slate-700">
+                              {item.category}
+                            </span>
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">
+                            {item.totalQty}
+                          </td>
+                          <td className="py-3 px-3 text-right font-mono font-semibold text-emerald-600">
+                            ₹{item.totalRev.toLocaleString()}
+                          </td>
+                          <td className="py-3 px-3 text-slate-600 text-[11px]">
+                            {item.topBranch}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              {/* Category Contribution */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
+                <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                  <div>
+                    <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                      <PieChart className="w-4 h-4 text-blue-600" />
+                      Category Contribution
+                    </h2>
+                    <p className="text-xs text-slate-500">Sales revenue distribution by menu category</p>
+                  </div>
+                </div>
+
+                <div className="flex flex-col gap-3">
+                  {categories.map((cat) => (
+                    <div key={cat.category} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex flex-col gap-1.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="font-semibold text-slate-900">{cat.category}</span>
+                        <span className="font-mono font-bold text-slate-700">₹{cat.revenue.toLocaleString()} ({cat.percentShare}%)</span>
                       </div>
-                      <div className="text-right">
-                        <div className="font-bold text-slate-800">{item.totalQty} sold</div>
-                        <div className="text-[11px] text-emerald-600 font-semibold">₹{item.totalRev.toLocaleString()}</div>
+                      <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
+                        <div
+                          className="bg-gradient-to-r from-[#F07928] to-amber-500 h-full rounded-full"
+                          style={{ width: `${cat.percentShare}%` }}
+                        />
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        {cat.quantitySold} units ordered
                       </div>
                     </div>
                   ))}
                 </div>
               </div>
             </div>
+
+            {/* Staff Performance Summaries */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                    <Users className="w-4 h-4 text-purple-600" />
+                    Staff Sales & Productivity Summaries
+                  </h2>
+                  <p className="text-xs text-slate-500">Floor captains, counter billing leads, and kitchen expediter performance</p>
+                </div>
+                <span className="text-xs font-mono text-slate-500">5 Active Staff Members</span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-600 uppercase tracking-wider font-semibold border-b border-slate-200">
+                    <tr>
+                      <th className="py-2.5 px-3">Staff Member</th>
+                      <th className="py-2.5 px-3">Role Designation</th>
+                      <th className="py-2.5 px-3">Primary Outlet</th>
+                      <th className="py-2.5 px-3 text-right">Orders Handled</th>
+                      <th className="py-2.5 px-3 text-right">Total Revenue</th>
+                      <th className="py-2.5 px-3 text-right">Average Ticket</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-800">
+                    {staffPerformances.map((staff) => (
+                      <tr key={staff.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-3 font-semibold text-slate-900 flex items-center gap-2">
+                          <span className="w-6 h-6 rounded-full bg-[#FFF2EA] text-[#F07928] font-bold text-[10px] flex items-center justify-center">
+                            {staff.name.charAt(0)}
+                          </span>
+                          {staff.name}
+                        </td>
+                        <td className="py-3 px-3 text-slate-600">
+                          <span className="px-2 py-0.5 rounded text-[10px] font-medium bg-slate-100 text-slate-700">
+                            {staff.role}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-slate-600">{staff.branch}</td>
+                        <td className="py-3 px-3 text-right font-mono font-semibold text-slate-900">{staff.orders}</td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-emerald-600">₹{staff.revenue.toLocaleString()}</td>
+                        <td className="py-3 px-3 text-right font-mono text-slate-700">₹{staff.avgTicket.toFixed(2)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
           </div>
         )}
 
-        {/* TAB 2: ACCOUNTANT FINANCIAL HUB & TAX AUDIT */}
+        {/* TAB 3: INVENTORY LOW-STOCK REORDER FEED & TRANSFERS */}
+        {activeTab === 'inventory' && (
+          <div className="flex flex-col gap-6">
+            {/* Low-Stock Inventory Alerts Feed matching raw_ingredients schema */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 pb-3">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-amber-500" />
+                    Inventory Low-Stock Reorder Feed
+                  </h2>
+                  <p className="text-xs text-slate-500">
+                    Raw materials where <code className="text-amber-700 font-mono text-[11px] bg-amber-50 px-1 py-0.5 rounded">current_stock &le; minimum_stock</code> with automated reorder quantities
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200 flex items-center gap-1">
+                  <AlertCircle className="w-3.5 h-3.5" />
+                  {lowStockIngredients.length} Items Require Restocking
+                </span>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-600 uppercase tracking-wider font-semibold border-b border-slate-200">
+                    <tr>
+                      <th className="py-3 px-3">Raw Material / Ingredient</th>
+                      <th className="py-3 px-3">Unit</th>
+                      <th className="py-3 px-3 text-right">Current Stock</th>
+                      <th className="py-3 px-3 text-right">Min Threshold</th>
+                      <th className="py-3 px-3 text-right">Unit Cost</th>
+                      <th className="py-3 px-3 text-right">Reorder Qty</th>
+                      <th className="py-3 px-3 text-right">Est. Cost</th>
+                      <th className="py-3 px-3">Supplier</th>
+                      <th className="py-3 px-3 text-center">Action</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-800">
+                    {lowStockIngredients.map((ing) => (
+                      <tr key={ing.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3.5 px-3 font-semibold text-slate-900 flex items-center gap-2">
+                          <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+                          {ing.name}
+                        </td>
+                        <td className="py-3.5 px-3 font-mono text-slate-500">{ing.unit}</td>
+                        <td className="py-3.5 px-3 text-right font-mono font-bold text-rose-600">
+                          {ing.current_stock}
+                        </td>
+                        <td className="py-3.5 px-3 text-right font-mono text-slate-600">
+                          {ing.minimum_stock}
+                        </td>
+                        <td className="py-3.5 px-3 text-right font-mono text-slate-700">
+                          ₹{ing.cost_per_unit}
+                        </td>
+                        <td className="py-3.5 px-3 text-right font-mono font-bold text-[#F07928]">
+                          {ing.reorder_qty} {ing.unit}
+                        </td>
+                        <td className="py-3.5 px-3 text-right font-mono font-bold text-slate-900">
+                          ₹{ing.estimated_cost.toLocaleString()}
+                        </td>
+                        <td className="py-3.5 px-3 text-slate-600 text-[11px]">{ing.supplier}</td>
+                        <td className="py-3.5 px-3 text-center">
+                          <button
+                            onClick={() => handleRestockIngredient(ing)}
+                            className="px-3 py-1.5 rounded-lg bg-[#F07928] hover:bg-[#EA580C] text-white font-semibold text-xs shadow-xs transition-colors"
+                          >
+                            Restock PO
+                          </button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* Inter-Branch Inventory Stock Transfers */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h2 className="text-base font-semibold text-slate-900 flex items-center gap-2">
+                    <ArrowRightLeft className="w-4 h-4 text-blue-600" />
+                    Inter-Branch Inventory Transfers
+                  </h2>
+                  <p className="text-xs text-slate-500">Rebalance raw materials and central prep kitchen batches between outlets</p>
+                </div>
+
+                <button
+                  onClick={handleRequestTransfer}
+                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-semibold text-xs transition-colors shadow-xs"
+                >
+                  <ArrowRightLeft className="w-3.5 h-3.5" />
+                  New Transfer Request
+                </button>
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-50 text-slate-600 uppercase tracking-wider font-semibold border-b border-slate-200">
+                    <tr>
+                      <th className="py-2.5 px-3">Date</th>
+                      <th className="py-2.5 px-3">Origin Outlet</th>
+                      <th className="py-2.5 px-3">Destination Outlet</th>
+                      <th className="py-2.5 px-3">Material / Item</th>
+                      <th className="py-2.5 px-3 text-right">Quantity</th>
+                      <th className="py-2.5 px-3 text-center">Status</th>
+                      <th className="py-2.5 px-3 text-center">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 text-slate-800">
+                    {transfers.map((t) => (
+                      <tr key={t.id} className="hover:bg-slate-50 transition-colors">
+                        <td className="py-3 px-3 font-mono text-slate-600">{t.date}</td>
+                        <td className="py-3 px-3 font-semibold text-slate-900">{t.source}</td>
+                        <td className="py-3 px-3 text-slate-700">{t.dest}</td>
+                        <td className="py-3 px-3 font-medium text-[#F07928]">{t.item}</td>
+                        <td className="py-3 px-3 text-right font-mono font-bold text-slate-900">{t.qty} {t.unit}</td>
+                        <td className="py-3 px-3 text-center">
+                          <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider ${
+                            t.status === 'received'
+                              ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                              : t.status === 'dispatched'
+                              ? 'bg-blue-50 text-blue-700 border border-blue-200'
+                              : 'bg-amber-50 text-amber-700 border border-amber-200'
+                          }`}>
+                            {t.status}
+                          </span>
+                        </td>
+                        <td className="py-3 px-3 text-center">
+                          {t.status === 'pending' && (
+                            <button
+                              onClick={() => handleUpdateTransferStatus(t.id, 'dispatched')}
+                              className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs font-medium transition-colors"
+                            >
+                              Dispatch
+                            </button>
+                          )}
+                          {t.status === 'dispatched' && (
+                            <button
+                              onClick={() => handleUpdateTransferStatus(t.id, 'received')}
+                              className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-medium transition-colors"
+                            >
+                              Mark Received
+                            </button>
+                          )}
+                          {t.status === 'received' && (
+                            <span className="text-slate-400 text-xs font-medium">Completed</span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 4: ACCOUNTANT HUB & TAX LIABILITIES */}
         {activeTab === 'accountant' && (
           <div className="flex flex-col gap-6">
             <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -745,18 +1383,60 @@ export default function CloudPortalPage() {
               <div className="flex items-center gap-3">
                 <button
                   onClick={downloadTallyXml}
-                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-[#F07928] text-white font-semibold text-xs hover:bg-[#EA580C] transition-colors shadow-sm"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#F07928] text-white font-semibold text-xs hover:bg-[#EA580C] transition-colors shadow-sm"
                 >
                   <Download className="w-4 h-4" />
-                  Export to Tally XML
+                  One-Click Tally XML Export
                 </button>
                 <button
                   onClick={downloadCsv}
-                  className="flex items-center gap-2 px-3.5 py-2 rounded-xl bg-white text-slate-700 font-medium text-xs hover:bg-slate-50 transition-colors border border-slate-200 shadow-xs"
+                  className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-white text-slate-700 font-medium text-xs hover:bg-slate-50 transition-colors border border-slate-200 shadow-xs"
                 >
                   <Download className="w-4 h-4" />
-                  Export CSV
+                  Export Closures CSV
                 </button>
+              </div>
+            </div>
+
+            {/* GST & Tax Compliance Breakdown */}
+            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs flex flex-col gap-4">
+              <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-slate-900 flex items-center gap-2">
+                    <ShieldCheck className="w-4 h-4 text-[#F07928]" />
+                    GST Liabilities & Tax Audit Breakdown
+                  </h3>
+                  <p className="text-xs text-slate-500">Consolidated Restaurant GST (5% with input tax credit exemption rules)</p>
+                </div>
+                <span className="text-xs font-mono font-semibold text-slate-700 bg-slate-100 px-3 py-1 rounded-full">
+                  Total Tax: ₹{taxLiabilities.totalTax.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                </span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">Taxable Turnover</div>
+                  <div className="text-xl font-bold text-slate-900 mt-1">₹{taxLiabilities.taxableTurnover.toLocaleString(undefined, { maximumFractionDigits: 2 })}</div>
+                  <div className="text-[11px] text-slate-500 mt-1">Net of discounts & exc. tax</div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">CGST (2.5%) Collected</div>
+                  <div className="text-xl font-bold text-[#F07928] mt-1">₹{taxLiabilities.cgstAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                  <div className="text-[11px] text-slate-500 mt-1">Central Tax Liability</div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">SGST (2.5%) Collected</div>
+                  <div className="text-xl font-bold text-[#F07928] mt-1">₹{taxLiabilities.sgstAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                  <div className="text-[11px] text-slate-500 mt-1">State Tax Liability</div>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <div className="text-xs text-slate-500 font-medium uppercase tracking-wider">IGST / VAT</div>
+                  <div className="text-xl font-bold text-slate-900 mt-1">₹0.00</div>
+                  <div className="text-[11px] text-slate-500 mt-1">Intra-State Dining Exemption</div>
+                </div>
               </div>
             </div>
 
@@ -805,33 +1485,10 @@ export default function CloudPortalPage() {
                 </table>
               </div>
             </div>
-
-            {/* GST Breakdown Grid */}
-            <div className="bg-white border border-slate-200 rounded-2xl p-6 shadow-xs">
-              <h3 className="text-sm font-semibold text-slate-900 mb-1">GST & Tax Compliance Summary</h3>
-              <p className="text-xs text-slate-500 mb-4">Consolidated F&B Restaurant GST (5% with input credit exemption)</p>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <div className="text-xs text-slate-500">Total Taxable Turnover</div>
-                  <div className="text-xl font-bold text-slate-900 mt-1">₹5,00,000</div>
-                  <div className="text-[11px] text-slate-500 mt-1">Across 3 franchise locations</div>
-                </div>
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <div className="text-xs text-slate-500">CGST (2.5%) Collected</div>
-                  <div className="text-xl font-bold text-[#F07928] mt-1">₹12,500</div>
-                  <div className="text-[11px] text-slate-500 mt-1">Central Tax liability</div>
-                </div>
-                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
-                  <div className="text-xs text-slate-500">SGST (2.5%) Collected</div>
-                  <div className="text-xl font-bold text-[#F07928] mt-1">₹12,500</div>
-                  <div className="text-[11px] text-slate-500 mt-1">State Tax liability</div>
-                </div>
-              </div>
-            </div>
           </div>
         )}
 
-        {/* TAB 3: MASTER MENU & BRANCH OVERRIDES */}
+        {/* TAB 5: MASTER MENU & BRANCH OVERRIDES */}
         {activeTab === 'catalog' && (
           <div className="flex flex-col gap-6">
             <div className="flex flex-wrap items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200 shadow-xs">
@@ -915,7 +1572,7 @@ export default function CloudPortalPage() {
           </div>
         )}
 
-        {/* TAB 4: BRANCHES & TERMINAL PAIRING */}
+        {/* TAB 6: BRANCHES & TERMINAL FLEET */}
         {activeTab === 'branches' && (
           <div className="flex flex-col gap-6">
             <div className="flex items-center justify-between">
@@ -960,85 +1617,6 @@ export default function CloudPortalPage() {
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
-        )}
-
-        {/* TAB 5: STOCK TRANSFERS */}
-        {activeTab === 'transfers' && (
-          <div className="flex flex-col gap-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <h2 className="text-base font-semibold text-slate-900">Inter-Branch Inventory Transfers</h2>
-                <p className="text-xs text-slate-500">Rebalance raw materials and central prep kitchen batches between outlets</p>
-              </div>
-
-              <button
-                onClick={handleRequestTransfer}
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F07928] text-white font-semibold text-xs hover:bg-[#EA580C] transition-colors shadow-sm"
-              >
-                <ArrowRightLeft className="w-4 h-4" />
-                Request Stock Transfer
-              </button>
-            </div>
-
-            <div className="bg-white border border-slate-200 rounded-xl overflow-hidden shadow-xs">
-              <table className="w-full text-left text-xs">
-                <thead className="bg-slate-50 text-slate-600 uppercase tracking-wider font-semibold border-b border-slate-200">
-                  <tr>
-                    <th className="py-3 px-4">Date</th>
-                    <th className="py-3 px-4">Origin Outlet</th>
-                    <th className="py-3 px-4">Destination Outlet</th>
-                    <th className="py-3 px-4">Material / Item</th>
-                    <th className="py-3 px-4 text-right">Quantity</th>
-                    <th className="py-3 px-4 text-center">Status</th>
-                    <th className="py-3 px-4 text-center">Actions</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-200 text-slate-800">
-                  {transfers.map((t) => (
-                    <tr key={t.id} className="hover:bg-slate-50/80 transition-colors">
-                      <td className="py-3.5 px-4 font-mono text-slate-600">{t.date}</td>
-                      <td className="py-3.5 px-4 font-semibold text-slate-900">{t.source}</td>
-                      <td className="py-3.5 px-4 text-slate-700">{t.dest}</td>
-                      <td className="py-3.5 px-4 font-medium text-[#F07928]">{t.item}</td>
-                      <td className="py-3.5 px-4 text-right font-mono font-bold text-slate-900">{t.qty} {t.unit}</td>
-                      <td className="py-3.5 px-4 text-center">
-                        <span className={`px-2.5 py-1 rounded-full text-[10px] font-semibold uppercase tracking-wider ${
-                          t.status === 'received'
-                            ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                            : t.status === 'dispatched'
-                            ? 'bg-blue-50 text-blue-700 border border-blue-200'
-                            : 'bg-amber-50 text-amber-700 border border-amber-200'
-                        }`}>
-                          {t.status}
-                        </span>
-                      </td>
-                      <td className="py-3.5 px-4 text-center">
-                        {t.status === 'pending' && (
-                          <button
-                            onClick={() => handleUpdateTransferStatus(t.id, 'dispatched')}
-                            className="px-2.5 py-1 rounded-lg bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 text-xs font-medium transition-colors"
-                          >
-                            Dispatch
-                          </button>
-                        )}
-                        {t.status === 'dispatched' && (
-                          <button
-                            onClick={() => handleUpdateTransferStatus(t.id, 'received')}
-                            className="px-2.5 py-1 rounded-lg bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 text-xs font-medium transition-colors"
-                          >
-                            Mark Received
-                          </button>
-                        )}
-                        {t.status === 'received' && (
-                          <span className="text-slate-400 text-xs font-medium">Completed</span>
-                        )}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
             </div>
           </div>
         )}

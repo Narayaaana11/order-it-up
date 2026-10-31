@@ -24,6 +24,13 @@ import TiltedCard from "@/components/reactbits/TiltedCard";
 import SpotlightCard from "@/components/reactbits/SpotlightCard";
 import { triggerOpenBillModal } from "@/lib/modalEvents";
 
+const DISH_THUMBNAILS: Record<string, string> = {
+  "item-1": "https://images.unsplash.com/photo-1513104890138-7c749659a591?auto=format&fit=crop&w=160&q=80",
+  "item-2": "https://images.unsplash.com/photo-1567188040759-fb8a883dc6d8?auto=format&fit=crop&w=160&q=80",
+  "item-3": "https://images.unsplash.com/photo-1501339847302-ac426a4a7cbb?auto=format&fit=crop&w=160&q=80",
+  "item-4": "https://images.unsplash.com/photo-1606313564200-e75d5e30476c?auto=format&fit=crop&w=160&q=80",
+};
+
 export default function UiPreviews() {
   const [activeTab, setActiveTab] = useState<"cart" | "kds" | "receipt">("cart");
 
@@ -255,21 +262,33 @@ export default function UiPreviews() {
                 ) : (
                   cartItems.map((item) => (
                     <div key={item.id} className="py-3.5 first:pt-0 last:pb-0 flex items-start justify-between gap-4">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={`w-2 h-2 rounded-full ${
-                              item.tag === "veg"
-                                ? "bg-emerald-500"
-                                : item.tag === "vegan"
-                                ? "bg-teal-500"
-                                : "bg-amber-500"
-                            }`}
-                          />
-                          <h4 className="text-sm font-semibold text-slate-900">{item.name}</h4>
+                      <div className="flex items-start gap-3 flex-1 min-w-0">
+                        {DISH_THUMBNAILS[item.id] && (
+                          <div className="w-12 h-12 rounded-xl overflow-hidden shrink-0 bg-slate-100 border border-slate-200 shadow-2xs">
+                            <img
+                              src={DISH_THUMBNAILS[item.id]}
+                              alt={item.name}
+                              className="w-full h-full object-cover"
+                              loading="lazy"
+                            />
+                          </div>
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2">
+                            <span
+                              className={`w-2 h-2 rounded-full shrink-0 ${
+                                item.tag === "veg"
+                                  ? "bg-emerald-500"
+                                  : item.tag === "vegan"
+                                  ? "bg-teal-500"
+                                  : "bg-amber-500"
+                              }`}
+                            />
+                            <h4 className="text-sm font-semibold text-slate-900 truncate">{item.name}</h4>
+                          </div>
+                          <p className="text-xs text-slate-500 mt-0.5 truncate">{item.modifier}</p>
+                          <p className="text-[11px] text-slate-500 font-mono italic mt-0.5 truncate">Note: {item.note}</p>
                         </div>
-                        <p className="text-xs text-slate-500 mt-0.5">{item.modifier}</p>
-                        <p className="text-[11px] text-slate-500 font-mono italic mt-0.5">Note: {item.note}</p>
                       </div>
 
                       {/* Quantity Controls & Line Total */}
