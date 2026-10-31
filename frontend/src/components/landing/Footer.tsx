@@ -1,5 +1,5 @@
 import React from "react";
-import { UtensilsCrossed, ShieldCheck } from "lucide-react";
+import { ShieldCheck } from "lucide-react";
 import { BRAND } from "@/lib/constants";
 
 export default function Footer() {
