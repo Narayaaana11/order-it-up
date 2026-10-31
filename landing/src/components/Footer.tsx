@@ -9,15 +9,14 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
           {/* Brand Info (2 cols) */}
           <div className="lg:col-span-2 flex flex-col gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-xl bg-[#F07928] flex items-center justify-center text-white shadow-md shadow-orange-500/20">
-                <UtensilsCrossed className="w-4 h-4" />
-              </div>
-              <span className="text-lg font-black tracking-tight text-slate-900">
+            <div className="flex items-center gap-2.5">
+              <img
+                src="/logo.png"
+                alt="Order It Up Logo"
+                className="h-8 w-8 object-contain"
+              />
+              <span className="text-lg font-black tracking-tight text-slate-900 whitespace-nowrap">
                 {BRAND.name}
-              </span>
-              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-orange-50 text-orange-600 border border-orange-200">
-                POS
               </span>
             </div>
 
