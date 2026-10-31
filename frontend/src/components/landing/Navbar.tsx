@@ -114,7 +114,7 @@ export default function Navbar() {
                   <span className="text-[10px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-orange-100 text-orange-700 border border-orange-200">
                     {user?.role || 'Staff'}
                   </span>
-                </div>
+
 
                 {/* Go to Dashboard CTA */}
                 <Link
@@ -147,7 +147,7 @@ export default function Navbar() {
                       <UserPlus className="w-4 h-4" />
                       <span>Sign Up</span>
                     </Link>
-                  </div>
+  
               </div>
             )}
           </div>
@@ -177,11 +177,11 @@ export default function Navbar() {
                       <span className="text-sm font-semibold text-slate-900">
                         {user?.name || user?.email || 'Store User'}
                       </span>
-                    </div>
+    
                     <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-md bg-orange-100 text-orange-700 border border-orange-200">
                       {user?.role || 'Staff'}
                     </span>
-                  </div>
+  
                   <Link
                     href={dashboardHref}
                     onClick={() => setMobileMenuOpen(false)}
@@ -202,7 +202,7 @@ export default function Navbar() {
                     <LogOut className="w-3.5 h-3.5" />
                     <span>Sign Out</span>
                   </button>
-                </div>
+
               ) : (
                 <div className="grid grid-cols-2 gap-2">
                   {/* Distinct Login and Signup in mobile */}
@@ -222,7 +222,7 @@ export default function Navbar() {
                     <UserPlus className="w-3.5 h-3.5" />
                     <span>Sign Up</span>
                   </Link>
-                </div>
+
               )}
 
               {/* Links */}
@@ -252,7 +252,7 @@ export default function Navbar() {
                 <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 py-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
                   <span>100% Free Forever for Single Counters</span>
-                </div>
+
               </div>
             </div>
           </div>
