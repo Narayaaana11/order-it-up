@@ -1,171 +1,176 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, {
+  useState,
+  useEffect,
+  useCallback,
+  useMemo,
+  useRef,
+} from "react";
+import { Suspense } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import {
   Store,
-  DollarSign,
-  ShoppingBag,
-  TrendingUp,
-  Users,
-  ShieldCheck,
+  Building2,
   Receipt,
+  ChefHat,
+  UtensilsCrossed,
+  FileSpreadsheet,
+  Bike,
+  CheckCircle2,
   Printer,
   Key,
   LogOut,
   ArrowLeft,
   Cloud,
-  FileSpreadsheet,
-  Building2,
-  Network,
-  Share2,
+  Zap,
+  RefreshCw,
+  ChevronDown,
   Layers,
-  Search,
-  ChevronRight,
-  Database,
-  Copy,
-  Check,
-  Sparkles,
-  Cpu,
+  X,
+  Activity,
 } from "lucide-react";
 import { BRAND } from "@/lib/constants";
 import { AuthUser, getStoredUser, setStoredUser } from "@/lib/auth";
 import {
   triggerOpenBillModal,
-  triggerOpenTermsModal,
   triggerOpenCredentialsModal,
 } from "@/lib/modalEvents";
+import {
+  useDashboardActions,
+  useActivePerspective,
+  useActiveRole,
+  useSelectedOutletId,
+  useOutlets,
+} from "@/lib/dashboard-store";
+import {
+  useBackendDetector,
+  getBackendStatusLabel,
+} from "@/lib/backend-detector";
+import type {
+  OperationalRole,
+  DashboardPerspective,
+} from "@/lib/dashboard-models";
 
-// Mock Data: Platform Tenants (For Startup Founder Perspective)
-const PLATFORM_TENANTS = [
+// Import all 8 verified dashboard perspective & persona components
+import { CashierView } from "@/components/dashboard/CashierView";
+import { KitchenChefView } from "@/components/dashboard/KitchenChefView";
+import { ServerWaiterView } from "@/components/dashboard/ServerWaiterView";
+import { AccountantView } from "@/components/dashboard/AccountantView";
+import { DeliveryDriverView } from "@/components/dashboard/DeliveryDriverView";
+import { OwnerManagerView } from "@/components/dashboard/OwnerManagerView";
+import { FounderAdminView } from "@/components/dashboard/FounderAdminView";
+import { ChainOwnerView } from "@/components/dashboard/ChainOwnerView";
+
+// Tab configuration for Merchant perspective
+interface PersonaTabConfig {
+  id: string;
+  role: OperationalRole | "overview";
+  label: string;
+  badge: string;
+  shortDesc: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
+
+const PERSONA_TABS: PersonaTabConfig[] = [
   {
-    id: "tenant-0892",
-    businessName: "Spice Route Hospitality Group",
-    ownerName: "Priya Sharma",
-    ownerEmail: "priya@spiceroute.in",
-    tier: "Enterprise Chain",
-    outletsCount: 3,
-    activeTerminals: 6,
-    s3Bucket: "orderitup-tenant-spiceroute",
-    monthGmv: "₹14,85,200",
-    lastSync: "2 mins ago",
-    status: "Active",
-    city: "New Delhi & Gurugram",
+    id: "overview",
+    role: "overview",
+    label: "Multi-Outlet Overview",
+    badge: "Chain Central",
+    shortDesc: "Cross-branch live sales, catalog pricing & consolidated taxes",
+    icon: Layers,
   },
   {
-    id: "tenant-0441",
-    businessName: "Urban Bites Fast-Casual Co.",
-    ownerName: "Amit Verma",
-    ownerEmail: "amit@urbanbites.co",
-    tier: "Pro Multi-Outlet",
-    outletsCount: 2,
-    activeTerminals: 4,
-    s3Bucket: "orderitup-tenant-urbanbites",
-    monthGmv: "₹8,92,400",
-    lastSync: "5 mins ago",
-    status: "Active",
-    city: "Bengaluru",
+    id: "owner",
+    role: "owner",
+    label: "Owner / Manager",
+    badge: "Operations",
+    shortDesc: "Branch performance, staff PIN assignment & S3 backup outbox",
+    icon: Store,
   },
   {
-    id: "tenant-0129",
-    businessName: "Cafe Milano Roasters",
-    ownerName: "Marco Rossi",
-    ownerEmail: "marco@cafemilano.com",
-    tier: "Single Store Pilot",
-    outletsCount: 1,
-    activeTerminals: 2,
-    s3Bucket: "orderitup-tenant-milano",
-    monthGmv: "₹4,20,100",
-    lastSync: "1 min ago",
-    status: "Active",
-    city: "Mumbai",
+    id: "cashier",
+    role: "cashier",
+    label: "Front Cashier",
+    badge: "Counter POS",
+    shortDesc: "Split tenders, 24V cash drawer pulse & 80mm thermal receipts",
+    icon: Receipt,
   },
   {
-    id: "tenant-0773",
-    businessName: "The Coastal Catch Bistro",
-    ownerName: "Sunita Rao",
-    ownerEmail: "sunita@coastalcatch.in",
-    tier: "Enterprise Chain",
-    outletsCount: 4,
-    activeTerminals: 8,
-    s3Bucket: "orderitup-tenant-coastal",
-    monthGmv: "₹21,40,900",
-    lastSync: "4 mins ago",
-    status: "Active",
-    city: "Goa & Kochi",
+    id: "chef",
+    role: "chef",
+    label: "Kitchen Chef",
+    badge: "KDS :3002",
+    shortDesc: "Live order bump bar, prep station routing & SLA timers",
+    icon: ChefHat,
+  },
+  {
+    id: "waiter",
+    role: "waiter",
+    label: "Server / Waiter",
+    badge: "Tableside",
+    shortDesc: "Visual floor map, table occupancy & tableside course firing",
+    icon: UtensilsCrossed,
+  },
+  {
+    id: "accountant",
+    role: "accountant",
+    label: "Accountant / Tax",
+    badge: "SAC 996331",
+    shortDesc: "GST breakdown, Z-report balancing & Tally XML export",
+    icon: FileSpreadsheet,
+  },
+  {
+    id: "driver",
+    role: "driver",
+    label: "Delivery Driver",
+    badge: "Dispatch",
+    shortDesc: "Swiggy/Zomato dispatch, masked calls & COD cash settlement",
+    icon: Bike,
   },
 ];
 
-// Mock Data: Connected Outlets for Chain Owner (Priya Sharma's 3 branches)
-const CHAIN_OUTLETS = [
-  {
-    id: "outlet-1",
-    name: "Downtown Bistro (Flagship)",
-    location: "Connaught Place, New Delhi",
-    type: "Fine Dine & Craft Cocktail Bar",
-    todaySales: 48920,
-    ordersCount: 48,
-    avgTicket: 1019.16,
-    activeTables: "8 / 12",
-    tenders: { upi: 28420, cash: 14200, card: 6300 },
-    topDish: "Truffle Mushroom Pizza",
-    posTerminals: 2,
-    status: "Operational",
-    enginePort: ":3001 (POS Engine) • :3002 (KDS)",
-    hardware: "2x 80mm ESC/POS Printers • 24V Solenoid Till Active",
-  },
-  {
-    id: "outlet-2",
-    name: "Cyber Hub Express (QSR)",
-    location: "DLF Cyber City, Gurugram",
-    type: "High-Volume Counter & Online Aggregators",
-    todaySales: 64150,
-    ordersCount: 112,
-    avgTicket: 572.76,
-    activeTables: "10 / 12",
-    tenders: { upi: 49200, cash: 3000, card: 11950 },
-    topDish: "Artisanal Paneer Tikka Wrap",
-    posTerminals: 2,
-    status: "Operational",
-    enginePort: ":3001 (POS Engine) • :3002 (KDS)",
-    hardware: "2x 80mm ESC/POS Printers • Kitchen Bump Bar Active",
-  },
-  {
-    id: "outlet-3",
-    name: "Airport Terminal 3 Hub",
-    location: "IGI Airport T3 Departures",
-    type: "24/7 Transit Cafe & Grab-and-Go",
-    todaySales: 32400,
-    ordersCount: 56,
-    avgTicket: 578.57,
-    activeTables: "4 / 8",
-    tenders: { upi: 10200, cash: 2400, card: 19800 },
-    topDish: "Classic Cold Brew Latte",
-    posTerminals: 2,
-    status: "Operational",
-    enginePort: ":3001 (POS Engine) • :3002 (KDS)",
-    hardware: "1x 80mm ESC/POS Printer • Standalone Barcode Terminal",
-  },
-];
-
-export default function DashboardPage() {
+/**
+ * Inner Dashboard Component that uses useSearchParams inside Suspense
+ */
+function DashboardShell() {
   const router = useRouter();
+  const searchParams = useSearchParams();
+
+  // Store state and actions
+  const activePerspective = useActivePerspective();
+  const activeRole = useActiveRole();
+  const selectedOutletId = useSelectedOutletId();
+  const outlets = useOutlets();
+  const actions = useDashboardActions();
+
+  // Local active tab fallback for merchant perspective
+  const [localTab, setLocalTab] = useState<string>("overview");
+
+  // User session state (populated safely via async timer to prevent SSR mismatch)
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
 
-  // High-Level Perspective: "merchant" (Multi-Restaurant Chain Owner) vs "founder" (Startup Founder Admin)
-  const [perspective, setPerspective] = useState<"merchant" | "founder">("merchant");
+  // Status Popover state
+  const [statusPopoverOpen, setStatusPopoverOpen] = useState<boolean>(false);
+  const statusPopoverRef = useRef<HTMLDivElement>(null);
+  const statusButtonRef = useRef<HTMLButtonElement>(null);
 
-  // Merchant Perspective States: Selected Outlet ("all" or outlet id)
-  const [selectedOutlet, setSelectedOutlet] = useState<string>("all");
+  // Live Backend Telemetry Hook
+  const {
+    status: detectorStatus,
+    isChecking,
+    recheck,
+    details,
+  } = useBackendDetector({
+    intervalMs: 30000,
+    timeoutMs: 1500,
+    autoCheck: true,
+  });
 
-  // Founder Perspective States: Search term & filter
-  const [searchQuery, setSearchQuery] = useState("");
-  const [tierFilter, setTierFilter] = useState("all");
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
-
+  // Safe user profile initialization
   useEffect(() => {
-    // Read stored user safely without triggering synchronous cascading renders
     const timer = setTimeout(() => {
       setCurrentUser(getStoredUser());
     }, 0);
@@ -173,7 +178,6 @@ export default function DashboardPage() {
     const handleAuthChange = () => {
       setCurrentUser(getStoredUser());
     };
-
     window.addEventListener("orderitup_auth_change", handleAuthChange);
     return () => {
       clearTimeout(timer);
@@ -181,46 +185,181 @@ export default function DashboardPage() {
     };
   }, []);
 
+  // Sync external store from URL query parameters (external mutator, no internal setState)
+  useEffect(() => {
+    if (!searchParams) return;
+
+    const pParam = searchParams.get("perspective")?.toLowerCase();
+    if (pParam === "founder" && activePerspective !== "founder") {
+      actions.setActivePerspective("founder");
+    } else if (pParam === "merchant" && activePerspective !== "merchant") {
+      actions.setActivePerspective("merchant");
+    }
+
+    const rParam = searchParams.get("role")?.toLowerCase();
+    if (rParam && rParam !== "overview" && rParam !== "chain") {
+      const roleMap: Record<string, OperationalRole> = {
+        cashier: "cashier",
+        chef: "chef",
+        waiter: "waiter",
+        server: "waiter",
+        accountant: "accountant",
+        driver: "driver",
+        delivery: "driver",
+        owner: "owner",
+        manager: "owner",
+      };
+      const mapped = roleMap[rParam];
+      if (mapped && mapped !== activeRole) {
+        actions.setActiveRole(mapped);
+      }
+    }
+
+    const oParam = searchParams.get("outlet");
+    if (oParam && oParam !== selectedOutletId) {
+      actions.setSelectedOutletId(oParam);
+    }
+  }, [searchParams, actions, activePerspective, activeRole, selectedOutletId]);
+
+  // Derive effective perspective
+  const effectivePerspective: DashboardPerspective = useMemo(() => {
+    const p = searchParams?.get("perspective")?.toLowerCase();
+    if (p === "founder") return "founder";
+    if (p === "merchant") return "merchant";
+    return activePerspective;
+  }, [searchParams, activePerspective]);
+
+  // Derive effective tab
+  const selectedTab: string = useMemo(() => {
+    const r = searchParams?.get("role")?.toLowerCase();
+    if (r === "cashier") return "cashier";
+    if (r === "chef") return "chef";
+    if (r === "waiter" || r === "server") return "waiter";
+    if (r === "accountant") return "accountant";
+    if (r === "driver" || r === "delivery") return "driver";
+    if (r === "owner" || r === "manager") return "owner";
+    if (r === "overview" || r === "chain") return "overview";
+    return localTab;
+  }, [searchParams, localTab]);
+
+  // URL updater with query parameter synchronization
+  const updateUrlParams = useCallback(
+    (updates: { perspective?: string; role?: string; outlet?: string }) => {
+      if (typeof window === "undefined") return;
+      const url = new URL(window.location.href);
+
+      if (updates.perspective !== undefined) {
+        url.searchParams.set("perspective", updates.perspective);
+      }
+      if (updates.role !== undefined) {
+        url.searchParams.set("role", updates.role);
+      }
+      if (updates.outlet !== undefined) {
+        url.searchParams.set("outlet", updates.outlet);
+      }
+
+      window.history.replaceState(null, "", url.toString());
+    },
+    []
+  );
+
+  // Close popover on outside click
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (
+        statusPopoverRef.current &&
+        !statusPopoverRef.current.contains(event.target as Node) &&
+        statusButtonRef.current &&
+        !statusButtonRef.current.contains(event.target as Node)
+      ) {
+        setStatusPopoverOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, []);
+
+  // Perspective handler
+  const handlePerspectiveChange = (newPerspective: DashboardPerspective) => {
+    actions.setActivePerspective(newPerspective);
+    updateUrlParams({
+      perspective: newPerspective,
+      role: newPerspective === "founder" ? "superadmin" : selectedTab,
+    });
+  };
+
+  // Tab switch handler
+  const handleTabChange = (tabId: string) => {
+    setLocalTab(tabId);
+    if (tabId === "overview") {
+      updateUrlParams({ perspective: "merchant", role: "overview" });
+    } else {
+      const targetRole = tabId as OperationalRole;
+      actions.setActiveRole(targetRole);
+      updateUrlParams({ perspective: "merchant", role: tabId });
+    }
+  };
+
+  // Outlet switch handler
+  const handleOutletChange = (outletId: string) => {
+    actions.setSelectedOutletId(outletId);
+    updateUrlParams({ outlet: outletId });
+  };
+
+  // Session sign out
   const handleSignOut = () => {
     setStoredUser(null);
     router.push("/");
   };
 
-  const handleCopyLicenseKey = (key: string) => {
-    navigator.clipboard.writeText(key);
-    setCopiedKey(key);
-    setTimeout(() => setCopiedKey(null), 2000);
+  // Determine active outlet entity
+  const currentOutlet = outlets.find((o) => o.id === selectedOutletId) || outlets[0];
+
+  // Active view renderer for all 8 views
+  const renderActiveView = () => {
+    if (effectivePerspective === "founder") {
+      return <FounderAdminView />;
+    }
+
+    switch (selectedTab) {
+      case "owner":
+        return <OwnerManagerView />;
+      case "cashier":
+        return <CashierView />;
+      case "chef":
+        return <KitchenChefView />;
+      case "waiter":
+        return <ServerWaiterView />;
+      case "accountant":
+        return <AccountantView />;
+      case "driver":
+        return <DeliveryDriverView />;
+      case "overview":
+      default:
+        return <ChainOwnerView />;
+    }
   };
 
-  // Calculations for Multi-Outlet Chain Owner
-  const totalChainSales = CHAIN_OUTLETS.reduce((acc, o) => acc + o.todaySales, 0);
-  const totalChainOrders = CHAIN_OUTLETS.reduce((acc, o) => acc + o.ordersCount, 0);
-  const avgChainTicket = Math.round(totalChainSales / totalChainOrders);
-
-  // Filtered tenants for Founder view
-  const filteredTenants = PLATFORM_TENANTS.filter((t) => {
-    const matchesSearch =
-      t.businessName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.ownerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      t.city.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchesTier = tierFilter === "all" || t.tier.toLowerCase().includes(tierFilter.toLowerCase());
-    return matchesSearch && matchesTier;
-  });
+  const isLive = detectorStatus.mode === "live";
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
-      {/* Top Header (Matching Landing Page Style) */}
+      {/* ===================================================================== */}
+      {/* MASTER HEADER                                                         */}
+      {/* ===================================================================== */}
       <header className="sticky top-0 z-40 w-full backdrop-blur-md bg-white/95 border-b border-slate-200/80 shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 sm:h-20 gap-3">
-            {/* Logo & Return to Home */}
+            {/* Left: Brand Logo & Back to Home */}
             <div className="flex items-center gap-3">
               <Link
                 href="/"
-                className="flex items-center gap-2 group p-1.5 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all"
-                title="Return to Landing Page"
+                className="flex items-center gap-1.5 p-2 rounded-xl text-slate-500 hover:text-slate-900 hover:bg-slate-100 transition-all cursor-pointer"
+                title="Return to Home"
               >
-                <ArrowLeft className="w-5 h-5 group-hover:-translate-x-1 transition-transform" />
+                <ArrowLeft className="w-5 h-5" />
               </Link>
               <div className="h-6 w-px bg-slate-200" />
               <Link href="/" className="flex items-center gap-2.5">
@@ -229,60 +368,260 @@ export default function DashboardPage() {
                   alt="Order It Up Logo"
                   className="h-9 w-9 object-contain"
                 />
-                <span className="text-xl font-black tracking-tight text-slate-900 whitespace-nowrap">
-                  {BRAND.name}
-                </span>
+                <div className="flex flex-col">
+                  <span className="text-xl font-black tracking-tight text-slate-900 leading-none">
+                    {BRAND.name}
+                  </span>
+                  <span className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mt-0.5">
+                    Unified Command
+                  </span>
+                </div>
               </Link>
             </div>
 
-            {/* Perspective Switcher (Founder vs Multi-Restaurant Chain) */}
-            <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200/80">
-              <button
-                type="button"
-                onClick={() => setPerspective("merchant")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  perspective === "merchant"
-                    ? "bg-[#F07928] text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <Store className="w-3.5 h-3.5" />
-                <span>Restaurant Chain Owner</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setPerspective("founder")}
-                className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  perspective === "founder"
-                    ? "bg-[#F07928] text-white shadow-xs"
-                    : "text-slate-600 hover:text-slate-900"
-                }`}
-              >
-                <Building2 className="w-3.5 h-3.5" />
-                <span>Founder Admin</span>
-              </button>
+            {/* Center: Perspective Switcher & Outlet Selector */}
+            <div className="hidden lg:flex items-center gap-3">
+              {/* Perspective Toggle */}
+              <div className="flex items-center bg-slate-100 p-1 rounded-2xl border border-slate-200/80 shadow-xs">
+                <button
+                  type="button"
+                  onClick={() => handlePerspectiveChange("merchant")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    effectivePerspective === "merchant"
+                      ? "bg-[#F07928] text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Store className="w-3.5 h-3.5" />
+                  <span>Restaurant Chain Owner</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handlePerspectiveChange("founder")}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                    effectivePerspective === "founder"
+                      ? "bg-[#F07928] text-white shadow-xs"
+                      : "text-slate-600 hover:text-slate-900"
+                  }`}
+                >
+                  <Building2 className="w-3.5 h-3.5" />
+                  <span>Founder Platform Admin</span>
+                </button>
+              </div>
+
+              {/* Outlet Selector Dropdown (When in Merchant View) */}
+              {effectivePerspective === "merchant" && (
+                <div className="relative">
+                  <select
+                    id="outlet-selector"
+                    value={selectedOutletId}
+                    onChange={(e) => handleOutletChange(e.target.value)}
+                    className="h-9 px-3 pr-8 rounded-xl bg-slate-50 border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500 shadow-xs cursor-pointer appearance-none"
+                    title="Filter active restaurant branch"
+                  >
+                    <option value="all">🌐 All Outlets (Consolidated Chain)</option>
+                    {outlets.map((outlet) => (
+                      <option key={outlet.id} value={outlet.id}>
+                        📍 {outlet.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-3.5 h-3.5 text-slate-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              )}
             </div>
 
-            {/* Quick Tools & Session Controls */}
-            <div className="flex items-center gap-2">
+            {/* Right: Hybrid Telemetry Pill, Quick Tools & Auth */}
+            <div className="flex items-center gap-2.5">
+              {/* Hybrid Connection Status Pill */}
+              <div className="relative">
+                <button
+                  ref={statusButtonRef}
+                  type="button"
+                  onClick={() => setStatusPopoverOpen(!statusPopoverOpen)}
+                  className={`flex items-center gap-2 px-3 py-1.5 rounded-xl text-xs font-bold transition-all border shadow-xs cursor-pointer ${
+                    isLive
+                      ? "bg-emerald-50 text-emerald-800 border-emerald-200 hover:bg-emerald-100"
+                      : "bg-slate-100 text-slate-700 border-slate-200 hover:bg-slate-200/80"
+                  }`}
+                  title={getBackendStatusLabel(detectorStatus)}
+                >
+                  {isLive ? (
+                    <span className="relative flex h-2 w-2">
+                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+                    </span>
+                  ) : (
+                    <span className="inline-flex rounded-full h-2 w-2 bg-slate-400" />
+                  )}
+
+                  <span className="truncate max-w-[170px] sm:max-w-none">
+                    {isLive
+                      ? "Live Sync (:3001, :3002, :3003)"
+                      : "Standalone Simulation (Cloudflare Pages)"}
+                  </span>
+
+                  <ChevronDown className="w-3 h-3 text-slate-400 hidden sm:inline" />
+                </button>
+
+                {/* Status Telemetry Popover */}
+                {statusPopoverOpen && (
+                  <div
+                    ref={statusPopoverRef}
+                    className="absolute right-0 mt-2 w-80 sm:w-96 rounded-2xl bg-white border border-slate-200/90 shadow-xl p-4 z-50 animate-in fade-in zoom-in-95 duration-150"
+                  >
+                    <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+                      <div className="flex items-center gap-2">
+                        <div
+                          className={`w-2.5 h-2.5 rounded-full ${
+                            isLive ? "bg-emerald-500" : "bg-slate-400"
+                          }`}
+                        />
+                        <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider">
+                          Hybrid Runtime Telemetry
+                        </h4>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setStatusPopoverOpen(false)}
+                        className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100"
+                      >
+                        <X className="w-4 h-4" />
+                      </button>
+                    </div>
+
+                    {/* Service Probes Grid */}
+                    <div className="py-3 space-y-2">
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+                        <div className="flex items-center gap-2">
+                          <Activity className="w-3.5 h-3.5 text-orange-600" />
+                          <span className="font-semibold text-slate-800">
+                            POS Engine API (:3001)
+                          </span>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                            details.api.connected
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-slate-200 text-slate-600"
+                          }`}
+                        >
+                          {details.api.connected ? "Connected" : "Offline"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+                        <div className="flex items-center gap-2">
+                          <ChefHat className="w-3.5 h-3.5 text-amber-600" />
+                          <span className="font-semibold text-slate-800">
+                            Kitchen Display System (:3002)
+                          </span>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                            details.kds.connected
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-slate-200 text-slate-600"
+                          }`}
+                        >
+                          {details.kds.connected ? "Connected" : "Offline"}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs">
+                        <div className="flex items-center gap-2">
+                          <UtensilsCrossed className="w-3.5 h-3.5 text-blue-600" />
+                          <span className="font-semibold text-slate-800">
+                            Server / Waiter App (:3003)
+                          </span>
+                        </div>
+                        <span
+                          className={`px-2 py-0.5 rounded-md text-[10px] font-bold ${
+                            details.waiter.connected
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-slate-200 text-slate-600"
+                          }`}
+                        >
+                          {details.waiter.connected ? "Connected" : "Offline"}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Architecture Explanatory Note */}
+                    <div className="p-2.5 rounded-xl bg-orange-50/60 border border-orange-100 text-[11px] text-slate-600 leading-relaxed">
+                      <div className="flex items-center gap-1.5 font-semibold text-orange-950 mb-0.5">
+                        {isLive ? (
+                          <Zap className="w-3.5 h-3.5 text-emerald-600" />
+                        ) : (
+                          <Cloud className="w-3.5 h-3.5 text-slate-600" />
+                        )}
+                        <span>Zero-Commingling Hybrid Architecture</span>
+                      </div>
+                      Order It Up runs as an offline-first desktop POS. On
+                      Cloudflare Pages, this interactive sandbox operates in complete
+                      browser isolation with zero database commingling across
+                      restaurant tenants.
+                    </div>
+
+                    {/* Popover Footer: Manual Recheck & Timestamp */}
+                    <div className="pt-3 mt-3 border-t border-slate-100 flex items-center justify-between">
+                      <span className="text-[10px] text-slate-500 font-medium">
+                        {detectorStatus.checkedAt
+                          ? `Checked: ${new Date(
+                              detectorStatus.checkedAt
+                            ).toLocaleTimeString()}`
+                          : "Probing services..."}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          await recheck();
+                        }}
+                        disabled={isChecking}
+                        className="px-2.5 py-1 rounded-lg bg-[#F07928] hover:bg-[#EA580C] text-white text-xs font-bold flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer disabled:opacity-50"
+                      >
+                        <RefreshCw
+                          className={`w-3 h-3 ${isChecking ? "animate-spin" : ""}`}
+                        />
+                        <span>{isChecking ? "Checking..." : "Re-check Services"}</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Quick Tools: 80mm Bill, Z-Report & Role Credentials Modal Triggers */}
               <button
                 type="button"
                 onClick={() => triggerOpenBillModal("standard")}
-                className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 transition-colors cursor-pointer"
+                className="hidden xl:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 transition-colors cursor-pointer"
+                title="Preview standard 80mm ESC/POS thermal receipt"
               >
                 <Receipt className="w-3.5 h-3.5 text-orange-600" />
-                <span className="hidden md:inline">80mm Bill</span>
+                <span>80mm Bill</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => triggerOpenBillModal("zreport")}
+                className="hidden xl:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
+                title="Preview daily Z-report receipt"
+              >
+                <Printer className="w-3.5 h-3.5 text-slate-600" />
+                <span>Z-Report</span>
               </button>
 
               <button
                 type="button"
                 onClick={() => triggerOpenCredentialsModal()}
-                className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
+                className="hidden xl:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
+                title="View role demo credentials"
               >
                 <Key className="w-3.5 h-3.5 text-slate-600" />
-                <span className="hidden md:inline">Roles</span>
+                <span>Roles</span>
               </button>
 
+              {/* Authenticated User & Sign Out */}
               {currentUser && (
                 <div className="flex items-center gap-1.5 pl-1 border-l border-slate-200">
                   <div
@@ -292,7 +631,9 @@ export default function DashboardPage() {
                     <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-orange-500 to-amber-500 text-white flex items-center justify-center font-bold text-[10px]">
                       {currentUser.name.charAt(0)}
                     </div>
-                    <span className="font-bold hidden xl:inline text-xs">{currentUser.name}</span>
+                    <span className="font-bold hidden 2xl:inline text-xs">
+                      {currentUser.name}
+                    </span>
                   </div>
                   <button
                     type="button"
@@ -300,619 +641,204 @@ export default function DashboardPage() {
                     className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
                     title="Sign Out"
                   >
-                    <LogOut className="w-3.5 h-3.5" />
+                    <LogOut className="w-4 h-4" />
                   </button>
                 </div>
               )}
             </div>
           </div>
+
+          {/* Mobile / Tablet Perspective & Outlet Controls Bar */}
+          <div className="flex lg:hidden items-center justify-between py-2.5 border-t border-slate-100 gap-2 overflow-x-auto">
+            <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200/80 shrink-0">
+              <button
+                type="button"
+                onClick={() => handlePerspectiveChange("merchant")}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  effectivePerspective === "merchant"
+                    ? "bg-[#F07928] text-white shadow-xs"
+                    : "text-slate-600"
+                }`}
+              >
+                Chain Owner
+              </button>
+              <button
+                type="button"
+                onClick={() => handlePerspectiveChange("founder")}
+                className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                  effectivePerspective === "founder"
+                    ? "bg-[#F07928] text-white shadow-xs"
+                    : "text-slate-600"
+                }`}
+              >
+                Founder Admin
+              </button>
+            </div>
+
+            {effectivePerspective === "merchant" && (
+              <select
+                value={selectedOutletId}
+                onChange={(e) => handleOutletChange(e.target.value)}
+                className="h-8 px-2.5 rounded-lg bg-slate-50 border border-slate-300 text-xs font-bold text-slate-900 focus:outline-none shrink-0"
+              >
+                <option value="all">🌐 All Outlets</option>
+                {outlets.map((outlet) => (
+                  <option key={outlet.id} value={outlet.id}>
+                    📍 {outlet.name}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
         </div>
       </header>
 
-      {/* Main Dashboard Canvas */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
-        {/* ========================================================================= */}
-        {/* PERSPECTIVE 1: RESTAURANT CHAIN OWNER ("For Users: Connected Outlets")    */}
-        {/* ========================================================================= */}
-        {perspective === "merchant" && (
-          <div className="space-y-8 animate-in fade-in duration-200">
-            {/* Merchant Chain Hero Banner */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-white border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
-              <div className="space-y-2 relative z-10">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-800 text-xs font-bold uppercase tracking-wider">
-                  <Network className="w-3.5 h-3.5 text-orange-600" />
-                  <span>Connected Restaurant Chain View</span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                  Spice Route Hospitality Group • 3 Connected Outlets
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-                  Real-time sales, order throughput, and live LAN counter telemetry across all your restaurant branches. Connected in real-time with isolated offline durability.
-                </p>
-              </div>
-
-              {/* Outlet Selector Dropdown */}
-              <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 relative z-10">
-                <div className="relative">
-                  <select
-                    value={selectedOutlet}
-                    onChange={(e) => setSelectedOutlet(e.target.value)}
-                    className="w-full sm:w-64 px-4 py-2.5 rounded-xl bg-slate-50 border border-orange-300 text-xs font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-orange-500 shadow-xs cursor-pointer"
-                  >
-                    <option value="all">🌐 All Outlets (Consolidated Chain)</option>
-                    <option value="outlet-1">📍 Outlet 1: Downtown Bistro</option>
-                    <option value="outlet-2">📍 Outlet 2: Cyber Hub Express</option>
-                    <option value="outlet-3">📍 Outlet 3: Airport Terminal 3</option>
-                  </select>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => triggerOpenBillModal("zreport")}
-                  className="px-4 py-2.5 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-xs font-bold text-white flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
-                >
-                  <Printer className="w-3.5 h-3.5" />
-                  <span>Consolidated Z-Report</span>
-                </button>
-              </div>
-            </div>
-
-            {/* Aggregated Chain Metric Cards (Landing Page White Card Style) */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between text-slate-500 text-xs mb-2">
-                  <span className="font-bold uppercase tracking-wider">
-                    {selectedOutlet === "all" ? "Total Chain Sales Today" : "Outlet Sales Today"}
-                  </span>
-                  <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
-                    <DollarSign className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="text-3xl font-black text-slate-900">
-                  ₹{selectedOutlet === "all"
-                    ? totalChainSales.toLocaleString("en-IN")
-                    : CHAIN_OUTLETS.find((o) => o.id === selectedOutlet)?.todaySales.toLocaleString("en-IN")}
-                  .00
-                </div>
-                <div className="mt-2 text-xs text-emerald-700 font-semibold flex items-center gap-1">
-                  <TrendingUp className="w-3.5 h-3.5" />
-                  <span>+22.8% vs last week across branches</span>
-                </div>
-              </div>
-
-              <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between text-slate-500 text-xs mb-2">
-                  <span className="font-bold uppercase tracking-wider">
-                    {selectedOutlet === "all" ? "Chain Orders Processed" : "Outlet Orders"}
-                  </span>
-                  <div className="p-2 rounded-xl bg-orange-50 text-orange-600">
-                    <ShoppingBag className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="text-3xl font-black text-slate-900">
-                  {selectedOutlet === "all"
-                    ? `${totalChainOrders} Orders`
-                    : `${CHAIN_OUTLETS.find((o) => o.id === selectedOutlet)?.ordersCount} Orders`}
-                </div>
-                <div className="mt-2 text-xs text-slate-500 font-medium">
-                  <span>100% Settled • 0 Payment Drops</span>
-                </div>
-              </div>
-
-              <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between text-slate-500 text-xs mb-2">
-                  <span className="font-bold uppercase tracking-wider">Average Order Ticket</span>
-                  <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
-                    <Receipt className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="text-3xl font-black text-slate-900">
-                  ₹{selectedOutlet === "all"
-                    ? avgChainTicket
-                    : CHAIN_OUTLETS.find((o) => o.id === selectedOutlet)?.avgTicket}
-                </div>
-                <div className="mt-2 text-xs text-amber-700 font-medium">
-                  <span>Across dining, QSR, &amp; grab-and-go</span>
-                </div>
-              </div>
-
-              <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between text-slate-500 text-xs mb-2">
-                  <span className="font-bold uppercase tracking-wider">Active Floor Tables</span>
-                  <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
-                    <Users className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="text-3xl font-black text-slate-900">
-                  {selectedOutlet === "all" ? "22 / 32 Tables" : CHAIN_OUTLETS.find((o) => o.id === selectedOutlet)?.activeTables}
-                </div>
-                <div className="mt-2 text-xs text-blue-700 font-medium">
-                  <span>Real-time tableside seating (:3003)</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Per-Restaurant Sales Cards: "How much sales has been done in each and every restaurant" */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                    <Store className="w-5 h-5 text-orange-600" />
-                    <span>Live Sales By Restaurant Outlet (Connected Network)</span>
-                  </h3>
-                  <p className="text-xs text-slate-600">
-                    Compare performance, order velocity, and counter hardware status across every restaurant location.
-                  </p>
-                </div>
-                <span className="text-xs text-slate-500 font-mono hidden sm:inline">
-                  Syncing via Local LAN + S3 Mesh
-                </span>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                {CHAIN_OUTLETS.map((outlet, index) => {
-                  const percentageOfChain = Math.round((outlet.todaySales / totalChainSales) * 100);
-                  const isSelected = selectedOutlet === "all" || selectedOutlet === outlet.id;
+      {/* ===================================================================== */}
+      {/* PERSPECTIVE SUB-NAV: 6 OPERATIONAL PERSONAS (WHEN IN MERCHANT MODE)   */}
+      {/* ===================================================================== */}
+      {effectivePerspective === "merchant" && (
+        <section className="bg-white border-b border-slate-200/80 sticky top-16 sm:top-20 z-30 shadow-xs">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3">
+            <div className="flex items-center justify-between gap-4">
+              {/* Persona Navigation Tabs */}
+              <div className="flex items-center gap-1.5 sm:gap-2 overflow-x-auto no-scrollbar py-0.5 w-full">
+                {PERSONA_TABS.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = selectedTab === tab.id;
 
                   return (
-                    <div
-                      key={outlet.id}
-                      onClick={() => setSelectedOutlet(outlet.id)}
-                      className={`p-6 rounded-3xl border transition-all cursor-pointer flex flex-col justify-between ${
-                        isSelected
-                          ? "bg-white border-orange-400 shadow-md ring-2 ring-orange-500/20"
-                          : "bg-white/80 border-slate-200 opacity-70 hover:opacity-100 hover:border-slate-300 shadow-xs"
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => handleTabChange(tab.id)}
+                      className={`px-3 sm:px-3.5 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 whitespace-nowrap shrink-0 border cursor-pointer ${
+                        isActive
+                          ? "bg-[#F07928] text-white border-orange-600 shadow-sm"
+                          : "bg-white text-slate-700 hover:text-slate-900 hover:bg-slate-50 border-slate-200/80 shadow-xs"
                       }`}
+                      title={tab.shortDesc}
                     >
-                      <div>
-                        {/* Header badge */}
-                        <div className="flex items-center justify-between mb-3">
-                          <span className="text-xs font-bold text-orange-600 uppercase tracking-wider font-mono">
-                            Outlet #{index + 1}
-                          </span>
-                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1.5">
-                            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                            <span>{outlet.status}</span>
-                          </span>
-                        </div>
-
-                        <h4 className="text-lg font-black text-slate-900">{outlet.name}</h4>
-                        <p className="text-xs text-slate-500 mb-4">{outlet.location}</p>
-
-                        {/* Today Sales Callout */}
-                        <div className="p-4 rounded-2xl bg-orange-50/50 border border-orange-200/80 mb-4">
-                          <span className="text-[10px] text-orange-800 uppercase tracking-wider block mb-0.5 font-bold">
-                            Today&apos;s Gross Sales
-                          </span>
-                          <div className="text-2xl font-black text-slate-900">
-                            ₹{outlet.todaySales.toLocaleString("en-IN")}.00
-                          </div>
-                          <div className="mt-1 flex items-center justify-between text-xs text-slate-600 font-mono">
-                            <span>{outlet.ordersCount} orders</span>
-                            <span className="text-orange-700 font-bold">{percentageOfChain}% of chain</span>
-                          </div>
-                        </div>
-
-                        {/* Tenders Breakdown */}
-                        <div className="space-y-1.5 text-xs font-mono text-slate-700 mb-4 p-3 rounded-2xl bg-slate-50 border border-slate-200/60">
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">UPI Dynamic QR:</span>
-                            <span className="text-emerald-700 font-bold">₹{outlet.tenders.upi.toLocaleString("en-IN")}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Cash (24V Till):</span>
-                            <span>₹{outlet.tenders.cash.toLocaleString("en-IN")}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-slate-500">Card POS Machine:</span>
-                            <span>₹{outlet.tenders.card.toLocaleString("en-IN")}</span>
-                          </div>
-                        </div>
-
-                        {/* Hardware Connectivity Status */}
-                        <div className="text-[11px] text-slate-600 space-y-1 mb-4">
-                          <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-500">
-                            <Cpu className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{outlet.enginePort}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 font-mono text-[10px] text-slate-500">
-                            <Printer className="w-3.5 h-3.5 text-slate-400" />
-                            <span>{outlet.hardware}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Footer & Deep Link */}
-                      <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
-                        <span className="text-[11px] text-slate-500 font-mono">
-                          Top: {outlet.topDish}
-                        </span>
-                        <span className="text-orange-600 font-bold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
-                          <span>Inspect Outlet</span>
-                          <ChevronRight className="w-3.5 h-3.5" />
-                        </span>
-                      </div>
-                    </div>
+                      <Icon
+                        className={`w-3.5 h-3.5 ${
+                          isActive ? "text-white" : "text-slate-500"
+                        }`}
+                      />
+                      <span>{tab.label}</span>
+                      <span
+                        className={`text-[9px] px-1.5 py-0.2 rounded-full font-bold uppercase tracking-wider ${
+                          isActive
+                            ? "bg-white/20 text-white"
+                            : "bg-slate-100 text-slate-500"
+                        }`}
+                      >
+                        {tab.badge}
+                      </span>
+                    </button>
                   );
                 })}
               </div>
-            </div>
 
-            {/* Connected Workflows: Cross-Outlet Central Menu & Tax Ledger */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* Centralized Menu & Inter-Branch Sync */}
-              <div className="p-6 sm:p-7 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2.5 rounded-2xl bg-orange-50 text-orange-600 border border-orange-200">
-                      <Share2 className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                        Connected Central Menu Catalog
-                      </h4>
-                      <p className="text-xs text-slate-500">
-                        Unified recipes synced across all 3 outlets with branch price overrides.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="space-y-2.5 text-xs font-mono">
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-slate-900 block">Truffle Mushroom Pizza</span>
-                      <span className="text-[11px] text-slate-500 font-sans">Synced across Downtown Bistro &amp; Cyber Hub</span>
-                    </div>
-                    <span className="font-bold text-slate-900 text-sm">₹540.00</span>
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-slate-900 block">Artisanal Paneer Tikka</span>
-                      <span className="text-[11px] text-slate-500 font-sans">Synced to Tandoor Station KDS (:3002)</span>
-                    </div>
-                    <span className="font-bold text-slate-900 text-sm">₹380.00</span>
-                  </div>
-
-                  <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/80 flex items-center justify-between">
-                    <div>
-                      <span className="font-bold text-slate-900 block">Classic Cold Brew Latte</span>
-                      <span className="text-[11px] text-slate-500 font-sans">Airport T3 Hub (+15% transit tier)</span>
-                    </div>
-                    <span className="font-bold text-slate-900 text-sm">₹220.00</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Consolidated Chain Tax & GST Report */}
-              <div className="p-6 sm:p-7 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2.5">
-                    <div className="p-2.5 rounded-2xl bg-emerald-50 text-emerald-600 border border-emerald-200">
-                      <FileSpreadsheet className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <h4 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                        Consolidated Indian GST &amp; Compliance
-                      </h4>
-                      <p className="text-xs text-slate-500">
-                        Aggregated CGST &amp; SGST ledger across all 3 outlets for GSTR-1 filing.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-2 gap-3 font-mono text-xs">
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-                    <span className="text-slate-500 block mb-1 font-sans">CGST @ 2.5%</span>
-                    <span className="text-xl font-black text-slate-900">₹3,523.35</span>
-                  </div>
-                  <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200/80">
-                    <span className="text-slate-500 block mb-1 font-sans">SGST @ 2.5%</span>
-                    <span className="text-xl font-black text-slate-900">₹3,523.35</span>
-                  </div>
-                </div>
-
-                <div className="p-4 rounded-2xl bg-emerald-50/60 border border-emerald-200 flex items-center justify-between text-xs">
-                  <div>
-                    <span className="font-bold text-emerald-950 block">Total Chain Tax Collected:</span>
-                    <span className="text-[11px] text-emerald-800">SAC 996331 Restaurant Catering</span>
-                  </div>
-                  <span className="text-xl font-black text-emerald-800 font-mono">₹7,046.70</span>
-                </div>
-
-                <div className="flex items-center gap-2 pt-1">
-                  <button
-                    type="button"
-                    onClick={() => triggerOpenBillModal("gst")}
-                    className="w-full py-2.5 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-colors cursor-pointer"
-                  >
-                    <Receipt className="w-3.5 h-3.5" />
-                    <span>View Official GST Tax Invoice Format</span>
-                  </button>
-                </div>
+              {/* Outlet Context Badge */}
+              <div className="hidden xl:flex items-center gap-2 shrink-0 px-3 py-1.5 rounded-xl bg-orange-50 border border-orange-200/80 text-xs font-bold text-orange-950">
+                <Store className="w-3.5 h-3.5 text-orange-600" />
+                <span className="truncate max-w-[200px]">
+                  {selectedOutletId === "all"
+                    ? "Consolidated 3 Outlets"
+                    : currentOutlet.name}
+                </span>
               </div>
             </div>
           </div>
-        )}
+        </section>
+      )}
 
-        {/* ========================================================================= */}
-        {/* PERSPECTIVE 2: STARTUP FOUNDER ADMIN ("For Me: Manage Customers & S3")    */}
-        {/* ========================================================================= */}
-        {perspective === "founder" && (
-          <div className="space-y-8 animate-in fade-in duration-200">
-            {/* Founder Hero Banner */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-white border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-6 relative overflow-hidden">
-              <div className="space-y-2 relative z-10">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-800 text-xs font-bold uppercase tracking-wider">
-                  <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-                  <span>Platform Founder &amp; Startup Admin</span>
-                </div>
-                <h1 className="text-2xl sm:text-3xl font-black text-slate-900 tracking-tight">
-                  Restaurant Customer Management &amp; S3 Telemetry
-                </h1>
-                <p className="text-xs sm:text-sm text-slate-600 max-w-2xl leading-relaxed">
-                  Manage your restaurant subscribers, issue hardware-bound desktop POS licenses, inspect tenant S3 buckets, and track platform-wide billing volume.
-                </p>
-              </div>
-
-              <div className="flex flex-wrap items-center gap-3 relative z-10">
-                <button
-                  type="button"
-                  onClick={() => handleCopyLicenseKey("OIU-2026-WIN-8942-X7K9")}
-                  className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 border border-slate-200 text-slate-800 text-xs font-bold flex items-center gap-2 transition-colors cursor-pointer"
-                  title="Generate 16-character hardware-bound Windows POS license"
-                >
-                  {copiedKey ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-orange-600" />}
-                  <span>{copiedKey ? "License Key Copied!" : "Generate License Key"}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => triggerOpenTermsModal("terms")}
-                  className="px-4 py-2.5 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white text-xs font-bold shadow-xs transition-colors cursor-pointer"
-                >
-                  SaaS Master Agreement
-                </button>
-              </div>
+      {/* Founder Administrative Banner Indicator */}
+      {effectivePerspective === "founder" && (
+        <section className="bg-slate-900 text-white border-b border-slate-800">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2.5 flex items-center justify-between text-xs">
+            <div className="flex items-center gap-2">
+              <span className="px-2 py-0.5 rounded-full bg-orange-500 text-white font-bold text-[10px] uppercase tracking-wider">
+                Founder Mode
+              </span>
+              <span className="font-semibold text-slate-200">
+                Order It Up SaaS Platform Administration & Multi-Tenant Control
+                Plane
+              </span>
             </div>
-
-            {/* Founder Global KPI Cards */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-5">
-              <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between text-slate-500 text-xs mb-2">
-                  <span className="font-bold uppercase tracking-wider">Total Restaurant Tenants</span>
-                  <div className="p-2 rounded-xl bg-orange-50 text-orange-600">
-                    <Store className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="text-3xl font-black text-slate-900">104 Brands</div>
-                <div className="mt-2 text-xs text-emerald-700 font-semibold flex items-center gap-1">
-                  <TrendingUp className="w-3.5 h-3.5" />
-                  <span>+12 restaurants this month</span>
-                </div>
-              </div>
-
-              <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between text-slate-500 text-xs mb-2">
-                  <span className="font-bold uppercase tracking-wider">Active POS Counters</span>
-                  <div className="p-2 rounded-xl bg-blue-50 text-blue-600">
-                    <Layers className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="text-3xl font-black text-slate-900">268 Terminals</div>
-                <div className="mt-2 text-xs text-slate-500">
-                  <span>100% Offline SQLite Engine</span>
-                </div>
-              </div>
-
-              <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between text-slate-500 text-xs mb-2">
-                  <span className="font-bold uppercase tracking-wider">Platform 30-Day GMV</span>
-                  <div className="p-2 rounded-xl bg-emerald-50 text-emerald-600">
-                    <DollarSign className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="text-3xl font-black text-slate-900">₹1.84 Cr</div>
-                <div className="mt-2 text-xs text-emerald-700 font-semibold">
-                  <span>~ $220,500 Gross Billed</span>
-                </div>
-              </div>
-
-              <div className="p-6 rounded-3xl bg-white border border-slate-200/80 shadow-xs hover:shadow-md transition-shadow">
-                <div className="flex items-center justify-between text-slate-500 text-xs mb-2">
-                  <span className="font-bold uppercase tracking-wider">S3 Customer Storage</span>
-                  <div className="p-2 rounded-xl bg-amber-50 text-amber-600">
-                    <Cloud className="w-4 h-4" />
-                  </div>
-                </div>
-                <div className="text-3xl font-black text-slate-900">104 Buckets</div>
-                <div className="mt-2 text-xs text-slate-500">
-                  <span>Isolated tenant storage</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Tenant Directory & Customer Management */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-6">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                <div>
-                  <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                    <Users className="w-5 h-5 text-orange-600" />
-                    <span>Restaurant Customers Directory</span>
-                  </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Search and manage your registered restaurant brands, outlets, and POS counter nodes.
-                  </p>
-                </div>
-
-                {/* Filter and Search */}
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <div className="relative">
-                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
-                    <input
-                      type="text"
-                      value={searchQuery}
-                      onChange={(e) => setSearchQuery(e.target.value)}
-                      placeholder="Search restaurant, owner, city..."
-                      className="pl-8 pr-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none focus:border-orange-500 w-48 sm:w-64"
-                    />
-                  </div>
-
-                  <select
-                    value={tierFilter}
-                    onChange={(e) => setTierFilter(e.target.value)}
-                    className="px-3 py-2 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-700 focus:outline-none focus:border-orange-500"
-                  >
-                    <option value="all">All Plan Tiers</option>
-                    <option value="enterprise">Enterprise Chain</option>
-                    <option value="pro">Pro Multi-Outlet</option>
-                    <option value="single">Single Store Pilot</option>
-                  </select>
-                </div>
-              </div>
-
-              {/* Customers Table */}
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs font-mono">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-slate-500">
-                      <th className="py-3 px-4 font-bold">RESTAURANT BRAND</th>
-                      <th className="py-3 px-4 font-bold">OWNER / EMAIL</th>
-                      <th className="py-3 px-4 font-bold">PLAN TIER</th>
-                      <th className="py-3 px-4 font-bold">OUTLETS / POS</th>
-                      <th className="py-3 px-4 font-bold">30-DAY GMV</th>
-                      <th className="py-3 px-4 font-bold">S3 BUCKET ID</th>
-                      <th className="py-3 px-4 font-bold">SYNC STATUS</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100 font-sans">
-                    {filteredTenants.map((tenant) => (
-                      <tr key={tenant.id} className="hover:bg-slate-50/80 transition-colors">
-                        <td className="py-4 px-4 font-bold text-slate-900">
-                          <div className="flex items-center gap-2.5">
-                            <Store className="w-4 h-4 text-orange-600 shrink-0" />
-                            <div>
-                              <span>{tenant.businessName}</span>
-                              <span className="block text-[11px] text-slate-500 font-mono font-normal">
-                                {tenant.city}
-                              </span>
-                            </div>
-                          </div>
-                        </td>
-                        <td className="py-4 px-4 text-slate-700">
-                          <span className="font-semibold block">{tenant.ownerName}</span>
-                          <span className="text-[11px] text-slate-500 font-mono">{tenant.ownerEmail}</span>
-                        </td>
-                        <td className="py-4 px-4">
-                          <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-orange-50 text-orange-700 border border-orange-200">
-                            {tenant.tier}
-                          </span>
-                        </td>
-                        <td className="py-4 px-4 font-mono text-slate-800">
-                          <span className="font-bold">{tenant.outletsCount} Outlets</span>
-                          <span className="text-slate-500 block text-[10px]">
-                            {tenant.activeTerminals} POS Terminals
-                          </span>
-                        </td>
-                        <td className="py-4 px-4 font-mono font-bold text-emerald-700">
-                          {tenant.monthGmv}
-                        </td>
-                        <td className="py-4 px-4 font-mono text-[11px] text-slate-600">
-                          {tenant.s3Bucket}
-                        </td>
-                        <td className="py-4 px-4">
-                          <span className="inline-flex items-center gap-1.5 text-xs text-emerald-700 font-semibold">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                            <span>{tenant.lastSync}</span>
-                          </span>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            </div>
-
-            {/* S3 Architecture & Data Isolation Invariant */}
-            <div className="p-6 sm:p-8 rounded-3xl bg-white border border-slate-200/80 shadow-xs space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2.5 rounded-2xl bg-orange-50 border border-orange-200 text-orange-600">
-                  <Database className="w-5 h-5" />
-                </div>
-                <div>
-                  <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider">
-                    S3 Bucket Multi-Tenant Isolation &amp; Zero Commingling Protocol
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    How Order It Up keeps each restaurant customer&apos;s data strictly separated and privacy-compliant.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-5 pt-2">
-                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs space-y-2">
-                  <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                    <ShieldCheck className="w-4 h-4 text-emerald-600" />
-                    <span>Local SQLite Sovereignty</span>
-                  </span>
-                  <p className="text-slate-600 leading-relaxed text-[11px]">
-                    All transactions, billing tables, cash drawer solenoid signals, and KDS tickets reside in the local encrypted SQLite WAL on the merchant counter machine. Zero cloud latency.
-                  </p>
-                </div>
-
-                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs space-y-2">
-                  <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                    <Cloud className="w-4 h-4 text-blue-600" />
-                    <span>Dedicated S3 Buckets</span>
-                  </span>
-                  <p className="text-slate-600 leading-relaxed text-[11px]">
-                    Each restaurant tenant receives their own dedicated, isolated Amazon S3 bucket prefix for dish photography, digital menus, and encrypted daily accounting rollups.
-                  </p>
-                </div>
-
-                <div className="p-5 rounded-2xl bg-slate-50 border border-slate-200/80 text-xs space-y-2">
-                  <span className="font-bold text-slate-900 flex items-center gap-1.5">
-                    <Network className="w-4 h-4 text-orange-600" />
-                    <span>Inter-Store Mesh Sync</span>
-                  </span>
-                  <p className="text-slate-600 leading-relaxed text-[11px]">
-                    Chain owners can view sales from each and every connected restaurant without exposing sensitive financial records to third parties.
-                  </p>
-                </div>
-              </div>
+            <div className="hidden sm:flex items-center gap-4 text-slate-400">
+              <span>Isolated S3 Buckets Active</span>
+              <span>•</span>
+              <span>Hardware-Bound POS Licenses</span>
             </div>
           </div>
-        )}
+        </section>
+      )}
+
+      {/* ===================================================================== */}
+      {/* MAIN VIEWPORT CANVAS: RENDERS ONE OF 8 DEDICATED PERSPECTIVE VIEWS    */}
+      {/* ===================================================================== */}
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10">
+        <div className="animate-in fade-in duration-200">
+          {renderActiveView()}
+        </div>
       </main>
 
-      {/* Footer */}
-      <footer className="mt-auto bg-white border-t border-slate-200 py-6 text-xs text-slate-500">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p>
-            &copy; {new Date().getFullYear()} {BRAND.name}. Offline-First Multi-Unit Operating System.
-          </p>
+      {/* ===================================================================== */}
+      {/* PERSISTENT FOOTER                                                     */}
+      {/* ===================================================================== */}
+      <footer className="mt-auto border-t border-slate-200/80 bg-white/80 backdrop-blur-xs py-6">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-500">
+          <div className="flex items-center gap-2">
+            <span className="font-bold text-slate-700">{BRAND.name}</span>
+            <span>•</span>
+            <span>Desktop POS & Unified Hybrid Cloud</span>
+            <span>•</span>
+            <span className="text-emerald-700 font-semibold flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              <span>Offline-First Guaranteed</span>
+            </span>
+          </div>
+
           <div className="flex items-center gap-4">
-            <Link href="/" className="hover:text-slate-900 transition-colors">
-              Landing Page
+            <span className="text-[11px] text-slate-400">
+              Indian GST SAC 996331 • FSSAI 10019011000234
+            </span>
+            <Link
+              href="/"
+              className="font-bold text-orange-600 hover:text-orange-700 transition-colors"
+            >
+              Back to Overview →
             </Link>
-            <button
-              type="button"
-              onClick={() => triggerOpenTermsModal("terms")}
-              className="hover:text-slate-900 transition-colors cursor-pointer"
-            >
-              Startup Terms
-            </button>
-            <button
-              type="button"
-              onClick={() => triggerOpenBillModal("standard")}
-              className="hover:text-slate-900 transition-colors cursor-pointer"
-            >
-              80mm Bill
-            </button>
           </div>
         </div>
       </footer>
     </div>
+  );
+}
+
+/**
+ * Fallback Component during SSR / Prerendering
+ */
+function DashboardLoadingFallback() {
+  return (
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col items-center justify-center p-6 text-slate-500 font-sans">
+      <div className="flex flex-col items-center gap-3">
+        <div className="w-10 h-10 border-3 border-orange-500/20 border-t-orange-500 rounded-full animate-spin" />
+        <p className="text-sm font-semibold text-slate-600">
+          Loading Order It Up Unified Command...
+        </p>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Master Dashboard Entry Point with Suspense Boundary for Static Export
+ */
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardLoadingFallback />}>
+      <DashboardShell />
+    </Suspense>
   );
 }
