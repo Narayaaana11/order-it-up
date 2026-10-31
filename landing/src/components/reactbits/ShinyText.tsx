@@ -22,7 +22,7 @@ export default function ShinyText({
       } ${className}`}
       style={{
         backgroundImage:
-          "linear-gradient(120deg, rgba(234, 88, 12, 0.75) 30%, rgba(255, 255, 255, 0.95) 50%, rgba(234, 88, 12, 0.75) 70%)",
+          "linear-gradient(120deg, #9A3412 25%, #F97316 50%, #9A3412 75%)",
         backgroundSize: "200% 100%",
         WebkitBackgroundClip: "text",
         animationDuration: `${speed}s`,

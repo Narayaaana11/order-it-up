@@ -23,13 +23,14 @@
 html {
   scroll-behavior: smooth;
   color-scheme: light;
+  overflow-x: clip;
 }
 
 body {
   font-family: var(--font-sans);
   background-color: #F8FAFC;
   color: #0F172A;
-  overflow-x: hidden;
+  overflow-x: clip;
   min-height: 100vh;
 }
 

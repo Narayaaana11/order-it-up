@@ -93,8 +93,8 @@ export default function Navbar() {
             ))}
           </nav>
 
-          {/* Center Actions: 80mm Bill Template & Roles */}
-          <div className="hidden lg:flex items-center gap-2 shrink-0">
+          {/* Center Actions: 80mm Bill Template & Roles (Visible on Ultra-wide 2xl) */}
+          <div className="hidden 2xl:flex items-center gap-2 shrink-0">
             {/* 80mm Bill Template Direct Launcher */}
             <button
               type="button"
@@ -119,7 +119,17 @@ export default function Navbar() {
           </div>
 
           {/* Right Header Desktop CTAs & Auth Controls */}
-          <div className="hidden md:flex items-center gap-2.5 shrink-0">
+          <div className="hidden md:flex items-center gap-2 shrink-0">
+            {/* Compact 80mm Bill Template for md/lg/xl screens */}
+            <button
+              type="button"
+              onClick={() => triggerOpenBillModal("standard")}
+              className="2xl:hidden inline-flex items-center gap-1 px-2.5 py-1.5 rounded-xl font-semibold text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 shadow-xs transition-all whitespace-nowrap"
+              title="80mm Thermal Bill Template"
+            >
+              <Receipt className="w-3.5 h-3.5 text-orange-600" />
+              <span className="hidden lg:inline">80mm Bill</span>
+            </button>
             {/* Authentication Buttons / User Pill */}
             {currentUser ? (
               <div className="flex items-center gap-2 pl-2">

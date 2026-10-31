@@ -193,9 +193,9 @@ export default function UiPreviews() {
                   <button
                     type="button"
                     onClick={resetCart}
-                    className="flex items-center gap-1 px-2.5 py-1 text-xs text-slate-600 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 shadow-xs rounded-md transition-colors"
+                    className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:text-slate-900 bg-white hover:bg-slate-100 border border-slate-200 shadow-xs rounded-lg transition-colors"
                   >
-                    <RotateCcw className="w-3 h-3" />
+                    <RotateCcw className="w-3.5 h-3.5" />
                     <span>Reset</span>
                   </button>
                   <span className="text-xs font-mono px-2.5 py-1 rounded bg-orange-50 text-orange-700 border border-orange-200">
@@ -274,22 +274,22 @@ export default function UiPreviews() {
 
                       {/* Quantity Controls & Line Total */}
                       <div className="flex items-center gap-3 shrink-0">
-                        <div className="inline-flex items-center gap-1.5 p-1 rounded-lg bg-slate-50 border border-slate-200">
+                        <div className="inline-flex items-center gap-1.5 p-1 rounded-xl bg-slate-50 border border-slate-200">
                           <button
                             type="button"
                             onClick={() => updateQty(item.id, -1)}
-                            className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors"
+                            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-700 bg-white border border-slate-300 shadow-xs hover:bg-slate-100 active:scale-95 transition-all"
                             aria-label={`Decrease ${item.name}`}
                           >
                             <Minus className="w-3.5 h-3.5" />
                           </button>
-                          <span className="text-xs font-mono font-bold text-slate-900 px-1.5 min-w-[20px] text-center">
+                          <span className="text-xs font-mono font-bold text-slate-900 px-2 min-w-[22px] text-center">
                             {item.qty}
                           </span>
                           <button
                             type="button"
                             onClick={() => updateQty(item.id, 1)}
-                            className="p-1 rounded text-slate-600 hover:text-slate-900 hover:bg-slate-200 transition-colors"
+                            className="w-7 h-7 flex items-center justify-center rounded-lg text-slate-700 bg-white border border-slate-300 shadow-xs hover:bg-slate-100 active:scale-95 transition-all"
                             aria-label={`Increase ${item.name}`}
                           >
                             <Plus className="w-3.5 h-3.5" />

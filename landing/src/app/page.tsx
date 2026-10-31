@@ -13,7 +13,7 @@ import ModalProvider from "@/components/ModalProvider";
 
 export default function Home() {
   return (
-    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col selection:bg-orange-500 selection:text-white">
+    <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col selection:bg-orange-500 selection:text-white overflow-x-clip">
       {/* Central Modal & Download Notification Provider */}
       <ModalProvider />
 
