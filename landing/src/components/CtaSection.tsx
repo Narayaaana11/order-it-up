@@ -10,6 +10,7 @@ import {
   HardDrive,
   Printer,
   Sparkles,
+  Receipt,
 } from "lucide-react";
 import { HARDWARE_SPECS } from "@/lib/constants";
 import Squares from "@/components/reactbits/Squares";
@@ -18,8 +19,22 @@ import Magnet from "@/components/reactbits/Magnet";
 import SpotlightCard from "@/components/reactbits/SpotlightCard";
 import BlurText from "@/components/reactbits/BlurText";
 import ShinyText from "@/components/reactbits/ShinyText";
+import { getStoredUser } from "@/lib/auth";
+import { triggerOpenAuthModal, triggerOpenBillModal, DownloadPlatform } from "@/lib/modalEvents";
 
 export default function CtaSection() {
+  const handlePlatformDownload = (platform: DownloadPlatform) => {
+    const user = getStoredUser();
+    if (!user) {
+      triggerOpenAuthModal("signup", platform);
+    } else {
+      window.dispatchEvent(
+        new CustomEvent("orderitup_open_auth_modal", {
+          detail: { mode: "login", downloadPendingPlatform: platform },
+        })
+      );
+    }
+  };
   return (
     <section id="download" className="py-20 lg:py-28 relative overflow-hidden bg-white">
       {/* Background Interactive Squares Canvas */}
@@ -66,9 +81,10 @@ export default function CtaSection() {
             {/* Windows Download with StarBorder & Magnet */}
             <Magnet padding={40} magnetStrength={3}>
               <StarBorder color="#F07928" speed="4.5s" thickness={2}>
-                <a
-                  href="#download-windows"
-                  className="h-14 px-7 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-sm shadow-xl shadow-orange-500/25 active:scale-[0.98] transition-all flex items-center gap-3"
+                <button
+                  type="button"
+                  onClick={() => handlePlatformDownload("windows")}
+                  className="h-14 px-7 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-sm shadow-xl shadow-orange-500/25 active:scale-[0.98] transition-all flex items-center gap-3 cursor-pointer"
                 >
                   <Laptop className="w-5 h-5" />
                   <div className="text-left">
@@ -77,15 +93,16 @@ export default function CtaSection() {
                     </div>
                     <div className="text-sm font-extrabold">Windows (x64 / ARM)</div>
                   </div>
-                </a>
+                </button>
               </StarBorder>
             </Magnet>
 
             {/* macOS Download with Magnet */}
             <Magnet padding={40} magnetStrength={3}>
-              <a
-                href="#download-mac"
-                className="h-14 px-6 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-sm active:scale-[0.98] transition-all flex items-center gap-3 shadow-xs"
+              <button
+                type="button"
+                onClick={() => handlePlatformDownload("mac")}
+                className="h-14 px-6 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-sm active:scale-[0.98] transition-all flex items-center gap-3 shadow-xs cursor-pointer"
               >
                 <Apple className="w-5 h-5 text-slate-700" />
                 <div className="text-left">
@@ -94,14 +111,15 @@ export default function CtaSection() {
                   </div>
                   <div className="text-sm font-extrabold">macOS (Universal DMG)</div>
                 </div>
-              </a>
+              </button>
             </Magnet>
 
             {/* Linux Download with Magnet */}
             <Magnet padding={40} magnetStrength={3}>
-              <a
-                href="#download-linux"
-                className="h-14 px-6 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-sm active:scale-[0.98] transition-all flex items-center gap-3 shadow-xs"
+              <button
+                type="button"
+                onClick={() => handlePlatformDownload("linux")}
+                className="h-14 px-6 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-bold text-sm active:scale-[0.98] transition-all flex items-center gap-3 shadow-xs cursor-pointer"
               >
                 <Terminal className="w-5 h-5 text-slate-700" />
                 <div className="text-left">
@@ -110,7 +128,24 @@ export default function CtaSection() {
                   </div>
                   <div className="text-sm font-extrabold">Linux (.AppImage / .deb)</div>
                 </div>
-              </a>
+              </button>
+            </Magnet>
+
+            {/* 80mm Bill Template Direct CTA */}
+            <Magnet padding={35} magnetStrength={3}>
+              <button
+                type="button"
+                onClick={() => triggerOpenBillModal("standard")}
+                className="h-14 px-6 rounded-xl bg-orange-50 hover:bg-orange-100 text-orange-800 border border-orange-200 font-bold text-sm active:scale-[0.98] transition-all flex items-center gap-2.5 shadow-xs cursor-pointer"
+              >
+                <Receipt className="w-5 h-5 text-orange-600" />
+                <div className="text-left">
+                  <div className="text-[10px] uppercase tracking-wider text-orange-600 font-semibold">
+                    Thermal Output
+                  </div>
+                  <div className="text-sm font-extrabold">80mm Bill Template</div>
+                </div>
+              </button>
             </Magnet>
           </div>
 

@@ -22,6 +22,7 @@ import ShinyText from "@/components/reactbits/ShinyText";
 import Magnet from "@/components/reactbits/Magnet";
 import TiltedCard from "@/components/reactbits/TiltedCard";
 import SpotlightCard from "@/components/reactbits/SpotlightCard";
+import { triggerOpenBillModal } from "@/lib/modalEvents";
 
 export default function UiPreviews() {
   const [activeTab, setActiveTab] = useState<"cart" | "kds" | "receipt">("cart");
@@ -469,21 +470,35 @@ export default function UiPreviews() {
         {activeTab === "receipt" && (
           <div className="flex flex-col items-center">
             {/* Receipt Control Bar */}
-            <div className="w-full max-w-md mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-mono text-slate-600">
+            <div className="w-full max-w-md mb-4 flex flex-wrap items-center justify-between gap-2">
+              <button
+                type="button"
+                onClick={() => triggerOpenBillModal("standard")}
+                className="flex items-center gap-2 text-xs font-mono text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 px-3 py-1.5 rounded-lg transition-colors"
+                title="Open interactive 80mm bill templates modal"
+              >
                 <Printer className="w-4 h-4 text-orange-600" />
-                <span>ESC/POS 80mm Direct Spooler</span>
-              </div>
-              <Magnet padding={20} magnetStrength={3}>
+                <span>80mm Template (GST/Z-Report)</span>
+              </button>
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={triggerPrintReceipt}
-                  className="px-4 py-1.5 rounded-lg bg-[#F07928] hover:bg-[#EA580C] text-white font-semibold text-xs active:scale-[0.98] transition-all flex items-center gap-1.5 shadow-md shadow-orange-500/20"
+                  onClick={() => triggerOpenBillModal("gst")}
+                  className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs border border-slate-200"
                 >
-                  <Sparkles className="w-3.5 h-3.5" />
-                  <span>{isPrintingReceipt ? "Printing..." : "Simulate Thermal Print"}</span>
+                  GST Invoice
                 </button>
-              </Magnet>
+                <Magnet padding={20} magnetStrength={3}>
+                  <button
+                    type="button"
+                    onClick={triggerPrintReceipt}
+                    className="px-3.5 py-1.5 rounded-lg bg-[#F07928] hover:bg-[#EA580C] text-white font-semibold text-xs active:scale-[0.98] transition-all flex items-center gap-1.5 shadow-md shadow-orange-500/20"
+                  >
+                    <Sparkles className="w-3.5 h-3.5" />
+                    <span>{isPrintingReceipt ? "Printing..." : "Simulate Print"}</span>
+                  </button>
+                </Magnet>
+              </div>
             </div>
 
             {/* Physical Monospace Thermal Receipt Mockup with Spotlight */}

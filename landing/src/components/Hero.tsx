@@ -12,6 +12,7 @@ import {
   CheckCircle2,
   HardDrive,
   Flame,
+  Receipt,
 } from "lucide-react";
 import { BRAND } from "@/lib/constants";
 import Squares from "@/components/reactbits/Squares";
@@ -24,6 +25,8 @@ import Magnet from "@/components/reactbits/Magnet";
 import SpotlightCard from "@/components/reactbits/SpotlightCard";
 import TiltedCard from "@/components/reactbits/TiltedCard";
 import DecryptedText from "@/components/reactbits/DecryptedText";
+import { getStoredUser } from "@/lib/auth";
+import { triggerOpenAuthModal, triggerOpenBillModal } from "@/lib/modalEvents";
 
 export default function Hero() {
   const rotatingHighlights = [
@@ -33,6 +36,20 @@ export default function Hero() {
     "Local LAN Kitchen Mesh",
     "Direct ESC/POS Thermal",
   ];
+
+  const handleDownloadClick = (e: React.MouseEvent) => {
+    e.preventDefault();
+    const user = getStoredUser();
+    if (!user) {
+      triggerOpenAuthModal("signup", "windows");
+    } else {
+      window.dispatchEvent(
+        new CustomEvent("orderitup_open_auth_modal", {
+          detail: { mode: "login", downloadPendingPlatform: "windows" },
+        })
+      );
+    }
+  };
 
   return (
     <section className="relative overflow-hidden pt-12 pb-16 lg:pt-20 lg:pb-24 min-h-[90vh] flex flex-col justify-center">
@@ -105,7 +122,7 @@ export default function Hero() {
           </p>
 
           {/* CTAs with StarBorder & Magnet micro-interactions */}
-          <div className="mt-9 flex flex-col sm:flex-row items-stretch sm:items-center gap-4 w-full sm:w-auto">
+          <div className="mt-9 flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 w-full sm:w-auto">
             {/* Primary Download CTA with StarBorder & Magnet */}
             <Magnet padding={50} magnetStrength={3}>
               <StarBorder
@@ -114,24 +131,37 @@ export default function Hero() {
                 thickness={2}
                 className="w-full sm:w-auto"
               >
-                <a
-                  href="#download"
-                  className="h-14 px-8 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-base shadow-xl shadow-orange-500/25 hover:shadow-orange-500/40 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
+                <button
+                  type="button"
+                  onClick={handleDownloadClick}
+                  className="w-full sm:w-auto h-14 px-8 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-base shadow-xl shadow-orange-500/25 hover:shadow-orange-500/40 active:scale-[0.98] transition-all flex items-center justify-center gap-3 cursor-pointer"
                 >
                   <Download className="w-5 h-5" />
                   <span>Download Desktop POS</span>
-                </a>
+                </button>
               </StarBorder>
+            </Magnet>
+
+            {/* 80mm Bill Template Direct CTA with Magnet */}
+            <Magnet padding={40} magnetStrength={3}>
+              <button
+                type="button"
+                onClick={() => triggerOpenBillModal("standard")}
+                className="h-14 px-6 rounded-xl bg-orange-50/90 hover:bg-orange-100/90 text-orange-800 border border-orange-200 font-bold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 shadow-xs cursor-pointer"
+              >
+                <Receipt className="w-5 h-5 text-orange-600" />
+                <span>80mm Bill Template</span>
+              </button>
             </Magnet>
 
             {/* Secondary Interactive Demo CTA with Magnet */}
             <Magnet padding={40} magnetStrength={3}>
               <a
                 href="#ui-preview"
-                className="h-14 px-7 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-semibold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 shadow-xs"
+                className="h-14 px-6 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-semibold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 shadow-xs"
               >
                 <Play className="w-4 h-4 text-orange-600 fill-orange-500" />
-                <span>Explore Interactive Demo</span>
+                <span>Live POS Demo</span>
               </a>
             </Magnet>
           </div>
