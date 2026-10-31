@@ -10,7 +10,6 @@ import {
   Receipt,
   LogOut,
   Key,
-  LogIn,
   UserPlus,
 } from "lucide-react";
 import { NAV_LINKS } from "@/lib/constants";
@@ -158,17 +157,8 @@ export default function Navbar() {
               <div className="flex items-center gap-1.5">
                 <button
                   type="button"
-                  onClick={() => triggerOpenAuthModal("login")}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-semibold text-xs text-slate-700 hover:text-orange-600 hover:bg-slate-100 active:scale-[0.98] transition-all"
-                >
-                  <LogIn className="w-3.5 h-3.5" />
-                  <span>Sign In</span>
-                </button>
-
-                <button
-                  type="button"
                   onClick={() => triggerOpenAuthModal("signup")}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 active:scale-[0.98] transition-all"
+                  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-xs text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 active:scale-[0.98] transition-all cursor-pointer"
                 >
                   <UserPlus className="w-3.5 h-3.5" />
                   <span>Sign Up</span>
@@ -232,25 +222,14 @@ export default function Navbar() {
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-2 pb-2 border-b border-slate-200">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMobileMenuOpen(false);
-                      triggerOpenAuthModal("login");
-                    }}
-                    className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-slate-700 bg-slate-100 border border-slate-200"
-                  >
-                    <LogIn className="w-3.5 h-3.5" />
-                    <span>Sign In</span>
-                  </button>
+                <div className="pb-2 border-b border-slate-200">
                   <button
                     type="button"
                     onClick={() => {
                       setMobileMenuOpen(false);
                       triggerOpenAuthModal("signup");
                     }}
-                    className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#F07928]"
+                    className="w-full flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-xs font-bold text-white bg-[#F07928] hover:bg-[#EA580C] shadow-xs active:scale-[0.98] transition-all cursor-pointer"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
                     <span>Sign Up</span>
@@ -310,7 +289,7 @@ export default function Navbar() {
                 </button>
                 <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 py-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>{currentUser ? "Ready to Download" : "Sign In or Sign Up Required"}</span>
+                  <span>{currentUser ? "Ready to Download" : "Sign Up Required"}</span>
                 </div>
               </div>
             </div>
