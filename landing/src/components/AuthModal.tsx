@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
 import {
   X,
   Lock,
@@ -39,6 +40,7 @@ export default function AuthModal({
   const [fullName, setFullName] = useState("");
   const [errorMsg, setErrorMsg] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const router = useRouter();
 
   if (!isOpen) return null;
 
@@ -53,6 +55,7 @@ export default function AuthModal({
       setIsLoading(false);
       if (onSuccess) onSuccess(preset.user);
       onClose();
+      router.push("/dashboard");
     }, 400);
   };
 
@@ -94,6 +97,7 @@ export default function AuthModal({
       setIsLoading(false);
       if (onSuccess) onSuccess(authUser);
       onClose();
+      router.push("/dashboard");
     }, 500);
   };
 
