@@ -153,7 +153,7 @@ export default function CtaSection() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-600">
             <span className="flex items-center gap-1.5 font-medium">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              Open-source MIT Core
+              100% Local POS Engine
             </span>
             <span className="flex items-center gap-1.5 font-medium">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />

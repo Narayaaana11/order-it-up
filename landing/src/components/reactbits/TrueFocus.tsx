@@ -16,7 +16,7 @@ interface TrueFocusProps {
 export default function TrueFocus({
   sentence = "Offline First Architecture Zero Cloud Lockin Instant Printing",
   manualMode = false,
-  blurAmount = 2,
+  blurAmount = 0,
   borderColor = "#F07928",
   glowColor = "rgba(240, 121, 40, 0.35)",
   animationDuration = 0.3,
@@ -53,6 +53,7 @@ export default function TrueFocus({
             }`}
             style={{
               boxShadow: isCurrent ? `0 0 16px ${glowColor}` : "none",
+              filter: !isCurrent && blurAmount > 0 ? `blur(${blurAmount}px)` : "none",
             }}
           >
             {/* Corner brackets directly framed on the active word */}

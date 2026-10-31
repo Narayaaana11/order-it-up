@@ -4,7 +4,7 @@ import React from "react";
 import { TRUST_METRICS } from "@/lib/constants";
 import SpotlightCard from "@/components/reactbits/SpotlightCard";
 import CountUp from "@/components/reactbits/CountUp";
-import TrueFocus from "@/components/reactbits/TrueFocus";
+import { ShieldCheck, Zap, Database } from "lucide-react";
 
 export default function TrustMetrics() {
   const parseMetric = (val: string) => {
@@ -33,20 +33,27 @@ export default function TrustMetrics() {
   return (
     <section className="py-16 border-y border-slate-200 bg-white relative overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* React Bits TrueFocus Word Frame Tracker */}
+        {/* Core Invariants Header - Crisp, clean, perfectly readable typography */}
         <div className="flex flex-col items-center justify-center text-center mb-10">
           <p className="text-xs font-mono font-bold uppercase tracking-widest text-slate-400 mb-3">
             Local Counter Performance Invariants
           </p>
-          <TrueFocus
-            sentence="Zero Cloud Risk • Sub Second Latency • Local SQLite Reliability"
-            blurAmount={3}
-            borderColor="#F07928"
-            glowColor="rgba(240, 121, 40, 0.45)"
-            animationDuration={0.4}
-            pauseBetweenAnimations={1.8}
-            className="justify-center"
-          />
+          <div className="inline-flex flex-wrap items-center justify-center gap-2.5 sm:gap-3 text-slate-800">
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 font-bold text-xs sm:text-sm shadow-xs">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>Zero Cloud Risk</span>
+            </span>
+            <span className="text-slate-300 font-black">•</span>
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-orange-900 font-bold text-xs sm:text-sm shadow-xs">
+              <Zap className="w-4 h-4 text-orange-600" />
+              <span>Sub-Second Latency</span>
+            </span>
+            <span className="text-slate-300 font-black">•</span>
+            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-sky-50 border border-sky-200 text-sky-900 font-bold text-xs sm:text-sm shadow-xs">
+              <Database className="w-4 h-4 text-sky-600" />
+              <span>Local SQLite Reliability</span>
+            </span>
+          </div>
         </div>
 
         {/* 4 Spotlight Metric Cards with Animated CountUp */}

@@ -3,9 +3,9 @@
 import React, { useState, useEffect } from "react";
 import AuthModal from "@/components/AuthModal";
 import BillTemplateModal from "@/components/BillTemplateModal";
-import LicenseModal from "@/components/LicenseModal";
+import TermsModal from "@/components/TermsModal";
 import CredentialsModal from "@/components/CredentialsModal";
-import { AuthMode, DownloadPlatform, BillFormat } from "@/lib/modalEvents";
+import { AuthMode, DownloadPlatform, BillFormat, LegalTab } from "@/lib/modalEvents";
 import { CheckCircle2, Download, X } from "lucide-react";
 
 export default function ModalProvider() {
@@ -18,8 +18,9 @@ export default function ModalProvider() {
   const [billOpen, setBillOpen] = useState(false);
   const [billFormat, setBillFormat] = useState<BillFormat>("standard");
 
-  // License Modal State
-  const [licenseOpen, setLicenseOpen] = useState(false);
+  // Legal / Terms Modal State
+  const [termsOpen, setTermsOpen] = useState(false);
+  const [termsTab, setTermsTab] = useState<LegalTab>("terms");
 
   // Credentials Modal State
   const [credentialsOpen, setCredentialsOpen] = useState(false);
@@ -98,8 +99,16 @@ export default function ModalProvider() {
       setBillOpen(true);
     };
 
+    const handleOpenTerms = (e: Event) => {
+      const custom = e as CustomEvent<{ tab?: LegalTab }>;
+      if (custom.detail?.tab) setTermsTab(custom.detail.tab);
+      else setTermsTab("terms");
+      setTermsOpen(true);
+    };
+
     const handleOpenLicense = () => {
-      setLicenseOpen(true);
+      setTermsTab("terms");
+      setTermsOpen(true);
     };
 
     const handleOpenCredentials = () => {
@@ -108,12 +117,14 @@ export default function ModalProvider() {
 
     window.addEventListener("orderitup_open_auth_modal", handleOpenAuth);
     window.addEventListener("orderitup_open_bill_modal", handleOpenBill);
+    window.addEventListener("orderitup_open_terms_modal", handleOpenTerms);
     window.addEventListener("orderitup_open_license_modal", handleOpenLicense);
     window.addEventListener("orderitup_open_credentials_modal", handleOpenCredentials);
 
     return () => {
       window.removeEventListener("orderitup_open_auth_modal", handleOpenAuth);
       window.removeEventListener("orderitup_open_bill_modal", handleOpenBill);
+      window.removeEventListener("orderitup_open_terms_modal", handleOpenTerms);
       window.removeEventListener("orderitup_open_license_modal", handleOpenLicense);
       window.removeEventListener("orderitup_open_credentials_modal", handleOpenCredentials);
     };
@@ -145,9 +156,10 @@ export default function ModalProvider() {
         initialFormat={billFormat}
       />
 
-      <LicenseModal
-        isOpen={licenseOpen}
-        onClose={() => setLicenseOpen(false)}
+      <TermsModal
+        isOpen={termsOpen}
+        onClose={() => setTermsOpen(false)}
+        initialTab={termsTab}
       />
 
       <CredentialsModal

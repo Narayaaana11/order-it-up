@@ -1,11 +1,13 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   X,
   Printer,
   QrCode,
   CheckCircle2,
+  ZoomIn,
+  Maximize2,
 } from "lucide-react";
 import { MOCK_ORDER } from "@/lib/constants";
 
@@ -21,7 +23,23 @@ export default function BillTemplateModal({
   initialFormat = "standard",
 }: BillTemplateModalProps) {
   const [format, setFormat] = useState<"standard" | "gst" | "zreport" | "kot">(initialFormat);
+  const [prevInitial, setPrevInitial] = useState(initialFormat);
   const [isPrinting, setIsPrinting] = useState(false);
+  const [scaleMode, setScaleMode] = useState<"fit" | "full">("fit");
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+
+  // Sync format if initialFormat changes during render (standard React 19 pattern)
+  if (initialFormat !== prevInitial) {
+    setPrevInitial(initialFormat);
+    setFormat(initialFormat);
+  }
+
+  // Reset scroll to top whenever modal opens or format changes
+  useEffect(() => {
+    if (isOpen && scrollContainerRef.current) {
+      scrollContainerRef.current.scrollTop = 0;
+    }
+  }, [isOpen, format, scaleMode]);
 
   if (!isOpen) return null;
 
@@ -34,23 +52,23 @@ export default function BillTemplateModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/65 backdrop-blur-sm animate-in fade-in duration-200">
       <div
-        className="relative w-full max-w-2xl bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[92vh] flex flex-col"
+        className="relative w-full max-w-2xl bg-white rounded-3xl border border-slate-200 shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 max-h-[94vh] flex flex-col"
         role="dialog"
         aria-modal="true"
       >
         {/* Modal Top Header */}
-        <div className="p-5 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border-b border-orange-100/80 flex items-center justify-between shrink-0">
+        <div className="px-5 py-4 bg-gradient-to-r from-orange-50 via-amber-50 to-orange-50 border-b border-orange-100/80 flex items-center justify-between shrink-0">
           <div className="flex items-center gap-3">
             <div className="p-2 rounded-xl bg-white border border-orange-200 shadow-xs">
               <Printer className="w-5 h-5 text-orange-600" />
             </div>
             <div>
-              <h3 className="text-base font-extrabold text-slate-900">
+              <h3 className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
                 Authentic 80mm ESC/POS Thermal Bill Template
               </h3>
-              <p className="text-xs text-slate-600">
+              <p className="text-[11px] text-slate-600">
                 Official Indian GST, FSSAI &amp; Monospace Solenoid Receipt Format
               </p>
             </div>
@@ -60,7 +78,7 @@ export default function BillTemplateModal({
             <button
               type="button"
               onClick={handlePrint}
-              className="px-3.5 py-1.5 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-[0.98]"
+              className="px-3.5 py-1.5 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-[0.98] cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
               <span>{isPrinting ? "Printing..." : "Print Bill"}</span>
@@ -68,20 +86,21 @@ export default function BillTemplateModal({
             <button
               type="button"
               onClick={onClose}
-              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-white/80 transition-colors"
+              className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-white/80 transition-colors cursor-pointer"
+              aria-label="Close modal"
             >
               <X className="w-5 h-5" />
             </button>
           </div>
         </div>
 
-        {/* Format Selector Bar */}
-        <div className="px-6 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-2">
+        {/* Format Selector Bar & View Toggle */}
+        <div className="px-4 sm:px-6 py-2.5 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2.5 shrink-0">
+          <div className="flex flex-wrap items-center gap-1.5 sm:gap-2">
             <button
               type="button"
               onClick={() => setFormat("standard")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 format === "standard"
                   ? "bg-[#F07928] text-white shadow-xs"
                   : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200 shadow-xs"
@@ -92,18 +111,18 @@ export default function BillTemplateModal({
             <button
               type="button"
               onClick={() => setFormat("gst")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 format === "gst"
                   ? "bg-[#F07928] text-white shadow-xs"
                   : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200 shadow-xs"
               }`}
             >
-              GST Tax Invoice (B2B/B2C)
+              GST Tax Invoice
             </button>
             <button
               type="button"
               onClick={() => setFormat("zreport")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 format === "zreport"
                   ? "bg-[#F07928] text-white shadow-xs"
                   : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200 shadow-xs"
@@ -114,7 +133,7 @@ export default function BillTemplateModal({
             <button
               type="button"
               onClick={() => setFormat("kot")}
-              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
+              className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer ${
                 format === "kot"
                   ? "bg-[#F07928] text-white shadow-xs"
                   : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200 shadow-xs"
@@ -124,26 +143,57 @@ export default function BillTemplateModal({
             </button>
           </div>
 
-          <span className="text-[11px] font-mono text-emerald-700 font-semibold flex items-center gap-1">
-            <CheckCircle2 className="w-3.5 h-3.5" />
-            ESC/POS Bytecode Verified
-          </span>
+          <div className="flex items-center gap-2">
+            {/* View Scale Toggle */}
+            <div className="inline-flex items-center rounded-lg border border-slate-200 bg-white p-0.5 text-xs text-slate-600">
+              <button
+                type="button"
+                onClick={() => setScaleMode("fit")}
+                className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1 ${
+                  scaleMode === "fit" ? "bg-orange-100 text-orange-800 font-bold" : "hover:text-slate-900"
+                }`}
+                title="Fit full receipt in window"
+              >
+                <Maximize2 className="w-3 h-3" />
+                <span>Fit View</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setScaleMode("full")}
+                className={`px-2 py-1 rounded text-[11px] font-medium transition-colors cursor-pointer flex items-center gap-1 ${
+                  scaleMode === "full" ? "bg-orange-100 text-orange-800 font-bold" : "hover:text-slate-900"
+                }`}
+                title="100% full thermal scale"
+              >
+                <ZoomIn className="w-3 h-3" />
+                <span>100% Scale</span>
+              </button>
+            </div>
+
+            <span className="text-[11px] font-mono text-emerald-700 font-semibold hidden sm:flex items-center gap-1">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              ESC/POS Verified
+            </span>
+          </div>
         </div>
 
-        {/* Scrollable Receipt Body */}
-        <div className="p-6 overflow-y-auto bg-slate-100 flex justify-center">
+        {/* Scrollable Receipt Body with guaranteed top visibility & bottom margin */}
+        <div
+          ref={scrollContainerRef}
+          className="p-4 sm:p-6 pb-20 overflow-y-auto bg-slate-100/90 flex flex-col items-center min-h-0"
+        >
           <div
-            className={`w-full max-w-md receipt-paper rounded-lg p-6 sm:p-8 font-mono text-xs text-slate-900 select-all border border-slate-300 relative shadow-xl transition-all duration-300 ${
-              isPrinting ? "translate-y-1 scale-[0.99] opacity-95" : ""
-            }`}
+            className={`w-full max-w-md receipt-paper rounded-lg font-mono text-slate-900 select-all border border-slate-300 relative shadow-xl transition-all duration-300 ${
+              scaleMode === "fit" ? "p-4 sm:p-6 text-[11px] origin-top scale-[0.94] sm:scale-100" : "p-6 sm:p-8 text-xs scale-100"
+            } ${isPrinting ? "translate-y-1 scale-[0.98] opacity-95" : ""}`}
           >
-            {/* Header */}
+            {/* Receipt Header - Guaranteed visible at the top */}
             <div className="text-center font-bold pb-2 border-b-2 border-dashed border-zinc-400">
               <p className="text-base font-extrabold tracking-wide uppercase">
                 {MOCK_ORDER.restaurant}
               </p>
               <p className="text-[11px] font-medium text-zinc-600 mt-0.5">
-                IndentDev Hospitality Pvt Ltd
+                Authentic Bistro &amp; Cafe (Pilot Store)
               </p>
               <p className="text-[11px] text-zinc-600">{MOCK_ORDER.address}</p>
               <p className="text-[10px] text-zinc-500 mt-1">
@@ -356,7 +406,7 @@ export default function BillTemplateModal({
               </>
             )}
 
-            {/* Footer QR */}
+            {/* Footer QR - Fully padded & guaranteed not clipped */}
             <div className="pt-3 text-center text-[10px] space-y-1">
               <p className="font-semibold">Thank you for dining with us!</p>
               <div className="w-16 h-16 mx-auto my-2 border border-zinc-400 rounded flex items-center justify-center bg-zinc-100">
@@ -366,10 +416,17 @@ export default function BillTemplateModal({
                 Scan for E-Invoice &amp; Review
               </p>
               <p className="text-[9px] text-zinc-500">
-                Powered by Order It Up (IndentDev)
+                Powered by Order It Up POS
               </p>
             </div>
           </div>
+
+          {/* Gentle scroll indicator if in full scale mode */}
+          {scaleMode === "full" && (
+            <div className="mt-3 text-center text-[11px] text-slate-500 font-sans">
+              ↕ Scroll down to view full thermal receipt &amp; QR code
+            </div>
+          )}
         </div>
       </div>
     </div>

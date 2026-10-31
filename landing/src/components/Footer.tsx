@@ -5,13 +5,16 @@ import {
   ShieldCheck,
   Receipt,
   Key,
-  ExternalLink,
   Printer,
+  Scale,
+  FileText,
+  AlertTriangle,
+  Building,
 } from "lucide-react";
 import { BRAND } from "@/lib/constants";
 import {
   triggerOpenBillModal,
-  triggerOpenLicenseModal,
+  triggerOpenTermsModal,
   triggerOpenCredentialsModal,
 } from "@/lib/modalEvents";
 
@@ -20,7 +23,7 @@ export default function Footer() {
     <footer className="bg-white border-t border-slate-200 text-slate-600 text-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 lg:py-16">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-10">
-          {/* Brand Info (2 cols) */}
+          {/* Brand Info & Startup Pilot Status (2 cols) */}
           <div className="lg:col-span-2 flex flex-col gap-4">
             <div className="flex items-center gap-2.5">
               <img
@@ -38,6 +41,17 @@ export default function Footer() {
               and bars billing at full speed — even during total internet blackouts.
             </p>
 
+            {/* Early-Stage Startup Badge */}
+            <div className="p-3 rounded-2xl bg-orange-50/70 border border-orange-200/80 text-[11px] text-orange-950 max-w-sm">
+              <div className="flex items-center gap-2 font-bold text-orange-900">
+                <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
+                <span>Early-Stage Startup • Pre-Registration Beta</span>
+              </div>
+              <p className="text-orange-800/90 mt-1 leading-relaxed">
+                Software is currently offered for community evaluation and pilot testing across local counters.
+              </p>
+            </div>
+
             <div className="flex flex-wrap items-center gap-2 pt-1">
               <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-[11px] font-mono text-slate-700 w-fit">
                 <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
@@ -47,7 +61,7 @@ export default function Footer() {
               <button
                 type="button"
                 onClick={() => triggerOpenCredentialsModal()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[11px] font-semibold text-orange-800 transition-colors"
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[11px] font-semibold text-orange-800 transition-colors cursor-pointer"
               >
                 <Key className="w-3 h-3 text-orange-600" />
                 <span>Test Role Credentials</span>
@@ -55,7 +69,7 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Column 1: Product */}
+          {/* Column 1: Product & Hardware */}
           <div>
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">
               Product &amp; POS
@@ -89,7 +103,7 @@ export default function Footer() {
                 <button
                   type="button"
                   onClick={() => triggerOpenBillModal("standard")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group"
+                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group cursor-pointer"
                 >
                   <span>ESC/POS Thermal Drivers</span>
                   <Receipt className="w-3 h-3 text-orange-500 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -99,7 +113,7 @@ export default function Footer() {
                 <button
                   type="button"
                   onClick={() => triggerOpenBillModal("standard")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group"
+                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group cursor-pointer"
                 >
                   <span>24V Cash Drawer Pulse</span>
                   <Receipt className="w-3 h-3 text-orange-500 opacity-0 group-hover:opacity-100 transition-opacity" />
@@ -108,7 +122,7 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Column 2: Compliance & Accounting (Interactive Bill Templates) */}
+          {/* Column 2: Compliance & Tax (Dedicated Section) */}
           <div>
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">
               Compliance &amp; Tax
@@ -118,7 +132,7 @@ export default function Footer() {
                 <button
                   type="button"
                   onClick={() => triggerOpenBillModal("gst")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group text-slate-700"
+                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group text-slate-700 cursor-pointer"
                 >
                   <span>Indian GST (CGST &amp; SGST)</span>
                   <Receipt className="w-3 h-3 text-orange-600 opacity-80" />
@@ -128,7 +142,7 @@ export default function Footer() {
                 <button
                   type="button"
                   onClick={() => triggerOpenBillModal("gst")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group text-slate-700"
+                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group text-slate-700 cursor-pointer"
                 >
                   <span>Global VAT Rate Packs</span>
                   <Receipt className="w-3 h-3 text-orange-600 opacity-80" />
@@ -138,7 +152,7 @@ export default function Footer() {
                 <button
                   type="button"
                   onClick={() => triggerOpenBillModal("standard")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group text-slate-700"
+                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group text-slate-700 cursor-pointer"
                 >
                   <span>FSSAI License Receipts</span>
                   <Receipt className="w-3 h-3 text-orange-600 opacity-80" />
@@ -148,7 +162,7 @@ export default function Footer() {
                 <button
                   type="button"
                   onClick={() => triggerOpenBillModal("zreport")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group text-slate-700"
+                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group text-slate-700 cursor-pointer"
                 >
                   <span>Z-Report Cash Closures</span>
                   <Receipt className="w-3 h-3 text-orange-600 opacity-80" />
@@ -158,7 +172,7 @@ export default function Footer() {
                 <button
                   type="button"
                   onClick={() => triggerOpenBillModal("zreport")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group text-slate-700"
+                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group text-slate-700 cursor-pointer"
                 >
                   <span>Tally XML Ledger Export</span>
                   <Receipt className="w-3 h-3 text-orange-600 opacity-80" />
@@ -167,58 +181,101 @@ export default function Footer() {
             </ul>
           </div>
 
-          {/* Column 3: Architecture & Security */}
+          {/* Column 3: Legal & Policies (Dedicated Startup Beta Section) */}
           <div>
             <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">
-              Architecture &amp; Legal
+              Legal &amp; Policies
             </h4>
             <ul className="space-y-2.5">
               <li>
-                <a href="#architecture" className="hover:text-orange-600 transition-colors block">
-                  SQLite WAL (`flo.db`)
-                </a>
-              </li>
-              <li>
-                <a href="#architecture" className="hover:text-orange-600 transition-colors block">
-                  Local Express Engine (:3001)
-                </a>
-              </li>
-              <li>
-                <a href="#specs" className="hover:text-orange-600 transition-colors block">
-                  Hardware Bytecode Specs
-                </a>
+                <button
+                  type="button"
+                  onClick={() => triggerOpenTermsModal("terms")}
+                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 text-slate-700 font-medium cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Terms &amp; Conditions</span>
+                </button>
               </li>
               <li>
                 <button
                   type="button"
-                  onClick={() => triggerOpenLicenseModal()}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1 text-slate-700 font-medium"
+                  onClick={() => triggerOpenTermsModal("privacy")}
+                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 text-slate-700 font-medium cursor-pointer"
                 >
-                  <span>MIT Open Source License</span>
-                  <ExternalLink className="w-3 h-3 text-slate-400" />
+                  <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Offline Privacy Policy</span>
                 </button>
               </li>
               <li>
-                <a href="#architecture" className="hover:text-orange-600 transition-colors block">
-                  Zero Cloud Vendor Lock-in
-                </a>
+                <button
+                  type="button"
+                  onClick={() => triggerOpenTermsModal("disclaimer")}
+                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 text-slate-700 font-medium cursor-pointer"
+                >
+                  <AlertTriangle className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Startup &amp; Beta Disclaimer</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => triggerOpenTermsModal("tax")}
+                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 text-slate-700 font-medium cursor-pointer"
+                >
+                  <Building className="w-3.5 h-3.5 text-slate-400" />
+                  <span>Tax &amp; Compliance Policy</span>
+                </button>
+              </li>
+              <li>
+                <button
+                  type="button"
+                  onClick={() => triggerOpenTermsModal("terms")}
+                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 text-slate-500 text-[11px] cursor-pointer"
+                >
+                  <Scale className="w-3 h-3 text-slate-400" />
+                  <span>Single-Counter Free License</span>
+                </button>
               </li>
             </ul>
           </div>
         </div>
 
-        {/* Bottom Bar with Quick Role Buttons & Copyright */}
+        {/* Bottom Bar: Startup Notice & Legal Modal Triggers */}
         <div className="mt-12 pt-8 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-slate-500 text-center sm:text-left">
-            &copy; {new Date().getFullYear()} {BRAND.name}. Engineered by{" "}
-            <span className="text-slate-800 font-semibold">{BRAND.company}</span>. All rights reserved.
+          <p className="text-slate-500 text-center sm:text-left text-[11px]">
+            &copy; {new Date().getFullYear()} {BRAND.name}. Early-Stage Restaurant Technology Startup (Pre-Registration Pilot). All rights reserved.
           </p>
 
-          <div className="flex flex-wrap items-center gap-4 text-slate-600">
+          <div className="flex flex-wrap items-center justify-center gap-3.5 text-slate-600 text-[11px]">
+            <button
+              type="button"
+              onClick={() => triggerOpenTermsModal("terms")}
+              className="hover:text-orange-600 font-medium transition-colors cursor-pointer"
+            >
+              Terms &amp; Conditions
+            </button>
+            <span className="text-slate-300">•</span>
+            <button
+              type="button"
+              onClick={() => triggerOpenTermsModal("privacy")}
+              className="hover:text-orange-600 font-medium transition-colors cursor-pointer"
+            >
+              Privacy Policy
+            </button>
+            <span className="text-slate-300">•</span>
+            <button
+              type="button"
+              onClick={() => triggerOpenTermsModal("disclaimer")}
+              className="hover:text-orange-600 font-medium transition-colors cursor-pointer"
+            >
+              Startup Disclaimer
+            </button>
+            <span className="text-slate-300">•</span>
             <button
               type="button"
               onClick={() => triggerOpenBillModal("standard")}
-              className="hover:text-orange-600 font-semibold transition-colors flex items-center gap-1"
+              className="hover:text-orange-600 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5 text-orange-600" />
               <span>80mm Bill Template</span>
@@ -227,16 +284,11 @@ export default function Footer() {
             <button
               type="button"
               onClick={() => triggerOpenCredentialsModal()}
-              className="hover:text-orange-600 font-semibold transition-colors flex items-center gap-1"
+              className="hover:text-orange-600 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
             >
               <Key className="w-3.5 h-3.5 text-slate-600" />
-              <span>Test Credentials</span>
+              <span>Role Credentials</span>
             </button>
-            <span className="text-slate-300">•</span>
-            <div className="flex items-center gap-1.5 text-slate-500">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              <span>Offline Resilience Verified</span>
-            </div>
           </div>
         </div>
       </div>

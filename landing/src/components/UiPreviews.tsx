@@ -514,7 +514,7 @@ export default function UiPreviews() {
                     {MOCK_ORDER.restaurant}
                   </p>
                   <p className="text-[11px] font-medium text-zinc-600 mt-0.5">
-                    IndentDev Hospitality Pvt Ltd
+                    Authentic Bistro &amp; Cafe (Pilot Store)
                   </p>
                   <p className="text-[11px] text-zinc-600">{MOCK_ORDER.address}</p>
                   <p className="text-[10px] text-zinc-500 mt-1">
@@ -635,7 +635,7 @@ export default function UiPreviews() {
                     Scan for E-Invoice &amp; Review
                   </p>
                   <p className="text-[9px] text-zinc-500">
-                    Powered by Order It Up (IndentDev)
+                    Powered by Order It Up POS
                   </p>
                 </div>
               </SpotlightCard>
