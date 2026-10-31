@@ -1,41 +1,37 @@
-# BRIEFING — 2026-10-31T00:00:00Z
+# BRIEFING — 2026-10-31T13:15:30Z
 
 ## Mission
-Oversee execution of landing page UI enhancements, auth/navigation integration, role dashboards showcase & routing, and test verification.
+Supervise project execution for end-to-end role-based restaurant and platform dashboards in landing/ with scheduled progress monitoring and mandatory post-completion victory audit.
 
 ## 🔒 My Identity
 - Archetype: sentinel
 - Working directory: d:\narayana\order-it-up\.agents\teamwork\sentinel
-- Orchestrator: c5185715-12e5-4384-b47b-41fec48f176a
-- Victory Auditor: d4def40e-794d-49e1-9ab1-6b432a948ae3
+- Orchestrator: 324a459d-4047-419c-8077-2f4966965e2f
+- Victory Auditor: 5ba84115-3f62-46fc-b425-b3a13ca1a685
 
 ## 🔒 Key Constraints
 - No technical decisions — relay only
 - Victory Audit is MANDATORY before reporting completion
-- Must NOT copy code from existing open-source projects for core logic
-- Must NOT run external scripts or delegate execution to other tools
-- Full compatibility with React 19, Next.js 16 (App Router), Tailwind CSS
-- Cloudflare Pages static export friendly without 404s or broken transitions
+- Route: General -> teamwork_orchestrator (multi-persona restaurant dashboard architecture, not light SWE / math / doc review)
+- Must implement all 6 operational personas (Owner/Manager, Cashier, Chef, Waiter, Accountant, Delivery)
+- Must implement Founder Platform Admin vs Restaurant Chain Owner views
+- Hybrid operational data models (standalone interactive state + backend connectivity)
+- UI consistency: #F8FAFC, border-slate-200/80, #F07928, Geist typography, no dummy labels
+- Verification: npm --prefix landing run lint, npm --prefix landing run build, npm test
 
 ## User Context
-- **Last user request**: Approved task prompt for landing page UI enhancements (React Bits inspired), auth & navigation integration, role dashboards showcase & routing, and build/test verification.
+- **Last user request**: Approved task prompt received
 - **Pending clarifications**: none
-- **Delivered results**: Complete landing page enhancement with React Bits aesthetics, complete auth integration, role showcase selector, role-based routing, and independent VICTORY CONFIRMED verification.
+- **Delivered results**: Task interview approved, routing completed, execution starting
 
 ## Project Status
-- **Phase**: complete
-- **Route**: General -> teamwork_orchestrator (ID: c5185715-12e5-4384-b47b-41fec48f176a)
+- **Phase**: auditing
 
 ## Victory Audit Status
 - **Triggered**: yes
-- **Verdict**: VICTORY CONFIRMED
+- **Verdict**: pending
 - **Retry count**: 0
 
 ## Artifact Index
-- `.agents/teamwork/ORIGINAL_REQUEST.md` — Authoritative record of approved task prompt
-- `.agents/teamwork/orchestrator/context.md` — Orchestrator workspace setup
-- `PROJECT.md` — Global architecture, feature inventory, milestones, code layout
-- `TEST_INFRA.md` — E2E test infrastructure specification
-- `TEST_READY.md` — Test suite readiness confirmation
-- `d:\narayana\order-it-up\.agents\teamwork\orchestrator\handoff.md` — Orchestrator completion report
-- `d:\narayana\order-it-up\.agents\teamwork\victory_auditor_2\handoff.md` — Independent victory auditor handoff report
+- .agents/teamwork/ORIGINAL_REQUEST.md — Authoritative user intent and approved prompt
+- .agents/teamwork/sentinel/BRIEFING.md — Sentinel state index

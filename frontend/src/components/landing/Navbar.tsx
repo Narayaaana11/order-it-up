@@ -139,33 +139,15 @@ export default function Navbar() {
               </div>
             ) : (
               <div className="flex items-center gap-2.5">
-                {/* Distinct Login Link */}
-                <Link
-                  href="/auth/login"
-                  className="inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl font-semibold text-sm text-slate-700 hover:text-slate-900 hover:bg-slate-100 transition-colors whitespace-nowrap"
-                >
-                  <LogIn className="w-4 h-4 text-slate-600" />
-                  <span>Login</span>
-                </Link>
-
-                {/* Distinct Sign Up Button */}
-                <Link
-                  href="/auth/register"
-                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-md shadow-orange-500/20 hover:shadow-lg hover:shadow-orange-500/30 active:scale-[0.98] transition-all whitespace-nowrap"
-                >
-                  <UserPlus className="w-4 h-4" />
-                  <span>Sign Up</span>
-                </Link>
-
-                {/* Desktop POS Windows Download */}
-                <a
-                  href="#download-windows"
-                  onClick={handleDownloadClick}
-                  className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl font-semibold text-sm text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 active:scale-[0.98] transition-all whitespace-nowrap cursor-pointer"
-                >
-                  <Download className="w-4 h-4 text-slate-600" />
-                  <span>Download</span>
-                </a>
+                    {/* Distinct Sign Up Button */}
+                    <Link
+                      href="/auth/register"
+                      className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-md shadow-orange-500/20 hover:shadow-lg hover:shadow-orange-500/30 active:scale-[0.98] transition-all whitespace-nowrap"
+                    >
+                      <UserPlus className="w-4 h-4" />
+                      <span>Sign Up</span>
+                    </Link>
+                  </div>
               </div>
             )}
           </div>
