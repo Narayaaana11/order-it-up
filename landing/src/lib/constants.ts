@@ -39,7 +39,6 @@ export const UNSPLASH_ASSETS = {
 
 export const NAV_LINKS = [
   { label: "Features", href: "#features" },
-  { label: "Dashboard", href: "#dashboard" },
   { label: "Interactive Demo", href: "#ui-preview" },
   { label: "Role Personas", href: "#roles" },
   { label: "Hardware & Specs", href: "#specs" },
