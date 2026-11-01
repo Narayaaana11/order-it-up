@@ -45,15 +45,6 @@ export default function CredentialsModal({
 
   const roleList = [
     {
-      key: "superadmin",
-      label: "Super Admin",
-      roleCode: "SUPER_ADMIN",
-      desc: "Platform administration & global system configuration",
-      icon: Shield,
-      color: "from-purple-500 to-indigo-600",
-      ...DEMO_USERS.superadmin,
-    },
-    {
       key: "owner",
       label: "Restaurant Owner",
       roleCode: "owner",
@@ -123,10 +114,10 @@ export default function CredentialsModal({
             </div>
             <div>
               <h3 className="text-base font-extrabold text-slate-900">
-                Official Operational Roles &amp; Test Credentials
+                Demo Role Access — Sample Data Only
               </h3>
               <p className="text-xs text-slate-600">
-                Pre-configured sandbox accounts for testing all restaurant roles
+                These local demo profiles do not authenticate against a production account service.
               </p>
             </div>
           </div>
@@ -141,7 +132,7 @@ export default function CredentialsModal({
 
         <div className="p-6 overflow-y-auto space-y-4">
           <p className="text-xs text-slate-600">
-            Click <strong>&quot;1-Click Sign In&quot;</strong> on any role below to instantly authenticate and unlock the desktop download, or copy the credentials to test login manually.
+            Use a demo profile to explore role-specific sample screens. These credentials only create a local browser demo session; they do not create or authenticate a real restaurant account. Do not enter real customer, employee or financial data.
           </p>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -223,7 +214,7 @@ export default function CredentialsModal({
                       onClick={() => handle1ClickLogin(item.user)}
                       className="px-3 py-1.5 rounded-lg bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-xs shadow-xs active:scale-[0.98] transition-all"
                     >
-                      1-Click Sign In
+                      Open Demo View
                     </button>
                   </div>
                 </div>
