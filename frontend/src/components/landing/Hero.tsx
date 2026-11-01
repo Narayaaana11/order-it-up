@@ -3,7 +3,6 @@
 import React from "react";
 import Link from "next/link";
 import {
-  Download,
   Play,
   WifiOff,
   Printer,
@@ -44,19 +43,17 @@ export default function Hero() {
 
           {/* Subheading */}
           <p className="mt-6 text-lg sm:text-xl lg:text-2xl text-slate-600 max-w-3xl leading-relaxed font-normal">
-            Run sub-second counter billing offline with instant ESC/POS thermal printing,
-            orchestrate live kitchen screens over your local LAN, and eliminate cloud dependency
-            risks forever.
+            Explore an offline-first approach to restaurant billing, local kitchen workflows and thermal printing. Order It Up is being evaluated with pilot users; features and hardware compatibility vary by build.
           </p>
 
           {/* SaaS & Desktop Action CTAs with tactile transitions */}
           <div className="mt-9 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3.5 w-full sm:w-auto">
             {/* Primary SaaS Registration CTA */}
             <Link
-              href="/auth/register"
+              href="https://orderitup.pages.dev/pilot/"
               className="h-14 px-8 rounded-xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-600 hover:via-amber-600 hover:to-orange-600 text-white font-bold text-base shadow-[0_4px_16px_0_rgba(240,121,40,0.38)] hover:shadow-lg hover:shadow-orange-500/40 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
             >
-              <span>Start Free Cloud Trial</span>
+              <span>Request Pilot Access</span>
               <ArrowRight className="w-5 h-5" />
             </Link>
 
@@ -71,11 +68,11 @@ export default function Hero() {
 
             {/* Harmonized Desktop POS Download CTA */}
             <a
-              href="#download"
+              href="#ui-preview"
               className="h-14 px-6 rounded-xl bg-slate-100/90 hover:bg-slate-200/90 text-slate-700 hover:text-slate-900 border border-slate-300/80 font-semibold text-base shadow-xs hover:shadow-md hover:-translate-y-0.5 active:translate-y-0.5 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
             >
-              <Download className="w-4 h-4 text-slate-600" />
-              <span>Download Desktop POS</span>
+              <Play className="w-4 h-4 text-orange-600" />
+              <span>Interactive POS Preview</span>
             </a>
           </div>
 
@@ -94,7 +91,7 @@ export default function Hero() {
           <div className="mt-4 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500">
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              Free for single counters
+              Pilot access arranged individually
             </span>
             <span className="text-slate-300">•</span>
             <span className="flex items-center gap-1.5">
@@ -104,7 +101,7 @@ export default function Hero() {
             <span className="text-slate-300">•</span>
             <span className="flex items-center gap-1.5">
               <HardDrive className="w-3.5 h-3.5 text-orange-600" />
-              Windows, macOS &amp; Linux
+              Hardware compatibility reviewed during pilot
             </span>
           </div>
 
@@ -125,8 +122,8 @@ export default function Hero() {
                 <Zap className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-900">&lt; 10ms Transaction</p>
-                <p className="text-[11px] text-slate-500">Sub-second cart speed</p>
+                <p className="text-xs font-bold text-slate-900">Performance under evaluation</p>
+                <p className="text-[11px] text-slate-500">No public benchmark published</p>
               </div>
             </div>
 
@@ -135,8 +132,8 @@ export default function Hero() {
                 <Printer className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-900">24V Solenoid Drawer</p>
-                <p className="text-[11px] text-slate-500">Direct ESC/POS bytecode</p>
+                <p className="text-xs font-bold text-slate-900">Cash drawer evaluation</p>
+                <p className="text-[11px] text-slate-500">Confirm model compatibility first</p>
               </div>
             </div>
 
@@ -145,8 +142,8 @@ export default function Hero() {
                 <Network className="w-4 h-4" />
               </div>
               <div>
-                <p className="text-xs font-bold text-slate-900">Local LAN Mesh</p>
-                <p className="text-[11px] text-slate-500">KDS :3002 &amp; Waiter :3003</p>
+                <p className="text-xs font-bold text-slate-900">Local network preview</p>
+                <p className="text-[11px] text-slate-500">Illustrative workflow only</p>
               </div>
             </div>
           </div>
