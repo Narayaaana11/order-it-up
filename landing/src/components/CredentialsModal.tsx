@@ -7,7 +7,6 @@ import {
   Copy,
   Check,
   UserCheck,
-  Shield,
   ChefHat,
   Receipt,
   User,
