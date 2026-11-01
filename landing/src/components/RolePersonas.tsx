@@ -132,9 +132,7 @@ export default function RolePersonas() {
           </h2>
 
           <p className="mt-4 text-base font-normal leading-relaxed text-slate-600 sm:text-lg">
-            From high-speed counter checkout to tableside ordering and
-            back-of-house accounting, Order It Up provides tailored
-            interfaces for your entire team.
+            These cards illustrate the types of restaurant workflows being explored. They are not a statement that every capability is available in the current pilot build; confirm your required workflow during onboarding.
           </p>
         </div>
 
