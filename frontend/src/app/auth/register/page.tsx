@@ -54,10 +54,10 @@ export default function SaaSQuickRegisterPage() {
   const [selectedCountry, setSelectedCountry] = useState(COUNTRIES[0]);
   const [serviceModel, setServiceModel] = useState<'qsr' | 'cafe' | 'finedine'>('qsr');
 
-  const handleGoogleCredential = async (credential: string) => {
+  const handleGoogleCredential = async (credential: string, nonce: string) => {
     setLoading(true);
     try {
-      await useAuthStore.getState().loginWithGoogle(credential, {
+      await useAuthStore.getState().loginWithGoogle(credential, nonce, {
         restaurant_name: restaurantName.trim(),
         owner_name: ownerName.trim(),
         country: selectedCountry.code,
