@@ -20,8 +20,6 @@ import {
   Bike,
   CheckCircle2,
   Printer,
-  Key,
-  LogOut,
   ArrowLeft,
   Cloud,
   Zap,
@@ -33,11 +31,7 @@ import {
 } from "lucide-react";
 import { BRAND } from "@/lib/constants";
 import ModalProvider from "@/components/ModalProvider";
-import { AuthUser, getStoredUser, setStoredUser } from "@/lib/auth";
-import {
-  triggerOpenBillModal,
-  triggerOpenCredentialsModal,
-} from "@/lib/modalEvents";
+import { triggerOpenBillModal } from "@/lib/modalEvents";
 import {
   useDashboardActions,
   useActivePerspective,
@@ -150,9 +144,6 @@ function DashboardShell() {
   // Local active tab fallback for merchant perspective
   const [localTab, setLocalTab] = useState<string>("overview");
 
-  // User session state (populated safely via async timer to prevent SSR mismatch)
-  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
-
   // Status Popover state
   const [statusPopoverOpen, setStatusPopoverOpen] = useState<boolean>(false);
   const statusPopoverRef = useRef<HTMLDivElement>(null);
@@ -169,22 +160,6 @@ function DashboardShell() {
     timeoutMs: 1500,
     autoCheck: true,
   });
-
-  // Safe user profile initialization
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      setCurrentUser(getStoredUser());
-    }, 0);
-
-    const handleAuthChange = () => {
-      setCurrentUser(getStoredUser());
-    };
-    window.addEventListener("orderitup_auth_change", handleAuthChange);
-    return () => {
-      clearTimeout(timer);
-      window.removeEventListener("orderitup_auth_change", handleAuthChange);
-    };
-  }, []);
 
   // Sync external store from URL query parameters (external mutator, no internal setState)
   useEffect(() => {
@@ -307,12 +282,6 @@ function DashboardShell() {
   const handleOutletChange = (outletId: string) => {
     actions.setSelectedOutletId(outletId);
     updateUrlParams({ outlet: outletId });
-  };
-
-  // Session sign out
-  const handleSignOut = () => {
-    setStoredUser(null);
-    router.push("/");
   };
 
   // Determine active outlet entity
@@ -617,40 +586,12 @@ function DashboardShell() {
                 <span>Z-Report</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => triggerOpenCredentialsModal()}
-                className="hidden xl:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 border border-slate-200 transition-colors cursor-pointer"
-                title="View role demo credentials"
+              <Link
+                href="/pilot/"
+                className="inline-flex items-center rounded-xl bg-[#F07928] px-3 py-2 text-xs font-bold text-white hover:bg-[#EA580C]"
               >
-                <Key className="w-3.5 h-3.5 text-slate-600" />
-                <span>Roles</span>
-              </button>
-
-              {/* Authenticated User & Sign Out */}
-              {currentUser && (
-                <div className="flex items-center gap-1.5 pl-1 border-l border-slate-200">
-                  <div
-                    className="flex items-center gap-2 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-800"
-                    title={`${currentUser.name} (${currentUser.role})`}
-                  >
-                    <div className="w-5 h-5 rounded-full bg-gradient-to-tr from-orange-500 to-amber-500 text-white flex items-center justify-center font-bold text-[10px]">
-                      {currentUser.name.charAt(0)}
-                    </div>
-                    <span className="font-bold hidden 2xl:inline text-xs">
-                      {currentUser.name}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleSignOut}
-                    className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-                    title="Sign Out"
-                  >
-                    <LogOut className="w-4 h-4" />
-                  </button>
-                </div>
-              )}
+                Request Pilot Access
+              </Link>
             </div>
           </div>
 
