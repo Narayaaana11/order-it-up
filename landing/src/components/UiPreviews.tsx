@@ -158,7 +158,7 @@ export default function UiPreviews() {
                 }`}
               >
                 <ChefHat className="w-4 h-4" />
-                <span>2. Live KDS Kitchen Ticket</span>
+                <span>2. KDS Ticket Preview</span>
               </button>
             </Magnet>
 
@@ -400,7 +400,7 @@ export default function UiPreviews() {
                 <div className="flex items-center gap-3">
                   <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-50 border border-amber-200 text-amber-800 font-mono text-xs">
                     <Clock className="w-3.5 h-3.5 animate-spin" />
-                    <span>08:42 elapsed (SLA: 12m)</span>
+                    <span>08:42 elapsed • sample timer</span>
                   </div>
                   <button
                     type="button"
@@ -504,7 +504,7 @@ export default function UiPreviews() {
                   onClick={() => triggerOpenBillModal("gst")}
                   className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs border border-slate-200"
                 >
-                  GST Invoice
+                  GST Layout Preview
                 </button>
                 <Magnet padding={20} magnetStrength={3}>
                   <button
