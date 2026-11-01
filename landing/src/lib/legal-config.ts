@@ -1,9 +1,9 @@
 /**
- * REQUIRED BEFORE PUBLICATION
- * Replace every value below with accurate operator details.
+ * PILOT LEGAL DETAILS
  * Do not invent a company name, CIN, GSTIN, registered office or certification.
- * If no company has been incorporated, identify the actual individual / existing
- * legal person operating the pilot and provide a valid correspondence address.
+ * Keep private residential details out of the public site. Arrange a suitable
+ * business correspondence address and obtain an Indian-law review before full
+ * commercial launch. An empty address intentionally keeps this config incomplete.
  */
 export const legalConfig = {
   productName: "Order It Up",
