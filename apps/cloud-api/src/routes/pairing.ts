@@ -12,6 +12,12 @@ export interface Env {
   RATE_LIMIT_DEMO_SETUP_IP?: string | number;
   RATE_LIMIT_SYNC_EVENTS_TERMINAL?: string | number;
   FRONTEND_ORIGIN?: string;
+  GOOGLE_CLIENT_ID?: string;
+  RESEND_API_KEY?: string;
+  PILOT_NOTIFICATION_EMAIL?: string;
+  PILOT_FROM_EMAIL?: string;
+  PILOT_ADMIN_EMAILS?: string;
+  RATE_LIMIT_GOOGLE_AUTH_IP?: string | number;
 }
 
 export const MAX_PAIRING_CODE_ATTEMPTS = 5;
