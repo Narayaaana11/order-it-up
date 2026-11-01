@@ -115,18 +115,17 @@ export default function UiPreviews() {
         <div className="text-center max-w-3xl mx-auto">
           <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-bold uppercase tracking-widest mb-4">
             <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-            <ShinyText text="Real Interactive Simulations" speed={3.5} />
+            <ShinyText text="Interactive Product Preview • Sample Data" speed={3.5} />
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
             <BlurText
-              text="Experience the Desktop POS in Action"
+              text="Explore the POS, KDS and Receipt Workflows"
               delay={40}
               className="justify-center"
             />
           </h2>
           <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed font-normal">
-            Interact with live, authentic representations of the counter billing simulator,
-            local KDS kitchen ticket, and monospace 80mm ESC/POS thermal receipt.
+            Explore illustrative sample workflows for counter billing, kitchen tickets and a receipt layout. These previews use local demo state and do not connect to a live POS, KDS or printer.
           </p>
         </div>
 
@@ -331,11 +330,11 @@ export default function UiPreviews() {
                     <span className="font-mono text-slate-800 font-medium">₹{itemSubtotal.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>CGST (2.5%):</span>
+                    <span>Illustrative CGST (2.5%):</span>
                     <span className="font-mono text-slate-800 font-medium">₹{cgst.toFixed(2)}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>SGST (2.5%):</span>
+                    <span>Illustrative SGST (2.5%):</span>
                     <span className="font-mono text-slate-800 font-medium">₹{sgst.toFixed(2)}</span>
                   </div>
                   {orderType === "dine_in" && (
@@ -527,24 +526,27 @@ export default function UiPreviews() {
                 isPrintingReceipt ? "translate-y-2 opacity-95 scale-[0.99]" : ""
               }`}
             >
+                <div className="mb-3 rounded-lg border-2 border-red-500 bg-red-50 px-3 py-2 text-center font-sans text-[11px] font-black uppercase tracking-widest text-red-700">
+                  Sample Preview — Not a Tax Invoice
+                </div>
                 {/* Paper Tear Zig-Zag Top Indicator */}
                 <div className="text-center font-bold pb-2 border-b-2 border-dashed border-zinc-400">
                   <p className="text-base font-extrabold tracking-wide uppercase">
                     {MOCK_ORDER.restaurant}
                   </p>
                   <p className="text-[11px] font-medium text-zinc-600 mt-0.5">
-                    Authentic Bistro &amp; Cafe (Pilot Store)
+                    Fictional sample business — demo only
                   </p>
                   <p className="text-[11px] text-zinc-600">{MOCK_ORDER.address}</p>
                   <p className="text-[10px] text-zinc-500 mt-1">
-                    GSTIN: {MOCK_ORDER.gstin} | FSSAI: {MOCK_ORDER.fssai}
+                    GSTIN: {MOCK_ORDER.gstin}
                   </p>
                 </div>
 
                 {/* Bill Meta */}
                 <div className="py-2.5 border-b border-dashed border-zinc-400 text-[11px] space-y-0.5">
                   <div className="flex justify-between">
-                    <span>Bill No: BILL-2026-0892</span>
+                    <span>SAMPLE RECEIPT — NOT A TAX INVOICE</span>
                     <span>Order: {MOCK_ORDER.orderNo}</span>
                   </div>
                   <div className="flex justify-between">
@@ -613,11 +615,11 @@ export default function UiPreviews() {
                     <span>2,210.00</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>CGST @ 2.5%:</span>
+                    <span>Illustrative CGST @ 2.5%:</span>
                     <span>55.25</span>
                   </div>
                   <div className="flex justify-between">
-                    <span>SGST @ 2.5%:</span>
+                    <span>Illustrative SGST @ 2.5%:</span>
                     <span>55.25</span>
                   </div>
                   <div className="flex justify-between">
