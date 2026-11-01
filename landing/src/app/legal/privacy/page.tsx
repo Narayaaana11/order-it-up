@@ -14,7 +14,7 @@ export default function PrivacyPage() {
     >
       <LegalSection title="1. Who is responsible">
         <p>
-          The Order It Up product pilot is operated by {legalConfig.operatorLegalName} ({legalConfig.operatorDescription}), at {legalConfig.correspondenceAddress} (the “Operator”). The Operator's privacy contact is {legalConfig.legalEmail}. Complete these identity and contact details before making this policy publicly available.
+          The Order It Up product pilot is operated by {legalConfig.operatorLegalName} ({legalConfig.operatorDescription}) (the “Operator”). The Operator's privacy and grievance contact is {legalConfig.legalEmail}. Complete these identity and contact details before making this policy publicly available.
         </p>
         <p>
           A restaurant or other business using its own installation decides why it collects customer, employee, supplier and transaction information. Depending on the deployment, that business may be the organisation responsible for that information. The Operator may act separately for information collected for its own website, pilot administration, support and security, and may process restaurant information only on the restaurant's documented instructions where a connected feature is enabled. The actual role depends on the activity, not just the label used in a contract.
@@ -142,7 +142,7 @@ export default function PrivacyPage() {
 
       <LegalSection title="14. Privacy contact">
         <p>
-          Privacy and grievance contact: {legalConfig.legalEmail}. Correspondence address: {legalConfig.correspondenceAddress}. Operator: {legalConfig.operatorLegalName}. Please include “Privacy Request — Order It Up” in the subject line.
+          Privacy and grievance contact: {legalConfig.legalEmail}. Operator: {legalConfig.operatorLegalName}. Please include “Privacy Request — Order It Up” in the subject line.
         </p>
       </LegalSection>
     </LegalPage>
