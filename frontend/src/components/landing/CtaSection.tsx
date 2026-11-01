@@ -10,7 +10,6 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { HARDWARE_SPECS } from "@/lib/constants";
-import { useAuthStore } from "@/store/auth";
 
 export default function CtaSection() {
 
