@@ -27,7 +27,7 @@ function loadAdminOperators(): ConfiguredAdminOperator[] {
       if (!value || typeof value !== 'object') return false;
       const candidate = value as Record<string, unknown>;
       return typeof candidate.id === 'string' && candidate.id.length > 0 &&
-        typeof candidate.email === 'string' && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(candidate.email) &&
+        typeof candidate.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate.email) &&
         typeof candidate.name === 'string' && candidate.name.length > 0 &&
         typeof candidate.role === 'string' && roles.has(candidate.role as AdminRole) &&
         typeof candidate.passwordHash === 'string' && /^\\$2[aby]\\$\\d{2}\\$/.test(candidate.passwordHash);
