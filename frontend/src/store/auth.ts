@@ -30,7 +30,7 @@ interface AuthState {
   printLanguageLoadErrors: Language[];
 
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
-  loginWithGoogle: (credential: string, registration?: { restaurant_name?: string; owner_name?: string; country?: string; currency?: string; timezone?: string; service_model?: string }) => Promise<void>;
+  loginWithGoogle: (credential: string, nonce: string, registration?: { restaurant_name?: string; owner_name?: string; country?: string; currency?: string; timezone?: string; service_model?: string }) => Promise<void>;
   selectTenant: (tenantId: number | string) => Promise<void>;
   logout: () => void;
   loadFromStorage: () => Promise<void>;
@@ -113,11 +113,12 @@ export const useAuthStore = create<AuthState>((set) => ({
     });
   },
 
-  loginWithGoogle: async (credential, registration) => {
+  loginWithGoogle: async (credential, nonce, registration) => {
     const operation = ++authOperation;
     clearBillTemplateProvenance();
     const { data } = await cloudApi.post('/api/auth/google', {
       credential,
+      nonce,
       ...(registration || {}),
     });
     if (operation !== authOperation) return;
