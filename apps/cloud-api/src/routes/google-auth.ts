@@ -1,6 +1,5 @@
 import { createJWT, isSecretValid } from '../auth';
-import { STARTER_MENUS } from './registration';
-import { Env } from './pairing';
+import type { Env } from './pairing';
 import { checkRateLimit, createRateLimitResponse, getClientIp } from '../rate-limit';
 
 type GoogleClaims = {
@@ -125,9 +124,8 @@ async function createGoogleTenant(
     throw new Error('A valid owner or manager name is required');
   }
 
-  const serviceModel = typeof requestBody.service_model === 'string' && STARTER_MENUS[requestBody.service_model.toLowerCase()]
-    ? requestBody.service_model.toLowerCase()
-    : 'qsr';
+  const requestedServiceModel = typeof requestBody.service_model === 'string' ? requestBody.service_model.toLowerCase() : '';
+  const serviceModel = ['qsr', 'cafe', 'finedine'].includes(requestedServiceModel) ? requestedServiceModel : 'qsr';
   const country = typeof requestBody.country === 'string' && /^[A-Z]{2}$/.test(requestBody.country.toUpperCase())
     ? requestBody.country.toUpperCase()
     : 'IN';
@@ -168,19 +166,7 @@ async function createGoogleTenant(
     `).bind(membershipId, orgId, userId, now, now),
   ];
 
-  for (const category of STARTER_MENUS[serviceModel] || STARTER_MENUS.qsr) {
-    const categoryId = crypto.randomUUID();
-    statements.push(env.DB.prepare(`
-      INSERT INTO master_categories (id, organization_id, name, sort_order, is_active, created_at, updated_at)
-      VALUES (?, ?, ?, ?, 1, ?, ?)
-    `).bind(categoryId, orgId, category.name, statements.length, now, now));
-    for (const product of category.items) {
-      statements.push(env.DB.prepare(`
-        INSERT INTO master_products (id, organization_id, category_id, name, sku, base_price, tax_rate, is_active, version, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)
-      `).bind(crypto.randomUUID(), orgId, categoryId, product.name, product.sku, product.base_price, product.tax_rate, now, now));
-    }
-  }
+
 
   await env.DB.batch(statements);
   return env.DB.prepare(`
