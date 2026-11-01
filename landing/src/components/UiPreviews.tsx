@@ -393,7 +393,7 @@ export default function UiPreviews() {
                   </span>
                   <div>
                     <h3 className="text-sm font-bold text-slate-900">Table T-04 (Indoor)</h3>
-                    <p className="text-xs text-slate-500 font-mono">Dine-in • 4 Guests • Captain: Priya K.</p>
+                    <p className="text-xs text-slate-500 font-mono">Dine-in • 4 Guests • Sample captain</p>
                   </div>
                 </div>
 
@@ -414,7 +414,7 @@ export default function UiPreviews() {
 
               {/* Station Routing Banner */}
               <div className="px-5 py-2.5 bg-slate-100/60 border-b border-slate-200 flex items-center justify-between text-xs font-mono text-slate-600">
-                <span>Station: Main Kitchen &amp; Wood-Fire Oven</span>
+                <span>Sample station: Main kitchen</span>
                 <span className="text-amber-700 font-semibold">Illustrative LAN status — not connected</span>
               </div>
 
