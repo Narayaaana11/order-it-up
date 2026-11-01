@@ -5,9 +5,6 @@ import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { NAV_LINKS } from "@/lib/constants";
 
-const PILOT_EMAIL =
-  "mailto:narayaaana11@gmail.com?subject=Order%20It%20Up%20Pilot%20Enquiry";
-
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -45,7 +42,7 @@ export default function Navbar() {
               Explore Demo
             </a>
             <a
-              href={PILOT_EMAIL}
+              href="/pilot/"
               className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-[#F07928] px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-orange-500/20 transition-all hover:bg-[#EA580C]"
             >
               Request Pilot Access
