@@ -6,8 +6,6 @@ import { useRouter } from "next/navigation";
 import {
   Menu,
   X,
-  Download,
-  ShieldCheck,
   ArrowRight,
   LayoutDashboard,
   LogOut,
@@ -29,38 +27,6 @@ export default function Navbar() {
   const { user, logout } = useAuthStore();
   const isAuthenticated = mounted && Boolean(user);
   const dashboardHref = mounted ? getLandingPage() : "/cloud-portal";
-
-  const handleDownloadClick = (e: React.MouseEvent) => {
-    if (!isAuthenticated) {
-      e.preventDefault();
-      router.push('/auth/login?redirect=download');
-    } else {
-      e.preventDefault();
-      try {
-        const blob = new Blob(
-          [
-            `Order It Up Desktop POS v1.2.0\n` +
-            `Platform: Windows 10 / 11 (x64 / ARM64)\n` +
-            `Engine: Standalone Electron + Express (:3001) + SQLite WAL\n` +
-            `Zero Cloud Lock-in • Offline Durability Guaranteed\n` +
-            `Artifact: Order-It-Up-Setup.exe\n` +
-            `Visit: https://orderitup.pages.dev/ for documentation.`
-          ],
-          { type: 'application/octet-stream' }
-        );
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'Order-It-Up-Setup.exe';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  };
 
   return (
     <header className="sticky top-0 z-50 w-full backdrop-blur-md bg-white/95 border-b border-slate-200/80 shadow-xs">
@@ -84,7 +50,7 @@ export default function Navbar() {
             </Link>
             <span className="hidden sm:inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-              100% Offline Engine
+              Offline-first architecture
             </span>
           </div>
 
@@ -237,12 +203,12 @@ export default function Navbar() {
                   }}
                   className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 shadow-xs active:scale-[0.98] cursor-pointer"
                 >
-                  <Download className="w-4 h-4 text-slate-600" />
-                  <span>Download Desktop POS</span>
+                  
+                  <span>Request Pilot Access</span>
                 </a>
                 <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 py-1">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>100% Free Forever for Single Counters</span>
+                  <span>Early-access pilot • reviewed individually</span>
                 </div>
               </div>
 
