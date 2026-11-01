@@ -45,7 +45,7 @@ const PERSONA_MEDIA: Record<string, PersonaMedia> = {
     image:
       "https://images.unsplash.com/photo-1757770331497-5bedc6cff62b?auto=format&fit=crop&w=1400&q=85",
     tag: "Professional Kitchen Operations",
-    metric: "Kitchen Display • Live Order Preparation",
+    metric: "Sample kitchen workflow preview",
   },
 
   manager: {
