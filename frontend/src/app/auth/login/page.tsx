@@ -41,6 +41,7 @@ function LoginContent() {
   const [showPassword, setShowPassword] = useState(false);
 
   const handleGoogleCredential = useCallback(async (credential: string) => {
+    setLoading(true);
     try {
       await useAuthStore.getState().loginWithGoogle(credential);
       toast.success('Signed in with Google');
@@ -49,6 +50,8 @@ function LoginContent() {
       const message = (err as { response?: { data?: { error?: string } } })?.response?.data?.error
         || (err instanceof Error ? err.message : 'Google sign-in failed. Please try again.');
       toast.error(message);
+    } finally {
+      setLoading(false);
     }
   }, [router]);
 
