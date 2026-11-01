@@ -1,10 +1,10 @@
 export const BRAND = {
   name: "Order It Up",
-  tagline: "The Modern Offline-First Restaurant Operating System",
-  eyebrow: "100% Offline-First POS • Zero Cloud Lock-In • Hardware Native",
+  tagline: "Offline-first restaurant operations, currently in pilot testing",
+  eyebrow: "EARLY-ACCESS PILOT • OFFLINE-FIRST DESIGN • LOCAL WORKFLOWS",
   description:
-    "Run lightning-fast counter billing with zero cloud dependency, orchestrate real-time kitchen displays over your local LAN, and print thermal receipts directly over USB and network — completely offline with embedded SQLite reliability.",
-  company: "IndentDev",
+    "An early-stage restaurant operations product exploring local-first billing, kitchen display workflows and compatible hardware integrations with pilot users.",
+  company: "Order It Up pilot team",
   version: "v1.2.0-desktop",
 };
 
@@ -46,24 +46,24 @@ export const NAV_LINKS = [
 
 export const TRUST_METRICS = [
   {
-    value: "100%",
-    label: "Offline Durability",
-    subtext: "Atomic SQLite WAL transactions on local disk. Zero cloud dependency.",
+    value: "Local-first",
+    label: "Counter workflows",
+    subtext: "Designed to keep supported core workflows on the restaurant's local system.",
   },
   {
-    value: "0.0s",
-    label: "Cloud Risk Exposure",
-    subtext: "Never freeze during dinner rush when the internet drops or ISP flickers.",
+    value: "SQLite",
+    label: "Local data layer",
+    subtext: "The desktop architecture uses a local SQLite database.",
   },
   {
-    value: "< 10ms",
-    label: "Local Billing Latency",
-    subtext: "Sub-second cart calculation, instant modifier toggles, and snappy settlement.",
+    value: "LAN",
+    label: "Kitchen and waiter workflows",
+    subtext: "KDS and waiter interfaces are designed to communicate over the restaurant's local network.",
   },
   {
-    value: "100+",
-    label: "Active Installs & Pilots",
-    subtext: "Powering busy cafes, QSR counters, bars, and multi-station restaurants.",
+    value: "Pilot",
+    label: "Compatibility evaluation",
+    subtext: "Features and hardware compatibility are being evaluated with pilot users.",
   },
 ];
 
@@ -88,10 +88,10 @@ export const CORE_FEATURES = [
   },
   {
     id: "kds-kitchen",
-    badge: "Zero-Cloud LAN Mesh",
+    badge: "Local network workflow",
     title: "Real-Time Kitchen Display (KDS)",
     description:
-      "Dedicated local WebSocket KDS running on port :3002. Drag-and-drop Kanban tickets, color-coded SLA timers, and dynamic item routing to Grill, Bar, Fryer, or Main Kitchen stations.",
+      "A local-network kitchen display workflow with ticket status views and station-oriented order handling. Exact behaviour depends on the pilot build and network setup.",
     icon: "ChefHat",
     highlights: ["Local Wi-Fi WebSocket sync", "SLA elapsed countdown alerts", "Allergy & course highlight chips"],
   },
@@ -115,10 +115,10 @@ export const CORE_FEATURES = [
   },
   {
     id: "security-audit",
-    badge: "Anti-Theft Safeguards",
+    badge: "Role permissions",
     title: "Multi-Role Security & Shift Reconciliation",
     description:
-      "10 operational personas with scoped permissions. Master Manager PIN protection on voids, refunds, and discounts, coupled with automated end-of-day Z-reports and Tally XML export.",
+      "Role-based operational views with configurable permissions, cash-closure summaries and accounting export workflows. Availability depends on the pilot build and configuration.",
     icon: "ShieldCheck",
     highlights: ["Master Manager PIN gates", "Opening float & cash drops", "End-of-day Z-Report balancing"],
   },
@@ -129,29 +129,29 @@ export const ARCHITECTURE_LAYERS = [
     level: "Local Counter Hardware",
     port: "Port 3001 (Internal)",
     tech: "Electron 34 + Node.js 22 + SQLite WAL (`flo.db`)",
-    description: "Sub-10ms transactional engine running completely offline on your counter terminal.",
-    status: "Active Authority",
+    description: "Local desktop transaction engine designed to operate without a continuous internet connection for supported workflows.",
+    status: "Local-first design",
   },
   {
     level: "Local Network Mesh (LAN)",
     port: "Ports 3002 (KDS) & 3003 (Waiter)",
     tech: "Local WebSockets & Micro-HTTP Server",
     description: "Kitchen screens and server tablets communicate directly over your in-house Wi-Fi without internet.",
-    status: "Zero Cloud Lag",
+    status: "LAN workflow",
   },
   {
     level: "Hardware Peripheral Bus",
     port: "USB / TCP / Serial / Bluetooth",
     tech: "Direct ESC/POS Raw Bytecode & RJ11/RJ12 Solenoids",
-    description: "Bypasses operating system print dialogs for instant receipt cutting and cash drawer ejection.",
-    status: "Hardware Native",
+    description: "Compatible printer and cash-drawer behaviour depends on the device, connection, firmware and configuration.",
+    status: "Model testing required",
   },
   {
     level: "Cloud HQ Sync (Optional)",
     port: "HTTPS Background Outbox",
     tech: "Cloudflare Edge + D1 Database",
-    description: "Silently synchronizes sales analytics and master menu catalog when internet is available.",
-    status: "Graceful Fallback",
+    description: "Optional connected features may synchronise selected information when enabled and configured.",
+    status: "Optional / configuration-dependent",
   },
 ];
 
@@ -160,7 +160,7 @@ export const ROLE_PERSONAS = [
     id: "cashier",
     title: "Front Cashier",
     subtitle: "High-Velocity Counter Operations",
-    badge: "Sub-3s Checkout",
+    badge: "Checkout workflow demo",
     icon: "CreditCard",
     responsibilities: [
       "Lightning-fast barcode scanning and product search",
@@ -215,14 +215,14 @@ export const ROLE_PERSONAS = [
   {
     id: "accountant",
     title: "Head Accountant",
-    subtitle: "Financial & Tax Compliance",
+    subtitle: "Financial & Reporting Workflows",
     badge: "GST / VAT & Tally",
     icon: "FileSpreadsheet",
     responsibilities: [
-      "Automated split GST tax calculations (CGST 2.5%, SGST 2.5%)",
+      "Review configured tax summaries and transaction records",
       "Daily Z-report cash closures with expected vs counted balances",
       "One-click Tally XML export for external accounting systems",
-      "Archival tax audit reports with tamper-evident serial numbers",
+      "Export available reports for review with your accountant",
     ],
     accent: "purple",
   },
@@ -243,15 +243,15 @@ export const ROLE_PERSONAS = [
 ];
 
 export const MOCK_ORDER = {
-  restaurant: "The Rustic Olive Bistro & Bar",
-  address: "42 Connaught Place, New Delhi 110001",
-  gstin: "07AAAAA0000A1Z5",
-  fssai: "10019011000234",
-  table: "T-04 (Indoor)",
+  restaurant: "SAMPLE RESTAURANT — FICTIONAL",
+  address: "Sample address, India — not a real business",
+  gstin: "SAMPLE ONLY — NOT A VALID GSTIN",
+  fssai: "SAMPLE ONLY — NOT A VALID FSSAI LICENCE",
+  table: "DEMO TABLE 04",
   pax: 4,
-  orderNo: "#104",
-  cashier: "Rohit S.",
-  date: "30-Oct-2026 19:42",
+  orderNo: "DEMO-001",
+  cashier: "Demo Cashier",
+  date: "SAMPLE DATE / TIME",
   items: [
     {
       id: "item-1",
@@ -299,13 +299,13 @@ export const MOCK_ORDER = {
 export const HARDWARE_SPECS = [
   {
     category: "Thermal Printers",
-    supported: "ESC/POS 80mm & 58mm Rolls",
+    supported: "Selected ESC/POS 80mm & 58mm models (testing required)",
     connectivity: "USB 2.0 / 3.0, Ethernet RJ45 TCP/IP, Bluetooth 4.0+, Windows Spooler",
     brands: "Epson TM-T82/TM-T88, Star Micronics, TVS RP-3150, Rongta, Munbyn, Bixolon, Xprinter",
   },
   {
     category: "Cash Drawers",
-    supported: "Standard RJ11 / RJ12 24V Solenoid kick pulse",
+    supported: "Selected compatible cash drawers (electrical checks required)",
     connectivity: "Direct printer kick connection via DK port",
     behavior: "Auto-eject on Cash settlement, manual key lock audit",
   },
@@ -323,8 +323,8 @@ export const HARDWARE_SPECS = [
   },
   {
     category: "Operating Systems",
-    supported: "Desktop Cross-Platform Native Binary",
-    connectivity: "Windows 10 / 11 (x64/ARM64), macOS 12+ (Apple Silicon & Intel), Ubuntu/Debian Linux",
+    supported: "Desktop platform support under evaluation",
+    connectivity: "Confirm currently available build and compatibility with the pilot team",
     runtime: "Zero runtime dependencies, standalone bundled Electron + SQLite",
   },
 ];
