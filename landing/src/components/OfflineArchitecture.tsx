@@ -48,14 +48,13 @@ export default function OfflineArchitecture() {
           </div>
           <h2 className="text-3xl sm:text-5xl font-extrabold text-slate-900 tracking-tight">
             <BlurText
-              text="How Order It Up Guarantees Zero Downtime"
+              text="How the Offline-First Architecture Is Designed"
               delay={40}
               className="justify-center"
             />
           </h2>
           <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed font-normal">
-            Unlike cloud-only POS systems that freeze when the internet flickers, Order It Up executes
-            every single order, modification, and payment on local counter hardware.
+            The desktop architecture is designed to keep supported counter workflows on the local device. Optional connected features may require internet access, and availability depends on the installed build, hardware and network configuration.
           </p>
         </div>
 
@@ -111,24 +110,24 @@ export default function OfflineArchitecture() {
                 <div className="flex items-center justify-between pb-4 border-b border-slate-200">
                   <div className="flex items-center gap-2.5">
                     <Cpu className="w-5 h-5 text-orange-600 animate-spin-slow" />
-                    <span className="text-sm font-bold text-slate-900">Live Engine Telemetry</span>
+                    <span className="text-sm font-bold text-slate-900">Offline Architecture Preview</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-[11px] font-mono text-emerald-700 font-semibold">
                     <span className="relative flex h-2 w-2">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-500 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-600"></span>
                     </span>
-                    <span>ONLINE (WAL)</span>
+                    <span>ILLUSTRATIVE</span>
                   </div>
                 </div>
 
                 {/* Status Metric Rows */}
                 <div className="mt-5 space-y-3 text-xs font-mono">
                   <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                    <span className="text-slate-500 font-medium">Local POS Engine</span>
+                    <span className="text-slate-500 font-medium">Local POS architecture</span>
                     <span className="text-emerald-700 font-semibold flex items-center gap-1.5">
                       <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <span>Port 3001 (Active)</span>
+                      <span>Example local service</span>
                     </span>
                   </div>
 
@@ -145,18 +144,18 @@ export default function OfflineArchitecture() {
                   </div>
 
                   <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                    <span className="text-slate-500 font-medium">Transaction Latency</span>
+                    <span className="text-slate-500 font-medium">Transaction performance</span>
                     <span className="text-orange-600 font-semibold">&lt; 3.2 ms (Zero WAN wait)</span>
                   </div>
 
                   <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                    <span className="text-slate-500 font-medium">KDS WebSockets</span>
-                    <span className="text-emerald-700 font-semibold">Port 3002 (3 Stations)</span>
+                    <span className="text-slate-500 font-medium">Kitchen display workflow</span>
+                    <span className="text-emerald-700 font-semibold">Local network example</span>
                   </div>
 
                   <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                    <span className="text-slate-500 font-medium">ESC/POS Thermal Bus</span>
-                    <span className="text-sky-700 font-semibold">Raw USB (80mm Ready)</span>
+                    <span className="text-slate-500 font-medium">Thermal printer support</span>
+                    <span className="text-sky-700 font-semibold">Model and connection dependent</span>
                   </div>
 
                   {/* Simulated WAN Status */}
@@ -186,7 +185,7 @@ export default function OfflineArchitecture() {
                   <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200">
                     <span className="text-slate-500 font-medium">Local Outbox Buffer</span>
                     <span className="text-slate-800 font-semibold">
-                      {isSimulatedOffline ? "4 Events Queued in WAL" : "0 Pending (Synced)"}
+                      {isSimulatedOffline ? "Demo events queued (simulated)" : "No demo events queued"}
                     </span>
                   </div>
                 </div>
@@ -206,17 +205,17 @@ export default function OfflineArchitecture() {
                       <RefreshCw className="w-3.5 h-3.5" />
                       <span>
                         {isSimulatedOffline
-                          ? "Restore Internet Connection"
-                          : "Simulate Cable Cut / ISP Outage"}
+                          ? "Reset offline simulation"
+                          : "Simulate internet outage (demo)"}
                       </span>
                     </button>
                   </Magnet>
 
                   <div className="mt-3 flex items-center justify-between text-[11px] text-slate-500">
-                    <span>Transactions logged: {pulseCount}</span>
+                    <span>Demo interactions: {pulseCount}</span>
                     <span className="flex items-center gap-1 text-emerald-700 font-medium">
                       <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                      Billing never halts
+                      Illustrative simulation only
                     </span>
                   </div>
                 </div>
