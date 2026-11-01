@@ -415,7 +415,7 @@ export default function UiPreviews() {
               {/* Station Routing Banner */}
               <div className="px-5 py-2.5 bg-slate-100/60 border-b border-slate-200 flex items-center justify-between text-xs font-mono text-slate-600">
                 <span>Station: Main Kitchen &amp; Wood-Fire Oven</span>
-                <span className="text-emerald-700 font-semibold">WebSocket LAN :3002 (Connected)</span>
+                <span className="text-amber-700 font-semibold">Illustrative LAN status — not connected</span>
               </div>
 
               {/* Ticket Course Items with Bump Actions */}
