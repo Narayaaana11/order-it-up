@@ -63,8 +63,6 @@ export default function Footer() {
                 onClick={() => triggerOpenCredentialsModal()}
                 className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[11px] font-semibold text-orange-800 transition-colors cursor-pointer"
               >
-                <Key className="w-3 h-3 text-orange-600" />
-                <span>Test Role Credentials</span>
               </button>
             </div>
           </div>
@@ -286,8 +284,6 @@ export default function Footer() {
               onClick={() => triggerOpenCredentialsModal()}
               className="hover:text-orange-600 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
             >
-              <Key className="w-3.5 h-3.5 text-slate-600" />
-              <span>Role Credentials</span>
             </button>
           </div>
         </div>
