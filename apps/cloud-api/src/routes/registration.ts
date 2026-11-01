@@ -20,7 +20,7 @@ interface StarterCategory {
   items: StarterItem[];
 }
 
-const STARTER_MENUS: Record<string, StarterCategory[]> = {
+export const STARTER_MENUS: Record<string, StarterCategory[]> = {
   qsr: [
     {
       name: 'Signature Burgers & Wraps',
