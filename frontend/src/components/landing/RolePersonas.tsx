@@ -389,13 +389,13 @@ export default function RolePersonas() {
                   {/* Outlet 1 */}
                   <div className="p-4 rounded-xl bg-slate-800/80 border border-slate-700/80">
                     <div className="flex items-center justify-between text-xs text-slate-400 mb-1">
-                      <span>Connaught Place (HQ)</span>
-                      <span className="text-emerald-400 font-mono">● Online</span>
+                      <span>Sample outlet A</span>
+                      <span className="text-emerald-400 font-mono">● Sample only</span>
                     </div>
                     <div className="text-xl font-bold font-mono text-white">₹1,48,200</div>
                     <div className="text-[11px] text-slate-400 mt-2 flex justify-between">
-                      <span>3 Terminals</span>
-                      <span className="text-orange-400">43% Chain Vol</span>
+                      <span>Sample configuration</span>
+                      <span className="text-orange-400">Illustrative only</span>
                     </div>
                   </div>
 
@@ -648,7 +648,7 @@ export default function RolePersonas() {
                         className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center justify-center gap-2 shadow-md shadow-emerald-600/30 transition-all active:scale-[0.98]"
                       >
                         <Receipt className="w-4 h-4" />
-                        <span>Settle & Cut Thermal Receipt (Sub-3s)</span>
+                        <span>Preview sample receipt settlement</span>
                       </button>
                     </div>
                   </div>
@@ -691,7 +691,7 @@ export default function RolePersonas() {
                     {receiptPrinted && (
                       <div className="mt-3 p-2 rounded-lg bg-emerald-100 border border-emerald-300 text-emerald-800 text-center font-sans text-xs font-bold flex items-center justify-center gap-1.5 animate-bounce">
                         <Check className="w-4 h-4 text-emerald-600" />
-                        <span>⚡ 24V Drawer Ejected & Slip Cut!</span>
+                        <span>Sample receipt state changed — no drawer or printer command was sent</span>
                       </div>
                     )}
                   </div>
@@ -898,11 +898,11 @@ export default function RolePersonas() {
                   </div>
                 </div>
 
-                {/* Tally XML Export Action */}
+                {/* Sample accounting export preview */}
                 <div className="p-4 rounded-xl bg-purple-950/30 border border-purple-800/60 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="text-xs">
                     <span className="font-bold text-purple-300 block">Illustrative accounting-export preview</span>
-                    <span className="text-slate-400">Export audited sales vouchers directly formatted for external chartered accountants.</span>
+                    <span className="text-slate-400">This preview does not create or send a Tally file. Actual accounting export support must be verified with the pilot team.</span>
                   </div>
 
                   <button
@@ -914,7 +914,7 @@ export default function RolePersonas() {
                     <Download className="w-4 h-4" />
                     <span>
                       {exportingTally
-                        ? "Generating XML..."
+                        ? "Preparing sample preview..."
                         : exportComplete
                         ? "Sample export preview complete — no file was sent or generated"
                         : "Preview sample export (local only)"}
