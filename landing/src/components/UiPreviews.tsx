@@ -476,7 +476,7 @@ export default function UiPreviews() {
               <div className="px-5 py-3.5 bg-slate-50 border-t border-slate-200 flex items-center justify-between text-xs text-slate-500">
                 <span className="flex items-center gap-1 text-emerald-700 font-mono font-semibold">
                   <Zap className="w-3.5 h-3.5" />
-                  0.0s sync lag over LAN Wi-Fi
+                  Illustrative LAN workflow • demo only
                 </span>
                 <span>Tap &ldquo;Bump&rdquo; to cycle: Pending &rarr; Preparing &rarr; Ready &rarr; Served</span>
               </div>
