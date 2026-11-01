@@ -40,10 +40,10 @@ function LoginContent() {
   const [loginError, setLoginError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
 
-  const handleGoogleCredential = useCallback(async (credential: string) => {
+  const handleGoogleCredential = useCallback(async (credential: string, nonce: string) => {
     setLoading(true);
     try {
-      await useAuthStore.getState().loginWithGoogle(credential);
+      await useAuthStore.getState().loginWithGoogle(credential, nonce);
       toast.success('Signed in with Google');
       router.push(getLandingPage());
     } catch (err: unknown) {
