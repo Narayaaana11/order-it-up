@@ -82,7 +82,7 @@ export default function PilotAccessForm() {
         <p className="text-xs font-bold uppercase tracking-[0.2em] text-orange-600">Order It Up early-access pilot</p>
         <h1 className="mt-3 text-3xl font-black tracking-tight text-slate-950 sm:text-5xl">Request pilot access</h1>
         <p className="mx-auto mt-4 max-w-2xl text-sm leading-7 text-slate-600 sm:text-base">
-          Tell us about your restaurant and current setup. The team will review your requirements and contact you to discuss fit, availability and next steps. Submitting this form does not automatically create an account or grant access.
+          Tell us about your restaurant and current setup. Your request is stored securely for review by the pilot team. We will contact you to discuss fit, availability and next steps. Submitting this form does not automatically create an account or grant access.
         </p>
       </div>
 
@@ -91,7 +91,7 @@ export default function PilotAccessForm() {
           <div role="status" className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
             {success === "sent"
               ? "Your pilot request has been saved and the pilot team has been notified. We will contact you using the details you provided."
-              : "Your pilot request has been saved, but the automatic team notification is not configured or could not be sent. Please also email narayaaana11@gmail.com so we can follow up."}
+              : "Your pilot request has been saved, but the automatic team notification is not configured or could not be sent. Please also email <a href="mailto:narayaaana11@gmail.com?subject=Order%20It%20Up%20Pilot%20Request" class="font-semibold underline">the pilot team</a> so we can follow up."}
           </div>
         )}
         {error && (
@@ -178,7 +178,7 @@ export default function PilotAccessForm() {
             {submitting ? "Sending request..." : "Submit pilot request"}
           </button>
           <p className="text-center text-xs leading-5 text-slate-500">
-            We will review your details and contact you. This is an enquiry only; no account is created and no payment is taken.
+            This enquiry is stored in the Order It Up Cloud API. A team notification is sent when email delivery is configured. It does not create an account or take payment.
           </p>
         </form>
       </div>
