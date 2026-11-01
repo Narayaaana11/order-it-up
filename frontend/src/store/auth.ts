@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import api, { isElectronEnvironment } from '@/lib/api';
+import api, { cloudApi, isElectronEnvironment } from '@/lib/api';
 import type { User, Tenant } from '@/lib/types';
 import { usePosSettingsStore } from '@/store/pos-settings';
 import { THEME_REHYDRATION_EVENT } from './theme';
@@ -30,6 +30,7 @@ interface AuthState {
   printLanguageLoadErrors: Language[];
 
   login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  loginWithGoogle: (credential: string, registration?: { restaurant_name?: string; owner_name?: string; country?: string; currency?: string; timezone?: string; service_model?: string }) => Promise<void>;
   selectTenant: (tenantId: number | string) => Promise<void>;
   logout: () => void;
   loadFromStorage: () => Promise<void>;
@@ -97,6 +98,58 @@ export const useAuthStore = create<AuthState>((set) => ({
     persistSession(token, currentTenant);
     if (data.user) {
       try { localStorage.setItem('user', JSON.stringify(data.user)); } catch {}
+    }
+    syncTenantLanguage(currentTenant);
+    const failedLanguages = currentTenant
+      ? await syncPrintPoliciesAtBootstrap(currentTenant, usePosSettingsStore, () => operation === authOperation)
+      : [];
+    if (operation !== authOperation) return;
+    set({
+      user: data.user,
+      token,
+      tenants,
+      currentTenant,
+      printLanguageLoadErrors: failedLanguages,
+    });
+  },
+
+  loginWithGoogle: async (credential, registration) => {
+    const operation = ++authOperation;
+    clearBillTemplateProvenance();
+    const { data } = await cloudApi.post('/api/auth/google', {
+      credential,
+      ...(registration || {}),
+    });
+    if (operation !== authOperation) return;
+
+    const token = data.access_token || data.token;
+    if (typeof token !== 'string' || !token || !data.user) {
+      throw new Error('Google sign-in returned an incomplete session');
+    }
+
+    const tenants: Tenant[] = Array.isArray(data.tenants) && data.tenants.length > 0
+      ? data.tenants
+      : (data.tenant ? [data.tenant] : (data.user.organization_id ? [{
+          id: data.user.organization_id,
+          business_name: data.user.organization_name || 'Store',
+          name: data.user.organization_name || 'Store',
+          slug: (data.user.organization_name || 'store').toLowerCase().replace(/\\s+/g, '-'),
+          database_name: 'cloud_d1',
+          business_type: 'restaurant',
+          country: data.user.country || 'IN',
+          currency: data.user.currency || 'INR',
+          timezone: data.user.timezone || 'Asia/Kolkata',
+          plan: 'saas_production',
+          status: 'active',
+          role: data.user.role || 'owner',
+        }] : []);
+    const currentTenant = data.tenant || (tenants.length === 1 ? tenants[0] : null);
+
+    persistSession(token, currentTenant);
+    try {
+      localStorage.setItem('user', JSON.stringify(data.user));
+    } catch {
+      throw new StorageUnavailableError();
     }
     syncTenantLanguage(currentTenant);
     const failedLanguages = currentTenant
