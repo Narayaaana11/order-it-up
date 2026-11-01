@@ -12,6 +12,7 @@ type GoogleClaims = {
   name?: string;
   exp?: number;
   iat?: number;
+  nonce?: string;
 };
 
 type GoogleJwk = JsonWebKey & { kid?: string; alg?: string; use?: string };
@@ -200,11 +201,16 @@ export async function handleGoogleAuth(request: Request, env: Env): Promise<Resp
     return Response.json({ error: 'A Google credential is required' }, { status: 400 });
   }
   const credential = typeof body?.credential === 'string' ? body.credential : '';
+  const nonce = typeof body?.nonce === 'string' ? body.nonce : '';
   let googleClaims: GoogleClaims;
   try {
     googleClaims = await verifyGoogleIdToken(credential, env.GOOGLE_CLIENT_ID);
   } catch {
     return Response.json({ error: 'Google sign-in could not verify your account. Please try again.' }, { status: 401 });
+  }
+
+  if (!nonce || nonce.length !== 64 || googleClaims.nonce !== nonce) {
+    return Response.json({ error: 'Google sign-in challenge is invalid. Please try again.' }, { status: 401 });
   }
 
   const email = googleClaims.email!.toLowerCase();
