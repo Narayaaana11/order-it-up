@@ -1,4 +1,3 @@
-import React from "react";
 import { TRUST_METRICS } from "@/lib/constants";
 
 export default function TrustMetrics() {
