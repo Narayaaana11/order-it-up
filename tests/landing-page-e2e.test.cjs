@@ -206,7 +206,8 @@ describe('Tier 1: Feature Coverage (R1, R2, R3)', () => {
 
     const trustContent = fs.readFileSync(trustPath, 'utf8');
     assert(trustContent.includes('backdrop-blur'), 'TrustMetrics must use backdrop-blur');
-    assert(trustContent.includes('AnimatedCounter'), 'TrustMetrics must be powered by AnimatedCounter');
+    assert(trustContent.includes('TRUST_METRICS'), 'TrustMetrics must render the pilot-stage status copy');
+    assert(!trustContent.includes('AnimatedCounter'), 'TrustMetrics must not animate fabricated performance or adoption figures');
   });
 
   test('T1.5: Navbar Authentication Links and Accessibility', () => {
@@ -216,7 +217,7 @@ describe('Tier 1: Feature Coverage (R1, R2, R3)', () => {
 
     // Brand and logo
     assert(navbarContent.includes('BRAND.name'), 'Navbar must render brand name');
-    assert(navbarContent.includes('100% Offline Engine'), 'Navbar must render offline status indicator');
+    assert(navbarContent.includes('Offline-first architecture'), 'Navbar must describe the architecture without claiming 100% certification');
 
     // Owner Login link
     assert(navbarContent.includes('/auth/login'), 'Navbar must link to /auth/login');
@@ -234,12 +235,13 @@ describe('Tier 1: Feature Coverage (R1, R2, R3)', () => {
 
     const heroContent = fs.readFileSync(heroPath, 'utf8');
     assert(heroContent.includes('Offline-First Operating System'), 'Hero must declare value proposition');
-    assert(heroContent.includes('#download'), 'Hero must contain direct download anchor');
+    assert(heroContent.includes('https://orderitup.pages.dev/pilot/'), 'Hero primary action must route to the real pilot request form');
+    assert(heroContent.includes('Interactive POS Preview'), 'Hero preview CTA must be labelled as a preview');
 
     const ctaContent = fs.readFileSync(ctaPath, 'utf8');
-    assert(ctaContent.includes('Windows (x64 / ARM)'), 'CTA must offer Windows download');
-    assert(ctaContent.includes('macOS (Universal DMG)'), 'CTA must offer macOS download');
-    assert(ctaContent.includes('Linux (.AppImage / .deb)'), 'CTA must offer Linux download');
+    assert(ctaContent.includes('https://orderitup.pages.dev/pilot/'), 'CTA must route to the canonical pilot request form');
+    assert(ctaContent.includes('Request Pilot Access'), 'CTA must be labelled as pilot access');
+    assert(!ctaContent.includes('Order-It-Up-Setup.exe'), 'CTA must not fake an installer download');
   });
 
   test('T1.7: Role Showcase Structure & Persona Definitions', () => {
@@ -367,12 +369,12 @@ describe('Tier 3: Cross-Feature Combinations', () => {
   test('T3.1: Showcase Tab Switching & Persona State Synchronization', () => {
     // Simulate tab switching sequence
     const mockRoles = [
-      { id: 'cashier', title: 'Front Cashier', badge: 'Sub-3s Checkout', icon: 'CreditCard' },
-      { id: 'waiter', title: 'Floor Captain & Waiter', badge: 'Mobile Handheld :3003', icon: 'Smartphone' },
-      { id: 'chef', title: 'Kitchen Station Chef', badge: 'LAN KDS :3002', icon: 'ChefHat' },
-      { id: 'manager', title: 'Restaurant Owner & GM', badge: 'Executive HQ', icon: 'Store' },
-      { id: 'accountant', title: 'Head Accountant', badge: 'GST / VAT & Tally', icon: 'FileSpreadsheet' },
-      { id: 'driver', title: 'Delivery Driver', badge: 'Dispatch Ready', icon: 'Bike' },
+      { id: 'cashier', title: 'Front Cashier', badge: 'Performance not benchmarked', icon: 'CreditCard' },
+      { id: 'waiter', title: 'Floor Captain & Waiter', badge: 'Mobile workflow preview', icon: 'Smartphone' },
+      { id: 'chef', title: 'Kitchen Station Chef', badge: 'KDS preview', icon: 'ChefHat' },
+      { id: 'manager', title: 'Restaurant Owner & GM', badge: 'Management preview', icon: 'Store' },
+      { id: 'accountant', title: 'Head Accountant', badge: 'Tax and export features under evaluation', icon: 'FileSpreadsheet' },
+      { id: 'driver', title: 'Delivery Driver', badge: 'Under evaluation', icon: 'Bike' },
     ];
 
     let currentSelectedId = 'cashier';
@@ -381,19 +383,19 @@ describe('Tier 3: Cross-Feature Combinations', () => {
     // Initial state
     let active = mockRoles.find((r) => r.id === currentSelectedId);
     assert.equal(active.title, 'Front Cashier');
-    assert.equal(active.badge, 'Sub-3s Checkout');
+    assert.equal(active.badge, 'Performance not benchmarked');
 
     // Switch to Chef
     selectRole('chef');
     active = mockRoles.find((r) => r.id === currentSelectedId);
     assert.equal(active.title, 'Kitchen Station Chef');
-    assert.equal(active.badge, 'LAN KDS :3002');
+    assert.equal(active.badge, 'KDS preview');
 
     // Switch to Accountant
     selectRole('accountant');
     active = mockRoles.find((r) => r.id === currentSelectedId);
     assert.equal(active.title, 'Head Accountant');
-    assert.equal(active.badge, 'GST / VAT & Tally');
+    assert.equal(active.badge, 'Tax and export features under evaluation');
 
     // Verify all roles have distinct IDs
     const ids = mockRoles.map((r) => r.id);
