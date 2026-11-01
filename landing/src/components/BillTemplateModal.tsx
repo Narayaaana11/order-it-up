@@ -123,7 +123,7 @@ export default function BillTemplateModal({
                   : "bg-white text-slate-600 hover:text-slate-900 border border-slate-200 shadow-xs"
               }`}
             >
-              GST Tax Invoice
+              GST Layout Preview
             </button>
             <button
               type="button"
