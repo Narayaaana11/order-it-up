@@ -14,7 +14,7 @@ export default function PrivacyPage() {
     >
       <LegalSection title="1. Who is responsible">
         <p>
-          The Order It Up product pilot is operated by {legalConfig.operatorLegalName} ({legalConfig.operatorDescription}) (the “Operator”). The Operator's privacy and grievance contact is {legalConfig.legalEmail}. Complete these identity and contact details before making this policy publicly available.
+          The Order It Up product pilot is operated by {legalConfig.operatorLegalName} ({legalConfig.operatorDescription}) (the “Operator”). The Operator's privacy and grievance contact is {legalConfig.legalEmail}. The Operator does not publish a residential address. A suitable business correspondence address and any additional statutory contact particulars must be finalised before full commercial launch; contact the Operator by email for privacy and grievance requests.
         </p>
         <p>
           A restaurant or other business using its own installation decides why it collects customer, employee, supplier and transaction information. Depending on the deployment, that business may be the organisation responsible for that information. The Operator may act separately for information collected for its own website, pilot administration, support and security, and may process restaurant information only on the restaurant's documented instructions where a connected feature is enabled. The actual role depends on the activity, not just the label used in a contract.
@@ -24,12 +24,12 @@ export default function PrivacyPage() {
       <LegalSection title="2. Information that may be processed">
         <p>Depending on which parts of the pilot a business chooses to use, information may include:</p>
         <LegalList items={[
-          "Pilot enquiries sent to the published contact email: the sender's name, business or restaurant name, contact details and the information included in the enquiry.",
+          "Pilot application form submissions: contact name, restaurant/business name, email address, optional phone number, city, state/region, business type, outlet count, existing POS, hardware details and any optional message. These details are submitted to the Order It Up Cloud API and stored in the pilot application database for review and follow-up.",
           "Staff and access details: staff names or display names, usernames, role assignments, login and access events, and security-related records.",
           "Restaurant operations: menu items, product descriptions, prices, tables, orders, discounts, bills, cash closures, kitchen tickets, delivery status, inventory or other records entered by the restaurant.",
           "Customer and supplier details entered by the restaurant: for example, a customer name, phone number, email address, order notes, business contact or delivery details. The restaurant should collect only what it needs and is permitted to use.",
           "Technical and diagnostic information, if enabled or supplied: device and app version, operating-system details, error logs, timestamps, network diagnostics and information voluntarily attached to a support request.",
-          "Website technical information: basic hosting, access and security logs generated when the public website is accessed. The current landing page does not provide an on-site account registration or pilot application form."
+          "Website technical information: basic hosting, access and security logs generated when the public website is accessed. The pilot request form also sends the details the applicant chooses to submit to the Order It Up Cloud API. The form does not create a restaurant account or take a payment."
         ]} />
         <p>
           Do not enter full card numbers, CVVs, PINs, net-banking credentials, passwords belonging to other services, Aadhaar numbers, health data or other sensitive information unless the relevant workflow expressly requires it and the Operator has provided a separate lawful and secure collection notice. Do not send such data in support tickets or email.
@@ -76,10 +76,10 @@ export default function PrivacyPage() {
 
       <LegalSection title="6. Sharing and service providers">
         <p>
-          Information may be disclosed only as appropriate for the stated purpose, the selected feature, an applicable contract, the individual's permission where required, or a legal obligation. Potential recipients may include hosting or infrastructure providers, website and email providers, support tools, security providers, update delivery services and professional advisers, but only where the relevant service is actually used.
+          Information may be disclosed only as appropriate for the stated purpose, the selected feature, an applicable contract, the individual's permission where required, or a legal obligation. The public pilot application endpoint and its database run on Cloudflare Workers and D1. When the pilot notification integration is configured, Resend is used to send an internal email containing the submitted enquiry to the configured pilot inbox. Google Identity Services is used for Google sign-in in the Cloud HQ application; Google returns an ID token that the Cloud API verifies. Other recipients are included only where the relevant service is actually enabled.
         </p>
         <p>
-          <strong>Before enabling cloud or third-party processing, complete and publish the current provider list:</strong> provider name, service, data categories, processing purpose, processing location and link to its privacy terms. Do not leave a provider in this list merely because it is being considered; include only providers actually used by the production pilot.
+          Provider configuration can change by deployment. The operator must keep this description aligned with enabled services, review each provider's privacy terms, and record the actual processing location and retention configuration before expanding the pilot.
         </p>
         <p>
           We may disclose information to law-enforcement, regulatory, tax, court or other public authorities where required by law or a valid legal process. We may also disclose information to investigate security incidents, protect users or enforce legal rights, where permitted by law.
