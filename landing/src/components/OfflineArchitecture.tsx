@@ -147,8 +147,8 @@ export default function OfflineArchitecture() {
                   </div>
 
                   <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200">
-                    <span className="text-slate-500 font-medium">Transaction performance</span>
-                    <span className="text-orange-600 font-semibold">&lt; 3.2 ms (Zero WAN wait)</span>
+                    <span className="text-slate-500 font-medium">Transaction benchmark</span>
+                    <span className="text-orange-600 font-semibold">Not benchmarked — sample only</span>
                   </div>
 
                   <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200">
