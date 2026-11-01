@@ -155,9 +155,9 @@ async function createGoogleTenant(
       VALUES (?, ?, ?, ?, ?, 'active', ?, ?)
     `).bind(restaurantId, orgId, restaurantName, restaurantSlug, serviceModel, now, now),
     env.DB.prepare(`
-      INSERT INTO branches (id, organization_id, code, name, is_main_branch, address, phone, email, status, created_at, updated_at)
-      VALUES (?, ?, 'BR-01', 'Main Outlet', 1, NULL, NULL, ?, 'active', ?, ?)
-    `).bind(branchId, orgId, claims.email!.toLowerCase(), now, now),
+      INSERT INTO branches (id, organization_id, restaurant_id, code, name, is_main_branch, address, phone, email, status, created_at, updated_at)
+      VALUES (?, ?, ?, 'BR-01', 'Main Outlet', 1, NULL, NULL, ?, 'active', ?, ?)
+    `).bind(branchId, orgId, restaurantId, claims.email!.toLowerCase(), now, now),
     env.DB.prepare(`
       INSERT INTO cloud_users (id, organization_id, email, password_hash, google_sub, name, role, assigned_branch_id, status, last_login_at, created_at, updated_at)
       VALUES (?, ?, ?, NULL, ?, ?, 'owner', ?, 'active', ?, ?, ?)
@@ -202,7 +202,7 @@ export async function handleGoogleAuth(request: Request, env: Env): Promise<Resp
   const rateLimit = await checkRateLimit(env.DB, {
     keyPrefix: 'google_auth_ip',
     identifier: getClientIp(request),
-    limit: 20,
+    limit: Math.min(100, Math.max(1, Number(env.RATE_LIMIT_GOOGLE_AUTH_IP) || 20)),
     windowSeconds: 900,
   });
   if (!rateLimit.allowed) return createRateLimitResponse(rateLimit);
@@ -261,10 +261,14 @@ export async function handleGoogleAuth(request: Request, env: Env): Promise<Resp
     }
   } else if (!user.google_sub) {
     try {
-      await env.DB.prepare(`
+      const linked = await env.DB.prepare(`
         UPDATE cloud_users SET google_sub = ?, last_login_at = ?, updated_at = ?
         WHERE id = ? AND (google_sub IS NULL OR google_sub = ?)
       `).bind(googleClaims.sub!, new Date().toISOString(), new Date().toISOString(), user.id, googleClaims.sub!).run();
+      const changed = (linked as any)?.meta?.changes ?? (linked as any)?.changes ?? 0;
+      if (changed !== 1) {
+        return Response.json({ error: 'This account could not be linked to Google because its sign-in identity changed. Try again.' }, { status: 409 });
+      }
       user.google_sub = googleClaims.sub;
     } catch {
       return Response.json({ error: 'This account could not be linked to Google. Contact support.' }, { status: 409 });
