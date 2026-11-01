@@ -29,6 +29,6 @@ export const legalPlaceholderFields = [
 export function isLegalConfigComplete() {
   return legalPlaceholderFields.every((key) => {
     const value = legalConfig[key];
-    return typeof value === "string" && !value.includes("[INSERT") && !value.includes("[OPTIONAL");
+    return typeof value === "string" && value.trim().length > 0 && !value.includes("[INSERT") && !value.includes("[OPTIONAL");
   });
 }
