@@ -2,7 +2,6 @@
 
 import React from "react";
 import {
-  Download,
   Play,
   WifiOff,
   Printer,
@@ -24,31 +23,16 @@ import Magnet from "@/components/reactbits/Magnet";
 import SpotlightCard from "@/components/reactbits/SpotlightCard";
 import TiltedCard from "@/components/reactbits/TiltedCard";
 import DecryptedText from "@/components/reactbits/DecryptedText";
-import { getStoredUser } from "@/lib/auth";
-import { triggerOpenAuthModal, triggerOpenBillModal } from "@/lib/modalEvents";
+import { triggerOpenBillModal } from "@/lib/modalEvents";
 
 export default function Hero() {
   const rotatingHighlights = [
-    "100% Offline-First",
-    "Zero Cloud Dependency",
-    "Sub-Second Billing",
-    "Local LAN Kitchen Mesh",
-    "Direct ESC/POS Thermal",
+    "Offline-first design",
+    "Local counter workflows",
+    "LAN kitchen workflows",
+    "Thermal printer support",
+    "Pilot-tested integrations",
   ];
-
-  const handleDownloadClick = (e: React.MouseEvent) => {
-    e.preventDefault();
-    const user = getStoredUser();
-    if (!user) {
-      triggerOpenAuthModal("signup", "windows");
-    } else {
-      window.dispatchEvent(
-        new CustomEvent("orderitup_open_auth_modal", {
-          detail: { mode: "login", downloadPendingPlatform: "windows" },
-        })
-      );
-    }
-  };
 
   return (
     <section className="relative overflow-hidden pt-12 pb-16 lg:pt-20 lg:pb-24 min-h-[90vh] flex flex-col justify-center">
@@ -110,14 +94,12 @@ export default function Hero() {
                 className="font-extrabold"
               />
             </span>
-            <span>with zero downtime risk.</span>
+            <span>for supported local workflows.</span>
           </div>
 
           {/* Subheading */}
           <p className="mt-6 text-lg sm:text-xl lg:text-2xl text-slate-600 max-w-3xl leading-relaxed font-normal">
-            Run sub-second counter billing offline with instant ESC/POS thermal printing,
-            orchestrate live kitchen screens over your local LAN, and eliminate cloud dependency
-            risks forever.
+            Explore an offline-first approach to restaurant billing, local kitchen workflows and thermal printing. Order It Up is currently being evaluated with pilot users, and capabilities vary by build and hardware.
           </p>
 
           {/* CTAs with StarBorder & Magnet micro-interactions */}
@@ -130,14 +112,12 @@ export default function Hero() {
                 thickness={2}
                 className="w-full sm:w-auto"
               >
-                <button
-                  type="button"
-                  onClick={handleDownloadClick}
-                  className="w-full sm:w-auto h-14 px-8 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-base shadow-xl shadow-orange-500/25 hover:shadow-orange-500/40 active:scale-[0.98] transition-all flex items-center justify-center gap-3 cursor-pointer"
+                <a
+                  href="mailto:narayaaana11@gmail.com?subject=Order%20It%20Up%20Pilot%20Access"
+                  className="w-full sm:w-auto h-14 px-8 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-base shadow-xl shadow-orange-500/25 hover:shadow-orange-500/40 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                 >
-                  <Download className="w-5 h-5" />
-                  <span>Download Desktop POS</span>
-                </button>
+                  <span>Request Pilot Access</span>
+                </a>
               </StarBorder>
             </Magnet>
 
@@ -169,17 +149,17 @@ export default function Hero() {
           <div className="mt-5 flex flex-wrap items-center justify-center gap-4 text-xs text-slate-500">
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-              Free for single counters
+              Pilot access by request
             </span>
             <span className="text-slate-300">•</span>
             <span className="flex items-center gap-1.5">
               <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-              Zero cloud lock-in
+              Optional connected features
             </span>
             <span className="text-slate-300">•</span>
             <span className="flex items-center gap-1.5">
               <HardDrive className="w-3.5 h-3.5 text-orange-600" />
-              Windows, macOS & Linux
+              Desktop compatibility under evaluation
             </span>
           </div>
 
@@ -194,8 +174,8 @@ export default function Hero() {
                   <WifiOff className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-900">Zero Cloud Lock-In</p>
-                  <p className="text-[11px] text-slate-500">SQLite WAL on disk</p>
+                  <p className="text-xs font-bold text-slate-900">Local-first approach</p>
+                  <p className="text-[11px] text-slate-500">Local SQLite data layer</p>
                 </div>
               </div>
             </SpotlightCard>
@@ -209,8 +189,8 @@ export default function Hero() {
                   <Zap className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-900">&lt; 10ms Transaction</p>
-                  <p className="text-[11px] text-slate-500">Sub-second cart speed</p>
+                  <p className="text-xs font-bold text-slate-900">Local data storage</p>
+                  <p className="text-[11px] text-slate-500">Performance varies by device</p>
                 </div>
               </div>
             </SpotlightCard>
@@ -265,7 +245,7 @@ export default function Hero() {
                     <span className="ml-3 text-xs font-mono text-slate-600 hidden sm:inline flex items-center gap-1.5">
                       <span>Order It Up POS Desktop — v1.2.0 • </span>
                       <DecryptedText
-                        text="SQLite Connected (flo.db) • WAL Engine Active"
+                        text="Sample data • not connected to a live system"
                         speed={35}
                         maxIterations={12}
                         animateOnHover={true}
@@ -276,7 +256,7 @@ export default function Hero() {
                   <div className="flex items-center gap-2 text-xs font-mono">
                     <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                      Local Engine :3001
+                      Illustrative UI preview
                     </span>
                   </div>
                 </div>
@@ -285,7 +265,7 @@ export default function Hero() {
                 <div className="relative group overflow-hidden bg-slate-900">
                   <img
                     src="https://images.unsplash.com/photo-1556740738-b6a63e27c4df?auto=format&fit=crop&w=1200&q=80"
-                    alt="Order It Up Counter POS Terminal in Action"
+                    alt="Restaurant counter environment representing an Order It Up pilot workflow"
                     className="w-full h-72 sm:h-96 object-cover object-center group-hover:scale-102 transition-transform duration-500 opacity-90"
                     loading="eager"
                   />
@@ -295,29 +275,29 @@ export default function Hero() {
                   <div className="absolute bottom-4 left-4 right-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
                     <div className="p-3 rounded-xl bg-white/95 backdrop-blur-md border border-white/20 shadow-lg text-slate-900">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold text-slate-600">Active Tables</span>
+                        <span className="text-[11px] font-semibold text-slate-600">Sample table status</span>
                         <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
                       </div>
-                      <p className="text-xl font-black mt-0.5">14 / 18 Occupied</p>
-                      <p className="text-[10px] text-emerald-600 font-medium">Avg Turn: 34 mins</p>
+                      <p className="text-xl font-black mt-0.5">Example data</p>
+                      <p className="text-[10px] text-emerald-600 font-medium">Illustrative metric</p>
                     </div>
 
                     <div className="p-3 rounded-xl bg-white/95 backdrop-blur-md border border-white/20 shadow-lg text-slate-900">
                       <div className="flex items-center justify-between">
-                        <span className="text-[11px] font-semibold text-slate-600">KDS Active Tickets</span>
+                        <span className="text-[11px] font-semibold text-slate-600">Sample KDS tickets</span>
                         <span className="text-xs font-mono font-bold text-orange-600">:3002</span>
                       </div>
-                      <p className="text-xl font-black mt-0.5">6 In-Flight</p>
-                      <p className="text-[10px] text-amber-600 font-medium">SLA: 7m 40s avg prep</p>
+                      <p className="text-xl font-black mt-0.5">Example workflow</p>
+                      <p className="text-[10px] text-amber-600 font-medium">Illustrative timing</p>
                     </div>
 
                     <div className="p-3 rounded-xl bg-white/95 backdrop-blur-md border border-white/20 shadow-lg text-slate-900">
                       <div className="flex items-center justify-between">
                         <span className="text-[11px] font-semibold text-slate-600">Hardware Bus</span>
-                        <span className="text-xs font-mono text-emerald-600 font-bold">24V Ready</span>
+                        <span className="text-xs font-mono text-emerald-600 font-bold">Compatibility check required</span>
                       </div>
                       <p className="text-xl font-black mt-0.5">80mm Thermal</p>
-                      <p className="text-[10px] text-slate-500 font-medium">USB DK Pulse Verified</p>
+                      <p className="text-[10px] text-slate-500 font-medium">Device-specific testing required</p>
                     </div>
                   </div>
                 </div>
