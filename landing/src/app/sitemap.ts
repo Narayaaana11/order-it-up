@@ -6,6 +6,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = "https://orderitup.pages.dev";
   const routes = [
     "",
+    "/pilot/",
     "/legal/terms/",
     "/legal/privacy/",
     "/legal/pilot-disclaimer/",
