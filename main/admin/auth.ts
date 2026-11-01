@@ -1,5 +1,4 @@
 import jwt from 'jsonwebtoken';
-import bcrypt from 'bcryptjs';
 import { Request, Response, NextFunction } from 'express';
 
 export type AdminRole = 'SUPER_ADMIN' | 'ADMIN' | 'SUPPORT' | 'FINANCE' | 'READ_ONLY';
@@ -11,58 +10,47 @@ export interface AdminUser {
   role: AdminRole;
 }
 
-const ADMIN_JWT_SECRET = process.env.OIU_ADMIN_JWT_SECRET || 'oiu-central-admin-super-secret-key-2026';
+type ConfiguredAdminOperator = AdminUser & { passwordHash: string };
 
-// In-memory / seed admin operators for Central SaaS control plane
-// Operator password defaults to 'AdminPass123!'
-const SEED_PASSWORD_HASH = bcrypt.hashSync('AdminPass123!', 10);
+const ADMIN_JWT_SECRET = process.env.OIU_ADMIN_JWT_SECRET || '';
 
-export const ADMIN_OPERATORS: (AdminUser & { passwordHash: string })[] = [
-  {
-    id: 'op-super-1',
-    email: 'admin@orderitup.in',
-    name: 'Super Administrator',
-    role: 'SUPER_ADMIN',
-    passwordHash: SEED_PASSWORD_HASH,
-  },
-  {
-    id: 'op-super-2',
-    email: 'superadmin@orderitup.in',
-    name: 'Super Administrator (Dev)',
-    role: 'SUPER_ADMIN',
-    passwordHash: SEED_PASSWORD_HASH,
-  },
-  {
-    id: 'op-admin-1',
-    email: 'admin@orderitup.local',
-    name: 'Operations Administrator',
-    role: 'ADMIN',
-    passwordHash: SEED_PASSWORD_HASH,
-  },
-  {
-    id: 'op-finance-1',
-    email: 'finance@orderitup.in',
-    name: 'Finance & Billing Lead',
-    role: 'FINANCE',
-    passwordHash: SEED_PASSWORD_HASH,
-  },
-  {
-    id: 'op-support-1',
-    email: 'support@orderitup.in',
-    name: 'Technical Support Lead',
-    role: 'SUPPORT',
-    passwordHash: SEED_PASSWORD_HASH,
-  },
-  {
-    id: 'op-readonly-1',
-    email: 'readonly@orderitup.in',
-    name: 'Read-Only Auditor',
-    role: 'READ_ONLY',
-    passwordHash: SEED_PASSWORD_HASH,
-  },
-];
+function loadAdminOperators(): ConfiguredAdminOperator[] {
+  const source = process.env.OIU_ADMIN_OPERATORS_JSON;
+  if (!source) return [];
+
+  try {
+    const parsed = JSON.parse(source) as unknown;
+    if (!Array.isArray(parsed)) return [];
+
+    const roles = new Set<AdminRole>(['SUPER_ADMIN', 'ADMIN', 'SUPPORT', 'FINANCE', 'READ_ONLY']);
+    return parsed.filter((value): value is ConfiguredAdminOperator => {
+      if (!value || typeof value !== 'object') return false;
+      const candidate = value as Record<string, unknown>;
+      return typeof candidate.id === 'string' && candidate.id.length > 0 &&
+        typeof candidate.email === 'string' && /^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(candidate.email) &&
+        typeof candidate.name === 'string' && candidate.name.length > 0 &&
+        typeof candidate.role === 'string' && roles.has(candidate.role as AdminRole) &&
+        typeof candidate.passwordHash === 'string' && /^\\$2[aby]\\$\\d{2}\\$/.test(candidate.passwordHash);
+    });
+  } catch {
+    return [];
+  }
+}
+
+/**
+ * Central SaaS operators are provisioned explicitly by deployment configuration.
+ * There are no hard-coded operator identities, default passwords or fallback JWT secrets.
+ */
+export const ADMIN_OPERATORS = loadAdminOperators();
+
+export function isAdminAuthConfigured(): boolean {
+  return ADMIN_JWT_SECRET.length >= 32 && ADMIN_OPERATORS.length > 0;
+}
 
 export function generateAdminToken(user: AdminUser): string {
+  if (!isAdminAuthConfigured()) {
+    throw new Error('Central admin authentication is not configured');
+  }
   return jwt.sign(
     {
       sub: user.id,
@@ -77,14 +65,17 @@ export function generateAdminToken(user: AdminUser): string {
 }
 
 export function verifyAdminToken(token: string): AdminUser | null {
+  if (!isAdminAuthConfigured()) return null;
   try {
     const decoded = jwt.verify(token, ADMIN_JWT_SECRET) as any;
     if (decoded.type !== 'OIU_ADMIN_OPERATOR') return null;
+    const operator = ADMIN_OPERATORS.find((candidate) => candidate.id === decoded.sub);
+    if (!operator || operator.email !== decoded.email || operator.role !== decoded.role) return null;
     return {
-      id: decoded.sub,
-      email: decoded.email,
-      name: decoded.name,
-      role: decoded.role,
+      id: operator.id,
+      email: operator.email,
+      name: operator.name,
+      role: operator.role,
     };
   } catch {
     return null;
@@ -92,9 +83,14 @@ export function verifyAdminToken(token: string): AdminUser | null {
 }
 
 /**
- * Express middleware to authenticate central SaaS admin operators
+ * Express middleware to authenticate central SaaS admin operators.
  */
 export function requireAdminAuth(req: Request, res: Response, next: NextFunction): void {
+  if (!isAdminAuthConfigured()) {
+    res.status(503).json({ ok: false, error: 'Central admin authentication is not configured.' });
+    return;
+  }
+
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
     res.status(401).json({ ok: false, error: 'Unauthorized: Admin authorization header required.' });
@@ -113,7 +109,7 @@ export function requireAdminAuth(req: Request, res: Response, next: NextFunction
 }
 
 /**
- * Express middleware to restrict central endpoints by role
+ * Express middleware to restrict central endpoints by role.
  */
 export function requireAdminRole(...allowedRoles: AdminRole[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
