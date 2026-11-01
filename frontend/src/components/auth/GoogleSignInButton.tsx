@@ -8,6 +8,7 @@ type GoogleIdentityApi = {
     client_id: string;
     callback: (response: GoogleCredentialResponse) => void;
     auto_select?: boolean;
+    nonce?: string;
   }) => void;
   renderButton: (parent: HTMLElement, options: Record<string, string | number | boolean>) => void;
 };
@@ -18,7 +19,7 @@ declare global {
 }
 
 type Props = {
-  onCredential: (credential: string) => void | Promise<void>;
+  onCredential: (credential: string, nonce: string) => void | Promise<void>;
   disabled?: boolean;
 };
 
@@ -39,11 +40,16 @@ export default function GoogleSignInButton({ onCredential, disabled = false }: P
     const renderGoogleButton = () => {
       if (cancelled || !containerRef.current || !window.google?.accounts?.id) return;
       containerRef.current.replaceChildren();
+      const nonceBytes = new Uint8Array(32);
+      window.crypto.getRandomValues(nonceBytes);
+      const nonce = Array.from(nonceBytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+
       window.google.accounts.id.initialize({
         client_id: clientId,
         auto_select: false,
+        nonce,
         callback: (response) => {
-          if (response.credential) void callbackRef.current(response.credential);
+          if (response.credential) void callbackRef.current(response.credential, nonce);
         },
       });
       window.google.accounts.id.renderButton(containerRef.current, {
