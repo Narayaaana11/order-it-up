@@ -8,92 +8,7 @@ import { checkRateLimit, createRateLimitResponse, getClientIp } from '../rate-li
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-interface StarterItem {
-  name: string;
-  sku: string;
-  base_price: number;
-  tax_rate: number;
-}
-
-interface StarterCategory {
-  name: string;
-  items: StarterItem[];
-}
-
-export const STARTER_MENUS: Record<string, StarterCategory[]> = {
-  qsr: [
-    {
-      name: 'Signature Burgers & Wraps',
-      items: [
-        { name: 'Crispy Veg Supreme Burger', sku: 'QSR-01', base_price: 180, tax_rate: 5 },
-        { name: 'Smoky Grilled Chicken Burger', sku: 'QSR-02', base_price: 240, tax_rate: 5 },
-        { name: 'Paneer Tikka Roll', sku: 'QSR-03', base_price: 160, tax_rate: 5 },
-      ],
-    },
-    {
-      name: 'Sides & Fries',
-      items: [
-        { name: 'Peri-Peri French Fries', sku: 'QSR-04', base_price: 120, tax_rate: 5 },
-        { name: 'Cheese Jalapeno Poppers', sku: 'QSR-05', base_price: 150, tax_rate: 5 },
-      ],
-    },
-    {
-      name: 'Beverages & Shakes',
-      items: [
-        { name: 'Belgian Chocolate Shake', sku: 'QSR-06', base_price: 160, tax_rate: 5 },
-        { name: 'Chilled Lemon Iced Tea', sku: 'QSR-07', base_price: 100, tax_rate: 5 },
-      ],
-    },
-  ],
-  cafe: [
-    {
-      name: 'Artisanal Coffee & Tea',
-      items: [
-        { name: 'Espresso Double Shot', sku: 'CAF-01', base_price: 140, tax_rate: 5 },
-        { name: 'Classic Cappuccino', sku: 'CAF-02', base_price: 190, tax_rate: 5 },
-        { name: 'Vanilla Caramel Latte', sku: 'CAF-03', base_price: 220, tax_rate: 5 },
-        { name: 'Masala Chai Latte', sku: 'CAF-04', base_price: 120, tax_rate: 5 },
-      ],
-    },
-    {
-      name: 'Fresh Bakery & Pastries',
-      items: [
-        { name: 'Butter Croissant', sku: 'CAF-05', base_price: 150, tax_rate: 5 },
-        { name: 'Blueberry Cheesecake Slice', sku: 'CAF-06', base_price: 240, tax_rate: 5 },
-      ],
-    },
-    {
-      name: 'Artisan Sandwiches',
-      items: [
-        { name: 'Pesto Grilled Mozzarella Panini', sku: 'CAF-07', base_price: 260, tax_rate: 5 },
-      ],
-    },
-  ],
-  finedine: [
-    {
-      name: 'Appetizers & Starters',
-      items: [
-        { name: 'Truffle Mushroom Bruschetta', sku: 'FD-01', base_price: 320, tax_rate: 5 },
-        { name: 'Paneer Malai Tikka', sku: 'FD-02', base_price: 380, tax_rate: 5 },
-      ],
-    },
-    {
-      name: 'Signature Mains',
-      items: [
-        { name: 'Woodfired Margherita Pizza', sku: 'FD-03', base_price: 450, tax_rate: 5 },
-        { name: 'Dal Makhani Bukhara', sku: 'FD-04', base_price: 380, tax_rate: 5 },
-        { name: 'Butter Garlic Naan', sku: 'FD-05', base_price: 90, tax_rate: 5 },
-      ],
-    },
-    {
-      name: 'Desserts & Beverages',
-      items: [
-        { name: 'Warm Chocolate Lava Cake', sku: 'FD-06', base_price: 260, tax_rate: 5 },
-        { name: 'Virgin Mojito Cooler', sku: 'FD-07', base_price: 180, tax_rate: 5 },
-      ],
-    },
-  ],
-};
+const SERVICE_MODELS = new Set(['qsr', 'cafe', 'finedine']);
 
 export async function handleRegisterTenant(request: Request, env: Env): Promise<Response> {
   if (!isSecretValid(env.JWT_SECRET)) {
@@ -135,9 +50,8 @@ export async function handleRegisterTenant(request: Request, env: Env): Promise<
   const country = typeof body.country === 'string' && body.country.trim() ? body.country.trim().toUpperCase() : 'IN';
   const currency = typeof body.currency === 'string' && body.currency.trim() ? body.currency.trim().toUpperCase() : 'INR';
   const timezone = typeof body.timezone === 'string' && body.timezone.trim() ? body.timezone.trim() : 'Asia/Kolkata';
-  const serviceModel = typeof body.service_model === 'string' && STARTER_MENUS[body.service_model.toLowerCase()]
-    ? body.service_model.toLowerCase()
-    : 'qsr';
+  const requestedServiceModel = typeof body.service_model === 'string' ? body.service_model.toLowerCase() : '';
+  const serviceModel = SERVICE_MODELS.has(requestedServiceModel) ? requestedServiceModel : 'qsr';
 
   // 2. Input validation
   if (!restaurantName || restaurantName.length < 2 || restaurantName.length > 100) {
@@ -203,25 +117,6 @@ export async function handleRegisterTenant(request: Request, env: Env): Promise<
     VALUES (?, ?, ?, NULL, NULL, 'owner', 'active', ?, ?)
   `).bind(membershipId, orgId, userId, now, now));
 
-  // 5d. Seed Starter Menu Categories and Products
-  const starterCategories = STARTER_MENUS[serviceModel] || STARTER_MENUS.qsr;
-  let sortOrder = 1;
-
-  for (const cat of starterCategories) {
-    const categoryId = crypto.randomUUID();
-    statements.push(env.DB.prepare(`
-      INSERT INTO master_categories (id, organization_id, name, sort_order, is_active, created_at, updated_at)
-      VALUES (?, ?, ?, ?, 1, ?, ?)
-    `).bind(categoryId, orgId, cat.name, sortOrder++, now, now));
-
-    for (const prod of cat.items) {
-      const prodId = crypto.randomUUID();
-      statements.push(env.DB.prepare(`
-        INSERT INTO master_products (id, organization_id, category_id, name, sku, base_price, tax_rate, is_active, version, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, 1, 1, ?, ?)
-      `).bind(prodId, orgId, categoryId, prod.name, prod.sku, prod.base_price, prod.tax_rate, now, now));
-    }
-  }
 
   // Execute all atomic statements
   if (typeof env.DB.batch === 'function') {
@@ -260,7 +155,7 @@ export async function handleRegisterTenant(request: Request, env: Env): Promise<
 
   return Response.json({
     success: true,
-    message: 'Restaurant organization registered successfully',
+    message: 'Restaurant organization registered successfully. Your product catalogue starts empty so you can add your own menu and prices.',
     token,
     access_token: token,
     user: {
