@@ -221,7 +221,7 @@ export const ROLE_PERSONAS = [
     responsibilities: [
       "Review configured tax summaries and transaction records",
       "Daily Z-report cash closures with expected vs counted balances",
-      "One-click Tally XML export for external accounting systems",
+      "Accounting export availability requires pilot-build verification",
       "Export available reports for review with your accountant",
     ],
     accent: "purple",
