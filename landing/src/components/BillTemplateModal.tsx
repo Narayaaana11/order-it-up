@@ -72,10 +72,10 @@ export default function BillTemplateModal({
             </div>
             <div>
               <h3 id="bill-modal-title" className="text-sm sm:text-base font-extrabold text-slate-900 leading-tight">
-                Authentic 80mm ESC/POS Thermal Bill Template
+                Sample 80mm Receipt Layout Preview
               </h3>
               <p className="text-[11px] text-slate-600">
-                Official Indian GST, FSSAI &amp; Monospace Solenoid Receipt Format
+                Fictional sample data • not an official or compliant invoice template
               </p>
             </div>
           </div>
@@ -87,7 +87,7 @@ export default function BillTemplateModal({
               className="px-3.5 py-1.5 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-xs flex items-center gap-1.5 shadow-xs transition-all active:scale-[0.98] cursor-pointer"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>{isPrinting ? "Printing..." : "Print Bill"}</span>
+              <span>{isPrinting ? "Opening..." : "Print Preview"}</span>
             </button>
             <button
               type="button"
@@ -180,7 +180,7 @@ export default function BillTemplateModal({
 
             <span className="text-[11px] font-mono text-emerald-700 font-semibold hidden sm:flex items-center gap-1">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              ESC/POS Bytecode
+              Receipt layout preview
             </span>
           </div>
         </div>
@@ -208,10 +208,13 @@ export default function BillTemplateModal({
               isPrinting ? "translate-y-1 scale-[0.98] opacity-95" : ""
             }`}
           >
+            <div className="mb-2 rounded border-2 border-red-500 bg-red-50 px-2 py-1.5 text-center font-sans text-[10px] font-black uppercase tracking-widest text-red-700">
+              Sample preview — not a valid tax invoice
+            </div>
             {/* Cut Line Indicator */}
             <div className="text-center text-[9px] text-zinc-400 font-sans pb-2 border-b border-dashed border-zinc-300 flex items-center justify-center gap-1">
               <Scissors className="w-3 h-3 text-zinc-400" />
-              <span>ESC/POS 80mm FEED &amp; CUT (GS V 66 0)</span>
+              <span>80mm receipt layout preview • sample only</span>
             </div>
 
             {/* Receipt Header */}
@@ -220,7 +223,7 @@ export default function BillTemplateModal({
                 {MOCK_ORDER.restaurant}
               </p>
               <p className="text-[11px] font-medium text-zinc-600 mt-0.5">
-                Authentic Bistro &amp; Cafe (Pilot Store)
+                Fictional sample business — demo only
               </p>
               <p className="text-[11px] text-zinc-600">{MOCK_ORDER.address}</p>
               <p className="text-[10px] text-zinc-500 mt-1">
@@ -233,7 +236,7 @@ export default function BillTemplateModal({
                 {/* Meta */}
                 <div className="py-2.5 border-b border-dashed border-zinc-400 text-[11px] space-y-0.5">
                   <div className="flex justify-between">
-                    <span>Bill No: BILL-2026-0892</span>
+                    <span>SAMPLE RECEIPT — NOT A TAX INVOICE</span>
                     <span>Order: {MOCK_ORDER.orderNo}</span>
                   </div>
                   <div className="flex justify-between">
@@ -325,7 +328,7 @@ export default function BillTemplateModal({
             {format === "gst" && (
               <>
                 <div className="py-2 border-b border-dashed border-zinc-400 text-center font-bold text-xs bg-zinc-50 my-1">
-                  TAX INVOICE (RULE 46 OF CGST RULES)
+                  Illustrative tax layout — not a tax invoice
                 </div>
                 <div className="py-2 border-b border-dashed border-zinc-400 text-[10px] space-y-1">
                   <div className="flex justify-between">
@@ -336,7 +339,7 @@ export default function BillTemplateModal({
                     <span>State: Delhi (07)</span>
                     <span>Place of Supply: Delhi (07)</span>
                   </div>
-                  <div>Customer GSTIN: 07BAPPT1234F1Z6 (Corporate Catering)</div>
+                  <div>Sample customer GSTIN — not valid</div>
                 </div>
 
                 <div className="py-2 border-b-2 border-zinc-900 text-[10px]">
