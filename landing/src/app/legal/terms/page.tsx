@@ -14,7 +14,7 @@ export default function TermsPage() {
     >
       <LegalSection title="1. Who operates Order It Up">
         <p>
-          Order It Up is a product name used for an early-stage restaurant operations and point-of-sale software pilot. The pilot is operated by {legalConfig.operatorLegalName} ({legalConfig.operatorDescription}), at the correspondence address stated on this page (the “Operator”, “we”, “us” or “our”). The product name is not, by itself, a statement that a company has been incorporated or that a separate legal entity exists.
+          Order It Up is a product name used for an early-stage restaurant operations and point-of-sale software pilot. The pilot is operated by {legalConfig.operatorLegalName} ({legalConfig.operatorDescription}) (the “Operator”, “we”, “us” or “our”). The product name is not, by itself, a statement that a company has been incorporated or that a separate legal entity exists.
         </p>
         <p>
           The Operator must be correctly identified before a pilot user accepts these terms. No company registration number, CIN, GSTIN, FSSAI approval or other registration is represented unless it is specifically and accurately displayed in a separate written document.
@@ -127,7 +127,7 @@ export default function TermsPage() {
 
       <LegalSection title="15. Contact and grievances">
         <p>
-          For questions, complaints or legal notices, contact {legalConfig.legalEmail} or write to {legalConfig.correspondenceAddress}. Please include the restaurant name, a description of the issue and a safe method to contact you. Do not email passwords, card data or other secrets.
+          For questions, complaints or legal notices, contact {legalConfig.legalEmail}. Please include the restaurant name, a description of the issue and a safe method to contact you. Do not email passwords, card data or other secrets.
         </p>
       </LegalSection>
     </LegalPage>
