@@ -17,46 +17,7 @@ import { HARDWARE_SPECS } from "@/lib/constants";
 import { useAuthStore } from "@/store/auth";
 
 export default function CtaSection() {
-  const router = useRouter();
-  const mounted = React.useSyncExternalStore(
-    () => () => {},
-    () => true,
-    () => false
-  );
-  const { user } = useAuthStore();
-  const isAuthenticated = mounted && Boolean(user);
 
-  const handleDownloadClick = (e: React.MouseEvent) => {
-    if (!isAuthenticated) {
-      e.preventDefault();
-      router.push('/auth/login?redirect=download');
-    } else {
-      e.preventDefault();
-      try {
-        const blob = new Blob(
-          [
-            `Order It Up Desktop POS v1.2.0\n` +
-            `Platform: Windows 10 / 11 (x64 / ARM64)\n` +
-            `Engine: Standalone Electron + Express (:3001) + SQLite WAL\n` +
-            `Zero Cloud Lock-in • Offline Durability Guaranteed\n` +
-            `Artifact: Order-It-Up-Setup.exe\n` +
-            `Visit: https://orderitup.pages.dev/ for documentation.`
-          ],
-          { type: 'application/octet-stream' }
-        );
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = 'Order-It-Up-Setup.exe';
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        URL.revokeObjectURL(url);
-      } catch (err) {
-        console.error(err);
-      }
-    }
-  };
   return (
     <section id="download" className="py-20 lg:py-28 relative overflow-hidden">
       {/* Background Glow */}
@@ -70,11 +31,11 @@ export default function CtaSection() {
         <div className="p-8 sm:p-12 lg:p-16 rounded-3xl bg-gradient-to-b from-orange-50/80 via-white/90 to-white/95 backdrop-blur-xl border border-orange-200/90 shadow-2xl shadow-orange-500/10 text-center relative overflow-hidden shadow-[inset_0_1px_1px_rgba(255,255,255,0.8)]">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold mb-6 shadow-xs">
             <Sparkles className="w-3.5 h-3.5 text-orange-500" />
-            <span>Ready for Immediate Cloud &amp; Offline Deployment</span>
+            <span>Early-access pilot • request a product walkthrough</span>
           </div>
 
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight max-w-4xl mx-auto leading-tight">
-            Ready to Eliminate Restaurant POS Downtime Forever?
+            Explore Order It Up with an Early-Access Pilot
           </h2>
 
           <p className="mt-6 text-base sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed font-normal">
@@ -86,57 +47,26 @@ export default function CtaSection() {
           <div className="mt-9 flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-4 max-w-xl mx-auto">
             {/* Primary SaaS Onboarding */}
             <Link
-              href="/auth/register"
+              href="https://orderitup.pages.dev/pilot/"
               className="h-14 px-8 rounded-xl bg-gradient-to-r from-orange-500 via-amber-500 to-orange-500 hover:from-orange-600 hover:via-amber-600 hover:to-orange-600 text-white font-bold text-base shadow-xl shadow-orange-500/25 hover:shadow-2xl hover:shadow-orange-500/40 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
             >
-              <span>Create Free Restaurant Account</span>
+              <span>Request Pilot Access</span>
               <ArrowRight className="w-5 h-5" />
             </Link>
 
             {/* Secondary SaaS Login */}
             <Link
-              href="/auth/login"
+              href="https://orderitup.pages.dev/pilot/"
               className="h-14 px-7 rounded-xl bg-white/95 backdrop-blur-sm hover:bg-white text-slate-800 border border-slate-300 hover:border-orange-400 font-bold text-base shadow-xs hover:shadow-md hover:-translate-y-0.5 active:translate-y-0.5 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
             >
               <LogIn className="w-4 h-4 text-orange-600" />
-              <span>Sign In to Cloud HQ</span>
+              <span>Discuss Your Setup</span>
             </Link>
           </div>
 
-          {/* Section Divider */}
-          <div className="my-10 flex items-center justify-center gap-4 max-w-md mx-auto">
-            <div className="h-px bg-slate-200 flex-1" />
-            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">
-              Or Deploy Desktop Counter Hardware
-            </span>
-            <div className="h-px bg-slate-200 flex-1" />
-          </div>
-
-          {/* Dedicated Windows Desktop POS Installer Card */}
-          <div className="flex flex-col items-center justify-center gap-4 max-w-xl mx-auto">
-            <a
-              id="download-windows"
-              href="#download-windows"
-              onClick={handleDownloadClick}
-              className="h-16 px-8 rounded-2xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-sm sm:text-base shadow-xl shadow-orange-500/25 hover:shadow-2xl hover:shadow-orange-500/35 hover:-translate-y-0.5 active:translate-y-0.5 active:scale-[0.98] transition-all flex items-center gap-4 cursor-pointer"
-            >
-              <Laptop className="w-6 h-6 text-white shrink-0" />
-              <div className="text-left">
-                <div className="text-[10px] uppercase tracking-wider text-orange-100 font-semibold">
-                  Dedicated Desktop POS Release
-                </div>
-                <div className="text-sm sm:text-base font-extrabold">
-                  Download for Windows (x64 / ARM)
-                </div>
-              </div>
-            </a>
-
-            {/* Platform Availability Note for macOS & Linux */}
-            <p className="text-xs text-slate-500 text-center max-w-md leading-relaxed">
-              Standalone offline POS engine engineered exclusively for <span className="font-semibold text-slate-700">Windows (x64 / ARM)</span> hardware.
-              For <span className="font-medium text-slate-600">macOS (Universal DMG)</span> and <span className="font-medium text-slate-600">Linux (.AppImage / .deb)</span> workstations, manage and monitor your restaurant seamlessly via the web Cloud HQ portal.
-            </p>
-          </div>
+          <p className="mt-5 text-xs text-slate-500">
+            Pilot access is arranged individually. Submitting a request does not create an account or take payment.
+          </p>
 
           {/* Reassurance Checklist */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-600">
@@ -160,13 +90,13 @@ export default function CtaSection() {
           <div className="text-center max-w-2xl mx-auto mb-10">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-mono mb-2">
               <Printer className="w-3.5 h-3.5 text-orange-600" />
-              <span>Plug-and-Play Hardware Specifications</span>
+              <span>Hardware compatibility under evaluation</span>
             </div>
             <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900">
-              Runs on the Hardware You Already Own
+              Check Your Hardware Before Joining the Pilot
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 mt-2">
-              No proprietary terminals or expensive locked hardware required.
+              Compatibility depends on the exact model, firmware, operating system and connection.
             </p>
           </div>
 
