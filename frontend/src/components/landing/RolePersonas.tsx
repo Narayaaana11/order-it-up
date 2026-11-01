@@ -40,22 +40,22 @@ const SHOWCASE_PERSONAS: PersonaConfig[] = [
   {
     id: "owner",
     title: "Restaurant Owner",
-    subtitle: "Multi-Branch Franchise & Executive Cloud HQ",
-    badge: "Cloud HQ :443",
+    subtitle: "Owner dashboard concept",
+    badge: "Illustrative preview",
     iconName: "Store",
     accentColor: "from-orange-500 to-amber-500",
     deepLink: "/cloud-portal",
     deepLinkLabel: "Launch Cloud HQ Portal",
     platformScope: "Web SaaS & Desktop Executive View",
     kpis: [
-      { label: "Chain Gross Sales", value: "₹3,42,850", hint: "+18.4% vs last week" },
-      { label: "Active Outlets", value: "3 / 3 Online", hint: "Connaught, CyberHub, 100ft" },
-      { label: "Blended Food Cost", value: "28.4%", hint: "Target < 30%" },
+      { label: "Chain Gross Sales", value: "Sample only", hint: "No live data connected" },
+      { label: "Active Outlets", value: "Not connected", hint: "No outlet data supplied" },
+      { label: "Blended Food Cost", value: "Not available", hint: "No benchmark published" },
     ],
     responsibilities: [
-      "Real-time franchise revenue rollup across all physical locations",
-      "Cryptographic 6-digit PIN device pairing for counter terminals",
-      "Global catalog price overrides and master recipe synchronization",
+      "Multi-branch reporting requires pilot-build verification",
+      "Device pairing requires a build and security review",
+      "Catalog and recipe behaviour is build-dependent",
       "Multi-tenant staff role governance and branch audit logs",
     ],
   },
@@ -63,20 +63,20 @@ const SHOWCASE_PERSONAS: PersonaConfig[] = [
     id: "manager",
     title: "Branch Manager",
     subtitle: "Store Operations, Table Turnover & Shift Control",
-    badge: "Operations GM",
+    badge: "Management preview",
     iconName: "UserCog",
     accentColor: "from-sky-500 to-blue-600",
     deepLink: "/dashboard",
     deepLinkLabel: "Open Store Dashboard",
     platformScope: "Web Dashboard & Desktop Operations",
     kpis: [
-      { label: "Avg Table Turnover", value: "42 min", hint: "Target: < 45m" },
-      { label: "Active Floor Staff", value: "8 / 8 On Duty", hint: "Zero absenteeism" },
-      { label: "Shift Voids / Refunds", value: "₹1,450", hint: "Master PIN Protected" },
+      { label: "Avg Table Turnover", value: "Sample only", hint: "No live data connected" },
+      { label: "Active Floor Staff", value: "Not connected", hint: "No staff data supplied" },
+      { label: "Shift Voids / Refunds", value: "Sample only", hint: "No live permission check" },
     ],
     responsibilities: [
-      "Master Manager PIN overrides for bill cancellations, voids, and discounts",
-      "Live table turnover velocity, seating capacity, and floor bottleneck alerts",
+      "Role-based approval behaviour requires pilot-build verification",
+      "Table reporting availability depends on the pilot build",
       "Shift opening float authorization and cashier variance balancing",
       "Detailed staff audit logs tracking every tender modification",
     ],
@@ -84,22 +84,22 @@ const SHOWCASE_PERSONAS: PersonaConfig[] = [
   {
     id: "cashier",
     title: "Counter Cashier",
-    subtitle: "Sub-3-Second Checkout & Offline Billing",
-    badge: "Sub-3s Billing",
+    subtitle: "Counter workflow concept",
+    badge: "Performance not benchmarked",
     iconName: "CreditCard",
     accentColor: "from-emerald-500 to-teal-600",
     deepLink: "/pos",
     deepLinkLabel: "Explore Counter POS",
     platformScope: "Electron Desktop & Flutter Mobile POS",
     kpis: [
-      { label: "Bills Settled", value: "142 Bills", hint: "Shift volume" },
-      { label: "Avg Settlement Speed", value: "2.4s", hint: "Sub-3s benchmark" },
-      { label: "Drawer Cash Float", value: "₹18,450", hint: "Balanced to zero variance" },
+      { label: "Bills Settled", value: "Sample only", hint: "Shift volume" },
+      { label: "Avg Settlement Speed", value: "Not benchmarked", hint: "No public benchmark" },
+      { label: "Drawer Cash Float", value: "Sample only", hint: "No cash data connected" },
     ],
     responsibilities: [
       "Lightning-fast barcode scanning and product search",
-      "Dynamic split billing (Cash, Cards, UPI QR, Split Tenders)",
-      "Instant 80mm thermal receipt printing & 24V drawer kick",
+      "Payment and split-tender availability depends on enabled workflows",
+      "Printer and drawer behaviour requires model-specific testing",
       "Shift opening float management and daily cash reconciliation",
     ],
   },
@@ -107,66 +107,66 @@ const SHOWCASE_PERSONAS: PersonaConfig[] = [
     id: "waiter",
     title: "Floor Captain & Server",
     subtitle: "Tableside Handheld Ordering & Course Firing",
-    badge: "Mobile Handheld :3003",
+    badge: "Mobile workflow preview",
     iconName: "Smartphone",
     accentColor: "from-amber-500 to-orange-600",
     deepLink: "/tables",
     deepLinkLabel: "Explore Table Floorplan",
     platformScope: "Flutter Mobile & Standalone Server Web",
     kpis: [
-      { label: "Active Tables", value: "4 / 6 Occupied", hint: "16 Dining Guests" },
-      { label: "Pending Course Fires", value: "2 Mains", hint: "Ready for Kitchen" },
-      { label: "Avg Order Entry", value: "38s", hint: "Tableside handheld" },
+      { label: "Active Tables", value: "Sample only", hint: "No live table data" },
+      { label: "Pending Course Fires", value: "Sample only", hint: "No live kitchen data" },
+      { label: "Avg Order Entry", value: "Not benchmarked", hint: "Tableside handheld" },
     ],
     responsibilities: [
       "Real-time table status monitoring (Available, Occupied, Billed)",
       "Tableside order taking and course firing from mobile phones",
       "Item modifier selection (Spice level, cooking temperature, allergies)",
-      "Zero-config 6-digit ephemeral PIN device pairing",
+      "Device pairing behaviour requires pilot-build verification",
     ],
   },
   {
     id: "chef",
     title: "Kitchen Station Chef",
-    subtitle: "Zero-Lag Touch KDS & Station Routing",
-    badge: "LAN KDS :3002",
+    subtitle: "Kitchen ticket workflow concept",
+    badge: "KDS preview",
     iconName: "ChefHat",
     accentColor: "from-rose-500 to-red-600",
     deepLink: "/kds",
     deepLinkLabel: "Open Kitchen Display System",
     platformScope: "LAN KDS Screen & Kitchen Tablet",
     kpis: [
-      { label: "Active Kitchen Tickets", value: "3 Tickets", hint: "Across Bar & Grill" },
-      { label: "SLA On-Time Rate", value: "96.4%", hint: "Completed < 12m" },
-      { label: "Avg Prep Velocity", value: "7.2 min", hint: "Peak hour pace" },
+      { label: "Active Kitchen Tickets", value: "Sample only", hint: "Across Bar & Grill" },
+      { label: "SLA On-Time Rate", value: "Not benchmarked", hint: "No live kitchen data" },
+      { label: "Avg Prep Velocity", value: "Not benchmarked", hint: "Peak hour pace" },
     ],
     responsibilities: [
-      "Dedicated touch-friendly KDS screen with zero browser lag",
-      "One-tap ticket bumping from Pending to Preparing to Ready",
-      "Color-coded SLA alert timers (<8m green, 8-15m amber, >15m red)",
+      "Kitchen display workflow preview; performance not benchmarked",
+      "Ticket workflow behaviour depends on the current build",
+      "Sample elapsed-time indicators; no service-level target is promised",
       "Station routing: Bar, Oven, Grill, Fryer, Main Kitchen",
     ],
   },
   {
     id: "accountant",
     title: "Head Accountant",
-    subtitle: "Automated Tax Audit, Cash Reconciliation & Tally XML",
-    badge: "GST / VAT & Tally",
+    subtitle: "Reporting workflow concept",
+    badge: "Tax and export features under evaluation",
     iconName: "FileSpreadsheet",
     accentColor: "from-purple-500 to-indigo-600",
     deepLink: "/reports",
     deepLinkLabel: "View Financial Reports",
     platformScope: "Web SaaS Financial Portal",
     kpis: [
-      { label: "Gross Taxable Value", value: "₹2,48,000", hint: "Current month" },
-      { label: "Total Split GST", value: "₹12,400", hint: "2.5% CGST + 2.5% SGST" },
-      { label: "Cash Variance", value: "₹0.00", hint: "Perfect match" },
+      { label: "Gross Taxable Value", value: "Sample only", hint: "No accounting data connected" },
+      { label: "Total Split GST", value: "Sample only", hint: "Example only — verify tax treatment" },
+      { label: "Cash Variance", value: "Not connected", hint: "No ledger connected" },
     ],
     responsibilities: [
       "Automated split GST tax calculations (CGST 2.5%, SGST 2.5%)",
       "Daily Z-report cash closures with expected vs counted balances",
-      "One-click Tally XML export for external accounting systems",
-      "Archival tax audit reports with tamper-evident serial numbers",
+      "Accounting export availability requires pilot-build verification",
+      "Audit and export coverage must be validated before use",
     ],
   },
 ];
@@ -175,7 +175,7 @@ export default function RolePersonas() {
   const [selectedRole, setSelectedRole] = useState<string>("owner");
 
   // Interactive state for Owner simulator
-  const [pairingPin, setPairingPin] = useState<string>("849 201");
+  const [pairingPin, setPairingPin] = useState<string>("SAMPLE ONLY");
   const [pairingCopied, setPairingCopied] = useState<boolean>(false);
 
   // Interactive state for Manager simulator
@@ -364,18 +364,21 @@ export default function RolePersonas() {
             </div>
           </div>
 
-          {/* Interactive Live Simulator Stage */}
+          <div className="mb-6 rounded-xl border border-amber-300 bg-amber-50 px-4 py-3 text-xs font-semibold leading-relaxed text-amber-900">
+            Sample simulator only. All outlet names, revenue, staff counts, orders, ticket timings, PINs and export messages are fictional examples. This page is not connected to a live restaurant or production integrations. Do not use any displayed value as a real credential, transaction or performance benchmark.
+          </div>
+          {/* Interactive Sample Workflow Simulator */}
           <div className="p-6 sm:p-8 bg-slate-900 text-slate-100">
             <div className="flex items-center justify-between pb-4 border-b border-slate-800 mb-6">
               <div className="flex items-center gap-2 text-xs font-mono text-slate-400">
                 <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
                 <span className="uppercase tracking-wider font-semibold">
-                  Interactive Simulator Canvas • {activePersona.title}
+                  Sample Simulator Canvas • {activePersona.title}
                 </span>
               </div>
               <div className="flex items-center gap-1.5 text-xs text-slate-400">
                 <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                <span>Zero Cloud Dependency</span>
+                <span>Sample UI only — no backend connection</span>
               </div>
             </div>
 
@@ -771,7 +774,7 @@ export default function RolePersonas() {
               <div className="space-y-6">
                 <div>
                   <div className="flex items-center justify-between text-xs text-slate-400 mb-3">
-                    <span>Live Ticket Queue (Click &apos;Bump&apos; to advance ticket stage)</span>
+                    <span>Sample ticket queue — buttons only change local preview state</span>
                     <span className="text-emerald-400 font-mono">LAN Port :3002 KDS Screen</span>
                   </div>
 
@@ -898,7 +901,7 @@ export default function RolePersonas() {
                 {/* Tally XML Export Action */}
                 <div className="p-4 rounded-xl bg-purple-950/30 border border-purple-800/60 flex flex-col sm:flex-row items-center justify-between gap-4">
                   <div className="text-xs">
-                    <span className="font-bold text-purple-300 block">Tally Prime XML Integration</span>
+                    <span className="font-bold text-purple-300 block">Illustrative accounting-export preview</span>
                     <span className="text-slate-400">Export audited sales vouchers directly formatted for external chartered accountants.</span>
                   </div>
 
@@ -913,8 +916,8 @@ export default function RolePersonas() {
                       {exportingTally
                         ? "Generating XML..."
                         : exportComplete
-                        ? "✓ Tally_Sales_2026.xml Exported!"
-                        : "Export Tally XML (1-Click)"}
+                        ? "Sample export preview complete — no file was sent or generated"
+                        : "Preview sample export (local only)"}
                     </span>
                   </button>
                 </div>
