@@ -91,7 +91,7 @@ export default function SaaSQuickRegisterPage() {
       toast.error('Enter both email and password, or leave both blank to continue with Google.');
       return;
     }
-    if (email.trim() && !/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(email.trim())) {
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
       toast.error('Please enter a valid email address');
       return;
     }
