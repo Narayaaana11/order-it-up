@@ -58,7 +58,7 @@ export default function CtaSection() {
             Order It Up is currently being evaluated with pilot users. Contact the pilot team to discuss your restaurant workflows, supported setup and the features available in the current build.
           </p>
 
-          {/* Pilot access request — no public installer is available yet */}
+          {/* Pilot enquiry and sample receipt preview */}
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <a
               href="mailto:narayaaana11@gmail.com?subject=Order%20It%20Up%20Pilot%20Access"
@@ -66,9 +66,6 @@ export default function CtaSection() {
             >
               Request Pilot Access
             </a>
-          </div>
-
-          {/* 80mm Bill Template Direct CTA */}
             <Magnet padding={35} magnetStrength={3}>
               <button
                 type="button"
