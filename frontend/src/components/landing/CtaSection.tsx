@@ -1,17 +1,13 @@
 "use client";
 
-import React from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
-  Laptop,
   ShieldCheck,
   CheckCircle2,
   HardDrive,
   Printer,
   Sparkles,
   ArrowRight,
-  LogIn,
 } from "lucide-react";
 import { HARDWARE_SPECS } from "@/lib/constants";
 import { useAuthStore } from "@/store/auth";
@@ -39,8 +35,7 @@ export default function CtaSection() {
           </h2>
 
           <p className="mt-6 text-base sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed font-normal">
-            Launch your cloud restaurant management portal in seconds or download the native offline
-            desktop counter engine for zero-dependency local billing.
+            Tell us about your restaurant, current POS and hardware. The pilot team will review your requirements and contact you about fit and next steps.
           </p>
 
           {/* SaaS Onboarding Action CTAs */}
@@ -54,14 +49,6 @@ export default function CtaSection() {
               <ArrowRight className="w-5 h-5" />
             </Link>
 
-            {/* Secondary SaaS Login */}
-            <Link
-              href="https://orderitup.pages.dev/pilot/"
-              className="h-14 px-7 rounded-xl bg-white/95 backdrop-blur-sm hover:bg-white text-slate-800 border border-slate-300 hover:border-orange-400 font-bold text-base shadow-xs hover:shadow-md hover:-translate-y-0.5 active:translate-y-0.5 active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 cursor-pointer"
-            >
-              <LogIn className="w-4 h-4 text-orange-600" />
-              <span>Discuss Your Setup</span>
-            </Link>
           </div>
 
           <p className="mt-5 text-xs text-slate-500">
@@ -72,15 +59,15 @@ export default function CtaSection() {
           <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-600">
             <span className="flex items-center gap-1.5">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              Open-source MIT Core
+              Pilot build and hardware fit reviewed individually
             </span>
             <span className="flex items-center gap-1.5">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              No Credit Card or Subscription Required
+              No payment is taken with a pilot request
             </span>
             <span className="flex items-center gap-1.5">
               <HardDrive className="w-4 h-4 text-orange-600" />
-              Your Data Stays on Your Hardware
+              See privacy and data handling details before access
             </span>
           </div>
         </div>
