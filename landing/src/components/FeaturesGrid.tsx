@@ -62,8 +62,7 @@ export default function FeaturesGrid() {
             />
           </h2>
           <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed font-normal">
-            Every feature is engineered for high peak throughput. Zero cloud spinners, zero network lag,
-            and complete hardware integration from day one.
+            The pilot explores local-first workflows for busy restaurant environments. Feature availability, performance and hardware compatibility depend on the current build and setup.
           </p>
         </div>
 
