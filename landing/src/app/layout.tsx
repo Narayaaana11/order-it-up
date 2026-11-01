@@ -32,19 +32,21 @@ export const metadata: Metadata = {
     "Offline-First",
     "Restaurant Billing Software",
   ],
-  authors: [{ name: "IndentDev" }],
+  
   openGraph: {
     title: "Order It Up — Offline-First Restaurant POS",
-    description: "Sub-second billing, local KDS, and direct thermal printing without internet dependency.",
+    description: "An early-access pilot exploring offline-first restaurant workflows, local billing, kitchen display and hardware compatibility.",
     type: "website",
     siteName: "Order It Up",
     url: "https://orderitup.pages.dev",
     locale: "en_IN",
+    images: [{ url: "/logo.png", width: 512, height: 512, alt: "Order It Up logo" }],
   },
   twitter: {
     card: "summary_large_image",
     title: "Order It Up | Restaurant Operations Pilot",
     description: "An early-access pilot exploring offline-first restaurant workflows.",
+    images: ["/logo.png"],
   },
   icons: { icon: "/logo.png", apple: "/logo.png" },
 };
