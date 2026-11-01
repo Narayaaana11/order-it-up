@@ -1,290 +1,198 @@
-"use client";
 
-import React from "react";
-import {
-  ShieldCheck,
-  Receipt,
-  Key,
-  Printer,
-  Scale,
-  FileText,
-  AlertTriangle,
-  Building,
-} from "lucide-react";
-import { BRAND } from "@/lib/constants";
-import {
-  triggerOpenBillModal,
-  triggerOpenTermsModal,
-  triggerOpenCredentialsModal,
-} from "@/lib/modalEvents";
+import Image from "next/image";
+import Link from "next/link";
+
+const PRODUCT_LINKS = [
+  { label: "Counter POS Billing", href: "/#features" },
+  { label: "Kitchen Display System", href: "/#ui-preview" },
+  { label: "Mobile Waiter Workflow", href: "/#roles" },
+];
+
+const PILOT_CAPABILITIES = [
+  "Restaurant POS and order billing",
+  "Kitchen Display System (KDS)",
+  "Mobile waiter workflows",
+  "ESC/POS thermal printer support",
+  "Cash-drawer triggering on compatible hardware",
+  "GST, VAT and Tally export tools in the pilot build",
+];
+
+const POLICY_LINKS = [
+  // Update these paths if your legal pages use different routes.
+  { label: "Terms & Conditions", href: "/legal/terms" },
+  { label: "Privacy Policy", href: "/legal/privacy" },
+  { label: "Pilot & Beta Disclaimer", href: "/legal/pilot-disclaimer" },
+  { label: "Tax & Reporting Notice", href: "/legal/tax-reporting" },
+];
 
 export default function Footer() {
   return (
-    <footer className="bg-white border-t border-slate-200 text-slate-600 text-xs">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 lg:py-16">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-8 lg:gap-10">
-          {/* Brand Info & Startup Pilot Status (2 cols) */}
-          <div className="lg:col-span-2 flex flex-col gap-4">
-            <div className="flex items-center gap-2.5">
-              <img
+    <footer className="relative overflow-hidden border-t border-neutral-800 bg-[#090909] text-neutral-300">
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_at_top_left,rgba(249,115,22,0.09),transparent_45%)]" />
+
+      <div className="relative mx-auto max-w-7xl px-5 pb-8 pt-14 sm:px-8 lg:px-10">
+        {/* Main footer columns */}
+        <div className="grid gap-12 lg:grid-cols-[1.4fr_1fr_1fr_1fr] lg:gap-10">
+
+          {/* Brand and pilot information */}
+          <div className="max-w-md">
+            <Link href="/" className="inline-flex items-center gap-3">
+              <Image
                 src="/logo.png"
-                alt="Order It Up Logo"
-                className="h-8 w-8 object-contain"
+                alt="Order It Up"
+                width={42}
+                height={42}
+                className="h-10 w-10 rounded-xl object-contain"
               />
-              <span className="text-lg font-black tracking-tight text-slate-900 whitespace-nowrap">
-                {BRAND.name}
+
+              <span className="text-xl font-bold tracking-tight text-white">
+                Order It Up
+              </span>
+            </Link>
+
+            <p className="mt-5 text-sm leading-7 text-neutral-400">
+              An offline-first restaurant operations platform designed to
+              support essential billing and service workflows when internet
+              connectivity is unreliable.
+            </p>
+
+            <div className="mt-6 inline-flex items-center gap-2 rounded-full border border-orange-500/30 bg-orange-500/10 px-3 py-1.5">
+              <span className="h-2 w-2 rounded-full bg-orange-400" />
+              <span className="text-xs font-semibold tracking-wide text-orange-300">
+                EARLY-ACCESS PILOT
               </span>
             </div>
 
-            <p className="text-slate-600 leading-relaxed font-normal max-w-sm">
-              The high-speed, offline-first operating system designed to keep restaurants, cafes,
-              and bars billing at full speed — even during total internet blackouts.
+            <p className="mt-4 text-xs leading-6 text-neutral-500">
+              Currently being evaluated with pilot users. Features, supported
+              devices and workflows may change as we gather feedback.
             </p>
-
-            {/* Early-Stage Startup Badge */}
-            <div className="p-3 rounded-2xl bg-orange-50/70 border border-orange-200/80 text-[11px] text-orange-950 max-w-sm">
-              <div className="flex items-center gap-2 font-bold text-orange-900">
-                <span className="w-2 h-2 rounded-full bg-orange-500 animate-pulse" />
-                <span>Early-Stage Startup • Pre-Registration Beta</span>
-              </div>
-              <p className="text-orange-800/90 mt-1 leading-relaxed">
-                Software is currently offered for community evaluation and pilot testing across local counters.
-              </p>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 pt-1">
-              <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-slate-100 border border-slate-200 text-[11px] font-mono text-slate-700 w-fit">
-                <span className="w-2 h-2 rounded-full bg-emerald-600 animate-pulse" />
-                <span>All Local Subsystems Operational</span>
-              </div>
-
-              <button
-                type="button"
-                onClick={() => triggerOpenCredentialsModal()}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-orange-50 hover:bg-orange-100 border border-orange-200 text-[11px] font-semibold text-orange-800 transition-colors cursor-pointer"
-              >
-              </button>
-            </div>
           </div>
 
-          {/* Column 1: Product & Hardware */}
+          {/* Product navigation */}
           <div>
-            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">
-              Product &amp; POS
-            </h4>
-            <ul className="space-y-2.5">
-              <li>
-                <a
-                  href="#features"
-                  className="hover:text-orange-600 transition-colors flex items-center gap-1.5"
-                >
-                  <span>Counter POS Billing</span>
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#ui-preview"
-                  className="hover:text-orange-600 transition-colors flex items-center gap-1.5"
-                >
-                  <span>Kitchen Display (KDS :3002)</span>
-                </a>
-              </li>
-              <li>
-                <a
-                  href="#roles"
-                  className="hover:text-orange-600 transition-colors flex items-center gap-1.5"
-                >
-                  <span>Mobile Waiter Server (:3003)</span>
-                </a>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => triggerOpenBillModal("standard")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group cursor-pointer"
-                >
-                  <span>ESC/POS Thermal Drivers</span>
-                  <Receipt className="w-3 h-3 text-orange-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => triggerOpenBillModal("standard")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group cursor-pointer"
-                >
-                  <span>24V Cash Drawer Pulse</span>
-                  <Receipt className="w-3 h-3 text-orange-500 opacity-0 group-hover:opacity-100 transition-opacity" />
-                </button>
-              </li>
+            <h3 className="text-sm font-semibold text-white">
+              Explore Product
+            </h3>
+
+            <ul className="mt-5 space-y-3">
+              {PRODUCT_LINKS.map((item) => (
+                <li key={item.label}>
+                  <Link
+                    href={item.href}
+                    className="text-sm text-neutral-400 transition-colors hover:text-orange-400"
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Column 2: Compliance & Tax (Dedicated Section) */}
+          {/* Pilot capabilities */}
           <div>
-            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">
-              Compliance &amp; Tax
-            </h4>
-            <ul className="space-y-2.5">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => triggerOpenBillModal("gst")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group text-slate-700 cursor-pointer"
+            <h3 className="text-sm font-semibold text-white">
+              Pilot Capabilities
+            </h3>
+
+            <ul className="mt-5 space-y-3">
+              {PILOT_CAPABILITIES.map((item) => (
+                <li
+                  key={item}
+                  className="flex items-start gap-2 text-sm leading-6 text-neutral-400"
                 >
-                  <span>Indian GST (CGST &amp; SGST)</span>
-                  <Receipt className="w-3 h-3 text-orange-600 opacity-80" />
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => triggerOpenBillModal("gst")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group text-slate-700 cursor-pointer"
-                >
-                  <span>Global VAT Rate Packs</span>
-                  <Receipt className="w-3 h-3 text-orange-600 opacity-80" />
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => triggerOpenBillModal("standard")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group text-slate-700 cursor-pointer"
-                >
-                  <span>FSSAI License Receipts</span>
-                  <Receipt className="w-3 h-3 text-orange-600 opacity-80" />
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => triggerOpenBillModal("zreport")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group text-slate-700 cursor-pointer"
-                >
-                  <span>Z-Report Cash Closures</span>
-                  <Receipt className="w-3 h-3 text-orange-600 opacity-80" />
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => triggerOpenBillModal("zreport")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 group text-slate-700 cursor-pointer"
-                >
-                  <span>Tally XML Ledger Export</span>
-                  <Receipt className="w-3 h-3 text-orange-600 opacity-80" />
-                </button>
-              </li>
+                  <span className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-orange-400" />
+                  <span>{item}</span>
+                </li>
+              ))}
             </ul>
           </div>
 
-          {/* Column 3: Legal & Policies (Dedicated Startup Beta Section) */}
+          {/* Legal and policies */}
           <div>
-            <h4 className="text-xs font-bold text-slate-900 uppercase tracking-wider mb-4">
-              Legal &amp; Policies
-            </h4>
-            <ul className="space-y-2.5">
-              <li>
-                <button
-                  type="button"
-                  onClick={() => triggerOpenTermsModal("terms")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 text-slate-700 font-medium cursor-pointer"
-                >
-                  <FileText className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Terms &amp; Conditions</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => triggerOpenTermsModal("privacy")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 text-slate-700 font-medium cursor-pointer"
-                >
-                  <ShieldCheck className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Offline Privacy Policy</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => triggerOpenTermsModal("disclaimer")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 text-slate-700 font-medium cursor-pointer"
-                >
-                  <AlertTriangle className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Startup &amp; Beta Disclaimer</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => triggerOpenTermsModal("tax")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 text-slate-700 font-medium cursor-pointer"
-                >
-                  <Building className="w-3.5 h-3.5 text-slate-400" />
-                  <span>Tax &amp; Compliance Policy</span>
-                </button>
-              </li>
-              <li>
-                <button
-                  type="button"
-                  onClick={() => triggerOpenTermsModal("terms")}
-                  className="hover:text-orange-600 transition-colors text-left flex items-center gap-1.5 text-slate-500 text-[11px] cursor-pointer"
-                >
-                  <Scale className="w-3 h-3 text-slate-400" />
-                  <span>Single-Counter Free License</span>
-                </button>
-              </li>
+            <h3 className="text-sm font-semibold text-white">
+              Policies & Information
+            </h3>
+
+            <ul className="mt-5 space-y-3">
+              {POLICY_LINKS.map((item) => (
+                <li key={item.label}>
+                  <Link
+                    href={item.href}
+                    className="text-sm text-neutral-400 transition-colors hover:text-orange-400"
+                  >
+                    {item.label}
+                  </Link>
+                </li>
+              ))}
             </ul>
+
+            <p className="mt-6 text-xs leading-6 text-neutral-500">
+              Tax calculations, reports and exports are supporting tools.
+              Please verify outputs against applicable requirements before
+              using them for statutory or financial decisions.
+            </p>
           </div>
         </div>
 
-        {/* Bottom Bar: Startup Notice & Legal Modal Triggers */}
-        <div className="mt-12 pt-8 border-t border-slate-200 flex flex-col sm:flex-row items-center justify-between gap-4">
-          <p className="text-slate-500 text-center sm:text-left text-[11px]">
-            &copy; {new Date().getFullYear()} {BRAND.name}. Early-Stage Restaurant Technology Startup (Pre-Registration Pilot). All rights reserved.
+        {/* Pilot-stage disclosure */}
+        <div className="mt-14 rounded-2xl border border-neutral-800 bg-neutral-900/60 p-5 sm:p-6">
+          <p className="text-sm font-semibold text-white">
+            About the Order It Up pilot
           </p>
 
-          <div className="flex flex-wrap items-center justify-center gap-3.5 text-slate-600 text-[11px]">
-            <button
-              type="button"
-              onClick={() => triggerOpenTermsModal("terms")}
-              className="hover:text-orange-600 font-medium transition-colors cursor-pointer"
+          <p className="mt-2 max-w-5xl text-xs leading-6 text-neutral-400 sm:text-sm">
+            Order It Up is an early-stage software product currently being
+            developed and tested by its founders. It is in a pre-registration
+            pilot stage and is not yet being presented as a fully launched
+            commercial service. Product direction, formal business
+            registration and any wider commercial rollout will be considered
+            after pilot feedback and market validation.
+          </p>
+
+          <p className="mt-3 max-w-5xl text-xs leading-6 text-neutral-500">
+            During testing, users should retain their own backups and
+            independently verify important transactions, reports, tax
+            information and hardware compatibility. Pilot access does not
+            constitute a service-level or uninterrupted-availability
+            guarantee.
+          </p>
+        </div>
+
+        {/* Copyright and bottom links */}
+        <div className="mt-8 flex flex-col gap-4 border-t border-neutral-800 pt-6 sm:flex-row sm:items-center sm:justify-between">
+          <p className="text-xs leading-5 text-neutral-500">
+            © {new Date().getFullYear()} Order It Up. All rights reserved.
+          </p>
+
+          <div className="flex flex-wrap gap-x-5 gap-y-2">
+            <Link
+              href="/legal/terms"
+              className="text-xs text-neutral-500 transition-colors hover:text-orange-400"
             >
-              Terms &amp; Conditions
-            </button>
-            <span className="text-slate-300">•</span>
-            <button
-              type="button"
-              onClick={() => triggerOpenTermsModal("privacy")}
-              className="hover:text-orange-600 font-medium transition-colors cursor-pointer"
+              Terms
+            </Link>
+
+            <Link
+              href="/legal/privacy"
+              className="text-xs text-neutral-500 transition-colors hover:text-orange-400"
             >
-              Privacy Policy
-            </button>
-            <span className="text-slate-300">•</span>
-            <button
-              type="button"
-              onClick={() => triggerOpenTermsModal("disclaimer")}
-              className="hover:text-orange-600 font-medium transition-colors cursor-pointer"
+              Privacy
+            </Link>
+
+            <Link
+              href="/legal/pilot-disclaimer"
+              className="text-xs text-neutral-500 transition-colors hover:text-orange-400"
             >
-              Startup Disclaimer
-            </button>
-            <span className="text-slate-300">•</span>
-            <button
-              type="button"
-              onClick={() => triggerOpenBillModal("standard")}
-              className="hover:text-orange-600 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
+              Pilot Disclaimer
+            </Link>
+
+            <Link
+              href="/#top"
+              className="text-xs text-neutral-500 transition-colors hover:text-orange-400"
             >
-              <Printer className="w-3.5 h-3.5 text-orange-600" />
-              <span>80mm Bill Template</span>
-            </button>
-            <span className="text-slate-300">•</span>
-            <button
-              type="button"
-              onClick={() => triggerOpenCredentialsModal()}
-              className="hover:text-orange-600 font-semibold transition-colors flex items-center gap-1 cursor-pointer"
-            >
-            </button>
+              Back to Top ↑
+            </Link>
           </div>
         </div>
       </div>
