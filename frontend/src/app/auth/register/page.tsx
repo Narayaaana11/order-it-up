@@ -170,7 +170,7 @@ export default function SaaSQuickRegisterPage() {
         <p className="mt-2 text-xs sm:text-sm text-slate-400">
           {step === 1
             ? 'Create a restaurant account with email and password, or continue with Google in the next step.'
-            : 'Choose the closest business type. The starter catalogue can be edited after setup.'}
+            : 'Choose your restaurant type. Your catalogue starts empty so you can add your actual products, prices and taxes before using the POS.'}
         </p>
 
         {/* Progress indicator */}
