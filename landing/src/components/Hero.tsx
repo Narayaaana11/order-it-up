@@ -204,7 +204,7 @@ export default function Hero() {
                   <Printer className="w-4 h-4" />
                 </div>
                 <div>
-                  <p className="text-xs font-bold text-slate-900">24V Solenoid Drawer</p>
+                  <p className="text-xs font-bold text-slate-900">Cash drawer under evaluation</p>
                   <p className="text-[11px] text-slate-500">Direct ESC/POS bytecode</p>
                 </div>
               </div>
