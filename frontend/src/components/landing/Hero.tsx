@@ -148,6 +148,8 @@ export default function Hero() {
             </div>
           </div>
 
+          {/* Illustrative sample interface — not a live product connection */}
+          <p className="mx-auto mt-8 max-w-3xl rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs font-semibold text-amber-900">Illustrative interface preview only. It is not connected to a live restaurant, POS device, KDS or printer. All counts and statuses are examples.</p>
           {/* Desktop Application Window Mockup Chrome with Glassmorphism */}
           <div className="mt-14 w-full max-w-5xl rounded-2xl bg-white/90 backdrop-blur-md border border-slate-200/90 shadow-2xl shadow-slate-900/10 overflow-hidden text-left shadow-[inset_0_1px_1px_rgba(255,255,255,0.8)]">
             {/* Title Bar */}
@@ -157,13 +159,13 @@ export default function Hero() {
                 <div className="w-3 h-3 rounded-full bg-[#f59e0b]" />
                 <div className="w-3 h-3 rounded-full bg-[#10b981]" />
                 <span className="ml-3 text-xs font-mono text-slate-600 hidden sm:inline">
-                  Order It Up POS Desktop — v1.2.0 • SQLite Connected (flo.db)
+                  Order It Up POS Desktop — v1.2.0 • Illustrative preview — not connected to a live POS
                 </span>
               </div>
               <div className="flex items-center gap-2 text-xs font-mono">
                 <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                  Local Engine :3001
+                  Sample interface
                 </span>
               </div>
             </div>
@@ -172,9 +174,9 @@ export default function Hero() {
             <div className="p-4 sm:p-6 bg-slate-50/60 backdrop-blur-xs grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="p-4 rounded-xl bg-white/90 backdrop-blur-sm border border-slate-200/80 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.04)] hover:border-orange-300 hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-slate-500">Active Dining Tables</p>
-                  <p className="text-2xl font-bold text-slate-900 mt-1">14 / 18</p>
-                  <p className="text-[11px] text-emerald-600 mt-0.5">Avg Turn: 34 mins</p>
+                  <p className="text-xs text-slate-500">Sample table view</p>
+                  <p className="text-2xl font-bold text-slate-900 mt-1">Illustrative</p>
+                  <p className="text-[11px] text-emerald-600 mt-0.5">Not connected to live data</p>
                 </div>
                 <div className="p-3 rounded-xl bg-orange-50 text-orange-600 shadow-xs">
                   <Flame className="w-6 h-6" />
@@ -183,9 +185,9 @@ export default function Hero() {
 
               <div className="p-4 rounded-xl bg-white/90 backdrop-blur-sm border border-slate-200/80 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.04)] hover:border-orange-300 hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-slate-500">KDS Active Tickets</p>
-                  <p className="text-2xl font-bold text-slate-900 mt-1">6 In-Flight</p>
-                  <p className="text-[11px] text-amber-600 mt-0.5">Avg Prep SLA: 7m 40s</p>
+                  <p className="text-xs text-slate-500">Sample KDS view</p>
+                  <p className="text-2xl font-bold text-slate-900 mt-1">Illustrative</p>
+                  <p className="text-[11px] text-amber-600 mt-0.5">No live ticket data</p>
                 </div>
                 <div className="p-3 rounded-xl bg-amber-50 text-amber-600 shadow-xs">
                   <Zap className="w-6 h-6" />
@@ -194,9 +196,9 @@ export default function Hero() {
 
               <div className="p-4 rounded-xl bg-white/90 backdrop-blur-sm border border-slate-200/80 shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_1px_2px_rgba(0,0,0,0.04)] hover:border-orange-300 hover:shadow-md hover:-translate-y-0.5 transition-all flex items-center justify-between">
                 <div>
-                  <p className="text-xs text-slate-500">Hardware Status</p>
-                  <p className="text-lg font-bold text-slate-900 mt-1">80mm Thermal</p>
-                  <p className="text-[11px] text-emerald-600 mt-0.5">USB &amp; DK Solenoid Ready</p>
+                  <p className="text-xs text-slate-500">Hardware preview</p>
+                  <p className="text-lg font-bold text-slate-900 mt-1">Model under evaluation</p>
+                  <p className="text-[11px] text-emerald-600 mt-0.5">Compatibility not confirmed</p>
                 </div>
                 <div className="p-3 rounded-xl bg-emerald-50 text-emerald-600 shadow-xs">
                   <Printer className="w-6 h-6" />
