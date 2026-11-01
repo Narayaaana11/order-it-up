@@ -83,18 +83,7 @@ export const DEMO_USERS: Record<string, { email: string; pass: string; user: Aut
       organizationName: "Main Kitchen KDS",
     },
   },
-  superadmin: {
-    email: "admin@orderitup.in",
-    pass: "AdminPass123!",
-    user: {
-      id: "usr_admin_01",
-      name: "Platform Administrator",
-      email: "admin@orderitup.in",
-      role: "SUPER_ADMIN",
-      organizationId: "org_cloud_platform",
-      organizationName: "Order It Up SaaS Cloud Control",
-    },
-  },
+
 };
 
 const AUTH_STORAGE_KEY = "orderitup_demo_auth_user";
