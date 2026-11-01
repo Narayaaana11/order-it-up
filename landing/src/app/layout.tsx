@@ -19,9 +19,10 @@ export const viewport: Viewport = {
 };
 
 export const metadata: Metadata = {
-  title: "Order It Up — The Offline-First Operating System for Modern Restaurants",
+  metadataBase: new URL("https://orderitup.pages.dev"),
+  title: "Order It Up | Offline-First Restaurant Operations Pilot",
   description:
-    "Run lightning-fast counter billing with zero cloud dependency, real-time kitchen displays (KDS), and direct ESC/POS thermal printing. Powered by embedded SQLite reliability.",
+    "Explore Order It Up, an early-access pilot for offline-first restaurant billing, kitchen workflows and local hardware integrations. Features and compatibility are being evaluated with pilot users.",
   keywords: [
     "Restaurant POS",
     "Offline POS",
@@ -36,8 +37,16 @@ export const metadata: Metadata = {
     title: "Order It Up — Offline-First Restaurant POS",
     description: "Sub-second billing, local KDS, and direct thermal printing without internet dependency.",
     type: "website",
-    locale: "en_US",
+    siteName: "Order It Up",
+    url: "https://orderitup.pages.dev",
+    locale: "en_IN",
   },
+  twitter: {
+    card: "summary_large_image",
+    title: "Order It Up | Restaurant Operations Pilot",
+    description: "An early-access pilot exploring offline-first restaurant workflows.",
+  },
+  icons: { icon: "/logo.png", apple: "/logo.png" },
 };
 
 export default function RootLayout({
@@ -46,7 +55,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en-IN">
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased bg-[#F8FAFC] text-slate-900 min-h-screen selection:bg-orange-500 selection:text-white`}
       >
