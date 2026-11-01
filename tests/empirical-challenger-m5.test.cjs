@@ -155,68 +155,69 @@ describe('Suite 1: Adversarial Build & Static Export Validation', () => {
 // ============================================================================
 describe('Suite 2: Adversarial Auth & Download Flow Verification', () => {
 
-  test('2.1: Download buttons gate unauthenticated users and direct to signup/login', () => {
-    // 1. landing/src/components/Navbar.tsx
-    const landingNavContent = fs.readFileSync(path.join(ROOT, 'landing', 'src', 'components', 'Navbar.tsx'), 'utf8');
-    assert(landingNavContent.includes('handleDownloadClick'), 'Landing Navbar must define handleDownloadClick');
-    assert(landingNavContent.includes('!currentUser'), 'Landing Navbar must check !currentUser for gating');
-    assert(landingNavContent.includes('triggerOpenAuthModal("login", "windows")'), 'Landing Navbar must trigger AuthModal with windows platform');
-
-    // 2. landing/src/components/CtaSection.tsx
-    const landingCtaContent = fs.readFileSync(path.join(ROOT, 'landing', 'src', 'components', 'CtaSection.tsx'), 'utf8');
-    assert(landingCtaContent.includes('handlePlatformDownload'), 'Landing CtaSection must define handlePlatformDownload');
-    assert(landingCtaContent.includes('!user'), 'Landing CtaSection must check !user');
-    assert(landingCtaContent.includes('triggerOpenAuthModal("signup", "windows")'), 'Landing CtaSection must gate unauthenticated to signup');
-
-    // 3. frontend/src/components/landing/Navbar.tsx
-    const frontendNavContent = fs.readFileSync(path.join(ROOT, 'frontend', 'src', 'components', 'landing', 'Navbar.tsx'), 'utf8');
-    assert(frontendNavContent.includes('!isAuthenticated'), 'Frontend Navbar must check !isAuthenticated');
-    assert(frontendNavContent.includes("/auth/login?redirect=download"), 'Frontend Navbar must direct unauthenticated to /auth/login?redirect=download');
-
-    // 4. frontend/src/components/landing/CtaSection.tsx
-    const frontendCtaContent = fs.readFileSync(path.join(ROOT, 'frontend', 'src', 'components', 'landing', 'CtaSection.tsx'), 'utf8');
-    assert(frontendCtaContent.includes('!isAuthenticated'), 'Frontend CtaSection must check !isAuthenticated');
-    assert(frontendCtaContent.includes("/auth/login?redirect=download"), 'Frontend CtaSection must redirect unauthenticated to /auth/login?redirect=download');
-  });
-
-  test('2.2: Google Sign-In demo button is present and functional across all auth surfaces', () => {
-    // 1. landing AuthModal
-    const authModalContent = fs.readFileSync(path.join(ROOT, 'landing', 'src', 'components', 'AuthModal.tsx'), 'utf8');
-    assert(authModalContent.includes('Continue with Google'), 'AuthModal must contain "Continue with Google"');
-    assert(authModalContent.includes('handleQuickLogin("owner")'), 'AuthModal Google button must trigger demo login');
-    assert(authModalContent.includes('#4285F4'), 'AuthModal must feature 4-color Google icon branding');
-
-    // 2. frontend /auth/login
-    const loginPageContent = fs.readFileSync(path.join(ROOT, 'frontend', 'src', 'app', 'auth', 'login', 'page.tsx'), 'utf8');
-    assert(loginPageContent.includes('handleGoogleDemoSignIn'), 'Login page must have handleGoogleDemoSignIn');
-    assert(loginPageContent.includes('Continue with Google'), 'Login page must contain "Continue with Google"');
-    assert(loginPageContent.includes("searchParams.get('redirect') === 'download'"), 'Login page must handle ?redirect=download post-login');
-    assert(loginPageContent.includes('triggerDesktopDownload()'), 'Login page must auto-trigger download when redirected');
-
-    // 3. frontend /auth/register
-    const registerPageContent = fs.readFileSync(path.join(ROOT, 'frontend', 'src', 'app', 'auth', 'register', 'page.tsx'), 'utf8');
-    assert(registerPageContent.includes('handleGoogleDemoSignIn'), 'Register page must have handleGoogleDemoSignIn');
-    assert(registerPageContent.includes('Continue with Google'), 'Register page must contain "Continue with Google"');
-    assert(registerPageContent.includes('/cloud-portal?onboarded=true'), 'Register page Google sign-in routes to cloud portal');
-  });
-
-  test('2.3: Dynamic Navbar updates session state and exposes Dashboard link', () => {
-    // 1. landing Navbar
+  test('2.1: Public marketing CTAs route to the pilot request form and never serve fake installers', () => {
     const landingNav = fs.readFileSync(path.join(ROOT, 'landing', 'src', 'components', 'Navbar.tsx'), 'utf8');
-    assert(landingNav.includes('currentUser ?'), 'Landing Navbar must conditionally render based on currentUser');
-    assert(landingNav.includes('href="/dashboard"'), 'Landing Navbar must render Dashboard link when authenticated');
-    assert(landingNav.includes('handleSignOut'), 'Landing Navbar must provide sign out function');
-    assert(landingNav.includes('orderitup_auth_change'), 'Landing Navbar must listen for auth change events');
-
-    // 2. frontend Navbar
+    const landingHero = fs.readFileSync(path.join(ROOT, 'landing', 'src', 'components', 'Hero.tsx'), 'utf8');
+    const landingCta = fs.readFileSync(path.join(ROOT, 'landing', 'src', 'components', 'CtaSection.tsx'), 'utf8');
     const frontendNav = fs.readFileSync(path.join(ROOT, 'frontend', 'src', 'components', 'landing', 'Navbar.tsx'), 'utf8');
-    assert(frontendNav.includes('isAuthenticated ?'), 'Frontend Navbar must conditionally render based on isAuthenticated');
-    assert(frontendNav.includes('dashboardHref'), 'Frontend Navbar must render dashboard link');
-    assert(frontendNav.includes('logout()'), 'Frontend Navbar must provide logout trigger');
-    assert(frontendNav.includes('100% Offline Engine'), 'Frontend Navbar must render offline engine status badge');
-    assert(frontendNav.includes('BRAND.name'), 'Frontend Navbar must render BRAND.name');
+    const frontendCta = fs.readFileSync(path.join(ROOT, 'frontend', 'src', 'components', 'landing', 'CtaSection.tsx'), 'utf8');
+
+    assert(landingNav.includes('href="/pilot/"'), 'Landing navigation must route pilot enquiries to /pilot/');
+    assert(landingHero.includes('href="/pilot/"'), 'Landing hero must route pilot enquiries to /pilot/');
+    assert(landingCta.includes('href="/pilot/"'), 'Landing final CTA must route pilot enquiries to /pilot/');
+    assert(frontendNav.includes('https://orderitup.pages.dev/pilot/'), 'Legacy frontend navigation must route to the canonical pilot form');
+    assert(frontendCta.includes('https://orderitup.pages.dev/pilot/'), 'Legacy frontend CTA must route to the canonical pilot form');
+    assert(!frontendNav.includes('Order-It-Up-Setup.exe'), 'Navbar must not generate a text file disguised as an installer');
+    assert(!frontendCta.includes('Order-It-Up-Setup.exe'), 'CTA must not generate a text file disguised as an installer');
   });
-});
+
+  test('2.2: Google sign-in uses Google Identity Services and server-verified Cloud API credentials', () => {
+    const googleButtonPath = path.join(ROOT, 'frontend', 'src', 'components', 'auth', 'GoogleSignInButton.tsx');
+    const googleAuthPath = path.join(ROOT, 'apps', 'cloud-api', 'src', 'routes', 'google-auth.ts');
+    const workerPath = path.join(ROOT, 'apps', 'cloud-api', 'src', 'index.ts');
+    assert(fs.existsSync(googleButtonPath), 'Google Identity Services component must exist');
+    const googleButton = fs.readFileSync(googleButtonPath, 'utf8');
+    const googleAuth = fs.readFileSync(googleAuthPath, 'utf8');
+    const worker = fs.readFileSync(workerPath, 'utf8');
+
+    assert(googleButton.includes('accounts.google.com/gsi/client'), 'Browser must load official Google Identity Services');
+    assert(googleButton.includes('response.credential'), 'Browser must submit Google's signed ID token');
+    assert(googleAuth.includes('crypto.subtle.verify'), 'Worker must verify the Google token signature');
+    assert(googleAuth.includes('claims.email_verified'), 'Worker must require verified Google email');
+    assert(googleAuth.includes('claims.exp'), 'Worker must validate Google token expiry');
+    assert(worker.includes("path === '/api/auth/google'"), 'Cloud Worker must register the Google auth endpoint');
+
+    const login = fs.readFileSync(path.join(ROOT, 'frontend', 'src', 'app', 'auth', 'login', 'page.tsx'), 'utf8');
+    const register = fs.readFileSync(path.join(ROOT, 'frontend', 'src', 'app', 'auth', 'register', 'page.tsx'), 'utf8');
+    assert(login.includes('<GoogleSignInButton'), 'Login page must render the real Google button');
+    assert(login.includes('loginWithGoogle'), 'Login must create a real Cloud API session');
+    assert(register.includes('<GoogleSignInButton'), 'Registration page must render the real Google button');
+    assert(register.includes('loginWithGoogle'), 'Registration must create a real Cloud API session');
+    assert(!login.includes('demo_google_jwt_token'), 'Login must not store a fabricated Google token');
+    assert(!register.includes('demo_google_jwt_token'), 'Registration must not store a fabricated Google token');
+
+    const pilotForm = fs.readFileSync(path.join(ROOT, 'landing', 'src', 'components', 'PilotAccessForm.tsx'), 'utf8');
+    const pilotRoute = fs.readFileSync(path.join(ROOT, 'apps', 'cloud-api', 'src', 'routes', 'pilot-applications.ts'), 'utf8');
+    assert(pilotForm.includes('/api/pilot-applications'), 'Pilot form must submit to the Cloud API');
+    assert(pilotRoute.includes('INSERT INTO pilot_applications'), 'Pilot API must persist enquiries in D1');
+    assert(pilotRoute.includes('api.resend.com/emails'), 'Pilot API must notify the configured team through Resend');
+  });
+
+  test('2.3: Public sandbox has no fake login credentials or local demo authentication', () => {
+    const landingNav = fs.readFileSync(path.join(ROOT, 'landing', 'src', 'components', 'Navbar.tsx'), 'utf8');
+    const modalProvider = fs.readFileSync(path.join(ROOT, 'landing', 'src', 'components', 'ModalProvider.tsx'), 'utf8');
+    assert(landingNav.includes('href="/pilot/"'), 'Landing navigation must keep pilot access discoverable');
+    assert(!modalProvider.includes('CredentialsModal'), 'Sandbox must not expose a demo credential panel');
+    assert(!fs.existsSync(path.join(ROOT, 'landing', 'src', 'components', 'AuthModal.tsx')), 'Unused demo auth modal must be removed');
+    assert(!fs.existsSync(path.join(ROOT, 'landing', 'src', 'components', 'CredentialsModal.tsx')), 'Demo credentials modal must be removed');
+    assert(!fs.existsSync(path.join(ROOT, 'landing', 'src', 'lib', 'auth.ts')), 'Fake browser JWT/session helper must be removed');
+
+    const frontendNav = fs.readFileSync(path.join(ROOT, 'frontend', 'src', 'components', 'landing', 'Navbar.tsx'), 'utf8');
+    assert(frontendNav.includes('isAuthenticated ?'), 'Signed-in users must retain dashboard navigation');
+    assert(frontendNav.includes('dashboardHref'), 'Signed-in users must have dashboard link');
+    assert(frontendNav.includes('logout()'), 'Signed-in users must be able to sign out');
+    assert(frontendNav.includes('Offline-first architecture'), 'Navbar must describe the architecture without a 100% certification claim');
+  }););
 
 // ============================================================================
 // SUITE 3: S3 MULTI-CLOUD COMPATIBILITY & TENANT BOUNDARY ADVERSARIAL STRESS
