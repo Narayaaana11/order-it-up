@@ -217,7 +217,8 @@ describe('Suite 2: Adversarial Auth & Download Flow Verification', () => {
     assert(frontendNav.includes('dashboardHref'), 'Signed-in users must have dashboard link');
     assert(frontendNav.includes('logout()'), 'Signed-in users must be able to sign out');
     assert(frontendNav.includes('Offline-first architecture'), 'Navbar must describe the architecture without a 100% certification claim');
-  }););
+  });
+});
 
 // ============================================================================
 // SUITE 3: S3 MULTI-CLOUD COMPATIBILITY & TENANT BOUNDARY ADVERSARIAL STRESS
