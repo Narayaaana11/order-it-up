@@ -14,7 +14,7 @@ const PILOT_CAPABILITIES = [
   "Mobile waiter workflows",
   "ESC/POS thermal printer support",
   "Cash-drawer triggering on compatible hardware",
-  "GST, VAT and Tally export tools in the pilot build",
+  "Tax and accounting outputs depend on the current build and must be verified",
 ];
 
 const POLICY_LINKS = [
@@ -68,10 +68,10 @@ export default function Footer() {
               devices and workflows may change as we gather feedback.
             </p>
             <a
-              href="mailto:narayaaana11@gmail.com?subject=Order%20It%20Up%20Pilot%20Enquiry"
+              href="/pilot/"
               className="mt-4 inline-flex text-sm font-semibold text-orange-400 transition-colors hover:text-orange-300"
             >
-              Contact the pilot team →
+              Request pilot access →
             </a>
           </div>
 
