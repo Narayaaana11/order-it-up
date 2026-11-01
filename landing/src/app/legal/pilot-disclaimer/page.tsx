@@ -78,7 +78,7 @@ export default function PilotDisclaimerPage() {
 
       <LegalSection title="10. Contact">
         <p>
-          Pilot questions, safety concerns or complaints: {legalConfig.supportEmail}. Legal notices: {legalConfig.legalEmail}. Operator: {legalConfig.operatorLegalName}, {legalConfig.correspondenceAddress}.
+          Pilot questions, safety concerns or complaints: {legalConfig.supportEmail}. Legal notices: {legalConfig.legalEmail}. Operator: {legalConfig.operatorLegalName}.
         </p>
       </LegalSection>
     </LegalPage>
