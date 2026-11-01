@@ -91,7 +91,7 @@ export default function PilotAccessForm() {
           <div role="status" className="mb-6 rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
             {success === "sent"
               ? "Your pilot request has been saved and the pilot team has been notified. We will contact you using the details you provided."
-              : "Your pilot request has been saved, but the automatic team notification is not configured or could not be sent. Please also email <a href="mailto:narayaaana11@gmail.com?subject=Order%20It%20Up%20Pilot%20Request" class="font-semibold underline">the pilot team</a> so we can follow up."}
+              : <>Your pilot request has been saved, but the automatic team notification is not configured or could not be sent. Please also <a href="mailto:narayaaana11@gmail.com?subject=Order%20It%20Up%20Pilot%20Request" className="font-semibold underline">email the pilot team</a> so we can follow up.</>}
           </div>
         )}
         {error && (
