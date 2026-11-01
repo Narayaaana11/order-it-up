@@ -67,6 +67,12 @@ export default function Footer() {
               Currently being evaluated with pilot users. Features, supported
               devices and workflows may change as we gather feedback.
             </p>
+            <a
+              href="mailto:narayaaana11@gmail.com?subject=Order%20It%20Up%20Pilot%20Enquiry"
+              className="mt-4 inline-flex text-sm font-semibold text-orange-400 transition-colors hover:text-orange-300"
+            >
+              Contact the pilot team →
+            </a>
           </div>
 
           {/* Product navigation */}
