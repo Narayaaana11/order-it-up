@@ -83,7 +83,7 @@ export default function Navbar() {
                 </a>
               ))}
               <a
-                href={PILOT_EMAIL}
+                href="/pilot/"
                 onClick={() => setMobileMenuOpen(false)}
                 className="mt-2 rounded-xl bg-[#F07928] px-4 py-3 text-center text-sm font-bold text-white hover:bg-[#EA580C]"
               >
