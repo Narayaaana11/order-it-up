@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import {
   ShieldCheck,
   CheckCircle2,
@@ -60,12 +61,12 @@ export default function CtaSection() {
 
           {/* Pilot enquiry and sample receipt preview */}
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <a
-              href="mailto:narayaaana11@gmail.com?subject=Order%20It%20Up%20Pilot%20Access"
+            <Link
+              href="/pilot/"
               className="inline-flex h-16 items-center justify-center rounded-xl bg-[#F07928] px-8 text-sm font-bold text-white shadow-xl shadow-orange-500/25 transition-all hover:bg-[#EA580C] active:scale-[0.98]"
             >
               Request Pilot Access
-            </a>
+            </Link>
             <Magnet padding={35} magnetStrength={3}>
               <button
                 type="button"
