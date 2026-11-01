@@ -11,7 +11,6 @@ import {
 } from "lucide-react";
 import { HARDWARE_SPECS } from "@/lib/constants";
 import Squares from "@/components/reactbits/Squares";
-import StarBorder from "@/components/reactbits/StarBorder";
 import Magnet from "@/components/reactbits/Magnet";
 import SpotlightCard from "@/components/reactbits/SpotlightCard";
 import BlurText from "@/components/reactbits/BlurText";
