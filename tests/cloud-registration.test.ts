@@ -126,7 +126,7 @@ class MockD1RegistrationDB {
 async function runRegistrationTests() {
   console.log('Running SaaS Tenant Registration Test Suite...\n');
 
-  // Test 1: Successful Registration & Starter Menu Seeding (QSR)
+  // Test 1: Successful Registration with an empty real-restaurant catalogue (QSR)
   {
     const db = new MockD1RegistrationDB();
     const env = { DB: db as any, JWT_SECRET: TEST_JWT_SECRET, ENVIRONMENT: 'staging' };
@@ -163,11 +163,11 @@ async function runRegistrationTests() {
     assert.equal(claims.role, 'owner');
     assert.equal(claims.org, data.user.organization_id);
 
-    // Verify starter menu categories & products seeded
-    assert.ok(db.categories.size >= 2, 'Should seed starter categories');
-    assert.ok(db.products.size >= 5, 'Should seed starter products');
+    // New restaurant accounts must not receive fictional menu names, prices or tax rates.
+    assert.equal(db.categories.size, 0, 'Should not seed fictional starter categories');
+    assert.equal(db.products.size, 0, 'Should not seed fictional starter products');
 
-    console.log('✓ Test 1 Passed: Successful Registration & Starter Catalog Seeding');
+    console.log('✓ Test 1 Passed: Registration creates an empty merchant catalogue');
   }
 
   // Test 2: Reject Duplicate Email Registration
