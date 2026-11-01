@@ -1,7 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { ADMIN_OPERATORS, generateAdminToken, requireAdminAuth, requireAdminRole, AdminUser } from './auth';
-import { subscriptionService } from '../services/subscription';
+import { ADMIN_OPERATORS, generateAdminToken, isAdminAuthConfigured, requireAdminAuth, requireAdminRole } from './auth';
 import { mongoSyncService } from '../services/mongodb-sync';
 import { amazonS3Service } from '../services/amazon-s3';
 import { getDatabase } from '../db';
@@ -15,8 +14,8 @@ interface TenantRecord {
   name: string;
   contactEmail: string;
   contactPhone: string;
-  plan: 'starter' | 'pro' | 'enterprise';
-  status: 'trial' | 'active' | 'past_due' | 'suspended' | 'cancelled';
+  plan: 'starter' | 'pro' | 'enterprise' | 'unconfigured';
+  status: 'trial' | 'active' | 'past_due' | 'suspended' | 'cancelled' | 'unknown';
   terminalsCount: number;
   maxTerminals: number;
   city: string;
@@ -25,58 +24,16 @@ interface TenantRecord {
   lastActiveAt: string;
 }
 
-const MOCK_TENANTS: TenantRecord[] = [
-  {
-    id: 'store_bengaluru_01',
-    name: 'Brew & Byte Cafe',
-    contactEmail: 'manager@brewbyte.in',
-    contactPhone: '+919876543210',
-    plan: 'pro',
-    status: 'active',
-    terminalsCount: 2,
-    maxTerminals: 5,
-    city: 'Bengaluru',
-    state: 'Karnataka',
-    createdAt: '2026-01-15T10:00:00.000Z',
-    lastActiveAt: new Date().toISOString(),
-  },
-  {
-    id: 'store_mumbai_02',
-    name: 'Masala Street Kitchen',
-    contactEmail: 'billing@masalastreet.in',
-    contactPhone: '+919812345678',
-    plan: 'enterprise',
-    status: 'active',
-    terminalsCount: 6,
-    maxTerminals: 50,
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    createdAt: '2026-02-01T12:30:00.000Z',
-    lastActiveAt: new Date().toISOString(),
-  },
-  {
-    id: 'store_delhi_03',
-    name: 'Crust & Crumbs Bakery',
-    contactEmail: 'contact@crustcrumbs.in',
-    contactPhone: '+919988776655',
-    plan: 'starter',
-    status: 'trial',
-    terminalsCount: 1,
-    maxTerminals: 1,
-    city: 'New Delhi',
-    state: 'Delhi',
-    createdAt: '2026-03-01T08:00:00.000Z',
-    lastActiveAt: new Date().toISOString(),
-  },
-];
-
 /**
  * POST /api/admin/login
  * Operator login endpoint
  */
 router.post('/login', asyncHandler(async (req: Request, res: Response) => {
+  if (!isAdminAuthConfigured()) {
+    return res.status(503).json({ ok: false, error: 'Central admin authentication is not configured.' });
+  }
   const { email, password } = req.body;
-  if (!email || !password) {
+  if (!email || !password || typeof email !== 'string' || typeof password !== 'string') {
     return res.status(400).json({ ok: false, error: 'Email and password required.' });
   }
 
@@ -114,35 +71,39 @@ router.get('/me', requireAdminAuth, asyncHandler(async (req: Request, res: Respo
 /**
  * Helper to fetch the live local restaurant tenant from SQLite settings
  */
-function getLiveLocalTenant(): TenantRecord {
+function getLiveLocalTenant(): TenantRecord | null {
   try {
     const db = getDatabase();
     const rows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[];
-    const s: Record<string, string> = Object.fromEntries(rows.map(r => [r.key, r.value]));
+    const s: Record<string, string> = Object.fromEntries(rows.map((row) => [row.key, row.value]));
+    if (!s.store_id || !s.business_name) return null;
+
+    const validPlans = new Set(['starter', 'pro', 'enterprise']);
+    const validStatuses = new Set(['trial', 'active', 'past_due', 'suspended', 'cancelled']);
     return {
-      id: s.store_id || 'store_local_primary',
-      name: s.business_name || 'Order It Up Flagship',
-      contactEmail: s.contact_email || 'owner@orderitup.local',
-      contactPhone: s.phone || '+919876543210',
-      plan: (s.subscription_tier as any) || 'pro',
-      status: (s.subscription_status as any) || 'active',
-      terminalsCount: 1,
-      maxTerminals: 5,
-      city: s.city || 'Hyderabad',
-      state: s.state || 'Telangana',
-      createdAt: s.install_timestamp || '2026-01-01T10:00:00.000Z',
-      lastActiveAt: new Date().toISOString(),
+      id: s.store_id,
+      name: s.business_name,
+      contactEmail: s.contact_email || '',
+      contactPhone: s.phone || '',
+      plan: validPlans.has(s.subscription_tier) ? s.subscription_tier as TenantRecord['plan'] : 'unconfigured',
+      status: validStatuses.has(s.subscription_status) ? s.subscription_status as TenantRecord['status'] : 'unknown',
+      terminalsCount: 0,
+      maxTerminals: 0,
+      city: s.city || '',
+      state: s.state || '',
+      createdAt: s.install_timestamp || '',
+      lastActiveAt: s.last_active_at || '',
     };
   } catch {
-    return MOCK_TENANTS[0];
+    return null;
   }
 }
 
 function getAllTenants(): TenantRecord[] {
   const local = getLiveLocalTenant();
-  const remote = MOCK_TENANTS.filter(t => t.id !== local.id);
-  return [local, ...remote];
+  return local ? [local] : [];
 }
+
 
 /**
  * GET /api/admin/metrics
@@ -173,8 +134,7 @@ router.get('/metrics', requireAdminAuth, asyncHandler(async (_req: Request, res:
       activeStores: tenants.filter((t) => t.status === 'active').length,
       trialStores: tenants.filter((t) => t.status === 'trial').length,
       totalTerminals: tenants.reduce((acc, t) => acc + t.terminalsCount, 0),
-      estimatedMrrInr: 45000,
-      currency: 'INR',
+      revenueMetricsAvailable: false,
       cloudSync: {
         connected: mongoStatus.connected,
         dbName: mongoStatus.dbName,
@@ -214,6 +174,9 @@ router.post('/tenants/:id/plan', requireAdminAuth, requireAdminRole('SUPER_ADMIN
   const { plan, status } = req.body;
 
   const local = getLiveLocalTenant();
+  if (!local || (id !== local.id && id !== 'store_local_primary')) {
+    return res.status(404).json({ ok: false, error: 'Tenant not found in this runtime.' });
+  }
   if (id === local.id || id === 'store_local_primary') {
     const db = getDatabase();
     if (plan) {
@@ -235,19 +198,7 @@ router.post('/tenants/:id/plan', requireAdminAuth, requireAdminRole('SUPER_ADMIN
     });
   }
 
-  const tenant = MOCK_TENANTS.find((t) => t.id === id);
-  if (!tenant) {
-    return res.status(404).json({ ok: false, error: 'Tenant not found.' });
-  }
-
-  if (plan) tenant.plan = plan;
-  if (status) tenant.status = status;
-
-  res.json({
-    ok: true,
-    message: `Tenant ${tenant.name} updated successfully.`,
-    tenant,
-  });
+  return res.status(404).json({ ok: false, error: 'Tenant not found in this runtime.' });
 }));
 
 /**
