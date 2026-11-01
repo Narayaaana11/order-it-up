@@ -113,7 +113,7 @@ export default function Hero() {
                 className="w-full sm:w-auto"
               >
                 <a
-                  href="mailto:narayaaana11@gmail.com?subject=Order%20It%20Up%20Pilot%20Access"
+                  href="/pilot/"
                   className="w-full sm:w-auto h-14 px-8 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-base shadow-xl shadow-orange-500/25 hover:shadow-orange-500/40 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                 >
                   <span>Request Pilot Access</span>
@@ -140,7 +140,7 @@ export default function Hero() {
                 className="h-14 px-6 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-semibold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 shadow-xs"
               >
                 <Play className="w-4 h-4 text-orange-600 fill-orange-500" />
-                <span>Live POS Demo</span>
+                <span>Interactive POS Preview</span>
               </a>
             </Magnet>
           </div>
