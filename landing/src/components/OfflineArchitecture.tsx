@@ -56,6 +56,9 @@ export default function OfflineArchitecture() {
           <p className="mt-4 text-base sm:text-lg text-slate-600 leading-relaxed font-normal">
             The desktop architecture is designed to keep supported counter workflows on the local device. Optional connected features may require internet access, and availability depends on the installed build, hardware and network configuration.
           </p>
+          <p className="mt-4 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-xs leading-6 text-amber-900">
+            Interactive simulation only: this panel changes local demo state. It does not disconnect a real network, query an installed POS, read a live database or report live service health.
+          </p>
         </div>
 
         {/* Two-Column Architecture Showcase */}
