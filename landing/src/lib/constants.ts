@@ -73,7 +73,7 @@ export const CORE_FEATURES = [
     badge: "QSR & Counter Ready",
     title: "Sub-Second Counter Billing",
     description:
-      "Engineered for high-volume counter queues. Barcode scanner support, touch-optimized numpad, fractional weighing scale inputs, and split bills settled in under 3 seconds.",
+      "Engineered for high-volume counter queues. Barcode scanner support, touch-optimized numpad, fractional weighing scale inputs, and split-bill settlement workflows.",
     icon: "ShoppingCart",
     highlights: ["Speed cart search & scan", "Fractional scales (kg/g/lb)", "Hold & recall orders in 1 click"],
   },
@@ -180,7 +180,7 @@ export const ROLE_PERSONAS = [
       "Real-time table status monitoring (Available, Occupied, Billed)",
       "Tableside order taking and course firing from mobile phones",
       "Item modifier selection (Spice level, cooking temperature, allergies)",
-      "Zero-config 6-digit ephemeral PIN device pairing",
+      "PIN-based device pairing where enabled by the pilot build",
     ],
     accent: "amber",
   },
@@ -191,7 +191,7 @@ export const ROLE_PERSONAS = [
     badge: "LAN KDS :3002",
     icon: "ChefHat",
     responsibilities: [
-      "Dedicated touch-friendly KDS screen with zero browser lag",
+      "Touch-friendly KDS view for kitchen ticket handling",
       "One-tap ticket bumping from Pending to Preparing to Ready",
       "Color-coded SLA alert timers (<8m green, 8-15m amber, >15m red)",
       "Station routing: Bar, Oven, Grill, Fryer, Main Kitchen",
@@ -216,7 +216,7 @@ export const ROLE_PERSONAS = [
     id: "accountant",
     title: "Head Accountant",
     subtitle: "Financial & Reporting Workflows",
-    badge: "GST / VAT & Tally",
+    badge: "Reports & exports",
     icon: "FileSpreadsheet",
     responsibilities: [
       "Review configured tax summaries and transaction records",
