@@ -38,7 +38,7 @@ export function LegalPage({ title, description, children }: LegalPageProps) {
         <div className="mt-14 border-t border-neutral-800 pt-7 text-xs leading-6 text-neutral-500">
           <p className="font-semibold text-neutral-300">Operator details</p>
           <p className="mt-2">{legalConfig.operatorLegalName}</p>
-          <p>{legalConfig.correspondenceAddress}</p>
+          {legalConfig.correspondenceAddress ? <p>{legalConfig.correspondenceAddress}</p> : null}
           <p>Legal and privacy contact: {legalConfig.legalEmail}</p>
           <p>Support: {legalConfig.supportEmail}</p>
           {legalConfig.phone ? <p>Phone: {legalConfig.phone}</p> : null}

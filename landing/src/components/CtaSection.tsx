@@ -2,7 +2,6 @@
 
 import React from "react";
 import {
-  Laptop,
   ShieldCheck,
   CheckCircle2,
   HardDrive,
@@ -12,27 +11,13 @@ import {
 } from "lucide-react";
 import { HARDWARE_SPECS } from "@/lib/constants";
 import Squares from "@/components/reactbits/Squares";
-import StarBorder from "@/components/reactbits/StarBorder";
 import Magnet from "@/components/reactbits/Magnet";
 import SpotlightCard from "@/components/reactbits/SpotlightCard";
 import BlurText from "@/components/reactbits/BlurText";
 import ShinyText from "@/components/reactbits/ShinyText";
-import { getStoredUser } from "@/lib/auth";
-import { triggerOpenAuthModal, triggerOpenBillModal } from "@/lib/modalEvents";
+import { triggerOpenBillModal } from "@/lib/modalEvents";
 
 export default function CtaSection() {
-  const handlePlatformDownload = () => {
-    const user = getStoredUser();
-    if (!user) {
-      triggerOpenAuthModal("signup", "windows");
-    } else {
-      window.dispatchEvent(
-        new CustomEvent("orderitup_trigger_download", {
-          detail: { platform: "windows" },
-        })
-      );
-    }
-  };
   return (
     <section id="download" className="py-20 lg:py-28 relative overflow-hidden bg-white">
       {/* Background Interactive Squares Canvas */}
@@ -58,47 +43,29 @@ export default function CtaSection() {
         <div className="p-8 sm:p-12 lg:p-16 rounded-3xl bg-gradient-to-b from-orange-50/80 via-white to-white border border-orange-200 shadow-2xl text-center relative overflow-hidden backdrop-blur-xs">
           <div className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-orange-50 border border-orange-200 text-orange-700 text-xs font-semibold mb-6">
             <Sparkles className="w-3.5 h-3.5 text-orange-600" />
-            <ShinyText text="Ready for Immediate Deployment" speed={3.5} />
+            <ShinyText text="Early-access pilot • feedback welcome" speed={3.5} />
           </div>
 
           <h2 className="text-3xl sm:text-5xl lg:text-6xl font-extrabold text-slate-900 tracking-tight max-w-4xl mx-auto leading-tight">
             <BlurText
-              text="Ready to Eliminate Restaurant POS Downtime Forever?"
+              text="Help Shape the Next Generation of Restaurant Workflows"
               delay={40}
               className="justify-center"
             />
           </h2>
 
           <p className="mt-6 text-base sm:text-xl text-slate-600 max-w-2xl mx-auto leading-relaxed font-normal">
-            Download Order It Up today. Start billing in minutes on your Windows counter terminal
-            (Windows 10/11 64-bit / ARM64) — 100% offline with zero cloud lock-in.
+            Order It Up is currently being evaluated with pilot users. Contact the pilot team to discuss your restaurant workflows, supported setup and the features available in the current build.
           </p>
 
-          {/* Windows-Only Download CTA with React Bits StarBorder & Magnet */}
+          {/* Pilot enquiry and sample receipt preview */}
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
-            <Magnet padding={40} magnetStrength={3}>
-              <StarBorder color="#F07928" speed="4.5s" thickness={2}>
-                <a
-                  id="download-windows"
-                  href="#download-windows"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    handlePlatformDownload();
-                  }}
-                  className="h-16 px-8 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-sm shadow-xl shadow-orange-500/25 active:scale-[0.98] transition-all flex items-center gap-3.5 cursor-pointer"
-                >
-                  <Laptop className="w-6 h-6" />
-                  <div className="text-left">
-                    <div className="text-[10px] uppercase tracking-wider text-orange-100 font-semibold">
-                      Download Installer for
-                    </div>
-                    <div className="text-base font-extrabold">Windows 10 / 11 (x64 / ARM64)</div>
-                  </div>
-                </a>
-              </StarBorder>
-            </Magnet>
-
-            {/* 80mm Bill Template Direct CTA */}
+            <a
+              href="mailto:narayaaana11@gmail.com?subject=Order%20It%20Up%20Pilot%20Access"
+              className="inline-flex h-16 items-center justify-center rounded-xl bg-[#F07928] px-8 text-sm font-bold text-white shadow-xl shadow-orange-500/25 transition-all hover:bg-[#EA580C] active:scale-[0.98]"
+            >
+              Request Pilot Access
+            </a>
             <Magnet padding={35} magnetStrength={3}>
               <button
                 type="button"
@@ -116,27 +83,23 @@ export default function CtaSection() {
             </Magnet>
           </div>
 
-          {/* OS Platform Notice */}
-          <div className="mt-4 flex items-center justify-center">
-            <span className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100/90 border border-slate-200 text-[11px] text-slate-600">
-              <span className="w-2 h-2 rounded-full bg-emerald-500" />
-              Windows-only desktop installer (Order-It-Up-Setup.exe) • Cloud HQ accessible via browser on all platforms
-            </span>
-          </div>
+          <p className="mt-4 text-xs text-slate-500">
+            No public installer is available from this website yet. Pilot access is arranged individually.
+          </p>
 
           {/* Reassurance Checklist */}
           <div className="mt-8 flex flex-wrap items-center justify-center gap-6 text-xs text-slate-600">
             <span className="flex items-center gap-1.5 font-medium">
               <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              100% Local POS Engine
+              Local-first desktop architecture
             </span>
             <span className="flex items-center gap-1.5 font-medium">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
-              No Credit Card or Subscription Required
+              Pilot terms shared before access
             </span>
             <span className="flex items-center gap-1.5 font-medium">
               <HardDrive className="w-4 h-4 text-orange-600" />
-              Your Customer Data Stays on Your Machine
+              Data handling depends on enabled features
             </span>
           </div>
         </div>
@@ -146,13 +109,13 @@ export default function CtaSection() {
           <div className="text-center max-w-2xl mx-auto mb-10">
             <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-slate-100 border border-slate-200 text-slate-700 text-xs font-mono mb-3">
               <Printer className="w-3.5 h-3.5 text-orange-600" />
-              <span>Plug-and-Play Hardware Specifications</span>
+              <span>Hardware Compatibility Under Evaluation</span>
             </div>
             <h3 className="text-2xl sm:text-3xl font-extrabold text-slate-900 tracking-tight">
-              Runs on the POS Hardware You Already Own
+              Check Your Hardware Before Joining the Pilot
             </h3>
             <p className="text-xs sm:text-sm text-slate-600 mt-2">
-              No proprietary terminals or expensive vendor lock-in hardware required.
+              Compatibility varies by model, firmware, operating system and connection. Ask the pilot team to confirm your setup before relying on a device.
             </p>
           </div>
 

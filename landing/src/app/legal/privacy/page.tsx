@@ -14,7 +14,7 @@ export default function PrivacyPage() {
     >
       <LegalSection title="1. Who is responsible">
         <p>
-          The Order It Up product pilot is operated by {legalConfig.operatorLegalName} ({legalConfig.operatorDescription}), at {legalConfig.correspondenceAddress} (the “Operator”). The Operator's privacy contact is {legalConfig.legalEmail}. Complete these identity and contact details before making this policy publicly available.
+          The Order It Up product pilot is operated by {legalConfig.operatorLegalName} ({legalConfig.operatorDescription}) (the “Operator”). The Operator's privacy and grievance contact is {legalConfig.legalEmail}. Complete these identity and contact details before making this policy publicly available.
         </p>
         <p>
           A restaurant or other business using its own installation decides why it collects customer, employee, supplier and transaction information. Depending on the deployment, that business may be the organisation responsible for that information. The Operator may act separately for information collected for its own website, pilot administration, support and security, and may process restaurant information only on the restaurant's documented instructions where a connected feature is enabled. The actual role depends on the activity, not just the label used in a contract.
@@ -24,12 +24,12 @@ export default function PrivacyPage() {
       <LegalSection title="2. Information that may be processed">
         <p>Depending on which parts of the pilot a business chooses to use, information may include:</p>
         <LegalList items={[
-          "Pilot and account details: business or restaurant name, contact person's name, business email, phone number, pilot invitation details, account identifiers and support correspondence.",
+          "Pilot enquiries sent to the published contact email: the sender's name, business or restaurant name, contact details and the information included in the enquiry.",
           "Staff and access details: staff names or display names, usernames, role assignments, login and access events, and security-related records.",
           "Restaurant operations: menu items, product descriptions, prices, tables, orders, discounts, bills, cash closures, kitchen tickets, delivery status, inventory or other records entered by the restaurant.",
           "Customer and supplier details entered by the restaurant: for example, a customer name, phone number, email address, order notes, business contact or delivery details. The restaurant should collect only what it needs and is permitted to use.",
           "Technical and diagnostic information, if enabled or supplied: device and app version, operating-system details, error logs, timestamps, network diagnostics and information voluntarily attached to a support request.",
-          "Website information: information a visitor submits through a contact, waitlist or pilot request form, plus basic server/security logs generated when the website is accessed."
+          "Website technical information: basic hosting, access and security logs generated when the public website is accessed. The current landing page does not provide an on-site account registration or pilot application form."
         ]} />
         <p>
           Do not enter full card numbers, CVVs, PINs, net-banking credentials, passwords belonging to other services, Aadhaar numbers, health data or other sensitive information unless the relevant workflow expressly requires it and the Operator has provided a separate lawful and secure collection notice. Do not send such data in support tickets or email.
@@ -142,7 +142,7 @@ export default function PrivacyPage() {
 
       <LegalSection title="14. Privacy contact">
         <p>
-          Privacy and grievance contact: {legalConfig.legalEmail}. Correspondence address: {legalConfig.correspondenceAddress}. Operator: {legalConfig.operatorLegalName}. Please include “Privacy Request — Order It Up” in the subject line.
+          Privacy and grievance contact: {legalConfig.legalEmail}. Operator: {legalConfig.operatorLegalName}. Please include “Privacy Request — Order It Up” in the subject line.
         </p>
       </LegalSection>
     </LegalPage>

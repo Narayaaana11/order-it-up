@@ -39,38 +39,38 @@ const HARDWARE_INTEGRATIONS = [
     color: "text-purple-600 bg-purple-50 border-purple-200",
   },
   {
-    name: "Star Micronics TSP100 & TSP650",
-    desc: "Line Mode Thermal Certified",
+    name: "Star Micronics printer models (testing required)",
+    desc: "Compatibility varies by model and configuration",
     icon: Printer,
     color: "text-sky-600 bg-sky-50 border-sky-200",
   },
   {
-    name: "Epson TM-T88 & TM-T20",
-    desc: "Native GS V 0 Raster Cut",
+    name: "Epson printer models (testing required)",
+    desc: "Protocol and feature support varies by model",
     icon: Printer,
     color: "text-blue-600 bg-blue-50 border-blue-200",
   },
   {
-    name: "Sunmi POS & Android Tablets",
+    name: "Sunmi POS and Android tablets (testing required)",
     desc: "LAN Browser Waiter Station",
     icon: Cpu,
     color: "text-rose-600 bg-rose-50 border-rose-200",
   },
   {
     name: "Windows 10 / 11 (x64 & ARM)",
-    desc: "Zero-Dependency Native Desktop",
+    desc: "Build and runtime requirements vary",
     icon: Laptop,
     color: "text-indigo-600 bg-indigo-50 border-indigo-200",
   },
   {
-    name: "macOS (Apple Silicon & Intel)",
-    desc: "Universal POS Desktop Binary",
+    name: "macOS (availability to be confirmed)",
+    desc: "Platform support under evaluation",
     icon: Apple,
     color: "text-slate-800 bg-slate-100 border-slate-300",
   },
   {
-    name: "Linux (Ubuntu & Debian)",
-    desc: "Lightweight Counter Terminal",
+    name: "Linux (availability to be confirmed)",
+    desc: "Platform support under evaluation",
     icon: Terminal,
     color: "text-teal-600 bg-teal-50 border-teal-200",
   },
@@ -85,7 +85,7 @@ export default function HardwareMarquee() {
 
       <div className="max-w-7xl mx-auto px-4 mb-3 text-center">
         <span className="text-[11px] font-mono tracking-widest uppercase text-slate-400 font-semibold">
-          Certified Hardware &amp; Local Protocol Stack • 100% Offline Compatible
+          Hardware and Local Protocol Compatibility • Under Evaluation
         </span>
       </div>
 

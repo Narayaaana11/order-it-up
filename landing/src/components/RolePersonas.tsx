@@ -58,8 +58,8 @@ const PERSONA_MEDIA: Record<string, PersonaMedia> = {
   accountant: {
     image:
       "https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=1400&q=85",
-    tag: "Financial & Accounting Operations",
-    metric: "GST Reports • Revenue Reconciliation",
+    tag: "Financial & Reporting Workflows",
+    metric: "Tax Summaries • Revenue Reconciliation",
   },
 
   driver: {
@@ -191,7 +191,7 @@ export default function RolePersonas() {
 
               <div className="flex items-center gap-2 text-xs text-slate-500">
                 <Lock className="h-3.5 w-3.5 text-orange-600" />
-                <span>Role-Scoped Security Token</span>
+                <span>Role-specific workflow preview</span>
               </div>
             </div>
 

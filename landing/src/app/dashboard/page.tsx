@@ -32,6 +32,7 @@ import {
   Activity,
 } from "lucide-react";
 import { BRAND } from "@/lib/constants";
+import ModalProvider from "@/components/ModalProvider";
 import { AuthUser, getStoredUser, setStoredUser } from "@/lib/auth";
 import {
   triggerOpenBillModal,
@@ -346,6 +347,11 @@ function DashboardShell() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
+      <ModalProvider />
+      <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs leading-5 text-amber-900 sm:text-sm">
+        <strong>Demo sandbox — sample data only.</strong> This browser view is for product evaluation and does not represent a live restaurant account, production authentication or live system telemetry. Do not enter real customer, employee or financial information.
+        <Link href="/legal/pilot-disclaimer" className="ml-2 font-bold underline">Pilot disclaimer</Link>
+      </div>
       {/* ===================================================================== */}
       {/* MASTER HEADER                                                         */}
       {/* ===================================================================== */}
@@ -373,7 +379,7 @@ function DashboardShell() {
                     {BRAND.name}
                   </span>
                   <span className="text-[10px] font-bold text-orange-600 uppercase tracking-widest mt-0.5">
-                    Unified Command
+                    DEMO SANDBOX
                   </span>
                 </div>
               </Link>
@@ -761,14 +767,13 @@ function DashboardShell() {
                 Founder Mode
               </span>
               <span className="font-semibold text-slate-200">
-                Order It Up SaaS Platform Administration & Multi-Tenant Control
-                Plane
+                Prototype administration view — demo only
               </span>
             </div>
             <div className="hidden sm:flex items-center gap-4 text-slate-400">
-              <span>Isolated S3 Buckets Active</span>
+              <span>Illustrative settings</span>
               <span>•</span>
-              <span>Hardware-Bound POS Licenses</span>
+              <span>Not connected to production licensing</span>
             </div>
           </div>
         </section>
@@ -791,17 +796,17 @@ function DashboardShell() {
           <div className="flex items-center gap-2">
             <span className="font-bold text-slate-700">{BRAND.name}</span>
             <span>•</span>
-            <span>Desktop POS & Unified Hybrid Cloud</span>
+            <span>Interactive dashboard preview • sample data</span>
             <span>•</span>
             <span className="text-emerald-700 font-semibold flex items-center gap-1">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Offline-First Guaranteed</span>
+              <span>Offline-first design under evaluation</span>
             </span>
           </div>
 
           <div className="flex items-center gap-4">
             <span className="text-[11px] text-slate-400">
-              Indian GST SAC 996331 • FSSAI 10019011000234
+              Tax and food-business fields are examples only
             </span>
             <Link
               href="/"

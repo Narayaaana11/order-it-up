@@ -46,6 +46,18 @@ jobs:
       - name: Frontend Build (Next.js Static Export)
         run: npm run build:frontend
 
+      - name: Install Landing Dependencies
+        working-directory: landing
+        run: npm ci
+
+      - name: Landing Lint
+        working-directory: landing
+        run: npm run lint
+
+      - name: Landing Production Build
+        working-directory: landing
+        run: npm run build
+
       - name: Backend Build (TypeScript)
         run: npm run build
 
