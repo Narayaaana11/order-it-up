@@ -32,6 +32,7 @@ import {
   Activity,
 } from "lucide-react";
 import { BRAND } from "@/lib/constants";
+import ModalProvider from "@/components/ModalProvider";
 import { AuthUser, getStoredUser, setStoredUser } from "@/lib/auth";
 import {
   triggerOpenBillModal,
@@ -346,6 +347,7 @@ function DashboardShell() {
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] text-slate-900 flex flex-col font-sans selection:bg-orange-500 selection:text-white">
+      <ModalProvider />
       <div className="border-b border-amber-200 bg-amber-50 px-4 py-3 text-center text-xs leading-5 text-amber-900 sm:text-sm">
         <strong>Demo sandbox — sample data only.</strong> This browser view is for product evaluation and does not represent a live restaurant account, production authentication or live system telemetry. Do not enter real customer, employee or financial information.
         <Link href="/legal/pilot-disclaimer" className="ml-2 font-bold underline">Pilot disclaimer</Link>
