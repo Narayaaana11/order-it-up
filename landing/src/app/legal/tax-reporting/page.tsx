@@ -100,7 +100,7 @@ export default function TaxReportingPage() {
 
       <LegalSection title="11. Contact">
         <p>
-          Questions about a product feature or export: {legalConfig.supportEmail}. Tax decisions should be referred to your qualified tax professional. Legal notices to the Operator: {legalConfig.legalEmail}, {legalConfig.correspondenceAddress}.
+          Questions about a product feature or export: {legalConfig.supportEmail}. Tax decisions should be referred to your qualified tax professional. Legal notices to the Operator: {legalConfig.legalEmail}.
         </p>
       </LegalSection>
     </LegalPage>
