@@ -33,6 +33,7 @@ export const metadata: Metadata = {
     "Restaurant Billing Software",
   ],
   
+  alternates: { canonical: "/" },
   openGraph: {
     title: "Order It Up — Offline-First Restaurant POS",
     description: "An early-access pilot exploring offline-first restaurant workflows, local billing, kitchen display and hardware compatibility.",
