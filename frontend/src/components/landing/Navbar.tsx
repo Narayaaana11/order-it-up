@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import {
   Menu,
   X,
@@ -17,7 +16,6 @@ import { useAuthStore } from "@/store/auth";
 import { getLandingPage } from "@/components/layout/AuthGuard";
 
 export default function Navbar() {
-  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const mounted = React.useSyncExternalStore(
     () => () => {},
@@ -104,11 +102,17 @@ export default function Navbar() {
             ) : (
               <div className="flex items-center gap-2.5">
                 <Link
-                  href="/auth/register"
+                  href="https://orderitup.pages.dev/pilot/"
                   className="inline-flex items-center justify-center gap-1.5 px-3.5 py-2 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-md shadow-orange-500/20 hover:shadow-lg hover:shadow-orange-500/30 active:scale-[0.98] transition-all whitespace-nowrap"
                 >
                   <UserPlus className="w-4 h-4" />
-                  <span>Sign Up</span>
+                  <span>Request Pilot Access</span>
+                </Link>
+                <Link
+                  href="/auth/login"
+                  className="inline-flex items-center justify-center px-3 py-2 rounded-xl border border-slate-300 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                >
+                  Sign In
                 </Link>
               </div>
             )}
@@ -171,12 +175,19 @@ export default function Navbar() {
               ) : (
                 <div className="flex flex-col gap-2">
                   <Link
-                    href="/auth/register"
+                    href="https://orderitup.pages.dev/pilot/"
                     onClick={() => setMobileMenuOpen(false)}
                     className="py-2.5 px-3 rounded-xl font-bold text-sm text-white bg-gradient-to-r from-orange-500 to-amber-500 hover:from-orange-600 hover:to-amber-600 shadow-sm flex items-center justify-center gap-1.5 active:scale-[0.98] transition-all"
                   >
                     <UserPlus className="w-3.5 h-3.5" />
-                    <span>Sign Up</span>
+                    <span>Request Pilot Access</span>
+                  </Link>
+                  <Link
+                    href="/auth/login"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="rounded-xl border border-slate-300 px-3 py-2.5 text-center text-sm font-semibold text-slate-700"
+                  >
+                    Sign In
                   </Link>
                 </div>
               )}
@@ -193,23 +204,8 @@ export default function Navbar() {
                 </a>
               ))}
 
-              {/* Download */}
-              <div className="pt-2 border-t border-slate-200 flex flex-col gap-2">
-                <a
-                  href="#download-windows"
-                  onClick={(e) => {
-                    setMobileMenuOpen(false);
-                    handleDownloadClick(e);
-                  }}
-                  className="w-full flex items-center justify-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm text-slate-800 bg-slate-100 hover:bg-slate-200 border border-slate-200 shadow-xs active:scale-[0.98] cursor-pointer"
-                >
-                  
-                  <span>Request Pilot Access</span>
-                </a>
-                <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500 py-1">
-                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>Early-access pilot • reviewed individually</span>
-                </div>
+              <div className="border-t border-slate-200 pt-3 text-center text-xs text-slate-500">
+                Pilot access is reviewed individually.
               </div>
 
             </div>
