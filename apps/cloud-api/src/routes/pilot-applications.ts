@@ -1,6 +1,6 @@
 import { Env } from './pairing';
 import { checkRateLimit, createRateLimitResponse, getClientIp } from '../rate-limit';
-import { JWTPayload } from '../auth';
+import type { JWTPayload } from '../auth';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const BUSINESS_TYPES = new Set(['restaurant', 'cafe', 'qsr', 'bakery', 'cloud-kitchen', 'hotel', 'other']);
@@ -10,9 +10,14 @@ function clean(value: unknown, maxLength: number): string {
 }
 
 function escapeHtml(value: string): string {
-  return value.replace(/[&<>"']/g, (character) => ({
-    '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
-  }[character] || character));
+  const entities: Record<string, string> = {
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  };
+  return value.replace(/[&<>"']/g, (character) => entities[character] || character);
 }
 
 export async function handleCreatePilotApplication(request: Request, env: Env): Promise<Response> {
