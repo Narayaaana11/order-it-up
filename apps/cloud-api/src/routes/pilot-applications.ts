@@ -1,4 +1,4 @@
-import { Env } from './pairing';
+import type { Env } from './pairing';
 import { checkRateLimit, createRateLimitResponse, getClientIp } from '../rate-limit';
 import type { JWTPayload } from '../auth';
 
