@@ -4,6 +4,8 @@
 
 import { Env, handleGeneratePairing, handleClaimPairing } from './routes/pairing';
 import { handleRegisterTenant } from './routes/registration';
+import { handleGoogleAuth } from './routes/google-auth';
+import { handleCreatePilotApplication, handleListPilotApplications } from './routes/pilot-applications';
 import { handleIngestSyncEvents } from './routes/sync';
 import { handleAnalyticsOverview } from './routes/analytics';
 import { handleAccountantClosures, handleAccountantTaxSummary, handleTallyExport } from './routes/accountant';
@@ -257,6 +259,14 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     return handleRegisterTenant(request, env);
   }
 
+  // Public Google identity sign-in/registration and public pilot enquiry intake.
+  if (path === '/api/auth/google' && method === 'POST') {
+    return handleGoogleAuth(request, env);
+  }
+  if (path === '/api/pilot-applications' && method === 'POST') {
+    return handleCreatePilotApplication(request, env);
+  }
+
   // 3. Demo / Initializer Setup Seed
   if (path === '/api/auth/setup-demo' && method === 'POST') {
     return handleSetupDemo(request, env);
@@ -279,6 +289,11 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
 
   if (!claims) {
     return Response.json({ error: 'Unauthorized: valid cloud user token required' }, { status: 401 });
+  }
+
+  // Pilot enquiries are private operational data. The route enforces its own admin email allowlist.
+  if (path === '/api/pilot-applications' && method === 'GET') {
+    return handleListPilotApplications(request, env, claims);
   }
 
   const orgId = claims.org;
