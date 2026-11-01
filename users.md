@@ -56,46 +56,17 @@ The system features **10 primary operational personas** categorized into Central
 
 ---
 
-## 3. Seed & Demo Credentials Reference
+## 3. Account Provisioning & Authentication
 
-### 3.1 Central SaaS Control Plane Operators (In-Memory / Seed)
-These operators manage the central multi-tenant cloud control plane (`main/admin/auth.ts`).
+Order It Up does not ship public shared operator credentials or a production demo-password list.
 
-| Operator Name | Email Address | Role | Default Password | Environment |
-| :--- | :--- | :--- | :--- | :--- |
-| **Super Administrator** | `admin@orderitup.in` | `SUPER_ADMIN` | `AdminPass123!` | SaaS Production & Staging |
-| **Super Administrator (Dev)** | `superadmin@orderitup.in` | `SUPER_ADMIN` | `AdminPass123!` | Local Dev & Staging |
-| **Operations Admin** | `admin@orderitup.local` | `ADMIN` | `AdminPass123!` | Local Offline Engine |
-| **Finance & Billing Lead** | `finance@orderitup.in` | `FINANCE` | `AdminPass123!` | Cloud HQ |
-| **Technical Support Lead** | `support@orderitup.in` | `SUPPORT` | `AdminPass123!` | Cloud HQ |
-| **Compliance Auditor** | `readonly@orderitup.in` | `READ_ONLY` | `AdminPass123!` | Cloud HQ |
+- **Restaurant owners and staff:** create accounts through the configured cloud registration flow. Passwords are stored as password hashes; never share or commit real passwords.
+- **Google sign-in:** requires a Google Identity Services Web client ID in the frontend build and the matching `GOOGLE_CLIENT_ID` Worker variable. Google identity tokens are verified by the Cloud API before an account is linked or created.
+- **Central SaaS operators:** provision named operators explicitly with `OIU_ADMIN_OPERATORS_JSON`, using bcrypt password hashes, and set `OIU_ADMIN_JWT_SECRET` to a strong secret of at least 32 characters. There are no fallback operators or default admin passwords. Central admin login remains disabled until both settings are valid.
+- **Local POS owner:** create the initial owner through the local setup wizard.
+- **Manager authorization:** set and rotate PINs from the authenticated local staff/permissions settings. Do not rely on a shared default PIN.
 
----
-
-### 3.2 Cloud Edge Multi-Location Staging Organization
-Provisioned under organization ID `org_demo_showcase_01` (Cloudflare D1 Edge Worker):
-
-| Persona | Email Address | Role Key | Password / Token | Portal / Client |
-| :--- | :--- | :--- | :--- | :--- |
-| **Primary Organization Owner** | `demo.owner@orderitup.in` | `owner` | `DemoOwner2026!` | Web Cloud HQ & Owner Dashboard |
-| **Branch Operations Manager** | `demo.manager@orderitup.in` | `manager` | `DemoManager2026!` | Web Dashboard & Desktop App |
-| **Head Accountant** | `demo.accountant@orderitup.in` | `accountant` | `DemoAccountant2026!` | Web Cloud Dashboard (`/reports`) |
-| **Lead Counter Cashier** | `demo.cashier@orderitup.in` | `cashier` | `DemoCashier2026!` | **Desktop POS Client** |
-| **Floor Captain / Waiter** | `demo.server@orderitup.in` | `server` | `DemoServer2026!` | **Flutter Mobile App** |
-| **Executive Kitchen Chef** | `demo.chef@orderitup.in` | `chef` | `DemoChef2026!` | **Flutter KDS / Standalone KDS** |
-
----
-
-### 3.3 Desktop POS Client Local SQLite Store & Master PINs
-For offline-first local deployment running on SQLite (`dev-server.js` or packaged Electron app):
-
-| User / Function | Identifier | Default Credential / PIN | Details |
-| :--- | :--- | :--- | :--- |
-| **Initial Local Owner** | `owner@orderitup.local` | Configured during initial `/setup` wizard | Has root control over local SQLite database. |
-| **Manager Authorization PIN** | Master PIN | `1234` or `9999` (Configurable in Settings) | Authorizes bill refunds, manager discounts, and shift audits. |
-| **Demo Manager** | `manager@orderitup.local` | Seeded inactive with random hash | Activated via Owner staff settings (`/staff`). |
-| **Demo Cashier** | `cashier@orderitup.local` | Seeded inactive with random hash | Activated via Owner staff settings (`/staff`). |
-| **Demo Chef** | `chef@orderitup.local` | Seeded inactive with random hash | Activated via Owner staff settings (`/staff`). |
+Never put production passwords, API keys, signing secrets, or reusable session tokens in this repository or in public documentation.
 
 ---
 
