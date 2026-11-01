@@ -30,7 +30,7 @@ function loadAdminOperators(): ConfiguredAdminOperator[] {
         typeof candidate.email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(candidate.email) &&
         typeof candidate.name === 'string' && candidate.name.length > 0 &&
         typeof candidate.role === 'string' && roles.has(candidate.role as AdminRole) &&
-        typeof candidate.passwordHash === 'string' && /^\\$2[aby]\\$\\d{2}\\$/.test(candidate.passwordHash);
+        typeof candidate.passwordHash === 'string' && ['$2a$', '$2b$', '$2y$'].some((prefix) => candidate.passwordHash.startsWith(prefix)) && candidate.passwordHash.length >= 50;
     });
   } catch {
     return [];
