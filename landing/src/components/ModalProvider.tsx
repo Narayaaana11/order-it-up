@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import BillTemplateModal from "@/components/BillTemplateModal";
 import CredentialsModal from "@/components/CredentialsModal";
-import { BillFormat } from "@/lib/modalEvents";
+import type { BillFormat } from "@/lib/modalEvents";
 
 export default function ModalProvider() {
   const [billOpen, setBillOpen] = useState(false);
