@@ -54,6 +54,7 @@ Current local work also adds Cloud D1 migration 0019 for authoritative order com
 | `npm run check:mobile-cloud` | Static parity: 36 mobile endpoints classified as Cloud/local-only/partner-gated |
 | `npm run test:cloud-surface` | Web navigation hides desktop-only settings/WhatsApp/AI/aggregator pages in Cloud mode |
 | `npm run check:tablet-android` | Android manifest backup/cleartext hardening, INTERNET permission, app id and POS start path |
+| `npm run verify:platform` | One-command platform gate: release inputs, D1 rehearsal, Cloud suites, release gates, mobile parity, tablet hardening, Worker bundle |
 | `npm run check:cloud-worker` | Wrangler dry-run production bundle (477.58 KiB upload / 92.05 KiB gzip) with the real D1 binding |
 | `npm run check:cloud-release` | 38 release-input checks: migration continuity, readiness tables, CORS/secrets safety, staging isolation, script presence |
 

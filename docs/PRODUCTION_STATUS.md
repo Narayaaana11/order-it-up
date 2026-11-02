@@ -23,6 +23,7 @@ The product surface is implemented and locally verified across desktop, Cloud, w
 | `npm run check:cloud-release` | 41/41 |
 | `npm run check:d1-rehearsal` | 8/8 — synthetic legacy baseline: naive replay fails closed, ledger-baseline + 0008–0025 applies, membership repair and readiness pass |
 | `npm run test:release-config` | pass — desktop draft-release workflow, Electron runtime xattr, release asset verifier, release gate |
+| `npm run verify:platform` | pass — one command running release inputs, D1 rehearsal, all Cloud suites, release gates, mobile parity, tablet hardening and the Worker bundle |
 | `npm run check:cloud-worker` | bundles at ~511 KiB / ~99 KiB gzip |
 | React/web export, landing build, backend build, Electron runtime/artifact checks | pass |
 | Desktop `electron-builder --dir` packaging | pass (unpacked Windows app) |
