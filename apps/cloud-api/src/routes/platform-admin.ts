@@ -355,6 +355,181 @@ async function handleTenantDetail(tenantId: string, env: Env): Promise<Response>
   }
 }
 
+
+async function parseAdminJson(request: Request): Promise<any> {
+  try { return await request.json(); }
+  catch { return null; }
+}
+
+function validReason(value: unknown): value is string {
+  return typeof value === 'string' && value.trim().length >= 10 && value.trim().length <= 500;
+}
+
+async function handleUpdateTenantAccountStatus(
+  request: Request,
+  env: Env,
+  actorEmail: string,
+  organizationId: string,
+): Promise<Response> {
+  const body = await parseAdminJson(request);
+  const nextStatus = typeof body?.account_status === 'string' ? body.account_status : '';
+  const reason = typeof body?.reason === 'string' ? body.reason.trim() : '';
+  if (!['active', 'suspended', 'closed'].includes(nextStatus) || !validReason(reason)) {
+    return Response.json({
+      error: 'account_status must be active, suspended or closed, and a reason of at least 10 characters is required.',
+    }, { status: 400 });
+  }
+
+  const current = await env.DB.prepare(
+    'SELECT id, name, account_status FROM organizations WHERE id = ?'
+  ).bind(organizationId).first<any>();
+  if (!current) return Response.json({ error: 'Tenant not found' }, { status: 404 });
+
+  if (current.account_status === nextStatus) {
+    return Response.json({ ok: true, changed: false, tenant: current, message: 'Account status is already set to this value.' });
+  }
+
+  const now = new Date().toISOString();
+  const auditId = crypto.randomUUID();
+  const before = { account_status: current.account_status };
+  const after = { account_status: nextStatus };
+  await env.DB.batch([
+    env.DB.prepare('UPDATE organizations SET account_status = ?, updated_at = ? WHERE id = ?')
+      .bind(nextStatus, now, organizationId),
+    env.DB.prepare(`
+      INSERT INTO platform_admin_audit_log
+        (id, actor_email, action, organization_id, reason, before_json, after_json, created_at)
+      VALUES (?, ?, 'tenant.account_status.changed', ?, ?, ?, ?, ?)
+    `).bind(auditId, actorEmail, organizationId, reason, JSON.stringify(before), JSON.stringify(after), now),
+  ]);
+
+  return Response.json({
+    ok: true,
+    changed: true,
+    tenant: { id: current.id, name: current.name, account_status: nextStatus },
+    audit_id: auditId,
+  });
+}
+
+async function handleUpdateTenantSubscription(
+  request: Request,
+  env: Env,
+  actorEmail: string,
+  organizationId: string,
+): Promise<Response> {
+  const body = await parseAdminJson(request);
+  const reason = typeof body?.reason === 'string' ? body.reason.trim() : '';
+  const planCode = typeof body?.plan_code === 'string' ? body.plan_code.trim().toLowerCase() : '';
+  const billingCycle = body?.billing_cycle === 'yearly' ? 'yearly' : body?.billing_cycle === 'monthly' ? 'monthly' : '';
+  const requestedStatus = typeof body?.status === 'string' ? body.status.trim().toLowerCase() : '';
+
+  if (!planCode || !validReason(reason) ||
+      (requestedStatus && !['trial', 'active', 'past_due', 'grace_period', 'suspended', 'cancelled', 'expired'].includes(requestedStatus))) {
+    return Response.json({
+      error: 'A valid plan_code and a reason of at least 10 characters are required. Subscription status must be a supported lifecycle state.',
+    }, { status: 400 });
+  }
+
+  const [organization, plan] = await Promise.all([
+    env.DB.prepare('SELECT id, name, account_status FROM organizations WHERE id = ?')
+      .bind(organizationId).first<any>(),
+    env.DB.prepare('SELECT code, name, currency, monthly_price_minor, yearly_price_minor, is_active FROM saas_plans WHERE code = ?')
+      .bind(planCode).first<any>(),
+  ]);
+  if (!organization) return Response.json({ error: 'Tenant not found' }, { status: 404 });
+  if (!plan || Number(plan.is_active) !== 1) return Response.json({ error: 'Subscription plan not found or inactive' }, { status: 404 });
+
+  const current = await env.DB.prepare(
+    'SELECT * FROM organization_subscriptions WHERE organization_id = ?'
+  ).bind(organizationId).first<any>();
+
+  const cycle = billingCycle || current?.billing_cycle || 'monthly';
+  const amountMinor = Number(cycle === 'yearly' ? plan.yearly_price_minor : plan.monthly_price_minor);
+  if (!Number.isSafeInteger(amountMinor) || amountMinor < 0) {
+    return Response.json({ error: 'The selected plan has an invalid stored price.' }, { status: 500 });
+  }
+
+  const nextStatus = requestedStatus || current?.status || 'trial';
+  // A platform-admin override must never impersonate a provider-confirmed payment.
+  // Only a payment verification/webhook may transition a non-active subscription to active.
+  if (nextStatus === 'active' && current?.status !== 'active') {
+    return Response.json({
+      error: 'Paid subscription activation requires verified billing-provider settlement. This admin endpoint cannot mark an unpaid subscription as active.',
+      code: 'PAYMENT_VERIFICATION_REQUIRED',
+    }, { status: 409 });
+  }
+
+  const now = new Date().toISOString();
+  const subscriptionId = current?.id || crypto.randomUUID();
+  const eventId = crypto.randomUUID();
+  const auditId = crypto.randomUUID();
+  const trialEndsAt = nextStatus === 'trial'
+    ? (current?.status === 'trial' && current?.trial_ends_at
+      ? current.trial_ends_at
+      : new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString())
+    : (current?.trial_ends_at || null);
+
+  const before = current ? {
+    plan_code: current.plan_code,
+    status: current.status,
+    billing_cycle: current.billing_cycle,
+    currency: current.currency,
+    amount_minor: current.amount_minor,
+  } : null;
+  const after = {
+    plan_code: planCode,
+    status: nextStatus,
+    billing_cycle: cycle,
+    currency: plan.currency,
+    amount_minor: amountMinor,
+  };
+
+  await env.DB.batch([
+    env.DB.prepare(`
+      INSERT INTO organization_subscriptions
+        (id, organization_id, plan_code, status, billing_cycle, currency, amount_minor,
+         trial_ends_at, current_period_start, current_period_end, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      ON CONFLICT(organization_id) DO UPDATE SET
+        plan_code = excluded.plan_code,
+        status = excluded.status,
+        billing_cycle = excluded.billing_cycle,
+        currency = excluded.currency,
+        amount_minor = excluded.amount_minor,
+        trial_ends_at = excluded.trial_ends_at,
+        updated_at = excluded.updated_at
+    `).bind(
+      subscriptionId, organizationId, planCode, nextStatus, cycle, plan.currency,
+      amountMinor, trialEndsAt, current?.current_period_start || null,
+      current?.current_period_end || null, current?.created_at || now, now,
+    ),
+    env.DB.prepare(`
+      INSERT INTO subscription_events
+        (id, organization_id, subscription_id, event_type, source, event_json, created_at)
+      VALUES (?, ?, ?, ?, 'platform_admin_manual_override', ?, ?)
+    `).bind(
+      eventId, organizationId, subscriptionId,
+      current ? 'admin_subscription_changed' : 'admin_trial_created',
+      JSON.stringify({ before, after, reason }), now,
+    ),
+    env.DB.prepare(`
+      INSERT INTO platform_admin_audit_log
+        (id, actor_email, action, organization_id, reason, before_json, after_json, created_at)
+      VALUES (?, ?, 'tenant.subscription.changed', ?, ?, ?, ?, ?)
+    `).bind(auditId, actorEmail, organizationId, reason, JSON.stringify(before), JSON.stringify(after), now),
+  ]);
+
+  return Response.json({
+    ok: true,
+    tenant: { id: organization.id, name: organization.name, subscription: after },
+    audit_id: auditId,
+    event_id: eventId,
+    note: nextStatus === 'active'
+      ? 'Existing provider-confirmed active subscription retained; plan price snapshot updated.'
+      : 'No payment was recorded or verified by this administrative change.',
+  });
+}
+
 /**
  * Dispatch all /api/platform-admin/* paths. Returns 401 rather than falling through
  * to normal restaurant-owner authentication when a platform token is missing/invalid.
@@ -387,6 +562,14 @@ export async function handlePlatformAdminRequest(
   }
   if (path === '/api/platform-admin/tenants' && method === 'GET') {
     return handleListTenants(new URL(request.url), env);
+  }
+  const accountStatusMatch = path.match(/^\/api\/platform-admin\/tenants\/([^/]+)\/account-status$/);
+  if (accountStatusMatch && method === 'PATCH') {
+    return handleUpdateTenantAccountStatus(request, env, admin.email, decodeURIComponent(accountStatusMatch[1]));
+  }
+  const subscriptionMatch = path.match(/^\/api\/platform-admin\/tenants\/([^/]+)\/subscription$/);
+  if (subscriptionMatch && method === 'PATCH') {
+    return handleUpdateTenantSubscription(request, env, admin.email, decodeURIComponent(subscriptionMatch[1]));
   }
   if (path.startsWith('/api/platform-admin/tenants/') && method === 'GET') {
     const tenantId = decodeURIComponent(path.slice('/api/platform-admin/tenants/'.length));
