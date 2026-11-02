@@ -38,6 +38,7 @@ import { getUserMemberships, isOrgOwnerOrAdmin, isOrgAccountant } from './rbac';
 import { createJWT, verifyJWT, hashPassword, verifyPassword, isSecretValid } from './auth';
 import { checkRateLimit, createRateLimitResponse, getClientIp, DEFAULT_RATE_LIMITS, getEffectiveLimit } from './rate-limit';
 import { handlePlatformAdminRequest } from './routes/platform-admin';
+import { resolveOrganizationAccess, requiredPlanFeature } from './subscriptions';
 
 function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const requestOrigin = request?.headers.get('Origin');
@@ -308,6 +309,39 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   const userId = claims.sub;
   let memberships = await getUserMemberships(env.DB, orgId, userId);
 
+  // The D1 subscription row, not JWT role claims, is the source of plan access.
+  // Auth session inspection and logout remain available so an expired owner can
+  // see the reason and leave the session; ordinary operations are gated below.
+  const subscriptionAccess = await resolveOrganizationAccess(env.DB, orgId);
+  const subscriptionManagementPath =
+    path === '/api/auth/me' ||
+    path === '/api/auth/logout' ||
+    path === '/api/subscription' ||
+    path === '/api/subscription/plans' ||
+    path === '/api/subscription/create-order' ||
+    path === '/api/subscription/verify-payment';
+  if (!subscriptionAccess.allowed && !subscriptionManagementPath) {
+    const statusCode = subscriptionAccess.organizationStatus !== 'active' ? 403 : 402;
+    return Response.json({
+      error: subscriptionAccess.reason || 'Subscription access is unavailable.',
+      code: statusCode === 402 ? 'SUBSCRIPTION_REQUIRED' : 'ORGANIZATION_UNAVAILABLE',
+      subscription_status: subscriptionAccess.subscriptionStatus,
+      plan: subscriptionAccess.planCode,
+    }, { status: statusCode });
+  }
+
+  if (subscriptionAccess.allowed) {
+    const requiredFeature = requiredPlanFeature(path, method);
+    if (requiredFeature && subscriptionAccess.entitlements[requiredFeature] !== true) {
+      return Response.json({
+        error: 'This feature is not included in the current subscription plan.',
+        code: 'PLAN_FEATURE_REQUIRED',
+        feature: requiredFeature,
+        plan: subscriptionAccess.planCode,
+      }, { status: 403 });
+    }
+  }
+
   // Backward-compatible fallback for owner/admin JWT claims if mock DB or legacy tenant lacks memberships row
   if (memberships.length === 0 && (claims.role === 'owner' || (claims.role as string) === 'admin' || claims.role === 'super_admin')) {
     memberships = [{
@@ -379,6 +413,65 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
       tenants: [tenantObj],
       tenant: tenantObj,
     });
+  }
+
+  // 5c. SaaS subscription status and catalogue (available even when a plan has expired).
+  if (path === '/api/subscription' && method === 'GET') {
+    const subscription = await env.DB.prepare(`
+      SELECT s.id, s.plan_code, s.status, s.billing_cycle, s.currency, s.amount_minor,
+             s.trial_ends_at, s.current_period_start, s.current_period_end,
+             s.grace_period_end, s.cancel_at_period_end, p.name AS plan_name,
+             p.entitlements_json
+      FROM organization_subscriptions s
+      LEFT JOIN saas_plans p ON p.code = s.plan_code
+      WHERE s.organization_id = ?
+    `).bind(orgId).first<any>();
+
+    if (!subscription) {
+      return Response.json({
+        subscription: {
+          plan: 'legacy',
+          status: 'active',
+          current_period_end: null,
+          entitlements: null,
+          legacy_access: true,
+        },
+        access: subscriptionAccess,
+      });
+    }
+
+    let entitlements: Record<string, unknown> = {};
+    try { entitlements = JSON.parse(subscription.entitlements_json || '{}'); } catch { entitlements = {}; }
+    return Response.json({
+      subscription: {
+        plan: subscription.plan_code,
+        plan_name: subscription.plan_name,
+        status: subscription.status,
+        billing_cycle: subscription.billing_cycle,
+        currency: subscription.currency,
+        amount_minor: Number(subscription.amount_minor || 0),
+        trial_ends_at: subscription.trial_ends_at,
+        current_period_start: subscription.current_period_start,
+        current_period_end: subscription.current_period_end,
+        grace_period_end: subscription.grace_period_end,
+        cancel_at_period_end: Boolean(subscription.cancel_at_period_end),
+        entitlements,
+      },
+      access: subscriptionAccess,
+    });
+  }
+  if (path === '/api/subscription/plans' && method === 'GET') {
+    const plans = await env.DB.prepare(`
+      SELECT code, name, currency, monthly_price_minor, yearly_price_minor, entitlements_json
+      FROM saas_plans WHERE is_active = 1 ORDER BY sort_order, code
+    `).all<any>();
+    return Response.json({ plans: plans.results || [] });
+  }
+  if ((path === '/api/subscription/create-order' || path === '/api/subscription/verify-payment') && method === 'POST') {
+    return Response.json({
+      error: 'SaaS subscription payment processing is not configured yet. No payment or plan activation was performed.',
+      code: 'SAAS_BILLING_PROVIDER_NOT_CONFIGURED',
+    }, { status: 503 });
   }
 
   // 5c. Auth: Logout
