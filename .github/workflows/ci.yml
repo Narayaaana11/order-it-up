@@ -94,6 +94,9 @@ jobs:
       - name: Cloud Auth & Cryptographic JWT Verification
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-auth-hardening.test.ts
 
+      - name: Cloud Platform Admin Authentication & D1 Metrics
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-platform-admin.test.ts
+
       - name: Multi-Branch Aggregation & Variance Verification
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/multi-branch-cloud.test.ts
 
