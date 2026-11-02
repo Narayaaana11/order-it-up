@@ -23,6 +23,7 @@ type ExpenseCategory = { id: string; name: string };
 type Reservation = { id: string; customer_name: string; customer_phone?: string | null; guest_count: number; reservation_date: string; reservation_time: string; status: string; table_number?: string | null; table_id?: string | null; notes?: string | null };
 type DeliveryJob = { id: string; order_id: string; order_number?: string; status: string; address: string; driver_name?: string | null; driver_phone?: string | null; eta_minutes?: number | null; cod_amount: number; cod_collected: number; created_at: string };
 type ShiftSummary = { opened_at: string; closed_at: string; business_date: string; opening_cash: number; cash_sales: number; card_sales: number; upi_sales: number; other_sales: number; expected_cash: number; order_count: number; payment_count: number };
+type PaymentCapabilities = { cash: boolean; card: boolean; upi: boolean; provider: string | null; configured: boolean; reason: string | null };
 type Closure = { id: string; closure_date: string; expected_cash: number; actual_cash: number; variance: number; closed_by: string; closed_at: string };
 type TabKey = "floor" | "reservations" | "kitchen" | "cashier" | "inventory" | "expenses" | "delivery" | "reports";
 
@@ -53,6 +54,21 @@ async function cloudRequest<T>(user: AuthUser, path: string, init: RequestInit =
 
 function message(error: unknown): string {
   return error instanceof Error ? error.message : "The Cloud request could not be completed.";
+}
+
+type RazorpayInstance = { open: () => void };
+
+function loadRazorpayCheckout(): Promise<void> {
+  const scope = window as unknown as { Razorpay?: unknown };
+  if (scope.Razorpay) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const script = document.createElement("script");
+    script.src = "https://checkout.razorpay.com/v1/checkout.js";
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error("The payment provider checkout could not be loaded. No payment was recorded."));
+    document.body.appendChild(script);
+  });
 }
 
 export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; onSignOut: () => void }) {
@@ -102,6 +118,7 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
   const [reservations, setReservations] = useState<Reservation[]>([]);
   const [deliveryJobs, setDeliveryJobs] = useState<DeliveryJob[]>([]);
   const [shiftSummary, setShiftSummary] = useState<ShiftSummary | null>(null);
+  const [capabilities, setCapabilities] = useState<PaymentCapabilities | null>(null);
   const [closures, setClosures] = useState<Closure[]>([]);
   const [report, setReport] = useState<Record<string, unknown> | null>(null);
   const [taxRows, setTaxRows] = useState<Record<string, unknown>[]>([]);
@@ -215,6 +232,7 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
       await Promise.all([
         attempt(cloudRequest<{ summary?: ShiftSummary }>(user, `/api/shifts/summary?branch_id=${encodeURIComponent(id)}`), (result) => setShiftSummary(result.summary || null)),
         attempt(cloudRequest<{ closures?: Closure[] }>(user, `/api/shifts/closures?branch_id=${encodeURIComponent(id)}`), (result) => setClosures(result.closures || [])),
+        attempt(cloudRequest<PaymentCapabilities>(user, "/api/payments/capabilities"), (result) => setCapabilities(result)),
       ]);
     }
     if (key === "reports") {
@@ -376,6 +394,76 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
       await loadTab(branchId, tab).catch(() => undefined);
     } catch (paymentError) {
       setError(message(paymentError));
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const collectProvider = async (order: Order) => {
+    setBusy(true);
+    setError("");
+    try {
+      if (!capabilities?.configured) {
+        throw new Error(capabilities?.reason || "The payment provider is not configured for this environment.");
+      }
+      const summary = await cloudRequest<{ outstanding_balance: number }>(user, `/api/orders/${encodeURIComponent(order.id)}/payments`);
+      const amount = Number(summary.outstanding_balance);
+      if (!Number.isFinite(amount) || amount <= 0) throw new Error("This order has no outstanding balance.");
+
+      const storageKey = `orderitup.cloud-intent:${user.id}:${order.id}`;
+      let idempotencyKey = localStorage.getItem(storageKey);
+      if (!idempotencyKey) { idempotencyKey = crypto.randomUUID(); localStorage.setItem(storageKey, idempotencyKey); }
+
+      const created = await cloudRequest<{ intent: { id: string; provider_order_id: string; amount: number; currency: string }; provider: { key_id: string } }>(
+        user,
+        `/api/orders/${encodeURIComponent(order.id)}/payment-intent`,
+        { method: "POST", body: JSON.stringify({ amount, idempotency_key: idempotencyKey }) },
+      );
+
+      await loadRazorpayCheckout();
+      const scope = window as unknown as { Razorpay?: new (options: Record<string, unknown>) => RazorpayInstance };
+      if (!scope.Razorpay) throw new Error("The payment provider checkout is unavailable. No payment was recorded.");
+
+      await new Promise<void>((resolve, reject) => {
+        const checkout = new scope.Razorpay!({
+          key: created.provider.key_id,
+          amount: Math.round(created.intent.amount * 100),
+          currency: created.intent.currency,
+          name: "Order It Up",
+          description: `Bill ${order.order_number}`,
+          order_id: created.intent.provider_order_id,
+          handler: (response: { razorpay_payment_id: string; razorpay_signature: string }) => {
+            void (async () => {
+              try {
+                const verified = await cloudRequest<{ order_payment_status: string }>(user, "/api/payments/verify", {
+                  method: "POST",
+                  body: JSON.stringify({
+                    intent_id: created.intent.id,
+                    provider_payment_id: response.razorpay_payment_id,
+                    signature: response.razorpay_signature,
+                  }),
+                });
+                localStorage.removeItem(storageKey);
+                setNotice(`Card/UPI payment verified for ${order.order_number} (${verified.order_payment_status}).`);
+                await Promise.allSettled([refreshOperational(branchId), loadTab(branchId, "cashier")]);
+                resolve();
+              } catch (verifyError) {
+                setError(message(verifyError));
+                reject(verifyError);
+              }
+            })();
+          },
+          modal: {
+            ondismiss: () => {
+              setNotice("Provider checkout was dismissed. No non-cash payment was recorded; the intent remains for a safe retry.");
+              resolve();
+            },
+          },
+        });
+        checkout.open();
+      });
+    } catch (providerError) {
+      setError(message(providerError));
     } finally {
       setBusy(false);
     }
@@ -763,11 +851,20 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
         {!loading && branchId && tab === "cashier" && <>
           <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
             <h2 className="flex items-center gap-2 text-lg font-black"><CircleDollarSign size={20} className="text-orange-600" />Cashier payment queue</h2>
-            <p className="mt-1 text-sm text-slate-500">Cash collection is written to the Cloud payment ledger. Card and UPI require a verified terminal/provider flow.</p>
+            <p className="mt-1 text-sm text-slate-500">Cash is written to the Cloud ledger. Card/UPI uses the provider checkout and is only recorded after server-side capture verification.</p>
+            {capabilities && !capabilities.configured && <p role="status" className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"><strong>Card/UPI unavailable.</strong> {capabilities.reason}</p>}
+            {capabilities?.configured && <p className="mt-2 text-xs font-semibold text-emerald-800">Card/UPI provider ready ({capabilities.provider}).</p>}
             <OrderList orders={orders} action={(order) => (
-              <button type="button" disabled={busy} onClick={() => void (order.payment_status === "paid" ? closePaidOrder(order) : collectCash(order))} className="min-h-9 rounded-lg bg-emerald-700 px-3 text-xs font-bold text-white disabled:opacity-50">
-                {order.payment_status === "paid" ? "Close paid order" : "Collect cash"}
-              </button>
+              <div className="flex flex-wrap items-center gap-2">
+                <button type="button" disabled={busy} onClick={() => void (order.payment_status === "paid" ? closePaidOrder(order) : collectCash(order))} className="min-h-9 rounded-lg bg-emerald-700 px-3 text-xs font-bold text-white disabled:opacity-50">
+                  {order.payment_status === "paid" ? "Close paid order" : "Collect cash"}
+                </button>
+                {order.payment_status !== "paid" && (capabilities?.card || capabilities?.upi) && (
+                  <button type="button" disabled={busy} onClick={() => void collectProvider(order)} className="min-h-9 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white disabled:opacity-50">
+                    Card / UPI
+                  </button>
+                )}
+              </div>
             )} />
           </section>
 
