@@ -15,10 +15,11 @@ Current local work also adds Cloud D1 migration 0019 for authoritative order com
 ### Latest verified increment — Cloud restaurant operations suite (2026-11-03)
 
 - **Migration 0020** adds `restaurant_vendors`, `expense_categories`, `expenses`, `reservations`, `ingredients`, `inventory_transactions`, `recipes`, and `delivery_jobs`.
+- **Migration 0021 + `apps/cloud-api/src/routes/catalog-admin.ts`** close the menu-management gap: the desktop-compatible `/products` and `/categories` CRUD contract now runs on D1 with the richer product fields, modifier-group links, category reassign/delete-all rules, and owner/manager-only writes.
 - **`apps/cloud-api/src/routes/restaurant-ops.ts`** implements branch-scoped, role-checked expenses (void-not-delete), vendor/category management, reservations with a state machine and table occupancy, inventory adjustments with an idempotent ledger and recipe costing, shift cash closure with persisted variance in `synced_cash_closures`, and delivery dispatch with assignment/handoff and explicit COD collection.
 - **Landing live workspace** now exposes role-scoped tabs for floor, reservations, kitchen, cashier + shift close, inventory, expenses, delivery, and reports using only persisted Cloud data.
 - **Tablet POS** now resolves at `/tablet-pos` (matching the Capacitor redirect), runs in a dedicated full-screen layout, and the Android wrapper starts at `/tablet-pos/index.html`. The web export gate verifies the route exists.
-- **Verification:** `tests/cloud-restaurant-ops.test.ts`, Cloud auth suite, 9-part Cloud E2E audit, migration compatibility suite, Cloud API TypeScript check, frontend TypeScript, `npm run build:web`, landing production build, and the landing Cloud workspace browser E2E all pass locally.
+- **Verification:** `tests/cloud-restaurant-ops.test.ts`, `tests/cloud-catalog-admin.test.ts`, Cloud auth suite, 9-part Cloud E2E audit, migration compatibility suite, Cloud API TypeScript check, frontend TypeScript, `npm run build:web`, landing production build, and the landing Cloud workspace browser E2E all pass locally.
 - **Still open:** remote D1 reconciliation/deployment, provider-verified card/UPI and refund settlement, receipt printing from the tablet, durable tablet offline storage, Flutter/Cloud parity, and the remaining SaaS/onboarding production checks. No deployment or push was performed for this increment.
 
 | Area | Current evidence | Status |

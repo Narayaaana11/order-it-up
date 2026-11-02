@@ -51,6 +51,7 @@ import {
 } from './routes/public-qr';
 import { handleQrPosDelivery } from './routes/qr-pos-delivery';
 import { handleRestaurantOpsRequest } from './routes/restaurant-ops';
+import { handleCatalogAdminRequest } from './routes/catalog-admin';
 
 function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const requestOrigin = request?.headers.get('Origin');
@@ -486,6 +487,11 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   if (memberships.length === 0) {
     return Response.json({ error: 'Forbidden: No active organization memberships' }, { status: 403 });
   }
+
+  // Desktop-compatible menu management (/products, /categories) backed by the
+  // Cloud master catalog, so the web and tablet dashboards can edit the menu.
+  const catalogAdminResponse = await handleCatalogAdminRequest(request, env, path, method, claims, memberships);
+  if (catalogAdminResponse) return catalogAdminResponse;
 
   // Cloud restaurant operations suite (expenses, reservations, inventory,
   // shift closures, delivery dispatch). Branch authorization is enforced inside.
