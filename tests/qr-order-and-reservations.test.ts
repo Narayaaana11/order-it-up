@@ -32,6 +32,7 @@ const {
 } = require('./helpers/test-setup');
 
 const { registerRoutes } = require('../main/routes/index');
+const { deductIngredientsForOrderItems } = require('../main/services/inventory-engine');
 
 async function main() {
   console.log('Integration Test: QR Self-Ordering & Reservations');
@@ -123,6 +124,15 @@ async function main() {
     assertEqual(resRepeatAccept.status, 200, 'Repeated approval request is idempotent');
     const stockAfterRepeat = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
     assertEqual(Number(stockAfterRepeat.current_stock), 7, 'Repeated approval does not deduct ingredients twice');
+
+    const duplicateDeduction = deductIngredientsForOrderItems(
+      [{ product_id: 'prod-gulab-jamun', quantity: 2 }],
+      resOrder.data.order.order_number,
+      false
+    );
+    assertEqual(duplicateDeduction.success, true, 'Direct retry of the same order deduction is accepted idempotently');
+    const stockAfterDirectRetry = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
+    assertEqual(Number(stockAfterDirectRetry.current_stock), 7, 'Direct retry does not deduct the same recipe twice');
 
     const cancelAccepted = await api(baseUrl, `/api/orders/${orderId}/status`, {
       method: 'PATCH',
