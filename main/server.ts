@@ -159,7 +159,14 @@ export function startServer(): Promise<void> {
     app = express();
 
     app.use(cors(corsOptions));
-    app.use(express.json({ limit: API_JSON_BODY_LIMIT }));
+    app.use(express.json({
+      limit: API_JSON_BODY_LIMIT,
+      // Preserve the exact bytes used for HMAC verification. Re-serializing
+      // parsed JSON can change whitespace/key order and invalidate signatures.
+      verify: (req, _res, buffer) => {
+        (req as Request & { rawBody?: Buffer }).rawBody = Buffer.from(buffer);
+      },
+    }));
     app.use((error: any, _req: Request, res: Response, next: NextFunction) => {
       if (error?.type === 'entity.too.large') {
         res.status(413).json({
