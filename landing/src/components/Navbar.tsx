@@ -12,17 +12,13 @@ function sectionHref(href: string) {
   return href.startsWith("#") ? `/${href}` : href;
 }
 
-function getDashboardHref(user: AuthUser | null): string {
-  if (!user) return "/auth/login";
+function getDashboardHref(user: AuthUser | null): string | null {
+  if (!user) return null;
 
   const role = String(user.role || "").trim().toLowerCase();
 
   switch (role) {
     case "super_admin":
-    case "admin":
-    case "finance":
-    case "support":
-    case "read_only":
       return "/dashboard?perspective=founder";
 
     case "owner":
@@ -52,10 +48,8 @@ function getDashboardHref(user: AuthUser | null): string {
 
     case "customer":
     case "guest":
-      return "/#ui-preview";
-
     default:
-      return "/auth/login";
+      return null;
   }
 }
 
@@ -96,14 +90,16 @@ export default function Navbar() {
   };
 
   const dashboardHref = getDashboardHref(currentUser);
-  const hasDashboardAccess = Boolean(currentUser && dashboardHref !== "/#ui-preview");
+  const hasDashboardAccess = Boolean(currentUser && dashboardHref);
+  const showDashboardLink = sessionChecked && (!currentUser || hasDashboardAccess);
+
   const openDashboard = () => {
     setMobileMenuOpen(false);
     if (!currentUser) {
       triggerOpenAuthModal("login");
       return;
     }
-    router.push(dashboardHref);
+    if (dashboardHref) router.push(dashboardHref);
   };
 
   return (
@@ -126,7 +122,7 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
-            {sessionChecked && currentUser && hasDashboardAccess && (
+            {showDashboardLink && (
               <button type="button" onClick={openDashboard} className="whitespace-nowrap rounded-lg px-1 py-2 text-[13px] font-semibold text-slate-600 transition-colors hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
                 Dashboard
               </button>
@@ -143,11 +139,11 @@ export default function Navbar() {
                   Request Pilot Access <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
                 </Link>
               </>
-            ) : (
+            ) : hasDashboardAccess ? (
               <button type="button" onClick={openDashboard} className="inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-orange-600 px-4 py-2 text-sm font-bold text-white shadow-sm shadow-orange-600/20 transition hover:bg-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">
                 Open Dashboard <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               </button>
-            )}
+            ) : null}
           </div>
 
           <div className="flex shrink-0 items-center gap-1 xl:hidden">
@@ -175,7 +171,7 @@ export default function Navbar() {
                   {link.label}
                 </Link>
               ))}
-              {sessionChecked && currentUser && hasDashboardAccess && (
+              {showDashboardLink && (
                 <button type="button" onClick={openDashboard} className="rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-700 transition hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
                   Dashboard
                 </button>
@@ -186,11 +182,11 @@ export default function Navbar() {
               <Link href="/request-access" onClick={() => setMobileMenuOpen(false)} className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">
                 Request Pilot Access <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               </Link>
-            ) : (
+            ) : hasDashboardAccess ? (
               <button type="button" onClick={openDashboard} className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">
                 Open Dashboard <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               </button>
-            )}
+            ) : null}
           </nav>
         )}
       </div>
