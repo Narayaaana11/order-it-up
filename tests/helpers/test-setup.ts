@@ -141,8 +141,10 @@ function createApp(routeModules: Record<string, any>, options?: { authRole?: str
     if (!req.path.startsWith('/api')) { next(); return; }
     if (req.path === '/api/health') { next(); return; }
     if (req.path.startsWith('/api/auth') && !req.path.includes('/api/auth/me')) { next(); return; }
-    if (req.path.startsWith('/api/qr')) { next(); return; }
+    const qrCapabilityPath = /^\/api\/qr\/tables\/[^/]+\/code\/?$/.test(req.path);
+    if (req.path.startsWith('/api/qr') && !qrCapabilityPath) { next(); return; }
     if (req.path.startsWith('/api/webhooks')) { next(); return; }
+    if (req.path === '/api/subscription/webhooks/razorpay') { next(); return; }
 
     const authHeader = req.headers.authorization;
     if (!authHeader?.startsWith('Bearer ')) {

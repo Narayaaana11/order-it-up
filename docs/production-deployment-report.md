@@ -6,6 +6,8 @@
 **Deployed Git SHA (Main Branch):** `bdc5abdb630ceff5c734d7065db705eecb49b6d4` (merged PR #11) / `3c435d07fe08eec914baef48ae66dbff1f8f3c73`  
 **Cloudflare Account ID:** `b970a9d64087c51de42c12abb3f45e0a`  
 
+> **Currency and verification notice (2026-11-02):** Treat the deployment details below as a historical report, not current release evidence. On 2026-11-02, direct GET requests to the production Worker `/health`, staging Worker `/health`, and Pages `/auth/login/` returned HTTP 200; the Worker health response identified service `orderitup-cloud-api`, version `1.0.0`, and status `operational`. Direct requests to Pages `/qr` and `/qr/` returned HTTP 404. These responses do not reveal the deployed Git SHA, D1 migration level, secrets, or end-to-end readiness. The current checkout is on `fix/qr-waiter-approval-lifecycle` and contains uncommitted changes. Its Cloud API migration directory includes `0001` through `0013`; migrations `0010_cloud_token_revocations.sql`, `0011_public_qr_ordering.sql`, `0012_cloud_catalog_modifiers.sql`, `0013_qr_order_idempotency.sql`, and current application changes have not been verified in the remote database or deployment. A local Cloud static export does include `frontend/out/qr/index.html`, and CI now checks that artifact; no production deployment was performed as part of this work. Re-verify every resource identifier, deployment, migration, credential, URL, test result and rollback instruction in the sections below before using this report for an operational release.
+
 ---
 
 ## 1. System Architecture & Component Inventory

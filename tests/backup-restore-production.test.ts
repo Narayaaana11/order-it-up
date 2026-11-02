@@ -121,6 +121,8 @@ async function run() {
     enabledKdsDb.prepare("INSERT INTO settings (key, value, updated_at) VALUES ('mobile_pairing_code', 'backup-pairing-code', datetime('now'))").run();
     enabledKdsDb.prepare("INSERT INTO settings (key, value, updated_at) VALUES ('mobile_pairing_code_expires_at', '2099-01-01T00:00:00.000Z', datetime('now'))").run();
     enabledKdsDb.prepare("INSERT INTO kds_pairing_tokens (id, token, station_id, expires_at, created_at) VALUES ('backup-kds-token', 'backup-token-value', NULL, '2099-01-01 00:00:00', datetime('now'))").run();
+    enabledKdsDb.prepare("INSERT INTO tables (id, number) VALUES ('backup-qr-table', 'QR-1')").run();
+    enabledKdsDb.prepare("INSERT INTO qr_table_tokens (table_id, token_hash, created_at) VALUES ('backup-qr-table', ?, datetime('now'))").run('a'.repeat(64));
     enabledKdsDb.close();
     const enabledKdsRestore = restoreBackup(enabledKdsBackup, true);
     assert.equal(enabledKdsRestore.success, true, 'restore succeeds when backup enables KDS');
@@ -135,6 +137,7 @@ async function run() {
 
     assert.equal(getDatabase().prepare("SELECT value FROM settings WHERE key = 'mobile_pairing_code'").get(), undefined, 'restore discards backup mobile pairing codes');
     assert.equal((getDatabase().prepare('SELECT COUNT(*) AS count FROM kds_pairing_tokens').get() as { count: number }).count, 0, 'restore invalidates backup KDS pairing tokens');
+    assert.equal((getDatabase().prepare('SELECT COUNT(*) AS count FROM qr_table_tokens').get() as { count: number }).count, 0, 'restore invalidates backup QR table capabilities');
     getDatabase().prepare(`INSERT INTO users (id, name, email, password, role, is_active, created_at, updated_at)
       VALUES ('restore-current-only-user', 'Current Only', 'restore-current-only@flo.local', 'test-hash', 'chef', 1, datetime('now'), datetime('now'))`).run();
     const currentOnlyRestore = restoreBackup(enabledKdsBackup, true);

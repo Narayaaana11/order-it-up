@@ -363,7 +363,7 @@ export default function SettingsPage() {
         }
       }
     }).catch(() => {
-      // 404 (no row yet), 401, network — keep 'system'.
+      // 404 (no row yet), 401, network â€” keep 'system'.
     });
     return () => { cancelled = true; };
   }, [setThemeMode]);
@@ -467,7 +467,7 @@ export default function SettingsPage() {
       const { data } = await api.get('/db-tools/master-pin/status');
       setMasterPinStatus(data);
     } catch {
-      // ignore — card just shows "Unknown" state until retried
+      // ignore â€” card just shows "Unknown" state until retried
     }
   };
 
@@ -477,7 +477,7 @@ export default function SettingsPage() {
       const { data } = await api.get('/db-tools/backups');
       setBackups(data.backups ?? []);
     } catch {
-      // ignore — history card just shows empty state until retried
+      // ignore â€” history card just shows empty state until retried
     } finally {
       setBackupsLoading(false);
     }
@@ -498,13 +498,13 @@ export default function SettingsPage() {
     api.get('/db-tools/master-pin/status')
       .then(({ data }) => setMasterPinStatus(data))
       .catch(() => {
-        // ignore — card just shows "Unknown" state until retried
+        // ignore â€” card just shows "Unknown" state until retried
       });
 
     api.get('/db-tools/backups')
       .then(({ data }) => setBackups(data.backups ?? []))
       .catch(() => {
-        // ignore — history card just shows empty state until retried
+        // ignore â€” history card just shows empty state until retried
       })
       .finally(() => setBackupsLoading(false));
     if (isOwner) {
@@ -766,7 +766,7 @@ export default function SettingsPage() {
     }
   };
 
-  // ── KDS pairing ──────────────────────────────────────────────────────────
+  // â”€â”€ KDS pairing â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [kdsInfo, setKdsInfo] = useState<{ 
     mdns_url: string; 
     ip_url: string; 
@@ -787,7 +787,7 @@ export default function SettingsPage() {
     }).finally(() => setKdsInfoLoading(false));
   };
 
-  // ── Server App pairing (tableside ordering) ───────────────────────────────
+  // â”€â”€ Server App pairing (tableside ordering) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [serverAppInfo, setServerAppInfo] = useState<{
     mdns_url: string;
     ip_url: string;
@@ -806,7 +806,7 @@ export default function SettingsPage() {
     }).finally(() => setServerAppInfoLoading(false));
   };
 
-  // ── POS pairing (add a cashier device) ────────────────────────────────────
+  // â”€â”€ POS pairing (add a cashier device) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const [posInfo, setPosInfo] = useState<{
     mdns_url: string;
     ip_url: string;
@@ -825,7 +825,7 @@ export default function SettingsPage() {
     }).finally(() => setPosInfoLoading(false));
   };
 
-  // ── More Apps ───────────────────────────────────────────────────────────────
+  // â”€â”€ More Apps â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   type MoreApp = {
     id: string;
     name: string;
@@ -845,20 +845,20 @@ export default function SettingsPage() {
     api.get('/more-apps').then((res) => {
       setMoreApps(res.data.apps || []);
     }).catch(() => {
-      // Silent — this tab is informational, not critical
+      // Silent â€” this tab is informational, not critical
     }).finally(() => setMoreAppsLoading(false));
 
     api.get('/more-apps/revflo').then((res) => {
       setRevflo(res.data.app || null);
     }).catch(() => {
-      // Silent — the card still shows the pairing code without the QR promo
+      // Silent â€” the card still shows the pairing code without the QR promo
     });
   }, []);
 
-  // ── Updates ─────────────────────────────────────────────────────────────────
+  // â”€â”€ Updates â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   const { updateStatus, appVersion, isElectron, checkForUpdates: handleCheckUpdates } = useUpdateStatus();
 
-  // ── Printers ─────────────────────────────────────────────────────────────
+  // â”€â”€ Printers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   type HwPrinter = {
     id: string; name: string; connection_type: 'network' | 'usb' | 'webusb';
     ip_address?: string; port?: number;
@@ -1039,7 +1039,7 @@ export default function SettingsPage() {
     }
   };
 
-  // ── Kitchen Stations ─────────────────────────────────────────────────────
+  // â”€â”€ Kitchen Stations â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
   type KitchenStation = {
     id: string; name: string; description?: string; category_ids?: string;
     printer_id?: string | null; is_active: number; sort_order: number;
@@ -1169,7 +1169,7 @@ export default function SettingsPage() {
   }>>([]);
   const [devicesLoading, setDevicesLoading] = useState(false);
 
-  // Printing local state (buffered — saved only on explicit Save)
+  // Printing local state (buffered â€” saved only on explicit Save)
   type PrintingForm = {
     printerEnabled: boolean; printerPaperSize: PaperSize;
     // Undefined until loaded or explicitly toggled to avoid overwriting
@@ -1337,7 +1337,7 @@ export default function SettingsPage() {
   };
   const resetBillTemplate = () => setBillForm(savedBillForm);
 
-  // Store / business fields — local form state (saved only on explicit Save)
+  // Store / business fields â€” local form state (saved only on explicit Save)
   type BusinessForm = {
     businessName: string; countryCode: string; timezone: string; currency: string;
     billingType: 'postpaid' | 'prepaid';
@@ -1386,7 +1386,18 @@ export default function SettingsPage() {
     cloud_last_sync: null as string | null,
   });
   const [savedCloudSettings, setSavedCloudSettings] = useState(cloudSettings);
-  const [cloudStatus, setCloudStatus] = useState({
+  type CloudStatusView = {
+    cloud_registration_status: string;
+    cloud_services_disabled_by_user: boolean;
+    cloud_connected: boolean;
+    cloud_relay_mode: string;
+    cloud_last_heartbeat: string | null;
+    cloud_last_error: string | null;
+    cloud_deletion_status: string;
+    cloud_terminal_connected?: boolean;
+    cloud_terminal_branch_name?: string | null;
+  };
+  const [cloudStatus, setCloudStatus] = useState<CloudStatusView>({
     cloud_registration_status: 'unregistered',
     cloud_services_disabled_by_user: false,
     cloud_connected: false,
@@ -1415,6 +1426,8 @@ export default function SettingsPage() {
         cloud_last_heartbeat: data.cloud_last_heartbeat || null,
         cloud_last_error: data.cloud_last_error || null,
         cloud_deletion_status: data.cloud_deletion_status || '',
+        cloud_terminal_connected: !!data.cloud_terminal_connected,
+        cloud_terminal_branch_name: data.cloud_terminal_branch_name || null,
       });
       setCloudSettings((previous) => ({
         ...previous,
@@ -1616,7 +1629,7 @@ export default function SettingsPage() {
         last_error: res.data.last_error || null,
       });
     }).catch(() => {
-      // Leave defaults (not configured / not connected) — this section is
+      // Leave defaults (not configured / not connected) â€” this section is
       // optional and must never block the rest of Settings from loading.
     });
   };
@@ -1636,12 +1649,12 @@ export default function SettingsPage() {
   useEffect(() => {
     fetchPrinters();
     // Inlined rather than calling fetchDetectedPrinters() (used by the manual "refresh"
-    // button too) — detectingPrinters already starts true for this initial detection.
+    // button too) â€” detectingPrinters already starts true for this initial detection.
     api.get('/printers/detect')
       .then((res) => setDetectedPrinters(res.data.printers || []))
       .catch(() => setDetectedPrinters([]))
       .finally(() => setDetectingPrinters(false));
-    // Inlined rather than calling fetchKdsInfo() (used by the manual "refresh" button too) —
+    // Inlined rather than calling fetchKdsInfo() (used by the manual "refresh" button too) â€”
     // kdsInfoLoading already starts true for this initial fetch.
     api.get('/kds-info')
       .then((res) => setKdsInfo(res.data))
@@ -1717,7 +1730,7 @@ export default function SettingsPage() {
     api.get('/settings/cash_drawer_pulse_enabled').then((res) => {
       const enabled = res.data.setting?.value === 'true';
       setSavedPrinting((p) => ({ ...p, cashDrawerPulseEnabled: enabled }));
-      // Only applies while still undefined (untouched) — once the user
+      // Only applies while still undefined (untouched) â€” once the user
       // toggles it, this load resolving afterwards must not revert them.
       setPrintingForm((p) => (p.cashDrawerPulseEnabled === undefined ? { ...p, cashDrawerPulseEnabled: enabled } : p));
     }).catch(() => {});
@@ -1781,10 +1794,10 @@ export default function SettingsPage() {
       }) => ({
         id: template.id,
         displayName: template.displayName,
-        preview: `  ${template.displayName}\n-----------\nTax invoice\n${template.country} · ${template.paperColumns.join('/')} cols\n-----------\nTOTAL`,
+        preview: `  ${template.displayName}\n-----------\nTax invoice\n${template.country} Â· ${template.paperColumns.join('/')} cols\n-----------\nTOTAL`,
         source: 'plugin' as const,
         selectionSource: 'pack' as const,
-        description: `${template.country} tax template · ${template.paperColumns.join(', ')} columns`,
+        description: `${template.country} tax template Â· ${template.paperColumns.join(', ')} columns`,
       }));
       // Merchant templates: provenance is informational only without
       // trust claims; the copy is an ordinary editable document.
@@ -1798,7 +1811,7 @@ export default function SettingsPage() {
         }) => ({
           id: template.id,
           displayName: template.displayName,
-          preview: `  ${template.displayName}\n-----------\nReceipt\n${template.documentType} · custom blocks\n-----------\nTOTAL`,
+          preview: `  ${template.displayName}\n-----------\nReceipt\n${template.documentType} Â· custom blocks\n-----------\nTOTAL`,
           source: 'merchant' as const,
           selectionSource: 'merchant' as const,
           description: t('billTemplateMerchantDesc'),
@@ -1880,9 +1893,11 @@ export default function SettingsPage() {
         cloud_last_heartbeat: res.data.cloud_last_heartbeat || null,
         cloud_last_error: res.data.cloud_last_error || null,
         cloud_deletion_status: res.data.cloud_deletion_status || '',
+        cloud_terminal_connected: !!res.data.cloud_terminal_connected,
+        cloud_terminal_branch_name: res.data.cloud_terminal_branch_name || null,
       });
 
-      // Mobile pairing requires cloud registration — skip the requests entirely
+      // Mobile pairing requires cloud registration â€” skip the requests entirely
       // for unregistered stores to avoid 502 noise in the console.
       if (res.data.cloud_registration_status === 'registered') {
         api.get('/mobile/pairing-code').then((pcRes) => {
@@ -1972,6 +1987,8 @@ export default function SettingsPage() {
         cloud_last_heartbeat: res.data.cloud_last_heartbeat || null,
         cloud_last_error: res.data.cloud_last_error || null,
         cloud_deletion_status: res.data.cloud_deletion_status || '',
+        cloud_terminal_connected: !!res.data.cloud_terminal_connected,
+        cloud_terminal_branch_name: res.data.cloud_terminal_branch_name || null,
       });
       await fetchCloudAccount();
       notifyCloudAccountStatusChanged();
@@ -2015,6 +2032,31 @@ export default function SettingsPage() {
       toast.error(t('cloudRegistrationFailed'));
     } finally {
       setRegisteringCloud(false);
+    }
+  };
+
+  const pairCloudTerminal = async () => {
+    const code = window.prompt('Enter the 6-digit code generated in Cloud Portal:');
+    if (!code) return;
+    try {
+      const { data } = await api.post('/settings/cloud/terminal/pair', { code: code.replace(/\s/g, '') });
+      await refreshCloudStatus();
+      notifyCloudAccountStatusChanged();
+      toast.success(`Desktop POS paired to ${data.branch_name || 'the selected branch'}. Cloud order sync is active.`);
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Cloud terminal pairing failed.');
+    }
+  };
+
+  const disconnectCloudTerminal = async () => {
+    if (!window.confirm('Disconnect this Desktop POS from its Cloud branch? Pending order events will stop syncing until a new code is claimed.')) return;
+    try {
+      await api.post('/settings/cloud/terminal/disconnect');
+      await refreshCloudStatus();
+      notifyCloudAccountStatusChanged();
+      toast.success('Desktop POS disconnected from Cloud.');
+    } catch (error: any) {
+      toast.error(error?.response?.data?.error || 'Could not disconnect the Cloud terminal.');
     }
   };
 
@@ -2503,7 +2545,7 @@ export default function SettingsPage() {
 
         <TabsContent value="store">
           <div className="pb-6 max-w-3xl space-y-6">
-            {/* Store Details — editable for admin, readonly otherwise */}
+            {/* Store Details â€” editable for admin, readonly otherwise */}
             <div className="lg:col-span-2 bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Building2 size={20} className="text-muted-foreground" />
@@ -2597,13 +2639,13 @@ export default function SettingsPage() {
                   ) : (
                     <div className="grid grid-cols-3 gap-2">
                       <p className="font-medium text-foreground">
-                        {form.countryCode ? getLocalizedCountryName(form.countryCode, locale) : '—'}
+                        {form.countryCode ? getLocalizedCountryName(form.countryCode, locale) : 'â€”'}
                       </p>
                       <p className="font-medium text-foreground">
-                        <Ltr>{form.timezone || '—'}</Ltr>
+                        <Ltr>{form.timezone || 'â€”'}</Ltr>
                       </p>
                       <p className="font-medium text-foreground">
-                        <Ltr>{form.currency || '—'}</Ltr>
+                        <Ltr>{form.currency || 'â€”'}</Ltr>
                       </p>
                     </div>
                   )}
@@ -2680,7 +2722,7 @@ export default function SettingsPage() {
                       </>
 
                     ) : (
-                      <p className="font-medium text-foreground"><Ltr>{form.taxRegistrationNumber || '—'}</Ltr></p>
+                      <p className="font-medium text-foreground"><Ltr>{form.taxRegistrationNumber || 'â€”'}</Ltr></p>
                     )}
                   </div>
                 ) : <div className="hidden md:block" />}
@@ -2691,7 +2733,7 @@ export default function SettingsPage() {
                       placeholder={t('phonePlaceholder', { dialCode: dialCodeFor(form.countryCode) || '+1' })}
                       className="w-full px-3 py-2 text-sm border border-border rounded-lg outline-none focus:ring-2 focus:ring-brand" dir="ltr" />
                   ) : (
-                    <p className="font-medium text-foreground"><Ltr>{form.businessPhone || '—'}</Ltr></p>
+                    <p className="font-medium text-foreground"><Ltr>{form.businessPhone || 'â€”'}</Ltr></p>
                   )}
                 </div>
                 <div className="md:col-span-2">
@@ -2701,7 +2743,7 @@ export default function SettingsPage() {
                       rows={2} placeholder={t('addressPlaceholder')}
                       className="w-full px-3 py-2 text-sm border border-border rounded-lg outline-none focus:ring-2 focus:ring-brand resize-none" />
                   ) : (
-                    <p className="font-medium text-foreground">{form.businessAddress || '—'}</p>
+                    <p className="font-medium text-foreground">{form.businessAddress || 'â€”'}</p>
                   )}
                 </div>
                 <div>
@@ -2711,7 +2753,7 @@ export default function SettingsPage() {
                       placeholder={t('instagramPlaceholder')}
                       className="w-full px-3 py-2 text-sm border border-border rounded-lg outline-none focus:ring-2 focus:ring-brand" />
                   ) : (
-                    <p className="font-medium text-foreground">{form.instagramHandle || '—'}</p>
+                    <p className="font-medium text-foreground">{form.instagramHandle || 'â€”'}</p>
                   )}
                   <p className="text-xs text-muted-foreground mt-1">{t('instagramHint')}</p>
                 </div>
@@ -2749,7 +2791,7 @@ export default function SettingsPage() {
                       className="w-full px-3 py-2 text-sm border border-border rounded-lg outline-none focus:ring-2 focus:ring-brand"
                     />
                   ) : (
-                    <p className="font-medium text-foreground">{orderNumberForm.prefix || '—'}</p>
+                    <p className="font-medium text-foreground">{orderNumberForm.prefix || 'â€”'}</p>
                   )}
                 </div>
                 <div>
@@ -2802,7 +2844,7 @@ export default function SettingsPage() {
                         className="w-full px-3 py-2 text-sm border border-border rounded-lg outline-none focus:ring-2 focus:ring-brand"
                       />
                     ) : (
-                      <p className="font-medium text-foreground">{orderNumberForm.invoicePrefix || '—'}</p>
+                      <p className="font-medium text-foreground">{orderNumberForm.invoicePrefix || 'â€”'}</p>
                     )}
                   </div>
                   <div>
@@ -3018,7 +3060,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* Add a cashier — pair another device onto the same POS over the local network */}
+            {/* Add a cashier â€” pair another device onto the same POS over the local network */}
             <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Smartphone size={20} className="text-muted-foreground" />
@@ -3124,7 +3166,7 @@ export default function SettingsPage() {
           </div>
         </TabsContent>
 
-        {/* Kitchen Display — own tab under Operations */}
+        {/* Kitchen Display â€” own tab under Operations */}
         <TabsContent value="kds">
           <div className="pb-6 max-w-3xl space-y-6">
             {/* Kitchen Display System enable toggle */}
@@ -3289,9 +3331,9 @@ export default function SettingsPage() {
                           <p className="font-medium text-foreground">{station.name}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
                             {categoryNames.length > 0 ? categoryNames.join(', ') : t('stationNoCategories')}
-                            {' · '}
+                            {' Â· '}
                             {printer ? printer.name : t('stationNoPrinter')}
-                            {users.length > 0 && ` · ${users.map((u) => u.name).join(', ')}`}
+                            {users.length > 0 && ` Â· ${users.map((u) => u.name).join(', ')}`}
                           </p>
                         </div>
                         <div className="flex items-center gap-1 shrink-0">
@@ -3674,7 +3716,7 @@ export default function SettingsPage() {
                 </div>
                 <div>
                   <p className="text-sm text-muted-foreground">{t('role')}</p>
-                  <p className="font-medium text-foreground capitalize">{currentTenant?.role || '—'}</p>
+                  <p className="font-medium text-foreground capitalize">{currentTenant?.role || 'â€”'}</p>
                 </div>
               </div>
             </div>
@@ -3715,7 +3757,7 @@ export default function SettingsPage() {
           </div>
         </TabsContent>
 
-        {/* Privacy — anonymous telemetry (from the old Integrations tab) + cloud privacy controls (from Account) */}
+        {/* Privacy â€” anonymous telemetry (from the old Integrations tab) + cloud privacy controls (from Account) */}
         <TabsContent value="privacy">
           <div className="pb-6 max-w-3xl space-y-6">
             <div className="bg-card rounded-2xl border-2 border-border p-6 space-y-4">
@@ -3777,6 +3819,8 @@ export default function SettingsPage() {
                         cloud_last_heartbeat: data.cloud_last_heartbeat || null,
                         cloud_last_error: data.cloud_last_error || null,
                         cloud_deletion_status: data.cloud_deletion_status || '',
+                        cloud_terminal_connected: !!data.cloud_terminal_connected,
+                        cloud_terminal_branch_name: data.cloud_terminal_branch_name || null,
                       });
                       setCloudSettings((previous) => ({ ...previous, cloud_sync_enabled: !!data.cloud_sync_enabled, cloud_orders_enabled: !!data.cloud_orders_enabled, cloud_last_sync: data.cloud_last_sync || null }));
                       setSavedCloudSettings((previous) => ({ ...previous, cloud_sync_enabled: !!data.cloud_sync_enabled, cloud_orders_enabled: !!data.cloud_orders_enabled, cloud_last_sync: data.cloud_last_sync || null }));
@@ -3833,7 +3877,7 @@ export default function SettingsPage() {
                 )}
               </div>
 
-              {/* Detected (OS-installed) printers — one-click add */}
+              {/* Detected (OS-installed) printers â€” one-click add */}
               {!showPrinterForm && (
                 <div className="mb-5">
                   <button
@@ -3875,9 +3919,9 @@ export default function SettingsPage() {
                               </div>
                               <p className="text-xs text-muted-foreground mt-0.5 truncate">
                                 {p.make !== 'Unknown' ? `${p.make} ${p.model}` : p.model}
-                                {p.connectionType === 'network' && p.ipAddress ? <> · <Ltr>{p.ipAddress}{p.port ? ':' + p.port : ''}</Ltr></> : ''}
-                                {p.paperWidth ? ` · ${printWidthLabel(p.paperWidth)}` : ''}
-                                {p.profileId ? ` · ${t('printerSupportedProfile')}` : ''}
+                                {p.connectionType === 'network' && p.ipAddress ? <> Â· <Ltr>{p.ipAddress}{p.port ? ':' + p.port : ''}</Ltr></> : ''}
+                                {p.paperWidth ? ` Â· ${printWidthLabel(p.paperWidth)}` : ''}
+                                {p.profileId ? ` Â· ${t('printerSupportedProfile')}` : ''}
                               </p>
                             </div>
                             {alreadyAdded ? (
@@ -3928,8 +3972,8 @@ export default function SettingsPage() {
                         {p.connection_type === 'network' ? <Ltr>{p.ip_address}:{p.port}</Ltr> :
                          p.connection_type === 'usb' ? t('connectionUsb') :
                          t('browserWebusb')}
-                        {' · '}{printWidthLabel(p.paper_width)}
-                        {p.profile_name ? ` · ${p.profile_name}` : ''}
+                        {' Â· '}{printWidthLabel(p.paper_width)}
+                        {p.profile_name ? ` Â· ${p.profile_name}` : ''}
                       </p>
                     </div>
                     <div className="flex items-center gap-1 shrink-0">
@@ -4046,7 +4090,7 @@ export default function SettingsPage() {
               <strong>{t('defaultPrinterTipTitle')}</strong> {t('defaultPrinterTipBody')}
             </div>
 
-            {/* Print Options — merged into the same Printers page rather than a separate tab */}
+            {/* Print Options â€” merged into the same Printers page rather than a separate tab */}
             <div className="pt-4 border-t border-border">
               <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-400">{t('tabPrinting')}</h2>
             </div>
@@ -4351,7 +4395,7 @@ export default function SettingsPage() {
         </TabsContent>
 
 
-        {/* Backup & Data tab — database tools only */}
+        {/* Backup & Data tab â€” database tools only */}
         <TabsContent value="data">
           <div className="pb-6 max-w-3xl space-y-6">
             <div className="space-y-6">
@@ -4458,7 +4502,7 @@ export default function SettingsPage() {
                         </div>
                         <p className="text-xs text-gray-400 truncate">
                           {formatBackupSize(backup.sizeBytes)}
-                          {backup.schemaVersion != null && ` · ${t('backupSchemaVersion', { version: backup.schemaVersion })}`}
+                          {backup.schemaVersion != null && ` Â· ${t('backupSchemaVersion', { version: backup.schemaVersion })}`}
                         </p>
                       </div>
                       <div className="shrink-0 flex items-center gap-2">
@@ -4482,7 +4526,7 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* Google Drive — automated off-device backups (#129) */}
+            {/* Google Drive â€” automated off-device backups (#129) */}
             <div className="bg-card rounded-2xl border-2 border-border p-6 space-y-4">
               <div className="flex items-center gap-2">
                 <HardDrive size={20} className="text-muted-foreground" />
@@ -4764,7 +4808,7 @@ export default function SettingsPage() {
           </div>
         </TabsContent>
 
-        {/* Integrations tab — cloud + OrderFlow + More Apps */}
+        {/* Integrations tab â€” cloud + OrderFlow + More Apps */}
         <TabsContent value="whatsapp">
           <div className="pb-6 max-w-3xl space-y-6">
             {!whatsappEnabled ? (
@@ -4788,7 +4832,7 @@ export default function SettingsPage() {
             <div className="space-y-6">
             <h2 className="text-lg font-semibold text-foreground">{t('tabMobileAccess')}</h2>
 
-            {/* Cloud Admin — reporting sync */}
+            {/* Cloud Admin â€” reporting sync */}
             <div className="bg-card rounded-2xl border-2 border-border p-6 space-y-5">
               <div className="flex items-center gap-2">
                 <Cloud size={20} className="text-brand" />
@@ -4796,6 +4840,16 @@ export default function SettingsPage() {
                   <h2 className="font-bold text-foreground">{t('floadminSalesReporting')}</h2>
                   <p className="text-xs text-muted-foreground mt-0.5">{t('floadminSalesReportingHint')}</p>
                 </div>
+              </div>
+
+              <div className="rounded-xl border border-border bg-muted/40 px-4 py-3 flex items-center justify-between gap-4 flex-wrap">
+                <div>
+                  <p className="text-sm font-medium text-foreground">Connect this Desktop POS to a Cloud branch</p>
+                  <p className="text-xs text-muted-foreground mt-0.5">Generate a terminal code in Cloud Portal, then enter it here. Orders will sync through the POS outbox.</p>
+                </div>
+                <button onClick={pairCloudTerminal} className="px-4 py-2 text-sm bg-brand text-white rounded-lg hover:opacity-90 font-medium shrink-0">
+                  Pair Desktop POS
+                </button>
               </div>
 
               {cloudStatus.cloud_registration_status === 'unregistered' ? (
@@ -4826,7 +4880,7 @@ export default function SettingsPage() {
                   <div>
                     <p className="text-sm font-medium text-foreground">
                       {cloudStatus.cloud_registration_status === 'registered' && cloudServicesStopped && t('cloudServicesStopped')}
-                      {cloudStatus.cloud_registration_status === 'registered' && !cloudServicesStopped && (cloudStatus.cloud_connected ? t('connectedToFloadmin') : t('registeredReconnecting'))}
+                      {cloudStatus.cloud_registration_status === 'registered' && !cloudServicesStopped && (cloudStatus.cloud_terminal_connected ? `Connected to ${cloudStatus.cloud_terminal_branch_name || 'Cloud branch'}` : cloudStatus.cloud_connected ? t('connectedToFloadmin') : t('registeredReconnecting'))}
                       {cloudStatus.cloud_registration_status === 'rejected' && t('registrationRejected')}
                       {cloudStatus.cloud_registration_status === 'deletion_pending' && (cloudStatus.cloud_last_error || cloudStatus.cloud_deletion_status === 'failed') && t('cloudDeletionFailed')}
                       {cloudStatus.cloud_registration_status === 'deletion_pending' && cloudStatus.cloud_deletion_status === 'processing' && t('cloudDeletionProcessing')}
@@ -4836,7 +4890,7 @@ export default function SettingsPage() {
                     </p>
                     <p className="text-xs text-muted-foreground">
                       {cloudStatus.cloud_registration_status === 'registered' && cloudServicesStopped && t('cloudResumeHint')}
-                      {cloudStatus.cloud_registration_status === 'registered' && !cloudServicesStopped && (cloudStatus.cloud_last_heartbeat ? t('liveChannelHeartbeat', { mode: cloudStatus.cloud_relay_mode.replace('_', ' '), time: formatTime(cloudStatus.cloud_last_heartbeat) }) : t('liveChannel', { mode: cloudStatus.cloud_relay_mode.replace('_', ' ') }))}
+                      {cloudStatus.cloud_registration_status === 'registered' && !cloudServicesStopped && (cloudStatus.cloud_terminal_connected ? 'Order events sync from the local POS outbox.' : cloudStatus.cloud_last_heartbeat ? t('liveChannelHeartbeat', { mode: cloudStatus.cloud_relay_mode.replace('_', ' '), time: formatTime(cloudStatus.cloud_last_heartbeat) }) : t('liveChannel', { mode: cloudStatus.cloud_relay_mode.replace('_', ' ') }))}
                       {cloudStatus.cloud_registration_status === 'rejected' && t('registrationContactSupport')}
                       {cloudStatus.cloud_registration_status === 'registration_failed' && (cloudStatus.cloud_last_error ? t('registrationLastError', { error: cloudStatus.cloud_last_error }) : t('registrationLastFailed'))}
                       {cloudStatus.cloud_registration_status === 'deletion_pending' && (cloudStatus.cloud_last_error || cloudStatus.cloud_deletion_status === 'failed') && t('cloudDeletionFailedHint2')}
@@ -4854,6 +4908,11 @@ export default function SettingsPage() {
                     className="px-4 py-2 text-sm bg-brand text-white rounded-lg hover:opacity-90 disabled:opacity-50 font-medium shrink-0"
                   >
                     {registeringCloud ? t('registering') : t('registerWithFloadmin')}
+                  </button>
+                )}
+                {cloudStatus.cloud_terminal_connected && !cloudServicesStopped && (
+                  <button onClick={disconnectCloudTerminal} className="px-4 py-2 text-sm border border-destructive/40 text-destructive rounded-lg hover:bg-destructive/5 font-medium shrink-0">
+                    Disconnect Desktop POS
                   </button>
                 )}
               </div>
@@ -4884,7 +4943,7 @@ export default function SettingsPage() {
               )}
             </div>
 
-            {/* OIU Mobile — consolidated: download/QR + app (pairing) code + paired devices */}
+            {/* OIU Mobile â€” consolidated: download/QR + app (pairing) code + paired devices */}
             <div className="bg-card rounded-2xl border-2 border-border p-6 space-y-5">
               <div className="flex items-center gap-2">
                 <Smartphone size={20} className="text-muted-foreground" />
@@ -4992,7 +5051,7 @@ export default function SettingsPage() {
                           <div className="flex items-center justify-between">
                             <span className="font-medium text-foreground capitalize">
                               {d.platform || t('unknownPlatform')}
-                              {d.country ? ` · ${d.country}` : ''}
+                              {d.country ? ` Â· ${d.country}` : ''}
                             </span>
                             <span className="text-xs text-gray-400">
                               {t('lastActive', { date: formatDate(d.last_seen_at) })}
@@ -5000,7 +5059,7 @@ export default function SettingsPage() {
                           </div>
                           <p className="text-xs text-muted-foreground mt-1">
                             {t('firstPaired', { date: formatDate(d.first_seen_at) })}
-                            {d.app_version ? ` · v${d.app_version}` : ''}
+                            {d.app_version ? ` Â· v${d.app_version}` : ''}
                           </p>
                           {d.user_agent && (
                             <p className="text-xs text-gray-400 mt-1 truncate" title={d.user_agent}>{d.user_agent}</p>
@@ -5021,7 +5080,7 @@ export default function SettingsPage() {
             <div className="space-y-6">
             <h2 className="text-lg font-semibold text-foreground">{t('tabOrderflow')}</h2>
 
-            {/* OrderFlow — online orders */}
+            {/* OrderFlow â€” online orders */}
             <div className="bg-card rounded-2xl border-2 border-border p-6 space-y-4">
               <div className="flex items-center gap-2">
                 <Zap size={20} className="text-amber-500" />
@@ -5074,7 +5133,7 @@ export default function SettingsPage() {
               </div>
             </div>
 
-            {/* More Apps — moved here from the old Integrations tab */}
+            {/* More Apps â€” moved here from the old Integrations tab */}
             <div className="bg-card rounded-2xl border-2 border-border p-6">
               <div className="flex items-center gap-2 mb-4">
                 <Smartphone size={20} className="text-muted-foreground" />
@@ -5173,10 +5232,10 @@ export default function SettingsPage() {
                   {updateStatus.status === 'available' && <Check size={16} className="text-green-600" />}
                   {updateStatus.status === 'up-to-date' && <CheckCircle2 size={16} className="text-green-600" />}
                   {updateStatus.status === 'ready-to-install' && <CheckCircle2 size={16} className="text-green-600" />}
-                  {updateStatus.status === 'check-failed' && <span className="text-red-600">✕</span>}
-                  {updateStatus.status === 'offline' && <span className="text-yellow-600">⚠</span>}
-                  {updateStatus.status === 'dev-mode' && <span className="text-yellow-600">⚠</span>}
-                  {updateStatus.status === 'not-checked-yet' && <span className="text-muted-foreground">—</span>}
+                  {updateStatus.status === 'check-failed' && <span className="text-red-600">âœ•</span>}
+                  {updateStatus.status === 'offline' && <span className="text-yellow-600">âš </span>}
+                  {updateStatus.status === 'dev-mode' && <span className="text-yellow-600">âš </span>}
+                  {updateStatus.status === 'not-checked-yet' && <span className="text-muted-foreground">â€”</span>}
                   <span className="font-medium">
                     {updateStatus.status === 'available' ? t('updateStatusAvailable')
                      : updateStatus.status === 'up-to-date' ? t('updateStatusUpToDate')

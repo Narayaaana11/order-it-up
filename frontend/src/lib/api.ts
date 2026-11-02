@@ -53,7 +53,9 @@ function attachAuthToken(instance: typeof api) {
   instance.interceptors.request.use((config) => {
     if (typeof window !== 'undefined') {
       const token = localStorage.getItem('token') || localStorage.getItem('cloud_token');
-      if (token) {
+      // Endpoint-specific bearer capabilities (for example public QR menu and
+      // order-tracking tokens) must take precedence over the signed-in staff JWT.
+      if (token && !config.headers.Authorization) {
         config.headers.Authorization = `Bearer ${token}`;
       }
     }

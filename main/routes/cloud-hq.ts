@@ -481,9 +481,7 @@ cloudHqRoutes.post(['/pair/claim', '/pair'], (req: Request, res: Response) => {
     branch: branchName,
     branch_id: session.branchId,
     tenant: 'Order It Up Hospitality Group',
-    terminalId: `TERM-${digits}`,
     terminal_name: session.terminalName,
-    token: `pos-term-token-${session.branchId}-${digits}`,
   });
 });
 

@@ -23,6 +23,8 @@ export interface PaymentVerifyParams {
   orderId: string;
   paymentId: string;
   signature?: string;
+  expectedAmountMinor?: number;
+  expectedCurrency?: string;
 }
 
 export interface PaymentVerifyResult {
@@ -30,10 +32,14 @@ export interface PaymentVerifyResult {
   orderId: string;
   paymentId: string;
   status: 'success' | 'failed';
+  amountMinor?: number;
+  currency?: string;
+  captured?: boolean;
   message?: string;
 }
 
 export interface PaymentProvider {
+  readonly providerName: 'razorpay' | 'cashfree' | 'mock';
   createSubscriptionOrder(params: PaymentOrderParams): Promise<PaymentOrderResult>;
   verifyPayment(params: PaymentVerifyParams): Promise<PaymentVerifyResult>;
 }
@@ -42,6 +48,7 @@ export interface PaymentProvider {
  * Razorpay Driver for Indian INR commercial subscriptions (Cards, UPI, Netbanking)
  */
 export class RazorpayProvider implements PaymentProvider {
+  readonly providerName = 'razorpay' as const;
   private keyId: string;
   private keySecret: string;
 
@@ -136,12 +143,53 @@ export class RazorpayProvider implements PaymentProvider {
       };
     }
 
+    if (!this.keyId) {
+      return { verified: false, orderId: params.orderId, paymentId: params.paymentId, status: 'failed', message: 'Razorpay key ID is not configured' };
+    }
+
+    // HMAC proves the checkout callback was signed for this order/payment pair.
+    // Fetch the provider record as well so only a captured payment with the
+    // server-created amount, currency, and order can activate entitlements.
+    const paymentResponse = await fetch(`https://api.razorpay.com/v1/payments/${encodeURIComponent(params.paymentId)}`, {
+      headers: { Authorization: `Basic ${Buffer.from(`${this.keyId}:${this.keySecret}`).toString('base64')}` },
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!paymentResponse.ok) {
+      return { verified: false, orderId: params.orderId, paymentId: params.paymentId, status: 'failed', message: 'Could not verify payment status with Razorpay' };
+    }
+    const payment = await paymentResponse.json() as {
+      id?: string; order_id?: string; amount?: number; currency?: string; status?: string; captured?: boolean;
+    };
+    const amountMinor = Number(payment.amount);
+    const validPayment = payment.id === params.paymentId
+      && payment.order_id === params.orderId
+      && payment.status === 'captured'
+      && payment.captured === true
+      && Number.isSafeInteger(amountMinor)
+      && (params.expectedAmountMinor === undefined || amountMinor === params.expectedAmountMinor)
+      && (!params.expectedCurrency || payment.currency === params.expectedCurrency);
+    if (!validPayment) {
+      return {
+        verified: false,
+        orderId: params.orderId,
+        paymentId: params.paymentId,
+        status: 'failed',
+        amountMinor: Number.isSafeInteger(amountMinor) ? amountMinor : undefined,
+        currency: payment.currency,
+        captured: payment.captured === true,
+        message: 'Razorpay payment is not captured or does not match the expected order amount and currency',
+      };
+    }
+
     return {
       verified: true,
       orderId: params.orderId,
       paymentId: params.paymentId,
       status: 'success',
-      message: 'Razorpay signature verified successfully.',
+      amountMinor,
+      currency: payment.currency,
+      captured: true,
+      message: 'Razorpay captured payment verified successfully.',
     };
   }
 }
@@ -150,11 +198,12 @@ export class RazorpayProvider implements PaymentProvider {
  * Mock Provider for local offline or test environments
  */
 export class MockPaymentProvider implements PaymentProvider {
+  readonly providerName = 'mock' as const;
   public async createSubscriptionOrder(params: PaymentOrderParams): Promise<PaymentOrderResult> {
     if (process.env.NODE_ENV === 'production') {
       throw new Error('Mock payment provider is strictly forbidden in production mode.');
     }
-    const orderId = `oiu_mock_${Date.now()}`;
+    const orderId = `oiu_mock_${crypto.randomUUID()}`;
     return {
       provider: 'mock',
       orderId,
@@ -183,6 +232,9 @@ export class MockPaymentProvider implements PaymentProvider {
       orderId: params.orderId,
       paymentId: params.paymentId || `pay_mock_${Date.now()}`,
       status: 'success',
+      amountMinor: params.expectedAmountMinor,
+      currency: params.expectedCurrency,
+      captured: true,
       message: 'Mock payment verified successfully.',
     };
   }

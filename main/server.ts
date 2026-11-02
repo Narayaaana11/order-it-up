@@ -38,10 +38,15 @@ function requireAuth(req: Request, res: Response, next: NextFunction): void {
   if (req.path.startsWith('/api/auth')) { next(); return; }
   // Central SaaS Admin routes have separate operator authentication
   if (req.path.startsWith('/api/admin')) { next(); return; }
-  // Public customer QR self-ordering routes (menu, order, tracking)
-  if (req.path.startsWith('/api/qr')) { next(); return; }
+  // Public customer QR menu/order/tracking routes. QR capability issuance is
+  // management-only and must pass through normal staff authentication.
+  const qrCapabilityPath = /^\/api\/qr\/tables\/[^/]+\/code\/?$/.test(req.path);
+  if (req.path.startsWith('/api/qr') && !qrCapabilityPath) { next(); return; }
   // Public webhooks (Swiggy / Zomato order ingestion and rider updates)
   if (req.path.startsWith('/api/webhooks')) { next(); return; }
+  // Razorpay subscription webhooks authenticate with the provider's HMAC
+  // signature in the route handler, not a restaurant bearer token.
+  if (req.path === '/api/subscription/webhooks/razorpay') { next(); return; }
   // Allow unauthenticated GET requests for product images (so <img> tags work)
   if (req.path.startsWith('/api/products/') && req.path.endsWith('/image') && req.method === 'GET') { next(); return; }
   // Terminal PIN pairing claim endpoints (strictly POST-only for new tablets joining the local POS network)

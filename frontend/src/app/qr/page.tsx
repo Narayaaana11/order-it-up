@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect, useMemo, Suspense } from 'react';
+import { useState, useEffect, useMemo, useRef, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import axios from 'axios';
+import api from '@/lib/api';
 import { 
   ShoppingBag, Search, Plus, Minus, Check, ChefHat, 
   Sparkles, AlertCircle, UtensilsCrossed, ChevronRight, X
@@ -49,6 +50,8 @@ interface CartItem {
 function QROrderContent() {
   const searchParams = useSearchParams();
   const queryTableId = searchParams.get('tableId') || searchParams.get('table') || '';
+  const [tableToken, setTableToken] = useState(() => searchParams.get('token') || '');
+  const [qrTokenReady, setQrTokenReady] = useState(false);
   const [tableId] = useState(() => {
     if (queryTableId) return queryTableId;
     if (typeof window !== 'undefined') {
@@ -60,7 +63,7 @@ function QROrderContent() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [restaurantName, setRestaurantName] = useState('Order It Up Restaurant');
-  const [, setCurrency] = useState('INR');
+  const [currencyCode, setCurrencyCode] = useState('INR');
   const [tableNumber, setTableNumber] = useState<string>('');
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -69,29 +72,51 @@ function QROrderContent() {
 
   // Cart State
   const [cart, setCart] = useState<CartItem[]>([]);
+  const idempotencyKeyRef = useRef<string | null>(null);
   const [cartOpen, setCartOpen] = useState(false);
   const [activeModalProduct, setActiveModalProduct] = useState<Product | null>(null);
   const [modalSelectedAddons, setModalSelectedAddons] = useState<Addon[]>([]);
   const [modalInstructions, setModalInstructions] = useState('');
 
   // Placed Order State
-  const [placedOrderId, setPlacedOrderId] = useState<number | null>(null);
+  const [placedOrderId, setPlacedOrderId] = useState<string | number | null>(null);
+  const [placedOrderTrackingToken, setPlacedOrderTrackingToken] = useState<string | null>(null);
   const [placedOrderNumber, setPlacedOrderNumber] = useState<string>('');
   const [orderStatus, setOrderStatus] = useState<string>('pending');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const formatCurrency = (amount: number) => {
+    try {
+      return new Intl.NumberFormat(undefined, { style: 'currency', currency: currencyCode }).format(amount);
+    } catch {
+      return `${currencyCode} ${amount.toFixed(2)}`;
+    }
+  };
+
+  useEffect(() => {
+    const fragmentToken = new URLSearchParams(window.location.hash.slice(1)).get('token');
+    if (fragmentToken) setTableToken(fragmentToken);
+    setQrTokenReady(true);
+  }, []);
+
   // Fetch Menu on mount
   useEffect(() => {
     async function fetchMenu() {
+      if (!qrTokenReady) return;
+      if (tableId && !tableToken) {
+        setError('This table QR code is no longer valid. Please ask staff to issue an updated code.');
+        setLoading(false);
+        return;
+      }
       try {
         setLoading(true);
-        const url = tableId 
-          ? `/api/qr/menu?table_id=${encodeURIComponent(tableId)}`
-          : '/api/qr/menu';
-        const { data } = await axios.get(url);
+        const url = tableId
+          ? `/qr/menu?table_id=${encodeURIComponent(tableId)}`
+          : '/qr/menu';
+        const { data } = await api.get(url, tableId ? { headers: { Authorization: `Bearer ${tableToken}` } } : undefined);
         if (data.ok) {
           setRestaurantName(data.restaurant?.name || 'Order It Up Restaurant');
-          setCurrency(data.restaurant?.currency || 'INR');
+          setCurrencyCode(data.restaurant?.currency || 'INR');
           if (data.table) {
             setTableNumber(String(data.table.number));
           }
@@ -110,14 +135,16 @@ function QROrderContent() {
       }
     }
     fetchMenu();
-  }, [tableId]);
+  }, [tableId, tableToken, qrTokenReady]);
 
   // Poll order status if order was placed
   useEffect(() => {
-    if (!placedOrderId) return;
+    if (!placedOrderId || !placedOrderTrackingToken) return;
     const interval = setInterval(async () => {
       try {
-        const { data } = await axios.get(`/api/qr/order/${placedOrderId}`);
+        const { data } = await api.get(`/qr/order/${encodeURIComponent(String(placedOrderId))}`, {
+          headers: { Authorization: `Bearer ${placedOrderTrackingToken}` },
+        });
         if (data.ok && data.order) {
           setOrderStatus(data.order.status);
         }
@@ -126,7 +153,7 @@ function QROrderContent() {
       }
     }, 4000);
     return () => clearInterval(interval);
-  }, [placedOrderId]);
+  }, [placedOrderId, placedOrderTrackingToken]);
 
   // Filtered products
   const filteredProducts = useMemo(() => {
@@ -151,6 +178,17 @@ function QROrderContent() {
     }, 0);
   }, [cart]);
 
+  const modalSelectionValid = useMemo(() => {
+    if (!activeModalProduct) return true;
+    return (activeModalProduct.addon_groups || []).every((group) => {
+      const selectedCount = modalSelectedAddons.filter((addon) =>
+        group.addons.some((candidate) => candidate.id === addon.id)
+      ).length;
+      const minimum = Math.max(group.min_selection || 0, group.is_required ? 1 : 0);
+      return selectedCount >= minimum && selectedCount <= group.max_selection;
+    });
+  }, [activeModalProduct, modalSelectedAddons]);
+
   const handleOpenAddModal = (product: Product) => {
     if (!product.addon_groups || product.addon_groups.length === 0) {
       // Direct add to cart
@@ -163,6 +201,7 @@ function QROrderContent() {
   };
 
   const addToCart = (product: Product, addons: Addon[], instructions: string) => {
+    idempotencyKeyRef.current = null;
     setCart((prev) => {
       const existingIdx = prev.findIndex(
         (ci) => ci.product.id === product.id && 
@@ -180,6 +219,7 @@ function QROrderContent() {
   };
 
   const updateQuantity = (index: number, delta: number) => {
+    idempotencyKeyRef.current = null;
     setCart((prev) => {
       const next = [...prev];
       const newQty = next[index].quantity + delta;
@@ -206,13 +246,33 @@ function QROrderContent() {
         })),
       };
 
-      const { data } = await axios.post('/api/qr/order', payload);
+      const fingerprint = JSON.stringify(payload);
+      const storageKey = `qr-order-idempotency:${tableId}`;
+      let idempotencyKey = idempotencyKeyRef.current;
+      if (!idempotencyKey) {
+        try {
+          const stored = JSON.parse(sessionStorage.getItem(storageKey) || 'null') as { fingerprint?: string; key?: string } | null;
+          if (stored?.fingerprint === fingerprint && typeof stored.key === 'string') idempotencyKey = stored.key;
+        } catch {}
+      }
+      if (!idempotencyKey) {
+        idempotencyKey = Array.from(crypto.getRandomValues(new Uint8Array(24)), (value) => value.toString(16).padStart(2, '0')).join('');
+      }
+      idempotencyKeyRef.current = idempotencyKey;
+      try { sessionStorage.setItem(storageKey, JSON.stringify({ fingerprint, key: idempotencyKey })); } catch {}
+
+      const { data } = await api.post('/qr/order', payload, {
+        headers: { Authorization: `Bearer ${tableToken}`, 'Idempotency-Key': idempotencyKey },
+      });
       if (data.ok && data.order) {
         setPlacedOrderId(data.order.id);
+        setPlacedOrderTrackingToken(data.order.tracking_token);
         setPlacedOrderNumber(data.order.order_number);
         setOrderStatus(data.order.status);
         setCart([]);
         setCartOpen(false);
+        idempotencyKeyRef.current = null;
+        try { sessionStorage.removeItem(storageKey); } catch {}
       } else {
         alert('Could not submit order. Please speak to staff.');
       }
@@ -428,7 +488,7 @@ function QROrderContent() {
                 )}
                 <div className="flex items-center gap-2 mt-2">
                   <span className="font-black text-amber-400 text-sm">
-                    ₹{prod.price.toFixed(2)}
+                    {formatCurrency(prod.price)}
                   </span>
                   {prod.addon_groups && prod.addon_groups.length > 0 && (
                     <span className="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-md font-medium">
@@ -465,7 +525,7 @@ function QROrderContent() {
               <span className="text-sm">View Cart</span>
             </div>
             <div className="flex items-center gap-1.5 text-sm">
-              <span>₹{cartTotal.toFixed(2)}</span>
+              <span>{formatCurrency(cartTotal)}</span>
               <ChevronRight className="w-4 h-4" />
             </div>
           </button>
@@ -479,7 +539,7 @@ function QROrderContent() {
             <div className="flex justify-between items-start mb-4">
               <div>
                 <h2 className="font-bold text-lg">{activeModalProduct.name}</h2>
-                <p className="text-xs text-amber-400 font-bold">₹{activeModalProduct.price.toFixed(2)}</p>
+                <p className="text-xs text-amber-400 font-bold">{formatCurrency(activeModalProduct.price)}</p>
               </div>
               <button 
                 onClick={() => setActiveModalProduct(null)}
@@ -506,13 +566,16 @@ function QROrderContent() {
                           if (isSelected) {
                             setModalSelectedAddons(modalSelectedAddons.filter((a) => a.id !== addon.id));
                           } else {
+                            const groupSelectionCount = modalSelectedAddons.filter((selected) =>
+                              group.addons.some((candidate) => candidate.id === selected.id)
+                            ).length;
                             if (group.max_selection === 1) {
                               // Replace any existing from same group
                               const withoutGroup = modalSelectedAddons.filter(
                                 (a) => !group.addons.some((ga) => ga.id === a.id)
                               );
                               setModalSelectedAddons([...withoutGroup, addon]);
-                            } else {
+                            } else if (groupSelectionCount < group.max_selection) {
                               setModalSelectedAddons([...modalSelectedAddons, addon]);
                             }
                           }
@@ -524,7 +587,7 @@ function QROrderContent() {
                         }`}
                       >
                         <span>{addon.name}</span>
-                        <span>+₹{addon.price.toFixed(2)}</span>
+                        <span>+{formatCurrency(addon.price)}</span>
                       </button>
                     );
                   })}
@@ -548,7 +611,8 @@ function QROrderContent() {
 
             <button
               onClick={() => addToCart(activeModalProduct, modalSelectedAddons, modalInstructions)}
-              className="w-full py-3.5 rounded-xl bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 transition"
+              disabled={!modalSelectionValid}
+              className="w-full py-3.5 rounded-xl bg-amber-500 text-slate-950 font-bold hover:bg-amber-400 transition disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Add to Order
             </button>
@@ -589,7 +653,7 @@ function QROrderContent() {
                           {item.specialInstructions && (
                             <p className="text-xs text-slate-500 italic mt-0.5">&quot;{item.specialInstructions}&quot;</p>
                           )}
-                          <p className="text-xs font-bold text-slate-300 mt-1">₹{lineTotal.toFixed(2)}</p>
+                          <p className="text-xs font-bold text-slate-300 mt-1">{formatCurrency(lineTotal)}</p>
                         </div>
 
                         {/* Qty Buttons */}
@@ -613,7 +677,7 @@ function QROrderContent() {
             <div className="pt-4 border-t border-slate-800 mt-4">
               <div className="flex justify-between items-center mb-4">
                 <span className="text-slate-400 text-sm">Total Amount</span>
-                <span className="text-xl font-black text-amber-400">₹{cartTotal.toFixed(2)}</span>
+                <span className="text-xl font-black text-amber-400">{formatCurrency(cartTotal)}</span>
               </div>
               <button
                 onClick={handlePlaceOrder}

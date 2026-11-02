@@ -142,6 +142,18 @@ class MockD1SyncDatabase {
           return { success: true };
         }
 
+        // Revoke a terminal credential by its hashed bearer token.
+        if (normalized.includes("UPDATE terminals SET status = 'revoked'") && normalized.includes('terminal_token_hash = ?')) {
+          const [tokenHash] = params;
+          for (const term of db.terminals.values()) {
+            if (term.terminal_token_hash === tokenHash && term.status === 'active') {
+              term.status = 'revoked';
+              return { success: true, meta: { changes: 1 } } as any;
+            }
+          }
+          return { success: true, meta: { changes: 0 } } as any;
+        }
+
         // Insert sync_events with UNIQUE constraint check
         if (normalized.includes('INSERT INTO sync_events')) {
           const [id, orgId, branchId, terminalId, eventType, entityType, entityId, payloadHash, status, processedAt] = params;
@@ -420,7 +432,20 @@ async function testTerminalOwnershipAndRevocation(): Promise<void> {
   assert.equal(targetOrd.organization_id, orgB, 'Original tenant ownership must not be overwritten');
   assert.equal(targetOrd.order_number, 'ORD-99');
 
-  console.log('  ✓ Revoked terminals, inactive branches, unknown tokens, and cross-tenant attacks rejected');
+  const selfRevokeToken = 'terminal-token-for-self-revocation-test-32chars';
+  db.terminals.set('t-self-revoke', {
+    id: 't-self-revoke', organization_id: orgA, branch_id: branchA,
+    terminal_token_hash: await hashString(selfRevokeToken), status: 'active',
+  });
+  const revokeResponse = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/disconnect', {
+    method: 'POST', headers: { Authorization: `Bearer ${selfRevokeToken}` },
+  }), env);
+  assert.equal(revokeResponse.status, 200, 'terminal can revoke its own credential');
+  assert.equal(db.terminals.get('t-self-revoke').status, 'revoked', 'self-revoke persists terminal status');
+  const afterRevoke = await cloudWorker.fetch(makeSyncReq(selfRevokeToken, []), env);
+  assert.equal(afterRevoke.status, 403, 'revoked terminal can no longer ingest events');
+
+  console.log('  ✓ Revoked terminals, self-revocation, inactive branches, unknown tokens, and cross-tenant attacks rejected');
 }
 
 // ============================================================================

@@ -70,6 +70,7 @@ const SENSITIVE_SETTING_KEYS = new Set([
   'jwt_secret',
   'cloud_api_key',
   'cloud_device_secret',
+  'cloud_terminal_token',
   'cloud_deletion_status_token',
   'cloud_last_error',
 ]);
@@ -679,6 +680,25 @@ router.post('/cloud/register', requireRole(...ROLE_ACCESS.ownerManager), asyncHa
   } catch (error: any) {
     console.error('[API] Cloud registration failed:', error);
     res.status(502).json({ error: 'Cloud registration failed' });
+  }
+}));
+
+router.post('/cloud/terminal/pair', requireRole(...ROLE_ACCESS.ownerManager), asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const result = await cloudSync.claimTerminalPairingCode(String(req.body?.code || ''));
+    // The bearer credential is persisted locally and must never be returned to the renderer.
+    res.json({ ...result, status: cloudSync.getStatus() });
+  } catch (error: any) {
+    res.status(400).json({ error: error?.message || 'Cloud terminal pairing failed' });
+  }
+}));
+
+router.post('/cloud/terminal/disconnect', requireRole(...ROLE_ACCESS.ownerManager), asyncHandler(async (_req: Request, res: Response) => {
+  try {
+    await cloudSync.disconnectTerminal();
+    res.json({ success: true, status: cloudSync.getStatus() });
+  } catch (error: any) {
+    res.status(400).json({ error: error?.message || 'Cloud terminal disconnect failed' });
   }
 }));
 

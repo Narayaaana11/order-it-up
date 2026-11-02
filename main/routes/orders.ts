@@ -103,27 +103,40 @@ function syncCustomerTagCounts(db: any, customerId: string, items: { product_id:
 }
 
 /** Resolves and validates item add-ons against catalog to enforce authoritative pricing. */
-function resolveItemAddons(
+export function resolveItemAddons(
   db: ReturnType<typeof getDatabase>,
   productId: string,
   addons: any[] | null | undefined,
 ): { id: string; name: string; price: number; quantity: number }[] {
-  if (!addons || !Array.isArray(addons) || addons.length === 0) return [];
+  if (addons !== undefined && addons !== null && !Array.isArray(addons)) {
+    throw new Error('Add-ons must be supplied as a list of catalog add-on IDs');
+  }
+  const requestedAddons = Array.isArray(addons) ? addons : [];
 
-  const linkedGroupIds = new Set(
-    (db.prepare('SELECT addon_group_id FROM addon_group_product WHERE product_id = ?').all(productId) as { addon_group_id: string }[])
-      .map((row) => row.addon_group_id),
-  );
+  const linkedGroups = db.prepare(`
+    SELECT ag.id, ag.name, ag.is_required, ag.min_selection, ag.max_selection, ag.allow_multiple_quantities
+    FROM addon_group_product agp
+    JOIN addon_groups ag ON ag.id = agp.addon_group_id AND ag.is_active = 1
+    WHERE agp.product_id = ?
+  `).all(productId) as {
+    id: string; name: string; is_required: number; min_selection: number | null;
+    max_selection: number | null; allow_multiple_quantities: number;
+  }[];
+  const linkedGroupIds = new Set(linkedGroups.map((group) => group.id));
 
   const resolved: { id: string; name: string; price: number; quantity: number }[] = [];
   const groupSelections = new Map<string, { totalQty: number; hasMultiQty: boolean }>();
 
-  for (const addon of addons) {
-    if (!addon) continue;
-    if (!addon.id || typeof addon.id !== 'string') {
+  for (const addon of requestedAddons) {
+    if (!addon || !addon.id || typeof addon.id !== 'string') {
       throw new Error('Each add-on must reference a valid catalog add-on ID');
     }
-    const catalog = db.prepare('SELECT * FROM addons WHERE id = ?').get(addon.id) as
+    const catalog = db.prepare(`
+      SELECT a.id, a.addon_group_id, a.name, a.price, a.is_active
+      FROM addons a
+      JOIN addon_groups ag ON ag.id = a.addon_group_id AND ag.is_active = 1
+      WHERE a.id = ?
+    `).get(addon.id) as
       | { id: string; addon_group_id: string; name: string; price: number; is_active: number }
       | undefined;
     if (!catalog) {
@@ -152,7 +165,7 @@ function resolveItemAddons(
   }
 
   for (const [groupId, selection] of groupSelections.entries()) {
-    const group = db.prepare('SELECT * FROM addon_groups WHERE id = ? AND is_active = 1').get(groupId) as any;
+    const group = linkedGroups.find((candidate) => candidate.id === groupId);
     if (!group) continue;
 
     if (!group.allow_multiple_quantities && selection.hasMultiQty) {
@@ -162,9 +175,13 @@ function resolveItemAddons(
     if (group.max_selection !== null && group.max_selection !== undefined && selection.totalQty > group.max_selection) {
       throw new Error(`Total add-on quantity for group "${group.name}" exceeds maximum allowed (${group.max_selection})`);
     }
+  }
 
-    if (group.min_selection && selection.totalQty < group.min_selection) {
-      throw new Error(`Selection for group "${group.name}" requires at least ${group.min_selection} item(s)`);
+  for (const group of linkedGroups) {
+    const selected = groupSelections.get(group.id)?.totalQty || 0;
+    const minimum = Math.max(Number(group.min_selection) || 0, group.is_required ? 1 : 0);
+    if (selected < minimum) {
+      throw new Error(`Selection for group "${group.name}" requires at least ${minimum} item(s)`);
     }
   }
 
@@ -1010,6 +1027,10 @@ router.patch('/:id/status', orderWriteRateLimit, requireRole(...ROLE_ACCESS.orde
           }
           db.prepare('UPDATE orders SET status = ?, cooking_started_at = ?, updated_at = ? WHERE id = ?')
             .run(status, nowStr, nowStr, req.params.id);
+          if (currentOrder.table_id) {
+            db.prepare("UPDATE tables SET status = 'occupied', updated_at = ? WHERE id = ?")
+              .run(nowStr, currentOrder.table_id);
+          }
           break;
 
         case 'ready':

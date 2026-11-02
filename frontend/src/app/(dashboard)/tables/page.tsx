@@ -1,10 +1,11 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import api from '@/lib/api';
+import api, { isElectronEnvironment } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
-import { Plus, X, Search, UserPlus, RotateCcw, Pencil, MapPin, MapPinned, List } from 'lucide-react';
+import { Plus, X, Search, UserPlus, RotateCcw, Pencil, MapPin, MapPinned, List, QrCode, Download, ExternalLink } from 'lucide-react';
+import QRCode from 'qrcode';
 import type { Table, Customer, Order, OrderItem } from '@/lib/types';
 import FloorplanEditor from '@/components/tables/FloorplanEditor';
 import { useRouter } from 'next/navigation';
@@ -212,6 +213,8 @@ export default function TablesPage() {
   const [editingTable, setEditingTable] = useState<Table | null>(null);
   const [selectedFloor, setSelectedFloor] = useState('all');
   const [reservingTable, setReservingTable] = useState<Table | null>(null);
+  const [tableQr, setTableQr] = useState<{ tableName: string; url: string; image: string } | null>(null);
+  const [qrGeneratingTableId, setQrGeneratingTableId] = useState<string | null>(null);
   // List is the default view (table management + Add table); the floor
   // plan editor is the second view for visual layout work.
   const [view, setView] = useState<'plan' | 'list'>('list');
@@ -265,8 +268,11 @@ export default function TablesPage() {
   useEffect(() => {
     if (view !== 'plan' && !showDetails) return;
     const fetchOrders = () => {
-      api.get('/orders', { params: { status: 'pending,preparing,ready,served', per_page: 500 } })
-        .then(({ data }) => setOrders(data.orders || []))
+      api.get('/orders', { params: { status: isElectronEnvironment() ? 'pending,preparing,ready,served' : 'active', per_page: 500 } })
+        .then(({ data }) => setOrders((data.orders || []).map((order: Order & { kitchen_status?: string }) => ({
+          ...order,
+          status: (order.kitchen_status || order.status) as Order['status'],
+        }))))
         .catch(() => {
           // silently fail — tables still show
         });
@@ -368,6 +374,22 @@ export default function TablesPage() {
       fetchTables();
     } catch {
       toast.error(tTables('updateStatusFailed'));
+    }
+  };
+
+  const generateTableQr = async (table: Table) => {
+    setQrGeneratingTableId(table.id);
+    try {
+      const { data } = await api.get(`/qr/tables/${encodeURIComponent(table.id)}/code`);
+      const image = data.qr_data_url || await QRCode.toDataURL(data.qr_url, {
+        errorCorrectionLevel: 'M', margin: 2, width: 420,
+        color: { dark: '#0f172a', light: '#ffffff' },
+      });
+      setTableQr({ tableName: table.name, url: data.qr_url, image });
+    } catch {
+      toast.error('Could not issue this table QR code. Check your connection and staff role.');
+    } finally {
+      setQrGeneratingTableId(null);
     }
   };
 
@@ -552,6 +574,12 @@ export default function TablesPage() {
                 {/* Actions */}
                 <div className="px-4 py-2 border-t border-border flex justify-end gap-2">
                   {canManageTables && (
+                    <button onClick={() => generateTableQr(table)} disabled={qrGeneratingTableId === table.id || !table.is_active}
+                      className="text-xs text-brand hover:text-brand-hover font-medium inline-flex items-center gap-1 disabled:opacity-50">
+                      <QrCode size={12} /> {qrGeneratingTableId === table.id ? 'Issuing…' : 'QR code'}
+                    </button>
+                  )}
+                  {canManageTables && (
                     <button onClick={() => openEdit(table)} className="text-xs text-brand hover:text-brand-hover font-medium inline-flex items-center gap-1">
                       <Pencil size={12} /> {tTables('editTable')}
                     </button>
@@ -621,6 +649,12 @@ export default function TablesPage() {
                     {tTables('markAvailable')}
                   </button>
                 )}
+                {canManageTables && (
+                  <button onClick={() => generateTableQr(table)} disabled={qrGeneratingTableId === table.id || !table.is_active}
+                    className="text-xs text-brand hover:text-brand/80 font-medium flex items-center gap-1 disabled:opacity-50">
+                    <QrCode size={11} /> {qrGeneratingTableId === table.id ? 'Issuing…' : 'QR code'}
+                  </button>
+                )}
                 {table.status === 'available' && (
                   <button onClick={() => setReservingTable(table)}
                     className="text-xs text-amber-600 hover:text-amber-700 font-medium">
@@ -653,6 +687,28 @@ export default function TablesPage() {
           onClose={() => setReservingTable(null)}
           onDone={() => { setReservingTable(null); fetchTables(); }}
         />
+      )}
+
+      {tableQr && (
+        <div className="fixed inset-0 z-[70] bg-black/60 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={`Table ${tableQr.tableName} QR code`}>
+          <div className="bg-card rounded-2xl p-6 w-full max-w-sm text-center shadow-xl">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-bold text-foreground">Table {tableQr.tableName} QR code</h2>
+              <button onClick={() => setTableQr(null)} className="text-muted-foreground hover:text-foreground" aria-label="Close QR code"><X size={20} /></button>
+            </div>
+            <img src={tableQr.image} alt={`Customer ordering QR code for table ${tableQr.tableName}`} className="w-64 h-64 mx-auto rounded-lg bg-white p-2" />
+            <p className="text-xs text-muted-foreground mt-3 break-all">{tableQr.url}</p>
+            <div className="flex gap-2 mt-4">
+              <a href={tableQr.image} download={`table-${tableQr.tableName}-qr.png`} className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg bg-brand text-white px-3 py-2 text-sm font-semibold">
+                <Download size={15} /> Download
+              </a>
+              <a href={tableQr.url} target="_blank" rel="noreferrer" className="flex-1 inline-flex items-center justify-center gap-2 rounded-lg border border-border px-3 py-2 text-sm font-semibold text-foreground">
+                <ExternalLink size={15} /> Preview
+              </a>
+            </div>
+            <p className="mt-3 text-xs text-amber-700">Issuing a replacement QR code invalidates the previous code for this table.</p>
+          </div>
+        </div>
       )}
 
       {/* Add / Edit Table Modal (List view only — the floor plan editor

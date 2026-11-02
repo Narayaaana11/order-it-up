@@ -39,7 +39,7 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
 
   Future<void> _handlePinPairing() async {
     final pin = _pinController.text.trim();
-    if (pin.length < 6) {
+    if (!RegExp(r'^\d{6}$').hasMatch(pin)) {
       setState(() => _pairError = 'Please enter a valid 6-digit pairing code.');
       return;
     }
@@ -58,7 +58,7 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
-                  'Connected to ${res['branch'] ?? 'Cloud Franchise Terminal'}'),
+                  'Counter PIN accepted for ${res['branch'] ?? 'your branch'}. Sign in with your staff account.'),
               backgroundColor: AppTheme.success,
             ),
           );
@@ -128,7 +128,7 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Pair with your Order It Up POS counter or franchise cloud to begin orders and KDS.',
+                    'Connect to your Order It Up POS counter, then sign in with your staff account to use mobile ordering and KDS.',
                     style: TextStyle(
                       fontSize: 13,
                       color: isDark

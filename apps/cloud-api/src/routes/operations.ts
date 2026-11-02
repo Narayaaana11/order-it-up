@@ -33,7 +33,7 @@ export interface PriceValidationItem {
   tax_amount?: number;
   tax_rate?: number;
   discount_amount?: number;
-  modifiers?: Array<{ name: string; price: number; quantity?: number }>;
+  modifiers?: Array<{ id?: string; name: string; price: number; quantity?: number }>;
   special_instructions?: string | null;
   price_override_authorized?: boolean;
 }
@@ -41,6 +41,7 @@ export interface PriceValidationItem {
 export interface PriceValidationOptions {
   isTerminalSync?: boolean; // When true: authenticated terminal outbox sync path (/api/pos/events)
   managerAuthorized?: boolean; // Live server-verified manager authorization
+  catalogModifiersValidated?: boolean; // Modifier IDs were checked against this item's active catalog groups.
 }
 
 export async function validateAndPriceItem(
@@ -74,7 +75,7 @@ export async function validateAndPriceItem(
 
   // 2. Modifiers calculation
   let modifiersCostPerUnit = 0;
-  const validModifiers: Array<{ name: string; price: number; quantity: number }> = [];
+  const validModifiers: Array<{ id?: string; name: string; price: number; quantity: number }> = [];
   if (Array.isArray(rawItem.modifiers)) {
     for (const mod of rawItem.modifiers) {
       if (!mod || typeof mod.name !== 'string') continue;
@@ -83,14 +84,14 @@ export async function validateAndPriceItem(
       if (!Number.isFinite(modPrice) || modPrice < 0) {
         return { valid: false, error: `Invalid modifier price for ${mod.name}` };
       }
-      if (modPrice > 0 && !options?.isTerminalSync) {
+      if (modPrice > 0 && !options?.isTerminalSync && !options?.catalogModifiersValidated) {
         return {
           valid: false,
           error: `Arbitrary modifier price for "${mod.name}" is not permitted for cloud orders without authoritative catalog modifier configuration. Submit priced items via catalog or sync via authenticated terminal.`
         };
       }
       modifiersCostPerUnit += modPrice * (modQty > 0 ? modQty : 1);
-      validModifiers.push({ name: mod.name, price: modPrice, quantity: modQty > 0 ? modQty : 1 });
+      validModifiers.push({ ...(mod.id ? { id: mod.id } : {}), name: mod.name, price: modPrice, quantity: modQty > 0 ? modQty : 1 });
     }
   }
 
@@ -263,22 +264,16 @@ export async function handleListOrders(
   const userId = claims.sub;
   const branchId = url.searchParams.get('branch_id');
 
-  if (!branchId) {
-    return Response.json({ error: 'branch_id query parameter is required' }, { status: 400 });
-  }
-
   const memberships = await getUserMemberships(env.DB, orgId, userId);
-  const authCheck = await isAuthorizedForBranch(env.DB, orgId, memberships, branchId, [
-    'owner',
-    'manager',
-    'cashier',
-    'server',
-    'chef',
-  ]);
-
-  if (!authCheck.authorized) {
-    return Response.json({ error: 'Forbidden: Insufficient privileges for this branch' }, { status: 403 });
+  const branchRows = branchId
+    ? [{ id: branchId }]
+    : (await env.DB.prepare("SELECT id FROM branches WHERE organization_id = ? AND status = 'active'").bind(orgId).all<{ id: string }>()).results || [];
+  const authorizedBranchIds: string[] = [];
+  for (const branch of branchRows) {
+    const authCheck = await isAuthorizedForBranch(env.DB, orgId, memberships, branch.id, ['owner', 'manager', 'cashier', 'server', 'chef']);
+    if (authCheck.authorized) authorizedBranchIds.push(branch.id);
   }
+  if (authorizedBranchIds.length === 0) return Response.json({ error: 'Forbidden: Insufficient privileges for this branch' }, { status: 403 });
 
   const status = url.searchParams.get('status');
   const kitchenStatus = url.searchParams.get('kitchen_status');
@@ -293,9 +288,9 @@ export async function handleListOrders(
     FROM synced_orders o
     JOIN branches b ON o.branch_id = b.id
     LEFT JOIN restaurants r ON o.restaurant_id = r.id
-    WHERE o.organization_id = ? AND o.branch_id = ?
+    WHERE o.organization_id = ? AND o.branch_id IN (${authorizedBranchIds.map(() => '?').join(',')})
   `;
-  const binds: any[] = [orgId, branchId];
+  const binds: any[] = [orgId, ...authorizedBranchIds];
 
   if (status) {
     if (status.includes(',')) {
@@ -474,7 +469,7 @@ export async function handleCreateOrder(
     return Response.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
-  const branchId = typeof body?.branch_id === 'string' ? body.branch_id.trim() : '';
+  let branchId = typeof body?.branch_id === 'string' ? body.branch_id.trim() : '';
   if (!branchId) {
     return Response.json({ error: 'branch_id is required' }, { status: 400 });
   }
@@ -1606,30 +1601,24 @@ export async function handleListTables(
   const userId = claims.sub;
   const branchId = url.searchParams.get('branch_id');
 
-  if (!branchId) {
-    return Response.json({ error: 'branch_id query parameter is required' }, { status: 400 });
-  }
-
   const memberships = await getUserMemberships(env.DB, orgId, userId);
-  const authCheck = await isAuthorizedForBranch(env.DB, orgId, memberships, branchId, [
-    'owner',
-    'manager',
-    'cashier',
-    'server',
-    'chef',
-  ]);
-
-  if (!authCheck.authorized) {
-    return Response.json({ error: 'Forbidden: Insufficient privileges for this branch' }, { status: 403 });
+  const branchRows = branchId
+    ? [{ id: branchId }]
+    : (await env.DB.prepare("SELECT id FROM branches WHERE organization_id = ? AND status = 'active'").bind(orgId).all<{ id: string }>()).results || [];
+  const authorizedBranchIds: string[] = [];
+  for (const branch of branchRows) {
+    const authCheck = await isAuthorizedForBranch(env.DB, orgId, memberships, branch.id, ['owner', 'manager', 'cashier', 'server', 'chef']);
+    if (authCheck.authorized) authorizedBranchIds.push(branch.id);
   }
+  if (authorizedBranchIds.length === 0) return Response.json({ error: 'Forbidden: Insufficient privileges for this branch' }, { status: 403 });
 
   const tablesResult = await env.DB.prepare(`
     SELECT t.*, o.order_number, o.grand_total as current_order_total, o.kitchen_status as current_order_kitchen_status
     FROM dining_tables t
     LEFT JOIN synced_orders o ON t.current_order_id = o.id
-    WHERE t.organization_id = ? AND t.branch_id = ? AND t.is_active = 1
+    WHERE t.organization_id = ? AND t.branch_id IN (${authorizedBranchIds.map(() => '?').join(',')}) AND t.is_active = 1
     ORDER BY t.table_number ASC
-  `).bind(orgId, branchId).all();
+  `).bind(orgId, ...authorizedBranchIds).all();
 
   return Response.json({ tables: tablesResult.results || [] });
 }
@@ -1652,16 +1641,24 @@ export async function handleCreateTable(
     return Response.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
-  const branchId = typeof body?.branch_id === 'string' ? body.branch_id.trim() : '';
+  let branchId = typeof body?.branch_id === 'string' ? body.branch_id.trim() : '';
   const tableNumber = typeof body?.table_number === 'string' && body.table_number.trim()
     ? body.table_number.trim()
     : (typeof body?.name === 'string' ? body.name.trim() : '');
 
-  if (!branchId || !tableNumber) {
-    return Response.json({ error: 'branch_id and table_number are required' }, { status: 400 });
+  if (!tableNumber) {
+    return Response.json({ error: 'table_number is required' }, { status: 400 });
   }
 
   const memberships = await getUserMemberships(env.DB, orgId, userId);
+  if (!branchId) {
+    const branches = (await env.DB.prepare("SELECT id FROM branches WHERE organization_id = ? AND status = 'active' ORDER BY created_at ASC").bind(orgId).all<{ id: string }>()).results || [];
+    for (const branch of branches) {
+      const candidate = await isAuthorizedForBranch(env.DB, orgId, memberships, branch.id, ['owner', 'manager']);
+      if (candidate.authorized) { branchId = branch.id; break; }
+    }
+  }
+  if (!branchId) return Response.json({ error: 'No active branch is available to configure tables' }, { status: 403 });
   const authCheck = await isAuthorizedForBranch(env.DB, orgId, memberships, branchId, [
     'owner',
     'manager',
@@ -1894,6 +1891,27 @@ export async function handleUpdateKitchenTicketStatus(
   let startedAt = ticket.started_at;
   let readyAt = ticket.ready_at;
   let completedAt = ticket.completed_at;
+
+  if (nextStatus === 'preparing') {
+    const order = await env.DB.prepare(`
+      SELECT table_id, status FROM synced_orders WHERE id = ? AND organization_id = ?
+    `).bind(ticket.order_id, orgId).first<{ table_id: string | null; status: string }>();
+    if (order && ['cancelled', 'completed'].includes(order.status)) {
+      return Response.json({ error: 'A completed or cancelled order cannot be started in the kitchen' }, { status: 409 });
+    }
+    if (order?.table_id) {
+      const tableUpdate = await env.DB.prepare(`
+        UPDATE dining_tables
+        SET status = 'occupied', current_order_id = ?, updated_at = ?
+        WHERE id = ? AND organization_id = ? AND branch_id = ? AND is_active = 1
+          AND (status IN ('available', 'reserved') OR current_order_id = ?)
+      `).bind(ticket.order_id, now, order.table_id, orgId, ticket.branch_id, ticket.order_id).run();
+      const changed = (tableUpdate as any)?.meta?.changes ?? (tableUpdate as any)?.changes ?? 0;
+      if (changed === 0) {
+        return Response.json({ error: 'The table is no longer available for this order' }, { status: 409 });
+      }
+    }
+  }
 
   if (nextStatus === 'preparing' && !startedAt) startedAt = now;
   if (nextStatus === 'ready' && !readyAt) readyAt = now;
