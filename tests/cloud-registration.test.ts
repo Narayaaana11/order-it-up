@@ -15,6 +15,8 @@ class MockD1RegistrationDB {
   public categories = new Map<string, any>();
   public products = new Map<string, any>();
   public rateLimits = new Map<string, { count: number; reset_at: number; updated_at: string }>();
+  public subscriptions = new Map<string, any>();
+  public subscriptionEvents = new Map<string, any>();
 
   prepare(sql: string) {
     const db = this;
@@ -101,6 +103,26 @@ class MockD1RegistrationDB {
               return { success: true };
             }
 
+            // Initial organization subscription snapshot (14-day Starter trial).
+            if (normalized.includes('INSERT INTO organization_subscriptions')) {
+              const [id, organizationId, trialEndsAt, createdAt, updatedAt] = params;
+              db.subscriptions.set(id, {
+                id, organization_id: organizationId, plan_code: 'starter', status: 'trial',
+                billing_cycle: 'monthly', currency: 'INR', amount_minor: 49900,
+                trial_ends_at: trialEndsAt, created_at: createdAt, updated_at: updatedAt,
+              });
+              return { success: true };
+            }
+
+            if (normalized.includes('INSERT INTO subscription_events')) {
+              const [id, organizationId, subscriptionId, createdAt] = params;
+              db.subscriptionEvents.set(id, {
+                id, organization_id: organizationId, subscription_id: subscriptionId,
+                event_type: 'trial_started', source: 'self_service_registration', created_at: createdAt,
+              });
+              return { success: true };
+            }
+
             // Product insert
             if (normalized.includes('INSERT INTO master_products')) {
               const [id, orgId, categoryId, name, sku, basePrice, taxRate, isActive, version, created, updated] = params;
@@ -166,8 +188,14 @@ async function runRegistrationTests() {
     // Verify starter menu categories & products seeded
     assert.ok(db.categories.size >= 2, 'Should seed starter categories');
     assert.ok(db.products.size >= 5, 'Should seed starter products');
+    assert.equal(db.subscriptions.size, 1, 'Registration should create one persisted subscription');
+    const subscription = Array.from(db.subscriptions.values())[0] as any;
+    assert.equal(subscription.plan_code, 'starter', 'New tenant starts on the Starter plan');
+    assert.equal(subscription.status, 'trial', 'New tenant receives trial status');
+    assert.ok(subscription.trial_ends_at, 'Starter trial has an explicit end timestamp');
+    assert.equal(db.subscriptionEvents.size, 1, 'Registration should record an auditable trial-start event');
 
-    console.log('✓ Test 1 Passed: Successful Registration & Starter Catalog Seeding');
+    console.log('✓ Test 1 Passed: Successful Registration, Starter Catalog & Trial Subscription');
   }
 
   // Test 2: Reject Duplicate Email Registration
