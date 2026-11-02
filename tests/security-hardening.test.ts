@@ -39,6 +39,7 @@ const { kitchenRoutes } = require('../main/routes/kitchen');
 const { databaseRoutes } = require('../main/routes/database');
 const { authRoutes, getJWTSecret } = require('../main/routes/auth');
 const { orderRoutes } = require('../main/routes/orders');
+const adminAuth = require('../main/admin/auth');
 
 function seedUser(db: any, id: string, role: string, email: string, categoryIds?: string[]) {
   db.prepare(`
@@ -63,6 +64,36 @@ function seedUser(db: any, id: string, role: string, email: string, categoryIds?
 async function main() {
   console.log('Security Hardening Regression Tests');
   console.log('='.repeat(60));
+
+  // ── Central SaaS admin bootstrap must fail closed without provisioned secrets.
+  delete process.env.OIU_ADMIN_JWT_SECRET;
+  delete process.env.OIU_ADMIN_BOOTSTRAP_EMAIL;
+  delete process.env.OIU_ADMIN_BOOTSTRAP_PASSWORD_HASH;
+  assertEqual(adminAuth.isAdminAuthConfigured(), false, 'central admin is disabled when bootstrap environment is missing');
+  assertEqual(adminAuth.verifyAdminToken('forged-token'), null, 'central admin rejects tokens when JWT secret is missing');
+  let tokenGenerationFailedClosed = false;
+  try {
+    adminAuth.generateAdminToken({ id: 'test', email: 'admin@test.local', name: 'Test', role: 'SUPER_ADMIN' });
+  } catch {
+    tokenGenerationFailedClosed = true;
+  }
+  assert(tokenGenerationFailedClosed, 'central admin refuses to issue tokens without a configured secret');
+
+  const bootstrapPassword = 'TestOnly-Strong-Admin-Password-2026';
+  process.env.OIU_ADMIN_JWT_SECRET = 'test-only-admin-jwt-secret-with-more-than-32-characters';
+  process.env.OIU_ADMIN_BOOTSTRAP_EMAIL = 'platform-admin@test.local';
+  process.env.OIU_ADMIN_BOOTSTRAP_PASSWORD_HASH = bcrypt.hashSync(bootstrapPassword, 10);
+  process.env.OIU_ADMIN_BOOTSTRAP_NAME = 'Test Platform Admin';
+  assertEqual(adminAuth.isAdminAuthConfigured(), true, 'central admin enables with valid provisioned environment');
+  const bootstrapAdmin = adminAuth.authenticateAdmin('PLATFORM-ADMIN@test.local', bootstrapPassword);
+  assertEqual(bootstrapAdmin?.role, 'SUPER_ADMIN', 'central admin authenticates configured bootstrap operator case-insensitively');
+  assertEqual(adminAuth.authenticateAdmin('platform-admin@test.local', 'wrong-password'), null, 'central admin rejects incorrect bootstrap password');
+  const adminToken = adminAuth.generateAdminToken(bootstrapAdmin);
+  assertEqual(adminAuth.verifyAdminToken(adminToken)?.email, 'platform-admin@test.local', 'central admin verifies issued bootstrap token');
+  assertEqual(adminAuth.verifyAdminToken(adminToken + 'tampered'), null, 'central admin rejects tampered token');
+  delete process.env.OIU_ADMIN_JWT_SECRET;
+  assertEqual(adminAuth.verifyAdminToken(adminToken), null, 'central admin invalidates token verification when secret is removed');
+
 
   const legacyKdsPath = path.join(__dirname, '../renderer/kds.html');
   if (fs.existsSync(legacyKdsPath)) {
