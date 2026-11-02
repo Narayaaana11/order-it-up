@@ -76,6 +76,12 @@ class MockPlatformAdminD1 {
     };
     return statement;
   }
+
+  async batch(statements: any[]) {
+    const results = [];
+    for (const statement of statements) results.push(await statement.run());
+    return results;
+  }
 }
 
 function request(path: string, method = 'GET', body?: unknown, token?: string) {
