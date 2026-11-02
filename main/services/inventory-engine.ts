@@ -70,6 +70,18 @@ export function deductIngredientsForOrderItems(
   allowNegativeStock = true,
 ): InventoryDeductionResult {
   const db = getDatabase();
+  const deductionReference = `Order #${orderNumber}`;
+  // Inventory mutations are keyed to the order reference. Retries and repeated
+  // status transitions must never deduct the same recipe twice.
+  const existingDeduction = db.prepare(`
+    SELECT 1 FROM inventory_transactions
+    WHERE type = 'order_deduction' AND reference_id = ?
+    LIMIT 1
+  `).get(deductionReference);
+  if (existingDeduction) {
+    return { success: true, deductions: [], insufficientIngredients: [] };
+  }
+
   const deductions: InventoryDeductionResult['deductions'] = [];
   const insufficient: InventoryDeductionResult['insufficientIngredients'] = [];
 
@@ -164,6 +176,26 @@ export function restoreIngredientsForOrderItems(
   reason = 'Order Cancellation',
 ): void {
   const db = getDatabase();
+  const deductionReference = `Order #${orderNumber}`;
+  const restorationReference = `${reason} (#${orderNumber})`;
+
+  // A pending QR request has not consumed stock. Do not manufacture stock on
+  // cancellation unless an order-deduction ledger entry exists.
+  const hasDeduction = db.prepare(`
+    SELECT 1 FROM inventory_transactions
+    WHERE type = 'order_deduction' AND reference_id = ?
+    LIMIT 1
+  `).get(deductionReference);
+  if (!hasDeduction) return;
+
+  // Cancellation/retry events are at-least-once; restore a given order once.
+  const hasRestoration = db.prepare(`
+    SELECT 1 FROM inventory_transactions
+    WHERE type = 'order_restoration' AND reference_id = ?
+    LIMIT 1
+  `).get(restorationReference);
+  if (hasRestoration) return;
+
   const stmtGetRecipe = db.prepare(`
     SELECT r.ingredient_id, r.quantity_required, r.wastage_percentage,
            i.name as ingredient_name, i.current_stock
