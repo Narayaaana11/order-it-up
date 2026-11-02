@@ -46,6 +46,7 @@ Current local work also adds Cloud D1 migration 0019 for authoritative order com
 | `cloud-saas-subscription-payments` | Razorpay order/capture/webhook/replay |
 | `landing-cloud-workspace` (browser) | waiter → kitchen → cashier → accountant against the live workspace |
 | `npm run check:cloud-worker` | Wrangler dry-run production bundle (477.58 KiB upload / 92.05 KiB gzip) with the real D1 binding |
+| `npm run check:cloud-release` | 38 release-input checks: migration continuity, readiness tables, CORS/secrets safety, staging isolation, script presence |
 
 These verify repository contracts, not a deployment. Live D1 schema, Worker secrets, payment credentials, Pages hosting, Android packaging and external-network QR still require the separate production phase.
 

@@ -1,5 +1,7 @@
 # Order It Up (OIU) — Deployment Guide
 
+For the reviewed production sequence (release gates, D1 migration order, secrets, post-deploy acceptance and rollback), use [docs/PRODUCTION_RELEASE_RUNBOOK.md](docs/PRODUCTION_RELEASE_RUNBOOK.md). This guide covers the mechanics; the runbook covers the go/no-go process.
+
 ## 1. Local POS Deployment (Windows / Linux)
 1. **Prerequisites**: Node.js 22 LTS, npm 10+.
 2. **Installation**:

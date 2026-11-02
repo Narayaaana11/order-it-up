@@ -110,6 +110,9 @@ jobs:
       - name: Cloud Worker Deployment Bundle (dry run)
         run: npm run check:cloud-worker
 
+      - name: Cloud Release Inputs (migrations, readiness tables, Wrangler safety)
+        run: npm run check:cloud-release
+
       - name: Cloud Sync Integrity & Concurrency Verification
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-sync-integrity.test.ts
 

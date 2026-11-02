@@ -67,6 +67,7 @@
                     "test:cloud-menu-csv":  "ts-node --transpile-only -P tests/tsconfig.json tests/cloud-menu-csv.test.ts",
                     "verify:cloud":  "npm run test:cloud-auth && npm run test:cloud-e2e && npm run test:cloud-restaurant-ops && npm run test:cloud-catalog-admin && npm run test:cloud-customers && npm run test:cloud-staff && npm run test:cloud-menu-csv",
                     "check:cloud-worker":  "npm --prefix apps/cloud-api run check:bundle",
+                    "check:cloud-release":  "node scripts/check-cloud-release-inputs.cjs",
                     "test:cloud-e2e":  "ts-node --transpile-only -P tests/tsconfig.json tests/comprehensive-e2e-audit.test.ts",
                     "test:payment-methods-split":  "node tests/run-electron-node-test.cjs tests/payment-methods-split-checks.test.ts",
                     "test:kds-integration":  "node tests/run-electron-node-test.cjs tests/kds-integration.test.ts",
