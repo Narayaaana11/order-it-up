@@ -17,6 +17,7 @@
                     "lint:backend":  "eslint main/ shared/",
                     "lint":  "npm run lint:backend \u0026\u0026 npm --prefix frontend run lint",
                     "build:frontend":  "cd frontend \u0026\u0026 npx cross-env NEXT_BUILD_MODE=desktop npm run build",
+    "build:web": "node scripts/build-web-export.cjs",
                     "build:all-platforms":  "npm run build:frontend \u0026\u0026 npm run build \u0026\u0026 electron-builder --win --mac --linux",
                     "postinstall":  "node scripts/postinstall.cjs",
                     "verify:electron":  "node scripts/verify-electron-runtime.cjs",
@@ -216,7 +217,8 @@
                     "test:whatsapp-middleware":  "node tests/run-electron-node-test.cjs tests/whatsapp-middleware.test.ts",
                     "test:printer-width-refresh":  "node tests/run-electron-node-test.cjs tests/printer-width-refresh.test.ts",
                     "test:printer-migrations":  "node tests/run-electron-node-test.cjs tests/printer-usb-device-path-migration.test.ts",
-                    "test:issue-252":  "node tests/run-electron-node-test.cjs tests/issue-252-order-lifecycle-inventory.test.ts"
+                    "test:issue-252":  "node tests/run-electron-node-test.cjs tests/issue-252-order-lifecycle-inventory.test.ts",
+    "test:cloud-terminal-pairing": "node tests/run-electron-node-test.cjs tests/cloud-terminal-pairing.test.ts"
                 },
     "author":  {
                    "name":  "Order It Up",
@@ -267,7 +269,7 @@
                          "electron-updater":  "^6.8.9",
                          "express":  "^5.2.1",
                          "express-rate-limit":  "^8.7.0",
-                         "@googleapis/drive":  "^22.0.0",
+                         "@googleapis/drive":  "^27.0.0",
                          "@aws-sdk/client-s3":  "^3.750.0",
                          "jsonwebtoken":  "^9.0.2",
                          "libphonenumber-js":  "^1.13.12",

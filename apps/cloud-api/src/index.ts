@@ -2,12 +2,13 @@
  * Order It Up Cloud Edge Worker - Serverless Multi-Branch Backend (Cloudflare Workers + D1)
  */
 
-import { Env, handleGeneratePairing, handleClaimPairing } from './routes/pairing';
+import { Env, handleGeneratePairing, handleClaimPairing, handleDisconnectTerminal } from './routes/pairing';
 import { handleRegisterTenant } from './routes/registration';
 import { handleIngestSyncEvents } from './routes/sync';
 import { handleAnalyticsOverview } from './routes/analytics';
 import { handleAccountantClosures, handleAccountantTaxSummary, handleTallyExport } from './routes/accountant';
 import { handleGetMasterCatalog, handleSaveMasterProduct, handleGetBranchCatalog, handleSetBranchOverride } from './routes/catalog';
+import { handleDeleteAddon, handleDeleteAddonGroup, handleListAddonGroups, handleSaveAddon, handleSaveAddonGroup } from './routes/addons';
 import { handleListTransfers, handleCreateTransfer, handleUpdateTransferStatus } from './routes/transfers';
 import {
   handleListRestaurants,
@@ -35,10 +36,16 @@ import {
   handleUpdateKitchenTicketStatus,
 } from './routes/operations';
 import { getUserMemberships, isOrgOwnerOrAdmin, isOrgAccountant } from './rbac';
-import { createJWT, verifyJWT, hashPassword, verifyPassword, isSecretValid } from './auth';
+import { createJWT, verifyJWT, hashPassword, verifyPassword, hashString, isSecretValid } from './auth';
 import { checkRateLimit, createRateLimitResponse, getClientIp, DEFAULT_RATE_LIMITS, getEffectiveLimit } from './rate-limit';
 import { handlePlatformAdminRequest } from './routes/platform-admin';
 import { resolveOrganizationAccess, requiredPlanFeature } from './subscriptions';
+import {
+  handleCreatePublicQrOrder,
+  handleGenerateTableQrCode,
+  handleGetPublicQrMenu,
+  handleGetPublicQrOrder,
+} from './routes/public-qr';
 
 function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const requestOrigin = request?.headers.get('Origin');
@@ -49,7 +56,7 @@ function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const restrictedEnvironment = env?.ENVIRONMENT === 'production' || env?.ENVIRONMENT === 'staging';
   const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Idempotency-Key',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
@@ -285,10 +292,27 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   if (path === '/api/pos/pair' && method === 'POST') {
     return handleClaimPairing(request, env);
   }
+  if (path === '/api/pos/disconnect' && method === 'POST') {
+    return handleDisconnectTerminal(request, env);
+  }
 
   // 5. POS Ingest Events
   if (path === '/api/pos/events' && method === 'POST') {
     return handleIngestSyncEvents(request, env);
+  }
+
+  // Customer QR routes authenticate using per-table/order bearer capabilities,
+  // not a Cloud Portal staff JWT. Table QR issuance remains staff-authenticated below.
+  if (path === '/api/qr/menu' && method === 'GET') {
+    return handleGetPublicQrMenu(env, request, url);
+  }
+  if (path === '/api/qr/order' && method === 'POST') {
+    return handleCreatePublicQrOrder(env, request);
+  }
+  if (path.startsWith('/api/qr/order/') && method === 'GET') {
+    const orderId = path.slice('/api/qr/order/'.length);
+    if (!orderId || orderId.includes('/')) return Response.json({ error: 'Order not found' }, { status: 404 });
+    return handleGetPublicQrOrder(env, request, orderId);
   }
 
   // 5a. Isolated platform-level admin API; this auth namespace never falls through to restaurant JWT auth.
@@ -305,9 +329,31 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     return Response.json({ error: 'Unauthorized: valid cloud user token required' }, { status: 401 });
   }
 
+  const tokenHash = await hashString(token);
+  const nowSeconds = Math.floor(Date.now() / 1000);
+  const revokedToken = await env.DB.prepare(`
+    SELECT 1 AS revoked FROM cloud_token_revocations
+    WHERE token_hash = ? AND expires_at > ?
+  `).bind(tokenHash, nowSeconds).first<any>();
+  if (revokedToken) {
+    return Response.json({ error: 'Unauthorized: cloud user session has been revoked' }, { status: 401 });
+  }
+
+  // Logout must remain available after membership or subscription revocation.
+  // The verified bearer token itself is the session identifier.
+  if (path === '/api/auth/logout' && method === 'POST') {
+    await env.DB.prepare('DELETE FROM cloud_token_revocations WHERE expires_at <= ?')
+      .bind(nowSeconds).run();
+    await env.DB.prepare(`
+      INSERT OR IGNORE INTO cloud_token_revocations (token_hash, expires_at, revoked_at)
+      VALUES (?, ?, ?)
+    `).bind(tokenHash, claims.exp, new Date().toISOString()).run();
+    return Response.json({ success: true, message: 'Logged out successfully' });
+  }
+
   const orgId = claims.org;
   const userId = claims.sub;
-  let memberships = await getUserMemberships(env.DB, orgId, userId);
+  const memberships = await getUserMemberships(env.DB, orgId, userId);
 
   // The D1 subscription row, not JWT role claims, is the source of plan access.
   // Auth session inspection and logout remain available so an expired owner can
@@ -342,21 +388,13 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     }
   }
 
-  // Backward-compatible fallback for owner/admin JWT claims if mock DB or legacy tenant lacks memberships row
-  if (memberships.length === 0 && (claims.role === 'owner' || (claims.role as string) === 'admin' || claims.role === 'super_admin')) {
-    memberships = [{
-      id: `fallback-${userId}`,
-      organization_id: orgId,
-      user_id: userId,
-      restaurant_id: null,
-      branch_id: null,
-      role: (claims.role as any) === 'admin' ? 'super_admin' : claims.role,
-      status: 'active'
-    }];
-  }
-
   if (memberships.length === 0) {
     return Response.json({ error: 'Forbidden: No active organization memberships' }, { status: 403 });
+  }
+
+  const qrCodeMatch = path.match(/^\/api\/qr\/tables\/([^/]+)\/code$/);
+  if (qrCodeMatch && method === 'GET') {
+    return handleGenerateTableQrCode(request, env, claims, decodeURIComponent(qrCodeMatch[1]));
   }
 
   // 5b. Auth: Current User & Session Validation (/api/auth/me)
@@ -472,11 +510,6 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
       error: 'SaaS subscription payment processing is not configured yet. No payment or plan activation was performed.',
       code: 'SAAS_BILLING_PROVIDER_NOT_CONFIGURED',
     }, { status: 503 });
-  }
-
-  // 5c. Auth: Logout
-  if (path === '/api/auth/logout' && method === 'POST') {
-    return Response.json({ success: true, message: 'Logged out successfully' });
   }
 
   // 6. Restaurants & Concepts
@@ -611,6 +644,36 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   }
 
   // 15. Master Catalog & Overrides
+  if (path === '/api/addon-groups' && method === 'GET') {
+    return handleListAddonGroups(env, orgId);
+  }
+  if (path === '/api/addon-groups' && method === 'POST') {
+    if (!isOrgOwnerOrAdmin(memberships) && !memberships.some((m) => m.role === 'manager')) return Response.json({ error: 'Forbidden: only owners and managers can modify modifiers' }, { status: 403 });
+    return handleSaveAddonGroup(request, env, orgId);
+  }
+  const groupMatch = path.match(/^\/api\/addon-groups\/([^/]+)$/);
+  if (groupMatch && method === 'PUT') {
+    if (!isOrgOwnerOrAdmin(memberships) && !memberships.some((m) => m.role === 'manager')) return Response.json({ error: 'Forbidden: only owners and managers can modify modifiers' }, { status: 403 });
+    return handleSaveAddonGroup(request, env, orgId, groupMatch[1]);
+  }
+  if (groupMatch && method === 'DELETE') {
+    if (!isOrgOwnerOrAdmin(memberships) && !memberships.some((m) => m.role === 'manager')) return Response.json({ error: 'Forbidden: only owners and managers can modify modifiers' }, { status: 403 });
+    return handleDeleteAddonGroup(env, orgId, groupMatch[1]);
+  }
+  const groupAddonsMatch = path.match(/^\/api\/addon-groups\/([^/]+)\/addons$/);
+  if (groupAddonsMatch && method === 'POST') {
+    if (!isOrgOwnerOrAdmin(memberships) && !memberships.some((m) => m.role === 'manager')) return Response.json({ error: 'Forbidden: only owners and managers can modify modifiers' }, { status: 403 });
+    return handleSaveAddon(request, env, orgId, groupAddonsMatch[1]);
+  }
+  const addonMatch = path.match(/^\/api\/addon-groups\/([^/]+)\/addons\/([^/]+)$/);
+  if (addonMatch && method === 'PUT') {
+    if (!isOrgOwnerOrAdmin(memberships) && !memberships.some((m) => m.role === 'manager')) return Response.json({ error: 'Forbidden: only owners and managers can modify modifiers' }, { status: 403 });
+    return handleSaveAddon(request, env, orgId, addonMatch[1], addonMatch[2]);
+  }
+  if (addonMatch && method === 'DELETE') {
+    if (!isOrgOwnerOrAdmin(memberships) && !memberships.some((m) => m.role === 'manager')) return Response.json({ error: 'Forbidden: only owners and managers can modify modifiers' }, { status: 403 });
+    return handleDeleteAddon(env, orgId, addonMatch[1], addonMatch[2]);
+  }
   if ((path === '/api/catalog/master' || path === '/api/cloud/catalog') && method === 'GET') {
     return handleGetMasterCatalog(request, env, orgId);
   }

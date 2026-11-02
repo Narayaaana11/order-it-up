@@ -124,7 +124,7 @@ export async function resolveOrganizationAccess(
     LEFT JOIN organization_subscriptions s ON s.organization_id = o.id
     LEFT JOIN saas_plans p ON p.code = s.plan_code
     WHERE o.id = ?
-  `).bind(organizationId).first<any>();
+  `).bind(organizationId).first() as any;
 
   if (!organization) {
     return {

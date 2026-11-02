@@ -550,7 +550,10 @@ async function testExpressRouteEndpoints(): Promise<void> {
   handler({ body: { code: '849 102' } }, validMock.res);
   assert.equal(validMock.getStatus(), 200);
   assert.equal(validMock.getJson().success, true);
-  assert.equal(validMock.getJson().terminalId, 'TERM-849102');
+  assert.equal(validMock.getJson().branch_id, 'br-01');
+  assert.equal(validMock.getJson().terminal_name, 'Mobile POS Tablet');
+  assert.equal('terminalId' in validMock.getJson(), false);
+  assert.equal('token' in validMock.getJson(), false);
 
   // Test invalid PIN (too short)
   const invalidMock = createMockRes();

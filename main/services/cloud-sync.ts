@@ -10,6 +10,7 @@ import { getTenantCurrency } from './refund';
 import { getCurrencyMinorUnitFactor } from '../countries';
 
 export const DEFAULT_CLOUD_SERVER_URL = process.env.OIU_CLOUD_API_URL || 'https://api.orderitup.in';
+export const DEFAULT_TERMINAL_CLOUD_API_URL = process.env.OIU_TERMINAL_CLOUD_API_URL || 'https://orderitup-cloud-api.narayaaana11.workers.dev';
 
 const HEARTBEAT_INTERVAL_MS = 5 * 60_000;
 const OUTBOX_INTERVAL_MS = 15_000;
@@ -68,6 +69,9 @@ function validateCloudDeletionResponse(
 
 type CloudSettings = {
   server_url: string;
+  terminal_server_url: string;
+  terminal_token: string;
+  terminal_mode: boolean;
   api_key: string;
   store_id: string;
   pos_id: string;
@@ -309,9 +313,11 @@ export class CloudSyncService {
     this.settings = cfg;
     if (!cfg) return;
 
-    if (cfg.sync_enabled && cfg.api_key) {
+    if (cfg.sync_enabled && (cfg.terminal_token || (!cfg.terminal_mode && cfg.api_key))) {
       this.runBackground(this.flushOutbox(), 'outbox flush');
       this.outboxTimer = setInterval(() => this.runBackground(this.flushOutbox(), 'outbox flush'), OUTBOX_INTERVAL_MS);
+    }
+    if (cfg.sync_enabled && cfg.api_key) {
       this.runBackground(this.flushSupportTicketOutbox(), 'support outbox flush');
       this.supportOutboxTimer = setInterval(() => this.runBackground(this.flushSupportTicketOutbox(), 'support outbox flush'), OUTBOX_INTERVAL_MS);
       this.runBackground(this.flushDiagnosticsOutbox(), 'diagnostics outbox flush');
@@ -319,7 +325,7 @@ export class CloudSyncService {
     }
 
     this.maybeStartRelay();
-    if (cfg.api_key || cfg.cloud_registration_status !== 'unregistered') {
+    if (cfg.api_key || cfg.terminal_token || cfg.cloud_registration_status !== 'unregistered') {
       log.info('[CloudSync] started', {
         server: cfg.server_url,
         sync: cfg.sync_enabled,
@@ -409,6 +415,70 @@ export class CloudSyncService {
       && !isCloudDeletionBlocking(settings.cloud_deletion_status);
   }
 
+  /** Claim a Cloud Worker terminal pairing code and begin syncing the local POS outbox. */
+  async claimTerminalPairingCode(codeInput: string): Promise<Record<string, unknown>> {
+    if (this.cloudDeletionInProgress || this.shutdownRequested) throw new Error('Cloud services are shutting down');
+    const code = String(codeInput || '').replace(/\D/g, '');
+    if (!/^\d{6}$/.test(code)) throw new Error('Enter the 6-digit pairing code shown in Cloud Portal');
+    const db = getDatabase();
+    const settings = this.readSettings(db);
+    if (isCloudDeletionBlocking(settings.cloud_deletion_status)) throw new Error('Cloud deletion is unresolved');
+    if (settings.cloud_services_disabled_by_user === 'true') throw new Error('Cloud services are stopped. Resume them before pairing this terminal.');
+    const serverUrl = normalizeCloudServerUrl(settings.cloud_terminal_api_url || DEFAULT_TERMINAL_CLOUD_API_URL);
+    const res = await this.trackedFetch(endpoint(serverUrl, '/api/pos/pair'), {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ code, app_version: require('../../package.json').version }),
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+    if (!res.ok) throw new Error(String(data.error || `Cloud terminal pairing failed (${res.status})`));
+    if (data.success !== true || typeof data.terminal_token !== 'string' || typeof data.terminal_id !== 'string') {
+      throw new Error('Cloud terminal pairing response is incomplete');
+    }
+    this.upsertSettings({
+      cloud_terminal_api_url: serverUrl,
+      cloud_terminal_token: data.terminal_token,
+      cloud_terminal_mode: 'worker',
+      cloud_terminal_id: data.terminal_id,
+      cloud_terminal_organization_id: typeof data.organization_id === 'string' ? data.organization_id : '',
+      cloud_terminal_branch_id: typeof data.branch_id === 'string' ? data.branch_id : '',
+      cloud_terminal_branch_name: typeof data.branch_name === 'string' ? data.branch_name : '',
+      cloud_sync_enabled: '1',
+      cloud_orders_enabled: '1',
+      cloud_registration_status: 'registered',
+      cloud_connected: 'true',
+      cloud_last_error: '',
+      cloud_last_heartbeat: new Date().toISOString(),
+    });
+    this.reload();
+    return { success: true, terminal_id: data.terminal_id, organization_name: data.organization_name, branch_id: data.branch_id, branch_name: data.branch_name };
+  }
+
+  async disconnectTerminal(): Promise<void> {
+    if (this.cloudDeletionInProgress || this.shutdownRequested) throw new Error('Cloud services are shutting down');
+    const settings = this.readSettings(getDatabase());
+    const token = settings.cloud_terminal_token;
+    if (!token) throw new Error('This POS is not paired to a Cloud terminal');
+    const serverUrl = normalizeCloudServerUrl(settings.cloud_terminal_api_url || DEFAULT_TERMINAL_CLOUD_API_URL);
+    const res = await this.trackedFetch(endpoint(serverUrl, '/api/pos/disconnect'), {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${token}` },
+      body: '{}',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    const data = await res.json().catch(() => ({})) as Record<string, unknown>;
+    if (!res.ok) throw new Error(String(data.error || `Cloud terminal disconnect failed (${res.status})`));
+    this.upsertSettings({
+      cloud_terminal_token: '', cloud_terminal_id: '', cloud_terminal_organization_id: '',
+      cloud_terminal_branch_id: '', cloud_terminal_branch_name: '', cloud_terminal_mode: 'worker',
+      cloud_sync_enabled: '0', cloud_orders_enabled: '0', cloud_connected: 'false',
+      cloud_registration_status: settings.cloud_api_key ? 'registered' : 'unregistered',
+      cloud_last_error: '',
+    });
+    this.reload();
+  }
+
   getStatus() {
     const db = getDatabase();
     const s = this.readSettings(db);
@@ -417,6 +487,9 @@ export class CloudSyncService {
     const refreshed = this.readSettings(db);
     return {
       cloud_server_url: refreshed.cloud_server_url || DEFAULT_CLOUD_SERVER_URL,
+      cloud_terminal_connected: Boolean(refreshed.cloud_terminal_token),
+      cloud_terminal_branch_id: refreshed.cloud_terminal_branch_id || null,
+      cloud_terminal_branch_name: refreshed.cloud_terminal_branch_name || null,
       cloud_pos_hash: refreshed.cloud_pos_hash || null,
       cloud_pos_id: refreshed.cloud_pos_id || null,
       cloud_sync_enabled: refreshed.cloud_sync_enabled === '1',
@@ -690,7 +763,7 @@ export class CloudSyncService {
       cloud_deletion_status: deletionStatus, cloud_deletion_outcome: '',
     };
     if (deletionComplete) Object.assign(deletionSettings, {
-      cloud_api_key: '', cloud_store_id: '', cloud_pos_id: '', cloud_pos_hash: '', cloud_device_secret: '',
+      cloud_api_key: '', cloud_store_id: '', cloud_pos_id: '', cloud_pos_hash: '', cloud_device_secret: '', cloud_terminal_token: '',
       cloud_device_created_at: '', cloud_email_verified: 'false', cloud_email_verification_sent_at: '',
       cloud_verification_welcome_requested: '0',
     });
@@ -746,7 +819,7 @@ export class CloudSyncService {
     });
     if (CLOUD_DELETION_FINAL_STATUSES.has(status)) {
       this.upsertSettings({
-        cloud_api_key: '', cloud_store_id: '', cloud_pos_id: '', cloud_pos_hash: '', cloud_device_secret: '',
+        cloud_api_key: '', cloud_store_id: '', cloud_pos_id: '', cloud_pos_hash: '', cloud_device_secret: '', cloud_terminal_token: '',
         cloud_device_created_at: '', cloud_registration_status: 'deleted', cloud_email_verified: 'false',
         cloud_email_verification_sent_at: '', cloud_verification_welcome_requested: '0',
         cloud_deletion_request_id: '', cloud_deletion_status_token: '',
@@ -1098,6 +1171,7 @@ export class CloudSyncService {
       if (this.cloudDeletionInProgress || this.shutdownRequested) return;
       const cfg = this.loadSettings();
       if (!cfg?.sync_enabled) return;
+      if (cfg.terminal_mode && !cfg.terminal_token) return;
       const db = getDatabase();
       const id = crypto.randomUUID();
       db.prepare(`
@@ -1114,7 +1188,7 @@ export class CloudSyncService {
     const run = this.withDatabaseRequest(async () => {
     if (this.cloudDeletionInProgress || this.shutdownRequested) return;
     const cfg = this.settings ?? this.loadSettings();
-    if (!cfg?.sync_enabled || !cfg.api_key || this.flushing) return;
+    if (!cfg?.sync_enabled || (!cfg.terminal_token && (cfg.terminal_mode || !cfg.api_key)) || this.flushing) return;
     this.flushing = true;
     try {
       const db = getDatabase();
@@ -1141,17 +1215,20 @@ export class CloudSyncService {
         updateStmt.run(now(), row.id);
       }
 
-      const res = await this.signedFetch('/api/pos/events', {
-        method: 'POST',
-        body: JSON.stringify({
-          pos_hash: cfg.pos_hash,
-          events,
-          sent_at: new Date().toISOString(),
-        }),
-      });
-      await this.drainResponse(res);
+      const batchBody = cfg.terminal_token
+        ? { events, sent_at: new Date().toISOString() }
+        : { pos_hash: cfg.pos_hash, events, sent_at: new Date().toISOString() };
+      const res = cfg.terminal_token
+        ? await this.trackedFetch(endpoint(cfg.terminal_server_url, '/api/pos/events'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${cfg.terminal_token}` },
+          body: JSON.stringify(batchBody),
+          signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+        })
+        : await this.signedFetch('/api/pos/events', { method: 'POST', body: JSON.stringify(batchBody) });
+      const responseBody = await res.json().catch(() => ({})) as { synced_ids?: string[]; processed_count?: number; failed_count?: number; error?: string };
       if (this.cloudDeletionInProgress || this.shutdownRequested) return;
-      if (!res.ok) throw new Error(`event push failed (${res.status})`);
+      if (!res.ok) throw new Error(String(responseBody.error || `event push failed (${res.status})`));
 
       const markDelivered = db.prepare(`
         UPDATE cloud_sync_outbox
@@ -1159,11 +1236,17 @@ export class CloudSyncService {
         WHERE id = ?
       `);
       const deliveredAt = now();
-      for (const row of rows) markDelivered.run(deliveredAt, deliveredAt, row.id);
+      const acceptedIds = Array.isArray(responseBody.synced_ids) ? new Set(responseBody.synced_ids) : null;
+      for (const row of rows) {
+        if (!acceptedIds || acceptedIds.has(row.id)) markDelivered.run(deliveredAt, deliveredAt, row.id);
+      }
+      if (acceptedIds && acceptedIds.size < rows.length) {
+        this.failSendingRows(`Cloud rejected ${rows.length - acceptedIds.size} event(s)`);
+      }
       this.upsertSettings({
         cloud_connected: 'true',
         cloud_last_sync: new Date().toISOString(),
-        cloud_last_error: '',
+        cloud_last_error: acceptedIds && acceptedIds.size < rows.length ? 'Some cloud events were rejected and queued for retry' : '',
       });
     } catch (err) {
       if (!this.shutdownRequested) this.failSendingRows((err as Error).message);
@@ -1280,7 +1363,7 @@ export class CloudSyncService {
     if (isCloudDeletionBlocking(settings.cloud_deletion_status)
       || settings.cloud_sync_enabled !== '1' || settings.cloud_services_disabled_by_user === 'true') return;
     // Wait until first-run setup writes a business name before registering.
-    if (!settings.business_name?.trim()) return;
+    if (!settings.business_name?.trim() || settings.cloud_terminal_token || settings.cloud_terminal_mode === 'worker') return;
     this.attemptAutoRegister();
   }
 
@@ -1863,6 +1946,9 @@ export class CloudSyncService {
       const server_url = normalizeCloudServerUrl(s.cloud_server_url || DEFAULT_CLOUD_SERVER_URL);
       return {
         server_url,
+        terminal_server_url: normalizeCloudServerUrl(s.cloud_terminal_api_url || DEFAULT_TERMINAL_CLOUD_API_URL),
+        terminal_token: s.cloud_terminal_token || '',
+        terminal_mode: s.cloud_terminal_mode === 'worker',
         api_key: s.cloud_api_key || '',
         store_id: s.cloud_store_id || '',
         pos_id: s.cloud_pos_id || '',

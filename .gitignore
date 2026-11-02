@@ -29,6 +29,7 @@ xcode/
 
 .next/
 brain/
+.wrangler/
 
 # Private code-review reports and remediation notes — never commit
 code-review/

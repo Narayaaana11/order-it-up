@@ -123,6 +123,16 @@ void main() {
       expect(pairingRes!['success'], true);
     });
 
+    test('Pairing does not succeed for malformed PINs or unavailable servers',
+        () async {
+      final apiService = ApiService(
+        apiClient: ApiClient(baseUrl: 'http://127.0.0.1:1'),
+      );
+
+      expect(await apiService.claimPairingPin('12345'), isNull);
+      expect(await apiService.claimPairingPin('123456'), isNull);
+    });
+
     test(
         'Responsive layout adapts seamlessly between Android phone and tablet breakpoints',
         () {

@@ -15,12 +15,41 @@ async function testRazorpayProviderHardening(): Promise<void> {
 
   const orderId = 'order_987654321';
   const paymentId = 'pay_123456789';
+  const originalFetch = global.fetch;
+  global.fetch = (async () => new Response(JSON.stringify({
+    id: paymentId,
+    order_id: orderId,
+    amount: 49900,
+    currency: 'INR',
+    status: 'captured',
+    captured: true,
+  }), { status: 200, headers: { 'Content-Type': 'application/json' } })) as typeof fetch;
 
   // 1. Valid HMAC SHA256 signature
   const validSignature = crypto.createHmac('sha256', keySecret).update(`${orderId}|${paymentId}`).digest('hex');
-  const validResult = await provider.verifyPayment({ orderId, paymentId, signature: validSignature });
-  assert.equal(validResult.verified, true, 'Valid signature must verify successfully');
-  assert.equal(validResult.status, 'success');
+  try {
+    const validResult = await provider.verifyPayment({
+      orderId, paymentId, signature: validSignature, expectedAmountMinor: 49900, expectedCurrency: 'INR',
+    });
+    assert.equal(validResult.verified, true, 'Captured payment with matching order, amount, and currency must verify');
+    assert.equal(validResult.status, 'success');
+    assert.equal(validResult.captured, true);
+
+    const mismatchedAmount = await provider.verifyPayment({
+      orderId, paymentId, signature: validSignature, expectedAmountMinor: 129900, expectedCurrency: 'INR',
+    });
+    assert.equal(mismatchedAmount.verified, false, 'A valid callback signature cannot override the server expected amount');
+
+    const pendingPaymentFetch = global.fetch;
+    global.fetch = (async () => new Response(JSON.stringify({
+      id: paymentId, order_id: orderId, amount: 49900, currency: 'INR', status: 'authorized', captured: false,
+    }), { status: 200 })) as typeof fetch;
+    const uncaptured = await provider.verifyPayment({ orderId, paymentId, signature: validSignature });
+    assert.equal(uncaptured.verified, false, 'Authorized but uncaptured payment must not verify');
+    global.fetch = pendingPaymentFetch;
+  } finally {
+    global.fetch = originalFetch;
+  }
 
   // 2. Tampered signature
   const badSignature = crypto.createHmac('sha256', 'wrong-secret').update(`${orderId}|${paymentId}`).digest('hex');
@@ -184,7 +213,14 @@ async function testPaymentLifecycleAndWebhooks(): Promise<void> {
 
   // First verification: not previously consumed
   assert.equal(checkTx('razorpay_subscription', paymentId), undefined, 'Payment must not be already consumed');
-  const verifyResult = await provider.verifyPayment({ orderId, paymentId, signature: validSignature });
+  const originalPaymentFetch = global.fetch;
+  global.fetch = (async () => new Response(JSON.stringify({
+    id: paymentId, order_id: orderId, amount: 1299900, currency: 'INR', status: 'captured', captured: true,
+  }), { status: 200 })) as typeof fetch;
+  const verifyResult = await provider.verifyPayment({
+    orderId, paymentId, signature: validSignature, expectedAmountMinor: 1299900, expectedCurrency: 'INR',
+  });
+  global.fetch = originalPaymentFetch;
   assert.equal(verifyResult.verified, true);
 
   // Record transaction upon activation
@@ -282,7 +318,12 @@ async function testPaymentLifecycleAndWebhooks(): Promise<void> {
     return true;
   };
 
+  const originalRaceFetch = global.fetch;
+  global.fetch = (async () => new Response(JSON.stringify({
+    id: racePaymentId, order_id: raceOrder, amount: 1299900, currency: 'INR', status: 'captured', captured: true,
+  }), { status: 200 })) as typeof fetch;
   const [res1, res2] = await Promise.all([attemptActivation(), attemptActivation()]);
+  global.fetch = originalRaceFetch;
   if (res1) raceWins++;
   if (res2) raceWins++;
   assert.equal(raceWins, 1, 'Exactly one concurrent verification must succeed; duplicate is blocked');

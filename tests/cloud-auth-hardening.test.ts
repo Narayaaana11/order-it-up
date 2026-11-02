@@ -35,6 +35,8 @@ const WEAK_TEST_SECRET = 'short-secret';
 class MockD1Database {
   public users: Map<string, any> = new Map();
   public organizations: Map<string, any> = new Map();
+  public memberships: Map<string, any> = new Map();
+  public revokedCloudTokens: Map<string, { expiresAt: number; revokedAt: string }> = new Map();
   public branches: Map<string, any> = new Map();
   public pairingTokens: Map<string, any> = new Map();
   public masterProducts: Map<string, any> = new Map();
@@ -48,6 +50,17 @@ class MockD1Database {
         return {
           async first<T = any>(): Promise<T | null> {
             const normalized = sql.replace(/\s+/g, ' ').trim();
+
+            if (normalized.includes('FROM cloud_token_revocations')) {
+              const [tokenHash, nowSeconds] = params;
+              const revoked = db.revokedCloudTokens.get(tokenHash);
+              return (revoked && revoked.expiresAt > nowSeconds ? { revoked: 1 } : null) as T | null;
+            }
+
+            if (normalized.includes('FROM organizations o') && normalized.includes('WHERE o.id = ?')) {
+              const org = db.organizations.get(params[0]);
+              return org ? { account_status: org.account_status || 'active', id: null } as T : null;
+            }
 
             // 1. User login query
             if (normalized.includes('FROM cloud_users u') && normalized.includes('WHERE u.email = ?')) {
@@ -100,6 +113,15 @@ class MockD1Database {
           async all<T = any>(): Promise<{ results: T[] }> {
             const normalized = sql.replace(/\s+/g, ' ').trim();
 
+            if (normalized.includes('FROM memberships') && normalized.includes("status = 'active'")) {
+              const [orgId, userId] = params;
+              return {
+                results: [...db.memberships.values()].filter((membership) =>
+                  membership.organization_id === orgId && membership.user_id === userId && membership.status === 'active'
+                ) as T[],
+              };
+            }
+
             if (normalized.includes('FROM branches') && (normalized.includes('organization_id = ?') || normalized.includes('b.organization_id = ?'))) {
               const orgId = params[0];
               const list: any[] = [];
@@ -124,6 +146,21 @@ class MockD1Database {
 
           async run(): Promise<{ success: boolean }> {
             const normalized = sql.replace(/\s+/g, ' ').trim();
+
+            if (normalized.startsWith('DELETE FROM cloud_token_revocations')) {
+              const [nowSeconds] = params;
+              for (const [tokenHash, row] of db.revokedCloudTokens) {
+                if (row.expiresAt <= nowSeconds) db.revokedCloudTokens.delete(tokenHash);
+              }
+              return { success: true };
+            }
+            if (normalized.startsWith('INSERT OR IGNORE INTO cloud_token_revocations')) {
+              const [tokenHash, expiresAt, revokedAt] = params;
+              if (!db.revokedCloudTokens.has(tokenHash)) {
+                db.revokedCloudTokens.set(tokenHash, { expiresAt, revokedAt });
+              }
+              return { success: true };
+            }
 
             // Update user password_hash (rehash)
             if (normalized.includes('UPDATE cloud_users SET password_hash = ?')) {
@@ -568,6 +605,15 @@ async function testTenantBoundariesAndRBAC(): Promise<void> {
   const db = createTestDatabase();
   const env = { DB: db as any, JWT_SECRET: STRONG_TEST_SECRET };
 
+  db.memberships.set('membership-alpha-owner', {
+    id: 'membership-alpha-owner', organization_id: 'org-alpha', user_id: 'usr-alpha-owner',
+    restaurant_id: null, branch_id: null, role: 'owner', status: 'active',
+  });
+  db.memberships.set('membership-beta-owner', {
+    id: 'membership-beta-owner', organization_id: 'org-beta', user_id: 'usr-beta-owner',
+    restaurant_id: null, branch_id: null, role: 'owner', status: 'active',
+  });
+
   // Create tokens for Org Alpha (Owner) and Org Beta (Owner)
   const tokenAlphaOwner = await createJWT({
     sub: 'usr-alpha-owner',
@@ -596,6 +642,17 @@ async function testTenantBoundariesAndRBAC(): Promise<void> {
   for (const b of dataAlphaBranches.branches) {
     assert.equal(b.organization_id, 'org-alpha', 'Must only return branches for org-alpha');
   }
+
+  // A valid owner JWT is insufficient after the database membership is revoked.
+  db.memberships.delete('membership-alpha-owner');
+  const resRevokedOwner = await cloudWorker.fetch(new Request('http://localhost/api/branches', {
+    headers: { Authorization: `Bearer ${tokenAlphaOwner}` },
+  }), env);
+  assert.equal(resRevokedOwner.status, 403, 'Owner JWT without an active membership must be rejected');
+  db.memberships.set('membership-alpha-owner', {
+    id: 'membership-alpha-owner', organization_id: 'org-alpha', user_id: 'usr-alpha-owner',
+    restaurant_id: null, branch_id: null, role: 'owner', status: 'active',
+  });
 
   // 2. Cross-Org Branch Creation: Passing organization_id in request body is ignored
   const reqCreateBranch = new Request('http://localhost/api/branches', {
@@ -661,6 +718,20 @@ async function testTenantBoundariesAndRBAC(): Promise<void> {
   const resCrossTransfer = await cloudWorker.fetch(reqCrossTransfer, env);
   assert.equal(resCrossTransfer.status, 404, 'Cross-org stock transfer must be rejected with 404');
 
+  // Logout revokes the current bearer token even when its membership has already been removed.
+  const tokenLogout = await createJWT({
+    sub: 'usr-alpha-revoked-session', org: 'org-alpha', email: 'revoked@alpha.com', role: 'owner',
+    exp: Math.floor(Date.now() / 1000) + 3600,
+  }, STRONG_TEST_SECRET);
+  const logoutResponse = await cloudWorker.fetch(new Request('http://localhost/api/auth/logout', {
+    method: 'POST', headers: { Authorization: `Bearer ${tokenLogout}` },
+  }), env);
+  assert.equal(logoutResponse.status, 200, 'A valid session can log out after its membership is revoked');
+  const revokedSessionResponse = await cloudWorker.fetch(new Request('http://localhost/api/branches', {
+    headers: { Authorization: `Bearer ${tokenLogout}` },
+  }), env);
+  assert.equal(revokedSessionResponse.status, 401, 'Logout revokes the token on all protected requests');
+
   console.log('  ✓ Strict tenant isolation and cross-organization boundary protections verified');
 }
 
@@ -672,6 +743,17 @@ async function testRBACPrivilegeSeparation(): Promise<void> {
 
   const db = createTestDatabase();
   const env = { DB: db as any, JWT_SECRET: STRONG_TEST_SECRET };
+
+  for (const [id, userId, role] of [
+    ['membership-waiter', 'usr-waiter-01', 'server'],
+    ['membership-cashier', 'usr-cashier-01', 'cashier'],
+    ['membership-accountant', 'usr-accountant-01', 'accountant'],
+  ]) {
+    db.memberships.set(id, {
+      id, organization_id: 'org-alpha', user_id: userId, restaurant_id: null,
+      branch_id: null, role, status: 'active',
+    });
+  }
 
   const tokenWaiter = await createJWT({
     sub: 'usr-waiter-01',

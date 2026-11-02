@@ -191,3 +191,17 @@ export async function handleClaimPairing(request: Request, env: Env): Promise<Re
     timezone: org?.timezone || 'Asia/Kolkata',
   });
 }
+
+/** Revoke only the terminal credential presented by the requesting device. */
+export async function handleDisconnectTerminal(request: Request, env: Env): Promise<Response> {
+  const rawToken = (request.headers.get('Authorization') || '').replace(/^Bearer\s+/i, '').trim();
+  if (!rawToken || rawToken.length < 32) return Response.json({ error: 'Terminal credential required' }, { status: 401 });
+  const tokenHash = await hashString(rawToken);
+  const result = await env.DB.prepare(`
+    UPDATE terminals SET status = 'revoked'
+    WHERE terminal_token_hash = ? AND status = 'active'
+  `).bind(tokenHash).run();
+  const changes = (result as any)?.meta?.changes ?? (result as any)?.changes ?? 0;
+  if (!changes) return Response.json({ error: 'Terminal not found or already revoked' }, { status: 404 });
+  return Response.json({ success: true });
+}

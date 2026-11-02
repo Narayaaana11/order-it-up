@@ -23,7 +23,7 @@ export async function handleListRestaurants(
 
   const memberships = await getUserMemberships(env.DB, orgId, userId);
 
-  const isOwner = isOrgOwnerOrAdmin(memberships) || claims.role === 'owner' || claims.role === 'admin';
+  const isOwner = isOrgOwnerOrAdmin(memberships);
 
   // If organization owner or admin, return all restaurants in tenant
   if (isOwner) {
@@ -57,7 +57,7 @@ export async function handleCreateRestaurant(
   const userId = claims.sub;
 
   const memberships = await getUserMemberships(env.DB, orgId, userId);
-  const isOwner = isOrgOwnerOrAdmin(memberships) || claims.role === 'owner' || claims.role === 'admin';
+  const isOwner = isOrgOwnerOrAdmin(memberships);
   if (!isOwner) {
     return Response.json(
       { error: 'Forbidden: Only organization owners can create restaurant concepts' },
@@ -121,7 +121,7 @@ export async function handleListBranches(
   const restaurantIdFilter = url.searchParams.get('restaurant_id');
 
   const memberships = await getUserMemberships(env.DB, orgId, userId);
-  const isOwner = isOrgOwnerOrAdmin(memberships) || claims.role === 'owner' || claims.role === 'admin';
+  const isOwner = isOrgOwnerOrAdmin(memberships);
 
   // If filtered by restaurant, verify ownership and user permission
   if (restaurantIdFilter) {
@@ -197,7 +197,8 @@ export async function handleCreateBranch(
     return Response.json({ error: 'Branch name must be between 2 and 100 characters' }, { status: 400 });
   }
 
-  // Verify restaurant concept exists and belongs to the organization
+  // Resolve the target restaurant and authorize against its active membership
+  // before creating any default restaurant or branch records.
   let validRestaurantId = restaurantId;
   if (validRestaurantId) {
     const rest = await env.DB.prepare('SELECT id FROM restaurants WHERE id = ? AND organization_id = ?')
@@ -206,16 +207,15 @@ export async function handleCreateBranch(
       return Response.json({ error: 'Invalid restaurant_id: Concept not found in this organization' }, { status: 400 });
     }
 
-    // Permission check for target restaurant
-    if (!isOrgOwnerOrAdmin(memberships) && !isAuthorizedForRestaurant(memberships, validRestaurantId)) {
-      return Response.json({ error: 'Forbidden: Insufficient privileges for this restaurant' }, { status: 403 });
-    }
   } else {
     // If restaurant_id not provided, resolve or create default restaurant for organization
     let defaultRest = await env.DB.prepare('SELECT id FROM restaurants WHERE organization_id = ? ORDER BY created_at ASC')
       .bind(orgId).first<{ id: string }>();
 
     if (!defaultRest) {
+      if (!isOrgOwnerOrAdmin(memberships)) {
+        return Response.json({ error: 'Forbidden: Only organization owners can create the default restaurant and branch' }, { status: 403 });
+      }
       const newRestId = crypto.randomUUID();
       const now = new Date().toISOString();
       await env.DB.prepare(`
@@ -226,6 +226,10 @@ export async function handleCreateBranch(
     } else {
       validRestaurantId = defaultRest.id;
     }
+  }
+
+  if (!isOrgOwnerOrAdmin(memberships) && !isAuthorizedForRestaurant(memberships, validRestaurantId)) {
+    return Response.json({ error: 'Forbidden: Insufficient privileges for this restaurant' }, { status: 403 });
   }
 
   const branchId = body?.id || crypto.randomUUID();

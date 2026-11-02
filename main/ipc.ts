@@ -42,6 +42,7 @@ const SENSITIVE_SETTING_KEYS = new Set([
   'jwt_secret',
   'cloud_api_key',
   'cloud_device_secret',
+  'cloud_terminal_token',
   'cloud_deletion_status_token',
   'cloud_last_error',
 ]);

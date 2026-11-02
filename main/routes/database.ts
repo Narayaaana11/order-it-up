@@ -19,6 +19,7 @@ const EXPORT_SETTINGS_REDACT = new Set([
   'jwt_secret',
   'cloud_api_key',
   'cloud_device_secret',
+  'cloud_terminal_token',
   'cloud_pos_hash',
   'mobile_pairing_code',
   'mobile_pairing_code_expires_at',
@@ -304,6 +305,9 @@ router.post('/import', requireRole(...ROLE_ACCESS.owner),
       mergeKdsEnabledSetting(db, preservedKdsEnabled);
       mergeRestoreProtectedSettings(db, preservedProtectedSettings);
       db.prepare('DELETE FROM kds_pairing_tokens').run();
+      // QR table capabilities are bearer credentials. Do not let restoring an
+      // older backup revive a capability that may since have been rotated.
+      db.prepare('DELETE FROM qr_table_tokens').run();
       const mergeRevocation = db.prepare(`
         INSERT INTO revoked_tokens (token_hash, expires_at, revoked_at)
         VALUES (?, ?, ?)

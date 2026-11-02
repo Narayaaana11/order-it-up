@@ -317,10 +317,10 @@ async function runAudit() {
     });
 
     if (guestOrderId) {
-      let trackRes = await request({ method: 'GET', path: `/api/qr/order/${guestOrderId}/track` });
-      if (trackRes.status !== 200) {
-        trackRes = await request({ method: 'GET', path: `/api/qr/order/${guestOrderId}` });
-      }
+      const trackRes = await request({
+        method: 'GET', path: `/api/qr/order/${guestOrderId}/track`,
+        token: qrOrder.data?.order?.tracking_token,
+      });
       results.push({
         category: '6. Tableside QR Ordering',
         feature: 'Live Tableside Order Tracking',

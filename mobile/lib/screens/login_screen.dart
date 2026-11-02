@@ -15,10 +15,8 @@ class LoginScreen extends StatefulWidget {
 }
 
 class _LoginScreenState extends State<LoginScreen> {
-  final TextEditingController _emailController =
-      TextEditingController(text: 'waiter@restaurant.com');
-  final TextEditingController _passwordController =
-      TextEditingController(text: '123456');
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
   bool _obscurePassword = true;
 
   @override
@@ -125,51 +123,48 @@ class _LoginScreenState extends State<LoginScreen> {
                   ),
                   const SizedBox(height: 24),
 
-                  // Quick Demo Role Chips
-                  const Text(
-                    'Instant Role Access (Tap to Test):',
-                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
-                  ),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: [
+                  if (config.isDemoMode) ...[
+                    const Text(
+                      'Instant Role Access (Tap to Test):',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
                       ActionChip(
                         avatar: const Icon(Icons.table_restaurant, size: 16),
                         label: const Text('Waiter / Server'),
                         onPressed: () {
-                          auth.quickLoginDemoRole('server');
-                          _onLoginSuccess();
+                          if (auth.quickLoginDemoRole('server')) _onLoginSuccess();
                         },
                       ),
                       ActionChip(
                         avatar: const Icon(Icons.point_of_sale, size: 16),
                         label: const Text('Cashier'),
                         onPressed: () {
-                          auth.quickLoginDemoRole('cashier');
-                          _onLoginSuccess();
+                          if (auth.quickLoginDemoRole('cashier')) _onLoginSuccess();
                         },
                       ),
                       ActionChip(
                         avatar: const Icon(Icons.kitchen, size: 16),
                         label: const Text('Kitchen (KDS)'),
                         onPressed: () {
-                          auth.quickLoginDemoRole('chef');
-                          _onLoginSuccess();
+                          if (auth.quickLoginDemoRole('chef')) _onLoginSuccess();
                         },
                       ),
                       ActionChip(
                         avatar: const Icon(Icons.analytics, size: 16),
                         label: const Text('Manager'),
                         onPressed: () {
-                          auth.quickLoginDemoRole('manager');
-                          _onLoginSuccess();
+                          if (auth.quickLoginDemoRole('manager')) _onLoginSuccess();
                         },
                       ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
+                      ],
+                    ),
+                    const SizedBox(height: 24),
+                  ],
 
                   // Email input
                   const Text('Email Address',

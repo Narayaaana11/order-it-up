@@ -3,7 +3,29 @@
 **Status:** Working plan  
 **Repository:** `Narayaaana11/order-it-up`  
 **Planning baseline:** Repository inspection on 2026-11-02  
-**Branch:** `production-readiness/phase-1-hardening`
+**Current implementation branch:** `fix/qr-waiter-approval-lifecycle`
+
+## Current verified state — 2026-11-02
+
+This section supersedes the initial inspection notes below wherever they conflict. The working tree contains uncommitted changes; these results describe this checkout, not a released build.
+
+| Area | Current evidence | Status |
+|---|---|---|
+| Central admin authentication | Environment-provisioned bootstrap identity, bcrypt hash validation, fail-closed JWT configuration and rate-limited login in `main/admin/auth.ts` and `main/admin/routes.ts`. Admin dashboard reports global tenant/MRR metrics as unavailable instead of synthesizing them. | Implemented in source; deployment secrets and live admin provisioning not verified. |
+| Cloud API authentication | Tenant/branch authorization hardening and durable hash-based logout revocation. Cloud auth tests passed during this work. | Locally verified; latest source/migration not deployed. |
+| Aggregator webhooks | Enabled integrations require configured secrets and signed raw request bodies. | Local tests exist; partner certification and live credentials are unverified. |
+| Local QR ordering | Staff approval precedes table occupancy and stock deduction; tracking uses an expiring 256-bit capability stored as a hash. Table-scoped menus and order submissions require a separate 256-bit per-table capability, stored hashed, emitted in the QR URL fragment, issued only to owner/manager roles, and invalidated on reissue or database restore. QR orders now share catalog add-on validation, enforce required/linked/active modifier groups and bounded whole-number quantities, and persist modifier quantity snapshots. QR integration suite passed 61/61, add-on regression suites passed 16/16 and 9/9, and restore invalidation is covered by the production restore suite. | Locally verified; this secures the local POS QR flow. Public-cloud access and remote delivery to the POS are still not implemented. Existing printed table QR codes must be regenerated after this migration. |
+| Cloud QR ordering | Cloud Pages QR calls the Worker API; owner/manager issuance stores a per-table capability hash, public menu access is capability-gated, order lines and catalog modifier prices are server-validated, required/min/max modifier selection is enforced, tracking is private and expiring, and QR orders enter pending kitchen approval without occupying a table. Owner/manager modifier CRUD and product-to-group links are scoped to the organization. Submission uses an idempotency key persisted for retry, binds it to a request hash, and converges concurrent retries on one order. Dedicated Cloud D1 migrations and integration tests cover issuance, menu, pricing, modifier rules, idempotency, role permissions, approval, tracking and token rotation. | Locally verified (`test:cloud-public-qr`, Cloud API TypeScript check, frontend production export); production Worker migrations/deployment and phone-on-external-network verification remain outstanding. The currently deployed Pages QR route returns 404. |
+| Subscription payments | Server-side order records bind plan, cycle, amount and provider; captured payment is checked before activation. Payment security and subscription-order suites passed. | Locally verified; live merchant onboarding and production credentials are unverified. |
+| Dependencies and desktop build | `npm audit --omit=dev` reported zero vulnerabilities after updating `@googleapis/drive` to 27.0.0. Google Drive regression suite and desktop build passed. | Locally verified; development dependency advisories remain. |
+| Frontend | Next.js is pinned to 16.4.4; production-only frontend audit reported zero vulnerabilities. The Cloud static export generates `frontend/out/qr/index.html`; a dedicated `npm run build:web` gate is now part of CI. | Local export verified; live `orderitup.pages.dev/qr` and `/qr/` returned 404 on 2026-11-02, so the Pages deployment does not serve the customer QR page yet. |
+| Mobile demo login | Demo shortcuts are only shown in explicit Demo Mode; credentials are no longer prefilled; provider rejects demo login outside that mode. | Source updated; Flutter SDK is unavailable in this environment, so Flutter analysis/tests have not been run locally. |
+| Mobile counter PIN flow | PIN input is constrained to exactly six digits. The local POS endpoint verifies the one-time PIN but does not persist a device enrollment or issue a device credential; the screen now describes PIN acceptance followed by staff sign-in. | Copy and client validation updated; Flutter SDK is unavailable for local verification. This remains distinct from cloud terminal pairing. |
+| Public deployment | Production Worker `/health` returned operational HTTP 200; unauthenticated `/api/qr/menu` reached the Worker and returned 401; Pages `/auth/login/` had previously returned HTTP 200. Direct Pages `/qr` and `/qr/` requests both returned HTTP 404 on 2026-11-02. | Worker health does not identify deployed commit or prove schema, secrets, payments, or end-to-end behavior. Pages QR is currently unavailable in the live deployment. No deployment was performed for this work. |
+| Desktop-to-cloud terminal sync | Desktop Settings now claims Worker-generated pairing codes at `/api/pos/pair`, stores the high-entropy bearer credential in a secret setting, and sends outbox events to `/api/pos/events`. Worker responses are applied per `synced_ids`, leaving rejected events retryable. Terminals can revoke their own token through `/api/pos/disconnect`; backup restore deliberately clears the token and pauses Worker sync. `test:cloud-terminal-pairing`, `test:cloud-sync`, Worker TypeScript, desktop build, and frontend TypeScript passed. The deployed Worker health endpoint returned HTTP 200. | The terminal claim/outbox contract is locally verified and the Worker host is reachable. Live pairing, a real terminal batch, DNS/production route verification, and device-side acceptance still need a real tenant and production credentials. Legacy FloAdmin registration, account preferences, command polling, and relay still use the separate `api.orderitup.in` contract and DNS remains unresolved. |
+| Cloud QR and catalog synchronization | Public Cloud QR orders and Cloud portal visibility are implemented locally, but this Worker flow does not yet deliver those orders into the offline-first desktop SQLite order queue. Desktop catalog changes also are not synchronized through the terminal event outbox. | Cloud portal path locally verified; authenticated, idempotent Cloud-to-POS delivery and catalog synchronization remain unimplemented and block claiming a unified online/offline workflow. |
+
+Repository-local test results and public health checks do not establish that the production deployment matches this branch. The latest source changes remain uncommitted and have not been pushed or deployed.
 
 This document separates verified repository observations from planned work. A feature is not considered production-ready merely because a UI, route, mock response, demo mode, or unit test exists.
 
@@ -23,7 +45,7 @@ The product should preserve the offline-first desktop POS while adding dependabl
 6. **No fake production states:** demo data and simulated integrations must be visibly marked and disabled in production.
 7. **Incremental delivery:** implement in small, tested changes on feature branches; do not replace the existing POS wholesale.
 
-## Verified findings from the inspected source
+## Historical findings from the initial inspection (2026-11-02; recheck against current state)
 
 ### Security and SaaS administration
 
@@ -50,9 +72,9 @@ The product should preserve the offline-first desktop POS while adding dependabl
 - Cloud operations include customer-payment ledger endpoints. Recording a payment row is not proof that a payment provider settled the transaction.
 - No customer-review/Google-review workflow was confirmed in the files inspected so far.
 
-## Implementation status — 2026-11-02
+## Initial implementation status — historical snapshot
 
-### Phase 1 security hardening — implemented on `security/phase-1-hardening`, pending CI review
+### Phase 1 security hardening — source changes are present on the current implementation branch; CI and deployment remain pending
 
 - [x] Removed the source-code JWT fallback and hardcoded central admin operator/password seeds.
 - [x] Added environment-provisioned bootstrap admin credentials with bcrypt hash validation.
@@ -64,9 +86,10 @@ The product should preserve the offline-first desktop POS while adding dependabl
 - [x] Missing webhook secrets fail closed with HTTP 503; invalid/missing signatures fail with HTTP 401.
 - [x] Removed default central admin passwords and documented local default PINs from `users.md`.
 - [x] Added regression coverage for central admin bootstrap, unsigned/invalid/unconfigured webhooks and signed webhook workflows.
-- [ ] CI, lint and build results still need to be confirmed.
+- [x] Desktop build, cloud API auth tests, payment security tests, Cloud E2E tests, QR approval tests, Google Drive tests and the frontend production build have passed locally in this work session.
+- [ ] The complete CI workflow has not been run for this checkout; CI will run on the configured main/release pull-request workflow.
 - [ ] Production deployment secrets must be provisioned and any previously exposed credentials rotated before enabling central admin or aggregator webhooks.
-- [ ] Demo authentication in the separate marketing landing app still requires a production-mode review; it must not be treated as a real identity provider.
+- [x] Landing app demo profiles use `example.invalid`, are preview-only in `sessionStorage`, and do not create API tokens; cloud login/registration uses the Cloud API.
 
 See [SECURITY_BOOTSTRAP_AND_WEBHOOKS.md](./SECURITY_BOOTSTRAP_AND_WEBHOOKS.md) for required environment variables and validation commands.
 

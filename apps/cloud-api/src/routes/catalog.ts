@@ -1,4 +1,5 @@
 import { Env } from './pairing';
+import { loadProductAddonGroups } from './addons';
 
 export async function handleGetMasterCatalog(request: Request, env: Env, orgId: string): Promise<Response> {
   const categories = await env.DB.prepare(`
@@ -13,22 +14,59 @@ export async function handleGetMasterCatalog(request: Request, env: Env, orgId: 
     ORDER BY p.name ASC
   `).bind(orgId).all();
 
+  const productRows = products.results || [];
+  const addonGroups = await loadProductAddonGroups(env.DB, orgId, productRows.map((product: any) => product.id));
   return Response.json({
     categories: categories.results,
-    products: products.results
+    products: productRows.map((product: any) => ({ ...product, addon_groups: addonGroups.get(product.id) || [] }))
   });
 }
 
 export async function handleSaveMasterProduct(request: Request, env: Env, orgId: string): Promise<Response> {
   const body = await request.json() as any;
-  if (!body.name || body.base_price === undefined) {
+  const productName = typeof body.name === 'string' ? body.name.trim() : '';
+  const basePrice = Number(body.base_price);
+  const taxRate = Number(body.tax_rate || 0);
+  if (!productName || productName.length > 200 || body.base_price === undefined || !Number.isFinite(basePrice) || basePrice < 0 || !Number.isFinite(taxRate) || taxRate < 0 || taxRate > 100) {
     return Response.json({ error: 'name and base_price are required' }, { status: 400 });
   }
 
   const id = body.id || crypto.randomUUID();
   const now = new Date().toISOString();
+  const existingProduct = body.id
+    ? await env.DB.prepare('SELECT organization_id FROM master_products WHERE id = ?').bind(id).first<{ organization_id: string }>()
+    : null;
+  if (existingProduct && existingProduct.organization_id !== orgId) return Response.json({ error: 'Product does not belong to this organization' }, { status: 404 });
+  if (body.category_id) {
+    const category = await env.DB.prepare('SELECT id FROM master_categories WHERE id = ? AND organization_id = ? AND is_active = 1').bind(body.category_id, orgId).first();
+    if (!category) return Response.json({ error: 'Category does not belong to this organization or is inactive' }, { status: 400 });
+  }
 
-  await env.DB.prepare(`
+  const addonGroupIds = body.addon_group_ids === undefined ? null : body.addon_group_ids;
+  if (addonGroupIds !== null && (!Array.isArray(addonGroupIds) || addonGroupIds.length > 50 || addonGroupIds.some((groupId: unknown) => typeof groupId !== 'string'))) {
+    return Response.json({ error: 'addon_group_ids must be an array of valid modifier group IDs' }, { status: 400 });
+  }
+  const uniqueAddonGroupIds = addonGroupIds === null ? null : [...new Set(addonGroupIds as string[])];
+  if (uniqueAddonGroupIds && uniqueAddonGroupIds.length !== addonGroupIds.length) {
+    return Response.json({ error: 'Modifier group IDs cannot be duplicated' }, { status: 400 });
+  }
+  if (uniqueAddonGroupIds) {
+    const groups = uniqueAddonGroupIds.length
+      ? await env.DB.prepare(`
+          SELECT g.id, g.min_selection, g.is_required,
+            (SELECT COUNT(*) FROM master_addons a WHERE a.addon_group_id = g.id AND a.organization_id = g.organization_id AND a.is_active = 1) AS active_addon_count
+          FROM master_addon_groups g WHERE g.organization_id = ? AND g.is_active = 1 AND g.id IN (${uniqueAddonGroupIds.map(() => '?').join(',')})
+        `).bind(orgId, ...uniqueAddonGroupIds).all<{ id: string; min_selection: number; is_required: number; active_addon_count: number }>()
+      : { results: [] };
+    if ((groups.results || []).length !== uniqueAddonGroupIds.length) {
+      return Response.json({ error: 'One or more modifier groups are unavailable to this organization' }, { status: 400 });
+    }
+    if ((groups.results || []).some((group) => Math.max(group.min_selection, group.is_required ? 1 : 0) > group.active_addon_count)) {
+      return Response.json({ error: 'A selected modifier group has too few active options to satisfy its minimum selection' }, { status: 400 });
+    }
+  }
+
+  const saveProduct = env.DB.prepare(`
     INSERT INTO master_products (
       id, organization_id, category_id, name, sku, barcode,
       base_price, tax_rate, is_active, version, created_at, updated_at
@@ -47,16 +85,29 @@ export async function handleSaveMasterProduct(request: Request, env: Env, orgId:
     id,
     orgId,
     body.category_id || null,
-    body.name,
+    productName,
     body.sku || null,
     body.barcode || null,
-    Number(body.base_price),
-    Number(body.tax_rate || 0),
+    basePrice,
+    taxRate,
     body.is_active !== undefined ? (body.is_active ? 1 : 0) : 1,
     1,
     now,
     now
-  ).run();
+  );
+
+  if (uniqueAddonGroupIds !== null) {
+    const linkStatements = [
+      env.DB.prepare('DELETE FROM master_product_addon_groups WHERE organization_id = ? AND product_id = ?').bind(orgId, id),
+      ...uniqueAddonGroupIds.map((groupId, index) => env.DB.prepare(`
+        INSERT INTO master_product_addon_groups (organization_id, product_id, addon_group_id, sort_order, created_at)
+        VALUES (?, ?, ?, ?, ?)
+      `).bind(orgId, id, groupId, index, now)),
+    ];
+    await env.DB.batch([saveProduct, ...linkStatements]);
+  } else {
+    await saveProduct.run();
+  }
 
   return Response.json({ success: true, id });
 }

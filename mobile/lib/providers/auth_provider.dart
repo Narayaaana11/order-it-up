@@ -50,7 +50,13 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
-  void quickLoginDemoRole(String role) {
+  bool quickLoginDemoRole(String role) {
+    if (!apiService.isDemoMode) {
+      _errorMessage = 'Demo sign-in is only available in Demo Mode.';
+      notifyListeners();
+      return false;
+    }
+
     switch (role) {
       case 'cashier':
         _currentUser = MockDataService.mockCashierUser;
@@ -68,7 +74,9 @@ class AuthProvider extends ChangeNotifier {
         break;
     }
     storageService.setAuthToken(_currentUser!.token);
+    _errorMessage = null;
     notifyListeners();
+    return true;
   }
 
   Future<void> logout() async {

@@ -87,8 +87,9 @@ async function testPairingSecurity(): Promise<void> {
   assert.equal(claimRes.body.success, true);
   assert.equal(claimRes.body.branch_id, 'br-03', 'Must be bound to branch specified at generation');
   assert.equal(claimRes.body.terminal_name, 'Patio Tablet');
-  assert.ok(claimRes.body.token.includes('br-03'));
-  console.log('  ✓ Cryptographic PIN generation and correctly scoped terminal enrollment verified');
+  assert.equal('token' in claimRes.body, false, 'Local PIN verification must not mint an unenforced device credential');
+  assert.equal('terminalId' in claimRes.body, false, 'Local PIN verification must not claim a device was enrolled');
+  console.log('  ✓ Cryptographic PIN generation and correctly scoped branch verification verified');
 
   // 3. Single-Use Burning & Replay Prevention
   console.log('🧪 [Test 3/11] Single-Use Burning & Replay Prevention...');

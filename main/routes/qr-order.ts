@@ -1,12 +1,30 @@
 import { Router, Request, Response } from 'express';
+import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import expressRateLimit from 'express-rate-limit';
 import QRCode from 'qrcode';
 import { getDatabase, now, getSettingValue, withTxn } from '../db';
 import { asyncHandler } from '../middleware/async-handler';
 import { calculateItemTax } from '../services/tax';
 import { notifyKdsUpdate } from '../services/kds';
+import { requireRole } from '../middleware/security';
+import { ROLE_ACCESS } from '../../shared/role-permissions';
+import { resolveItemAddons } from './orders';
 
 const router = Router();
+
+function hashQrToken(token: string): Buffer {
+  return createHash('sha256').update(token).digest();
+}
+
+function isValidTableToken(tableId: string, rawToken: unknown): boolean {
+  if (typeof rawToken !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(rawToken)) return false;
+  const db = getDatabase();
+  const stored = db.prepare(`
+    SELECT token_hash FROM qr_table_tokens WHERE table_id = ? AND revoked_at IS NULL
+  `).get(tableId) as { token_hash: string } | undefined;
+  if (!stored || !/^[a-f0-9]{64}$/i.test(stored.token_hash)) return false;
+  return timingSafeEqual(hashQrToken(rawToken), Buffer.from(stored.token_hash, 'hex'));
+}
 
 const qrRateLimit = expressRateLimit({
   windowMs: 60 * 1000,
@@ -25,10 +43,13 @@ router.use(qrRateLimit);
 router.get('/menu', asyncHandler(async (req: Request, res: Response) => {
   const db = getDatabase();
   const tableId = req.query.table_id as string | undefined;
+  const tableToken = req.get('authorization')?.match(/^Bearer\s+([A-Za-z0-9_-]{43})$/i)?.[1];
 
   let tableInfo = null;
   if (tableId) {
+    if (!isValidTableToken(tableId, tableToken)) return res.status(404).json({ error: 'Menu not found' });
     tableInfo = db.prepare('SELECT id, number, floor, section, status FROM tables WHERE id = ?').get(tableId);
+    if (!tableInfo) return res.status(404).json({ error: 'Menu not found' });
   }
 
   const restaurantName = getSettingValue('business_name') || 'Order It Up Restaurant';
@@ -43,7 +64,7 @@ router.get('/menu', asyncHandler(async (req: Request, res: Response) => {
 
   const products = db.prepare(`
     SELECT p.id, p.category_id, c.name as category_name, p.name, p.description, p.price, p.image_url,
-           p.tax_type, p.tax_rate, p.tax_category_id, p.track_inventory, p.stock_quantity,
+           p.tax_type, p.tax_rate, p.tax_category_id,
            p.sort_order, p.tags
     FROM products p
     LEFT JOIN categories c ON p.category_id = c.id
@@ -122,6 +143,8 @@ router.post('/order', asyncHandler(async (req: Request, res: Response) => {
   const { table_id, customer_name, customer_phone, items, special_instructions } = req.body || {};
 
   if (!table_id) return res.status(400).json({ error: 'table_id is required' });
+  const tableToken = req.get('authorization')?.match(/^Bearer\s+([A-Za-z0-9_-]{43})$/i)?.[1];
+  if (!isValidTableToken(String(table_id), tableToken)) return res.status(404).json({ error: 'Table not found' });
   if (!Array.isArray(items) || items.length === 0) {
     return res.status(400).json({ error: 'Order must contain at least one item' });
   }
@@ -137,8 +160,6 @@ router.post('/order', asyncHandler(async (req: Request, res: Response) => {
 
   // Validate items and calculate subtotals
   const stmtProduct = db.prepare('SELECT * FROM products WHERE id = ? AND is_active = 1 AND deleted_at IS NULL');
-  const stmtAddon = db.prepare('SELECT * FROM addons WHERE id = ? AND is_active = 1');
-
   let subtotal = 0;
   const processedItems: any[] = [];
 
@@ -147,22 +168,26 @@ router.post('/order', asyncHandler(async (req: Request, res: Response) => {
     if (!prod) {
       return res.status(400).json({ error: `Product not found or unavailable: ${item.product_id}` });
     }
-    const qty = Math.max(1, parseInt(item.quantity, 10) || 1);
+    const qty = Number(item.quantity ?? 1);
+    if (!Number.isSafeInteger(qty) || qty < 1 || qty > 1000) {
+      return res.status(400).json({ error: 'Item quantity must be a whole number between 1 and 1000' });
+    }
     let itemPrice = Number(prod.price) || 0;
     const itemAddons: any[] = [];
 
-    if (Array.isArray(item.addons)) {
-      for (const addonId of item.addons) {
-        const addon = stmtAddon.get(addonId) as any;
-        if (addon) {
-          itemPrice += (Number(addon.price) || 0);
-          itemAddons.push({
-            id: addon.id,
-            name: addon.name,
-            price: Number(addon.price) || 0,
-          });
-        }
+    try {
+      const requestedAddons = item.addons === undefined || item.addons === null
+        ? []
+        : Array.isArray(item.addons)
+          ? item.addons.map((addon: unknown) => typeof addon === 'string' ? { id: addon } : addon)
+          : item.addons;
+      const resolvedAddons = resolveItemAddons(db, prod.id, requestedAddons as any[]);
+      for (const addon of resolvedAddons) {
+        itemPrice += (Number(addon.price) || 0) * addon.quantity;
+        itemAddons.push(addon);
       }
+    } catch (error) {
+      return res.status(400).json({ error: error instanceof Error ? error.message : 'Invalid product add-ons' });
     }
 
     const itemSubtotal = itemPrice * qty;
@@ -204,6 +229,9 @@ router.post('/order', asyncHandler(async (req: Request, res: Response) => {
   }
 
   const total = subtotal + totalTax;
+  const trackingToken = randomBytes(32).toString('base64url');
+  const trackingTokenHash = createHash('sha256').update(trackingToken).digest('hex');
+  const trackingTokenExpiresAt = Date.now() + 7 * 24 * 60 * 60 * 1000;
 
   let newOrderId: number = 0;
 
@@ -230,6 +258,12 @@ router.post('/order', asyncHandler(async (req: Request, res: Response) => {
 
     newOrderId = Number(orderResult.lastInsertRowid);
 
+    db.prepare('DELETE FROM qr_order_tracking_tokens WHERE expires_at <= ?').run(Date.now());
+    db.prepare(`
+      INSERT INTO qr_order_tracking_tokens (order_id, token_hash, expires_at)
+      VALUES (?, ?, ?)
+    `).run(newOrderId, trackingTokenHash, trackingTokenExpiresAt);
+
     // 2. Insert order items
     const insertItemStmt = db.prepare(`
       INSERT INTO order_items (
@@ -241,8 +275,8 @@ router.post('/order', asyncHandler(async (req: Request, res: Response) => {
     `);
 
     const insertAddonStmt = db.prepare(`
-      INSERT INTO order_item_addons (order_item_id, addon_id, addon_name, price)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO order_item_addons (order_item_id, addon_id, addon_name, price, quantity, created_at)
+      VALUES (?, ?, ?, ?, ?, ?)
     `);
 
     for (const item of processedItems) {
@@ -262,19 +296,21 @@ router.post('/order', asyncHandler(async (req: Request, res: Response) => {
 
       const orderItemId = Number(itemRow.lastInsertRowid);
       for (const addon of item.addons) {
-        insertAddonStmt.run(orderItemId, addon.id, addon.name, addon.price);
+        insertAddonStmt.run(orderItemId, addon.id, addon.name, addon.price, addon.quantity, timestamp);
       }
     }
 
-    // 3. Mark table occupied
-    db.prepare(`
-      UPDATE tables SET status = 'occupied', updated_at = ?
-      WHERE id = ?
-    `).run(timestamp, table_id);
-
+    // A customer request is not yet an active dine-in order. Staff acceptance
+    // will mark the table occupied and deduct recipe stock in the order flow.
+    // Keeping the table available here also avoids trapping a table when a
+    // waiter rejects or the customer abandons a pending request.
     // Raw ingredients are deducted only after a staff member accepts the
     // request by moving it to preparing. Pending customer requests consume nothing.
   })();
+
+  // Refresh connected staff/KDS clients so the request appears in the approval
+  // queue without waiting for their next periodic poll.
+  notifyKdsUpdate();
 
   res.status(201).json({
     ok: true,
@@ -285,6 +321,7 @@ router.post('/order', asyncHandler(async (req: Request, res: Response) => {
       total,
       status: 'pending',
       created_at: timestamp,
+      tracking_token: trackingToken,
     },
   });
 }));
@@ -296,15 +333,20 @@ router.post('/order', asyncHandler(async (req: Request, res: Response) => {
 router.get(['/order/:id', '/order/:id/track'], asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const db = getDatabase();
+  const authorization = req.get('authorization') || '';
+  const trackingToken = authorization.match(/^Bearer\s+([A-Za-z0-9_-]{43})$/i)?.[1];
+  if (!trackingToken) return res.status(404).json({ error: 'Order not found' });
+  const trackingTokenHash = createHash('sha256').update(trackingToken).digest('hex');
 
   const order = db.prepare(`
     SELECT o.id, o.order_number, o.status, o.total, o.subtotal, o.tax_amount,
            o.cooking_started_at, o.ready_at, o.served_at, o.created_at,
            t.number as table_number
     FROM orders o
+    JOIN qr_order_tracking_tokens qrt ON qrt.order_id = o.id
     LEFT JOIN tables t ON t.id = o.table_id
-    WHERE o.id = ?
-  `).get(id) as any;
+    WHERE o.id = ? AND qrt.token_hash = ? AND qrt.expires_at > ?
+  `).get(id, trackingTokenHash, Date.now()) as any;
 
   if (!order) return res.status(404).json({ error: 'Order not found' });
 
@@ -321,15 +363,31 @@ router.get(['/order/:id', '/order/:id/track'], asyncHandler(async (req: Request,
  * GET /api/qr/tables/:id/code
  * Generates QR Code data URL for table sticker.
  */
-router.get('/tables/:id/code', asyncHandler(async (req: Request, res: Response) => {
+router.get('/tables/:id/code', requireRole(...ROLE_ACCESS.ownerManager), asyncHandler(async (req: Request, res: Response) => {
   const { id } = req.params;
   const db = getDatabase();
   const table = db.prepare('SELECT id, number FROM tables WHERE id = ?').get(id) as any;
   if (!table) return res.status(404).json({ error: 'Table not found' });
 
+  // The raw capability is returned only in the owner-authenticated QR payload;
+  // only its SHA-256 digest is persisted. Reissuing a code revokes the previous one.
+  const tableToken = randomBytes(32).toString('base64url');
+  const tokenHash = hashQrToken(tableToken).toString('hex');
+  db.prepare(`
+    INSERT INTO qr_table_tokens (table_id, token_hash, created_at, revoked_at)
+    VALUES (?, ?, ?, NULL)
+    ON CONFLICT(table_id) DO UPDATE SET
+      token_hash = excluded.token_hash,
+      created_at = excluded.created_at,
+      revoked_at = NULL
+  `).run(table.id, tokenHash, now());
+
   const host = req.get('host') || 'localhost:3001';
   const protocol = req.protocol || 'http';
-  const qrUrl = `${protocol}://${host}/qr/${encodeURIComponent(table.id)}`;
+  // Put the bearer capability in the URL fragment so it is not sent in HTTP
+  // requests, access logs, or Referer headers. The web client moves it to an
+  // Authorization header after loading the page.
+  const qrUrl = `${protocol}://${host}/qr/${encodeURIComponent(table.id)}#token=${encodeURIComponent(tableToken)}`;
 
   const qrDataUrl = await QRCode.toDataURL(qrUrl, {
     width: 360,
@@ -344,6 +402,7 @@ router.get('/tables/:id/code', asyncHandler(async (req: Request, res: Response) 
     ok: true,
     table_id: table.id,
     table_number: table.number,
+    table_token: tableToken,
     qr_url: qrUrl,
     qr_data_url: qrDataUrl,
   });

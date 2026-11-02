@@ -892,6 +892,7 @@ class ApiService {
 
   Future<Map<String, dynamic>?> claimPairingPin(String pin) async {
     final cleanPin = pin.trim();
+    if (!RegExp(r'^\d{6}$').hasMatch(cleanPin)) return null;
     if (isDemoMode) {
       return {
         'success': true,
@@ -907,16 +908,6 @@ class ApiService {
       if (res is Map<String, dynamic>) return res;
       return null;
     } catch (_) {
-      // In case PIN is 6 digits and backend server has pairing endpoint or fallback
-      if (cleanPin.length == 6) {
-        return {
-          'success': true,
-          'branch': 'Connaught Place (Main Outlet)',
-          'tenant': 'Grand Royal Hospitality Group',
-          'terminalId': 'TERM-MOBILE-$cleanPin',
-          'token': 'paired-token-$cleanPin',
-        };
-      }
       return null;
     }
   }

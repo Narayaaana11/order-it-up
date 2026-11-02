@@ -1366,7 +1366,7 @@ export type RestoreOutboxState = {
   diagnostics: Record<string, unknown>[];
 };
 const RESTORE_PROTECTED_SETTING_KEYS = [
-  'jwt_secret', 'cloud_api_key', 'cloud_device_secret', 'cloud_pos_hash',
+  'jwt_secret', 'cloud_api_key', 'cloud_device_secret', 'cloud_pos_hash', 'cloud_terminal_token',
   'telemetry_enabled', 'diagnostics_consent',
   'mobile_pairing_code', 'mobile_pairing_code_expires_at',
 ];
@@ -1379,14 +1379,14 @@ export function captureRestoreProtectedSettings(dbInstance: Database.Database): 
   const byKey = new Map([...fixedRows, ...cloudRows].map((row) => [row.key, row.value]));
   const keys = [...new Set([...RESTORE_PROTECTED_SETTING_KEYS, ...cloudRows.map((row) => row.key)])];
   const deviceSecret = byKey.get('cloud_device_secret');
-  return keys.map((key) => ({
-    key,
-    // Exclude short-lived credentials and standalone position hashes from restore.
-    present: !key.startsWith('mobile_pairing_code')
+  return keys.map((key) => {
+    // Exclude short-lived credentials and terminal bearer credentials from restore snapshots.
+    const present = !key.startsWith('mobile_pairing_code')
       && !(key === 'cloud_pos_hash' && !deviceSecret)
-      && byKey.has(key),
-    value: byKey.get(key) ?? null,
-  }));
+      && key !== 'cloud_terminal_token'
+      && byKey.has(key);
+    return { key, present, value: present ? (byKey.get(key) ?? null) : null };
+  });
 }
 
 export function mergeRestoreProtectedSettings(dbInstance: Database.Database, states: RestoreProtectedSettingState[]): void {
@@ -1399,6 +1399,19 @@ export function mergeRestoreProtectedSettings(dbInstance: Database.Database, sta
   for (const state of states) {
     if (state.present) upsert.run(state.key, state.value, now());
     else if (!state.key.startsWith('cloud_')) dbInstance.prepare('DELETE FROM settings WHERE key = ?').run(state.key);
+  }
+  const usesWorkerTerminal = states.some((state) => state.key === 'cloud_terminal_mode' && state.value === 'worker');
+  const hasWorkerTerminalCredential = states.some((state) => state.key === 'cloud_terminal_token' && state.present && Boolean(state.value));
+  const hasLegacyCloudCredential = states.some((state) => state.key === 'cloud_api_key' && state.present && Boolean(state.value));
+  if (usesWorkerTerminal && !hasWorkerTerminalCredential) {
+    upsert.run('cloud_terminal_token', '', now());
+    upsert.run('cloud_terminal_id', '', now());
+    upsert.run('cloud_terminal_branch_id', '', now());
+    upsert.run('cloud_terminal_branch_name', '', now());
+    upsert.run('cloud_sync_enabled', '0', now());
+    upsert.run('cloud_orders_enabled', '0', now());
+    upsert.run('cloud_connected', 'false', now());
+    upsert.run('cloud_registration_status', hasLegacyCloudCredential ? 'registered' : 'unregistered', now());
   }
   const hasDeviceSecret = states.some((state) => state.key === 'cloud_device_secret' && state.present);
   const hasPosHash = states.some((state) => state.key === 'cloud_pos_hash' && state.present);
@@ -1828,6 +1841,7 @@ export function restoreBackup(backupPath: string, forceDirect: boolean = false, 
       mergeKdsEnabledSetting(freshDb, preservedKdsEnabled);
       mergeRestoreProtectedSettings(freshDb, preservedProtectedSettings);
       freshDb.prepare('DELETE FROM kds_pairing_tokens').run();
+      freshDb.prepare('DELETE FROM qr_table_tokens').run();
       mergeRestoreOutboxState(freshDb, preservedOutboxes);
       mergeRevocations(freshDb, preservedRevocations);
       const integrity = freshDb.prepare('PRAGMA integrity_check').all() as { integrity_check: string }[];
@@ -2085,6 +2099,7 @@ function dataOnlyRestore(
     mergeKdsEnabledSetting(currentDb, preservedKdsEnabled);
     mergeRestoreProtectedSettings(currentDb, preservedProtectedSettings);
     currentDb.prepare('DELETE FROM kds_pairing_tokens').run();
+    currentDb.prepare('DELETE FROM qr_table_tokens').run();
     mergeRestoreOutboxState(currentDb, preservedOutboxes);
     mergeRevocations(currentDb, preservedRevocations);
     const newForeignKeyViolations = [...getForeignKeyViolationKeys(currentDb)]
@@ -4219,6 +4234,60 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       `);
       seedConfig.run('swiggy');
       seedConfig.run('zomato');
+    },
+  },
+  {
+    version: 84,
+    name: 'bind_subscription_payments_to_server_orders',
+    up: () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS subscription_payment_orders (
+          order_id TEXT PRIMARY KEY,
+          plan TEXT NOT NULL CHECK (plan IN ('starter', 'pro', 'enterprise')),
+          billing_cycle TEXT NOT NULL CHECK (billing_cycle IN ('monthly', 'yearly')),
+          amount_minor INTEGER NOT NULL CHECK (amount_minor > 0),
+          currency TEXT NOT NULL CHECK (currency = 'INR'),
+          provider TEXT NOT NULL CHECK (provider IN ('razorpay', 'cashfree', 'mock')),
+          status TEXT NOT NULL DEFAULT 'created' CHECK (status IN ('created', 'captured', 'failed')),
+          payment_id TEXT UNIQUE,
+          created_at TEXT NOT NULL,
+          expires_at TEXT NOT NULL,
+          captured_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_subscription_payment_orders_expiry
+          ON subscription_payment_orders(status, expires_at);
+      `);
+    },
+  },
+  {
+    version: 85,
+    name: 'protect_public_qr_order_tracking',
+    up: () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS qr_order_tracking_tokens (
+          order_id INTEGER PRIMARY KEY REFERENCES orders(id) ON DELETE CASCADE,
+          token_hash TEXT NOT NULL UNIQUE CHECK (length(token_hash) = 64),
+          expires_at INTEGER NOT NULL
+        );
+        CREATE INDEX IF NOT EXISTS idx_qr_order_tracking_expiry
+          ON qr_order_tracking_tokens(expires_at);
+      `);
+    },
+  },
+  {
+    version: 86,
+    name: 'require_table_capability_for_public_qr_orders',
+    up: () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS qr_table_tokens (
+          table_id TEXT PRIMARY KEY REFERENCES tables(id) ON DELETE CASCADE,
+          token_hash TEXT NOT NULL UNIQUE CHECK (length(token_hash) = 64),
+          created_at TEXT NOT NULL,
+          revoked_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_qr_table_tokens_active
+          ON qr_table_tokens(table_id, revoked_at);
+      `);
     },
   },
 ];
