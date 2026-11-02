@@ -2,12 +2,15 @@
 
 **Status:** Working plan  
 **Repository:** `Narayaaana11/order-it-up`  
-**Planning baseline:** Repository inspection on 2026-11-02  
-**Current implementation branch:** `feat/pilot-access-and-admin-inbox`
+**Planning baseline:** Repository inspection on 2026-11-03
+**Current source baseline:** `origin/main` at `07f6d3f` (PR #35 merged the pilot access, admin inbox, migration, CI, and multi-platform changes)
+**Current local work branch:** `feat/tablet-pos-and-role-dashboard-foundation`
 
-## Current verified state — 2026-11-02
+## Current verified source state — 2026-11-03
 
-This section supersedes the initial inspection notes below wherever they conflict. The working tree contains uncommitted changes; these results describe this checkout, not a released build.
+This section supersedes the initial inspection notes below wherever they conflict. Source status is based on the merged `origin/main` baseline. Runtime and D1 observations below are still the read-only 2026-11-02 audit snapshot; they are not proof of current deployment state.
+
+Current local work also adds Cloud D1 migration 0019 for authoritative order completion timestamps. The remote D1 baseline has not been re-audited for this migration; it must be included in the reviewed reconciliation before deployment.
 
 | Area | Current evidence | Status |
 |---|---|---|
@@ -33,7 +36,7 @@ This section supersedes the initial inspection notes below wherever they conflic
 
 The production D1 schema audit and reviewed recovery sequence are recorded in [CLOUD_D1_BASELINE_RECONCILIATION.md](./CLOUD_D1_BASELINE_RECONCILIATION.md). The audit is read-only; it does not authorize or perform a production migration.
 
-Repository-local test results and public health checks do not establish that the production deployment matches this branch. The latest source changes remain uncommitted and have not been pushed or deployed.
+PR #35 merged the latest source changes into `main` on 2026-11-03. The source has not thereby been deployed: repository tests, merge status, and public health checks do not establish that production matches `origin/main`. Recheck live service state and rerun the read-only D1 audit before any release decision.
 
 This document separates verified repository observations from planned work. A feature is not considered production-ready merely because a UI, route, mock response, demo mode, or unit test exists.
 

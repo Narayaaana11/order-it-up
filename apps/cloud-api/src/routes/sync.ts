@@ -423,6 +423,20 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
           continue;
         }
 
+        let completedAt: string | null = null;
+        if (payload.status === 'completed') {
+          completedAt = now;
+        }
+        if (payload.completed_at !== undefined && payload.completed_at !== null) {
+          const completionTime = typeof payload.completed_at === 'string' ? Date.parse(payload.completed_at) : Number.NaN;
+          const orderTime = Date.parse(payload.ordered_at || payload.created_at || now);
+          if (payload.status !== 'completed' || !isValidBusinessTimestamp(payload.completed_at) || !Number.isFinite(orderTime) || completionTime < orderTime) {
+            console.warn(`[SyncValidation] Order event ${event.id} rejected: Invalid completed_at timestamp`);
+            continue;
+          }
+          completedAt = new Date(Math.min(completionTime, Date.now())).toISOString();
+        }
+
         // Cross-tenant order overwrite prevention:
         // If order already exists in database, verify it belongs strictly to this tenant and branch
         const existingOrder = await env.DB.prepare(`
@@ -474,8 +488,8 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
           INSERT INTO synced_orders (
             id, organization_id, branch_id, terminal_id, order_number, order_type,
             status, subtotal, tax_total, discount_total, grand_total, payment_method,
-            ordered_at, synced_at, restaurant_id, kitchen_status, payment_status, updated_at
-          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpaid', ?)
+            ordered_at, synced_at, restaurant_id, kitchen_status, payment_status, completed_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpaid', ?, ?)
           ON CONFLICT(id) DO UPDATE SET
             status = excluded.status,
             kitchen_status = COALESCE(excluded.kitchen_status, synced_orders.kitchen_status),
@@ -485,6 +499,7 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
             discount_total = excluded.discount_total,
             grand_total = excluded.grand_total,
             payment_method = CASE WHEN synced_orders.payment_status IN ('paid', 'partially_paid') THEN synced_orders.payment_method ELSE excluded.payment_method END,
+            completed_at = COALESCE(synced_orders.completed_at, excluded.completed_at),
             synced_at = excluded.synced_at,
             updated_at = excluded.updated_at
           WHERE synced_orders.organization_id = excluded.organization_id
@@ -506,6 +521,7 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
           now,
           terminal.restaurant_id,
           kitchenStatus,
+          completedAt,
           now
         ));
 

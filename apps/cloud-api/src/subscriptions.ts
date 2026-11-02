@@ -259,7 +259,7 @@ export function requiredPlanFeature(path: string, method: string): PlanFeature |
   if (path === '/api/restaurants' && method === 'POST') return 'multiOutlet';
   if (path === '/api/pairing/generate') return 'cloudSync';
   if (path.startsWith('/api/kitchen/tickets')) return 'kdsStations';
-  if (path.startsWith('/api/analytics/') || path === '/api/cloud/overview' || path.startsWith('/api/accountant/')) {
+  if (path.startsWith('/api/analytics/') || path.startsWith('/api/reports/') || path.startsWith('/reports/') || path === '/api/cloud/overview' || path.startsWith('/api/accountant/')) {
     return 'advancedReports';
   }
   if (path === '/api/transfers' || path === '/api/cloud/transfers') return 'inventoryTracking';

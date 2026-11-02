@@ -54,8 +54,8 @@ function createSqliteD1(db: DatabaseSync) {
             },
             async run(): Promise<{ success: boolean }> {
               const stmt = db.prepare(sql);
-              stmt.run(...params);
-              return { success: true };
+              const result = stmt.run(...params);
+              return { success: true, meta: { changes: result.changes }, changes: result.changes } as any;
             },
           };
         },
@@ -72,7 +72,14 @@ function createSqliteD1(db: DatabaseSync) {
 function runSqlFile(db: DatabaseSync, filePath: string): void {
   const content = fs.readFileSync(filePath, 'utf-8');
   const clean = content.replace(/--.*$/gm, '');
-  const statements = clean.split(';').map((s) => s.trim()).filter((s) => s.length > 0);
+  const triggers: string[] = [];
+  const withoutTriggerSemicolons = clean.replace(/CREATE TRIGGER[\s\S]*?\bEND;/gi, (trigger) => {
+    const marker = `__SQL_TRIGGER_${triggers.length}__`;
+    triggers.push(trigger);
+    return marker;
+  });
+  const statements = withoutTriggerSemicolons.split(';').map((s) => s.trim()).filter((s) => s.length > 0)
+    .map((statement) => statement.replace(/__SQL_TRIGGER_(\d+)__/g, (_marker, index: string) => triggers[Number(index)]));
   for (const stmt of statements) {
     try {
       db.exec(stmt);
@@ -98,6 +105,12 @@ async function runTestSuite(): Promise<void> {
   const m5Path = path.join(migrationsDir, '0005_shared_operations_tables_and_kitchen.sql');
   const m6Path = path.join(migrationsDir, '0006_customer_payment_ledger.sql');
   const m7Path = path.join(migrationsDir, '0007_repair_legacy_payments_and_financial_integrity.sql');
+  const m8Path = path.join(migrationsDir, '0008_saas_subscription_and_platform_admin.sql');
+  const m9Path = path.join(migrationsDir, '0009_subscription_grace_periods.sql');
+  const m10Path = path.join(migrationsDir, '0010_cloud_token_revocations.sql');
+  const m12Path = path.join(migrationsDir, '0012_cloud_catalog_modifiers.sql');
+  const m17Path = path.join(migrationsDir, '0017_cloud_qr_pos_delivery.sql');
+  const m19Path = path.join(migrationsDir, '0019_synced_order_completion_time.sql');
 
   const rawDb = new DatabaseSync(':memory:');
   rawDb.exec('PRAGMA foreign_keys = ON;');
@@ -109,6 +122,12 @@ async function runTestSuite(): Promise<void> {
   runSqlFile(rawDb, m5Path);
   runSqlFile(rawDb, m6Path);
   runSqlFile(rawDb, m7Path);
+  runSqlFile(rawDb, m8Path);
+  runSqlFile(rawDb, m9Path);
+  runSqlFile(rawDb, m10Path);
+  runSqlFile(rawDb, m12Path);
+  runSqlFile(rawDb, m17Path);
+  runSqlFile(rawDb, m19Path);
 
   const env: any = {
     DB: createSqliteD1(rawDb),

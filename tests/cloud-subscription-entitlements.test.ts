@@ -123,6 +123,7 @@ async function run() {
   assert.equal(requiredPlanFeature('/api/branches', 'POST'), 'multiOutlet');
   assert.equal(requiredPlanFeature('/api/kitchen/tickets', 'GET'), 'kdsStations');
   assert.equal(requiredPlanFeature('/api/analytics/overview', 'GET'), 'advancedReports');
+  assert.equal(requiredPlanFeature('/api/reports/daily-stats', 'GET'), 'advancedReports');
   assert.equal(requiredPlanFeature('/api/transfers', 'POST'), 'inventoryTracking');
   assert.equal(requiredPlanFeature('/api/orders', 'POST'), null);
 

@@ -78,7 +78,14 @@ function createSqliteD1(db: DatabaseSync) {
 function runSqlFile(db: DatabaseSync, filePath: string): void {
   const content = fs.readFileSync(filePath, 'utf-8');
   const clean = content.replace(/--.*$/gm, '');
-  const statements = clean.split(';').map((s) => s.trim()).filter((s) => s.length > 0);
+  const triggers: string[] = [];
+  const withoutTriggerSemicolons = clean.replace(/CREATE TRIGGER[\s\S]*?\bEND;/gi, (trigger) => {
+    const marker = `__SQL_TRIGGER_${triggers.length}__`;
+    triggers.push(trigger);
+    return marker;
+  });
+  const statements = withoutTriggerSemicolons.split(';').map((s) => s.trim()).filter((s) => s.length > 0)
+    .map((statement) => statement.replace(/__SQL_TRIGGER_(\d+)__/g, (_marker, index: string) => triggers[Number(index)]));
   for (const stmt of statements) {
     try {
       db.exec(stmt);
@@ -104,6 +111,12 @@ async function runC121TestSuite(): Promise<void> {
   const m5Path = path.join(migrationsDir, '0005_shared_operations_tables_and_kitchen.sql');
   const m6Path = path.join(migrationsDir, '0006_customer_payment_ledger.sql');
   const m7Path = path.join(migrationsDir, '0007_repair_legacy_payments_and_financial_integrity.sql');
+  const m8Path = path.join(migrationsDir, '0008_saas_subscription_and_platform_admin.sql');
+  const m9Path = path.join(migrationsDir, '0009_subscription_grace_periods.sql');
+  const m10Path = path.join(migrationsDir, '0010_cloud_token_revocations.sql');
+  const m12Path = path.join(migrationsDir, '0012_cloud_catalog_modifiers.sql');
+  const m17Path = path.join(migrationsDir, '0017_cloud_qr_pos_delivery.sql');
+  const m19Path = path.join(migrationsDir, '0019_synced_order_completion_time.sql');
 
   // =========================================================================
   // TEST 1: MIGRATION 0006 & 0007 REPAIR & BACKFILL INTEGRITY
@@ -152,6 +165,7 @@ async function runC121TestSuite(): Promise<void> {
   // Apply migration 0006 & 0007 without collision
   runSqlFile(migDb, m6Path);
   runSqlFile(migDb, m7Path);
+  runSqlFile(migDb, m19Path);
 
   // Verify backfilled customer_payments
   const backfilledPayments = migDb.prepare('SELECT order_id, amount, external_reference_id, status FROM customer_payments').all() as any[];
@@ -181,6 +195,12 @@ async function runC121TestSuite(): Promise<void> {
   runSqlFile(rawDb, m5Path);
   runSqlFile(rawDb, m6Path);
   runSqlFile(rawDb, m7Path);
+  runSqlFile(rawDb, m8Path);
+  runSqlFile(rawDb, m9Path);
+  runSqlFile(rawDb, m10Path);
+  runSqlFile(rawDb, m12Path);
+  runSqlFile(rawDb, m17Path);
+  runSqlFile(rawDb, m19Path);
 
   const nowIso = new Date().toISOString();
 
@@ -769,6 +789,7 @@ async function runC121TestSuite(): Promise<void> {
           grand_total: 418.95,
           payment_method: 'cash',
           ordered_at: nowIso,
+          completed_at: nowIso,
           items: [{ product_id: 'prod-margherita', quantity: 1, unit_price: 399.0 }],
         },
       },
@@ -850,6 +871,7 @@ async function runC121TestSuite(): Promise<void> {
           grand_total: 418.95,
           payment_method: 'cash',
           ordered_at: nowIso,
+          completed_at: nowIso,
           items: [{ product_id: 'prod-margherita', quantity: 1, unit_price: 399.0 }],
         },
       },
@@ -863,12 +885,37 @@ async function runC121TestSuite(): Promise<void> {
   }), env);
   assert.equal(syncResSettled.status, 200);
 
-  const orderSettled = rawDb.prepare('SELECT payment_status FROM synced_orders WHERE id = ?').get(offlineSettledOrderId) as any;
+  const orderSettled = rawDb.prepare('SELECT payment_status, completed_at FROM synced_orders WHERE id = ?').get(offlineSettledOrderId) as any;
   assert.equal(orderSettled.payment_status, 'unpaid', 'Ordinary order.completed event must NOT mark order paid');
+  assert.equal(orderSettled.completed_at, nowIso, 'ordinary order sync preserves the source completion time without granting payment status');
 
   const paymentsBeforeDedicated = rawDb.prepare('SELECT * FROM customer_payments WHERE order_id = ?').all(offlineSettledOrderId) as any[];
   assert.equal(paymentsBeforeDedicated.length, 0, 'Ordinary order event must NEVER create customer_payments ledger row');
   console.log('  ✓ Ordinary order.completed claiming paid → starts unpaid with 0 payment ledger rows');
+
+  const invalidCompletionId = 'ord-invalid-completion-time';
+  const invalidCompletionRes = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify({ events: [{
+      id: 'evt-invalid-completion-time', type: 'order.completed',
+      payload: { id: invalidCompletionId, order_number: 'OFF-INVALID-TIME', order_type: 'takeaway', status: 'completed', subtotal: 399, tax_total: 19.95, grand_total: 418.95, payment_method: 'cash', ordered_at: nowIso, completed_at: '2019-01-01T00:00:00.000Z', items: [{ product_id: 'prod-margherita', quantity: 1, unit_price: 399 }] },
+    }] }),
+  }), env);
+  assert.equal(invalidCompletionRes.status, 200);
+  assert.equal(rawDb.prepare('SELECT id FROM synced_orders WHERE id = ?').get(invalidCompletionId), undefined, 'invalid completion timestamps must not enter Cloud reporting data');
+  const futureCompletionId = 'ord-future-completion-time';
+  const futureCompletionRes = await cloudWorker.fetch(new Request('https://cloud.orderitup.internal/api/pos/events', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${rawTerminalToken}` },
+    body: JSON.stringify({ events: [{
+      id: 'evt-future-completion-time', type: 'order.completed',
+      payload: { id: futureCompletionId, order_number: 'OFF-FUTURE-TIME', order_type: 'takeaway', status: 'completed', subtotal: 399, tax_total: 19.95, grand_total: 418.95, payment_method: 'cash', ordered_at: nowIso, completed_at: new Date(Date.now() + 60 * 60 * 1000).toISOString(), items: [{ product_id: 'prod-margherita', quantity: 1, unit_price: 399 }] },
+    }] }),
+  }), env);
+  assert.equal(futureCompletionRes.status, 200);
+  const futureCompletion = rawDb.prepare('SELECT completed_at FROM synced_orders WHERE id = ?').get(futureCompletionId) as any;
+  assert.ok(Date.parse(futureCompletion.completed_at) <= Date.now(), 'future terminal clock skew is clamped to the Worker receipt time');
 
   // Now settle through dedicated payment.settled event
   const paymentSettledEvent = {
@@ -1388,15 +1435,15 @@ async function runC121TestSuite(): Promise<void> {
   console.log('  ✓ Client-supplied gateway/terminal verification string → classified as manual_cashier_confirmed');
 
   // =========================================================================
-  // TEST 14: FRONTEND ORDERS PAGE CLIENT CONTRACT (BRANCH_ID SCOPING)
+  // TEST 14: FRONTEND ORDERS PAGE CLIENT CONTRACT (AUTHORIZED BRANCH SCOPE)
   // =========================================================================
-  console.log('🧪 [Test 14/17] Frontend Orders Page Client Contract (branch_id Required)...');
+  console.log('🧪 [Test 14/17] Frontend Orders Page Client Contract (authorized branch scope)...');
   const noBranchReq = new Request('https://cloud.orderitup.internal/api/orders', {
     method: 'GET',
     headers: { Authorization: `Bearer ${tokenOwner}` },
   });
   const noBranchRes = await cloudWorker.fetch(noBranchReq, env);
-  assert.equal(noBranchRes.status, 400);
+  assert.equal(noBranchRes.status, 200, 'organization-level owners may aggregate across their authorized branches');
 
   const withBranchReq = new Request('https://cloud.orderitup.internal/api/orders?branch_id=br-a1', {
     method: 'GET',
@@ -1406,7 +1453,7 @@ async function runC121TestSuite(): Promise<void> {
   assert.equal(withBranchRes.status, 200);
   const withBranchJson = await withBranchRes.json() as any;
   assert.ok(Array.isArray(withBranchJson.orders));
-  console.log('  ✓ branch_id requirement and scoping confirmed for orders list');
+  console.log('  ✓ organization-wide and branch-specific order scopes confirmed');
 
   // =========================================================================
   // TEST 15: ACTIVE ORDER LOOKUP BRANCH SCOPE & MULTI-BRANCH ISOLATION
@@ -1462,13 +1509,16 @@ async function runC121TestSuite(): Promise<void> {
   assert.equal(tableOrderJsonB.orders.length, 0, 'Branch switch to br-a2 must NOT return order from br-a1');
   console.log('  ✓ Branch switch does not leak previous branch\'s order');
 
-  // 15d. Missing/unauthorized branch returns an honest error rather than appearing as "no active order"
+  // 15d. Organization-level owner may query all authorized branches; row scope remains explicit.
   const missingBranchReq = new Request('https://cloud.orderitup.internal/api/orders?table_id=tbl-scope-1&type=dine_in&status=pending,preparing,ready&limit=1', {
     method: 'GET',
     headers: { Authorization: `Bearer ${tokenOwner}` },
   });
   const missingBranchRes = await cloudWorker.fetch(missingBranchReq, env);
-  assert.equal(missingBranchRes.status, 400, 'Missing branch_id must return HTTP 400');
+  assert.equal(missingBranchRes.status, 200, 'An organization-level owner may query all authorized branches');
+  const allBranchOrderJson = await missingBranchRes.json() as any;
+  assert.equal(allBranchOrderJson.orders.length, 1);
+  assert.equal(allBranchOrderJson.orders[0].branch_id, 'br-a1');
 
   const unauthBranchReq = new Request('https://cloud.orderitup.internal/api/orders?branch_id=br-foreign&table_id=tbl-scope-1&type=dine_in&status=pending,preparing,ready&limit=1', {
     method: 'GET',
@@ -1476,7 +1526,7 @@ async function runC121TestSuite(): Promise<void> {
   });
   const unauthBranchRes = await cloudWorker.fetch(unauthBranchReq, env);
   assert.equal(unauthBranchRes.status, 403, 'Unauthorized branch access must return HTTP 403');
-  console.log('  ✓ Missing/unauthorized branch returns an honest error rather than silently appearing as "no active order"');
+  console.log('  ✓ Organization-wide aggregation and unauthorized branch denial confirmed');
 
   // =========================================================================
   // TEST 16: MOBILE FLUTTER CLIENT CONTRACT (ZERO MOCK DATA LEAKAGE)

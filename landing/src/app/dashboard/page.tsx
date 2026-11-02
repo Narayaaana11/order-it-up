@@ -33,7 +33,7 @@ import {
 } from "lucide-react";
 import { BRAND } from "@/lib/constants";
 import ModalProvider from "@/components/ModalProvider";
-import { AuthUser, getStoredUser, setStoredUser } from "@/lib/auth";
+import { AuthUser, getStoredUser, isDemoPreviewSession, setStoredUser } from "@/lib/auth";
 import {
   triggerOpenBillModal,
   triggerOpenCredentialsModal,
@@ -63,6 +63,7 @@ import { DeliveryDriverView } from "@/components/dashboard/DeliveryDriverView";
 import { OwnerManagerView } from "@/components/dashboard/OwnerManagerView";
 import { FounderAdminView } from "@/components/dashboard/FounderAdminView";
 import { ChainOwnerView } from "@/components/dashboard/ChainOwnerView";
+import { CloudOperationsWorkspace } from "@/components/dashboard/CloudOperationsWorkspace";
 
 // Tab configuration for Merchant perspective
 interface PersonaTabConfig {
@@ -152,6 +153,8 @@ function DashboardShell() {
 
   // User session state (populated safely via async timer to prevent SSR mismatch)
   const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
+  const [demoPreview, setDemoPreview] = useState(false);
 
   // Status Popover state
   const [statusPopoverOpen, setStatusPopoverOpen] = useState<boolean>(false);
@@ -174,10 +177,13 @@ function DashboardShell() {
   useEffect(() => {
     const timer = setTimeout(() => {
       setCurrentUser(getStoredUser());
+      setDemoPreview(isDemoPreviewSession());
+      setSessionChecked(true);
     }, 0);
 
     const handleAuthChange = () => {
       setCurrentUser(getStoredUser());
+      setDemoPreview(isDemoPreviewSession());
     };
     window.addEventListener("orderitup_auth_change", handleAuthChange);
     return () => {
@@ -317,6 +323,16 @@ function DashboardShell() {
 
   // Determine active outlet entity
   const currentOutlet = outlets.find((o) => o.id === selectedOutletId) || outlets[0];
+
+  if (!sessionChecked) {
+    return <div className="flex min-h-screen items-center justify-center gap-3 bg-slate-50 text-sm font-semibold text-slate-600"><span className="h-5 w-5 animate-spin rounded-full border-2 border-orange-500 border-t-transparent" />Checking dashboard session…</div>;
+  }
+  if (currentUser?.token && !demoPreview && currentUser.role.toLowerCase() === "super_admin") {
+    return <FounderAdminView />;
+  }
+  if (currentUser?.token && !demoPreview) {
+    return <CloudOperationsWorkspace user={currentUser} onSignOut={handleSignOut} />;
+  }
 
   // Active view renderer for all 8 views
   const renderActiveView = () => {

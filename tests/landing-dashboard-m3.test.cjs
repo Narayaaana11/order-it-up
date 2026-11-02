@@ -115,12 +115,13 @@ describe('Milestone M3: FounderAdminView (D1-backed platform administration)', (
     assert.doesNotMatch(content, /useTenants|useDashboardActions|updateDashboardState/);
     assert.doesNotMatch(content, /handleOnboardTenant|handleGenerateLicense|handleRunIsolationAudit/);
     assert.doesNotMatch(content, /Zero Data Commingling Verified|S3 Prefix Isolation Audit Passed/);
-    assert.match(content, /Read-only control plane/);
+    assert.match(content, /D1-backed control plane/);
+    assert.match(content, /supports audited account and plan changes/);
     assert.match(content, /not available until audited server-side workflows/);
   });
 
   it('clears the session when the platform API rejects the administrator token', () => {
-    assert.match(content, /Unauthorized/);
+    assert.match(content, /unauthorized/i);
     assert.match(content, /sessionStorage\.removeItem\(TOKEN_KEY\)/);
     assert.match(content, /credentials: "omit"/);
     assert.match(content, /cache: "no-store"/);

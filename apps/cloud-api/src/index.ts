@@ -6,6 +6,7 @@ import { Env, handleGeneratePairing, handleClaimPairing, handleDisconnectTermina
 import { handleRegisterPilotInvitation, handleRegisterTenant } from './routes/registration';
 import { handleIngestSyncEvents } from './routes/sync';
 import { handleAnalyticsOverview } from './routes/analytics';
+import { handleDashboardReport } from './routes/dashboard-reports';
 import { handleAccountantClosures, handleAccountantTaxSummary, handleTallyExport } from './routes/accountant';
 import { handleGetMasterCatalog, handleSaveMasterProduct, handleGetBranchCatalog, handleSetBranchOverride } from './routes/catalog';
 import { handleDeleteAddon, handleDeleteAddonGroup, handleListAddonGroups, handleSaveAddon, handleSaveAddonGroup } from './routes/addons';
@@ -121,6 +122,7 @@ async function handleReadiness(env: Env): Promise<Response> {
     }
     await env.DB.prepare('SELECT account_status FROM organizations LIMIT 0').all();
     await env.DB.prepare('SELECT product_sku FROM synced_order_items LIMIT 0').all();
+    await env.DB.prepare('SELECT completed_at FROM synced_orders LIMIT 0').all();
     return Response.json({ service: 'orderitup-cloud-api', status: 'ready' }, { headers: { 'Cache-Control': 'no-store' } });
   } catch (error) {
     const errorText = String((error as Error)?.message || error);
@@ -481,6 +483,10 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
 
   if (memberships.length === 0) {
     return Response.json({ error: 'Forbidden: No active organization memberships' }, { status: 403 });
+  }
+
+  if (method === 'GET' && (path.startsWith('/reports/') || path.startsWith('/api/reports/'))) {
+    return handleDashboardReport(request, env, orgId, memberships);
   }
 
   const qrCodeMatch = path.match(/^\/api\/qr\/tables\/([^/]+)\/code$/);

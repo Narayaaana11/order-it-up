@@ -11,6 +11,7 @@ import {
   isAuthorizedForBranch,
   UserMembership,
 } from '../rbac';
+import { loadProductAddonGroups } from './addons';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -21,6 +22,62 @@ function safeParseJson<T>(raw: string | null | undefined, fallback: T): T {
   } catch {
     return fallback;
   }
+}
+
+async function resolveCloudOrderModifiers(db: any, orgId: string, productId: string | null, rawModifiers: unknown): Promise<{ modifiers?: Array<{ id?: string; name: string; price: number; quantity: number }>; error?: string }> {
+  if (rawModifiers === undefined || rawModifiers === null) rawModifiers = [];
+  if (!Array.isArray(rawModifiers) || rawModifiers.length > 100) return { error: 'Invalid modifier selection' };
+
+  const groupsByProduct = productId
+    ? await loadProductAddonGroups(db, orgId, [productId])
+    : new Map<string, any[]>();
+  const groups = productId ? groupsByProduct.get(productId) || [] : [];
+  const addons = new Map<string, { name: string; price: number; group: any }>();
+  for (const group of groups) {
+    for (const addon of group.addons || []) {
+      addons.set(String(addon.id), { name: String(addon.name), price: Number(addon.price), group });
+    }
+  }
+
+  const selectedCounts = new Map<string, number>();
+  const seenIds = new Set<string>();
+  const modifiers: Array<{ id?: string; name: string; price: number; quantity: number }> = [];
+  for (const candidate of rawModifiers) {
+    if (!candidate || typeof candidate !== 'object') return { error: 'Invalid modifier selection' };
+    const raw = candidate as Record<string, unknown>;
+    if (typeof raw.id === 'string' && raw.id.trim()) {
+      const id = raw.id.trim();
+      if (seenIds.has(id)) return { error: 'A modifier cannot be selected more than once' };
+      seenIds.add(id);
+      const addon = addons.get(id);
+      if (!addon) return { error: 'Selected modifier is unavailable for this item' };
+      const quantity = Number(raw.quantity ?? 1);
+      if (!Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100) return { error: 'Modifier quantity must be a whole number between 1 and 100' };
+      if (quantity > 1 && !addon.group.allow_multiple_quantities) return { error: `${addon.name} cannot be selected more than once` };
+      selectedCounts.set(addon.group.id, (selectedCounts.get(addon.group.id) || 0) + quantity);
+      modifiers.push({ id, name: addon.name, price: addon.price, quantity });
+      continue;
+    }
+
+    const name = typeof raw.name === 'string' ? raw.name.trim() : '';
+    const price = Number(raw.price ?? 0);
+    const quantity = Number(raw.quantity ?? 1);
+    if (!name || name.length > 120 || !Number.isFinite(price) || price < 0 || !Number.isSafeInteger(quantity) || quantity < 1 || quantity > 100) {
+      return { error: 'Invalid modifier selection' };
+    }
+    if (price > 0) return { error: `Arbitrary modifier price for "${name}" is not permitted for cloud orders without an active catalog modifier. Submit priced items via the catalog or authenticated terminal sync.` };
+    modifiers.push({ name, price: 0, quantity });
+  }
+
+  for (const group of groups) {
+    const count = selectedCounts.get(String(group.id)) || 0;
+    const minimum = Math.max(Number(group.min_selection) || 0, group.is_required ? 1 : 0);
+    const maximum = Number(group.max_selection);
+    if (count < minimum) return { error: `Choose at least ${minimum} option${minimum === 1 ? '' : 's'} from ${group.name}` };
+    if (!Number.isSafeInteger(maximum) || count > maximum) return { error: `Choose no more than ${maximum} option${maximum === 1 ? '' : 's'} from ${group.name}` };
+  }
+
+  return { modifiers };
 }
 
 export interface PriceValidationItem {
@@ -563,7 +620,12 @@ export async function handleCreateOrder(
 
   const processedItems: any[] = [];
   for (const rawItem of rawItems) {
-    const valResult = await validateAndPriceItem(env.DB, orgId, branchId, rawItem, userRole, { managerAuthorized: isManagerApproved });
+    const modifierResolution = await resolveCloudOrderModifiers(env.DB, orgId, typeof rawItem?.product_id === 'string' ? rawItem.product_id : null, rawItem?.modifiers);
+    if (modifierResolution.error) return Response.json({ error: modifierResolution.error }, { status: 400 });
+    const valResult = await validateAndPriceItem(env.DB, orgId, branchId, { ...rawItem, modifiers: modifierResolution.modifiers }, userRole, {
+      managerAuthorized: isManagerApproved,
+      catalogModifiersValidated: true,
+    });
     if (!valResult.valid || !valResult.item) {
       return Response.json({ error: valResult.error || 'Invalid order item' }, { status: 400 });
     }
@@ -823,7 +885,21 @@ export async function handleAddOrderItems(
 
   const validatedNewItems: any[] = [];
   for (const rawItem of newItems) {
-    const valResult = await validateAndPriceItem(env.DB, orgId, order.branch_id, rawItem, userRole);
+    const modifierResolution = await resolveCloudOrderModifiers(
+      env.DB,
+      orgId,
+      typeof rawItem?.product_id === 'string' ? rawItem.product_id : null,
+      rawItem?.modifiers,
+    );
+    if (modifierResolution.error) return Response.json({ error: modifierResolution.error }, { status: 400 });
+    const valResult = await validateAndPriceItem(
+      env.DB,
+      orgId,
+      order.branch_id,
+      { ...rawItem, modifiers: modifierResolution.modifiers },
+      userRole,
+      { catalogModifiersValidated: true },
+    );
     if (!valResult.valid || !valResult.item) {
       return Response.json({ error: valResult.error || 'Invalid item in amendment' }, { status: 400 });
     }
@@ -1046,9 +1122,9 @@ export async function handleUpdateOrderStatus(
   if (nextStatus === 'completed') {
     await env.DB.prepare(`
       UPDATE synced_orders
-      SET status = 'completed', version = ?, updated_at = ?
+      SET status = 'completed', completed_at = COALESCE(completed_at, ?), version = ?, updated_at = ?
       WHERE id = ?
-    `).bind(newVersion, now, orderId).run();
+    `).bind(now, newVersion, now, orderId).run();
 
     // Release dining table
     if (order.table_id) {

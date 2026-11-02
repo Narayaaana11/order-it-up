@@ -4,11 +4,12 @@ import { useEffect, useState } from 'react';
 import { useRouter, usePathname } from 'next/navigation';
 import { useTranslations } from 'use-intl';
 import { useAuthStore } from '@/store/auth';
-import api, { isElectronEnvironment } from '@/lib/api';
+import api, { isCapacitorEnvironment, isElectronEnvironment } from '@/lib/api';
 import { showPrintLanguageLoadErrorsToast } from '@/lib/printer/warnings-toast';
 import { getRoleDefaultRoute, type UserRoleInfo } from '@/lib/role-routing';
 
 export function getLandingPage(): string {
+  if (isCapacitorEnvironment()) return '/tablet-pos';
   const isElectron = isElectronEnvironment();
   if (typeof window !== 'undefined') {
     try {

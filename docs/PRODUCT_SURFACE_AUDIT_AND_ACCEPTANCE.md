@@ -1,0 +1,133 @@
+# Order It Up product surface audit and acceptance plan
+
+**Audit date:** 2026-11-03  
+**Repository:** `Narayaaana11/order-it-up`  
+**Audit base:** `origin/main` at `07f6d3f` (includes the changes previously on `feat/pilot-access-and-admin-inbox`)  
+**Scope:** desktop POS, public QR, cloud and landing dashboards, Android/mobile, restaurant roles, integrations, security, and the requested React tablet POS.  
+**Deployment:** intentionally out of scope for this work phase; production deployment follows product completion and verification.
+
+## Product surfaces found in the repository
+
+| Surface | Current implementation | Evidence and gap |
+|---|---|---|
+| Desktop POS | Electron + Express + SQLite backend in `main/`; Next.js/React renderer in `frontend/`. This is the offline-first system of record for the desktop installation. | Real local order, billing, inventory, printing, users, KDS, and reporting routes exist. The Electron renderer also contains native-only behavior, so a WebView cannot be assumed to have printer, cash drawer, backup, or updater capabilities. |
+| QR customer ordering | Static Next.js route in `frontend/src/app/qr`; Cloud Worker and D1 routes implement public menu/order/tracking and delivery to paired POS terminals. | Source and focused integration tests exist. Live Pages QR route and live Worker readiness were unavailable in the last network audit; this document does not treat source as a deployed system. |
+| Landing site and merchant role dashboards | Next.js/React app in `landing/`. The public preview uses `dashboard-store.ts` with seeded demo data. Authenticated restaurant users now enter a separate Cloud-backed workspace for waiter/cashier order creation, kitchen tickets, cash settlement, owner/manager order metrics, and accountant tax summary. | The preview is explicitly labeled demo-only. The authenticated workspace uses branch-scoped Cloud routes and server-side permissions; delivery dispatch, inventory, reservations, expenses, advanced analytics, receipts, and provider-backed tenders still need implementation. |
+| Cloud SaaS API | Cloudflare Worker/D1 routes cover authentication, tenant/branch membership, orders, customer payment ledger, tables, kitchen tickets, analytics overview, catalog/modifiers, accountant summaries/exports, inventory transfers, QR, and platform administration. | This is a substantial API baseline, but it is not a complete Cloud mirror of the local POS domain. No verified Cloud equivalents were found for the full desktop staff, guest/bill, stock ledger, reservations, expenses, delivery-dispatch, and device/hardware workflows. |
+| Existing mobile app | Flutter app in `mobile/`, responsive breakpoints, role screens for waiter, cashier, chef/KDS, manager, inventory, CRM, reporting, and other operations. The normal app connects to the restaurant server; demo mode uses `MockDataService`. | Do not infer production parity from screen count. Verify each action against its API provider. Mock credentials/data must remain isolated to explicit demo mode. The user additionally requests a React-based Android tablet POS that reuses the desktop UI. |
+| Requested Android tablet POS | A React tablet route and Capacitor Android project now reuse the existing POS product grid, cart, and modifier picker. The route loads Cloud branches/catalog/tables, submits priced orders, queues takeaway orders in local storage while offline, and can record auditable cash payments for authorized cashiers. | The static export succeeds. The Android Gradle project was generated and synced, but a local APK build could not run because this machine has no Android SDK (`ANDROID_HOME`/`sdk.dir` missing). CI now has a dedicated Android debug-build job. The localStorage outbox is not a durable database; secure native session storage, conflict recovery, device tests, peripherals, partial tender UX, and wider role parity remain open. |
+
+## Product workflows and completion criteria
+
+### Cashier and counter POS
+
+1. Authenticate as a cashier and load the authorized branch, live catalog, modifiers, prices, tax policy, tables, and payment methods.
+2. Build a cart, scan a barcode, attach a table/customer, apply authorized discounts, and preserve the draft across navigation/retry.
+3. Submit once with an idempotency key; the server calculates totals and inventory movements.
+4. Record cash, card, UPI, split tender, or provider-backed payment. External methods require authoritative provider/terminal evidence; the UI must not mark a payment paid from a client checkbox or fabricated reference.
+5. Print the correct receipt/KOT where hardware is available; show a truthful fallback otherwise.
+6. Reconcile bills, refunds, cash closure, and inventory with an auditable timeline.
+
+### Waiter and floor operations
+
+1. Sign in under a waiter/server role and load only assigned/authorized branches and tables.
+2. View live table state, seat guests, create or add to an order, select modifiers, and send the request to kitchen.
+3. Track preparation and ready/served state; request bill and hand off to cashier.
+4. Handle duplicate submissions and network loss without duplicate orders or lost drafts.
+5. Verify a second device sees the same order and table transitions.
+
+### Kitchen / KDS
+
+1. Show only accepted kitchen tickets and the correct station items.
+2. Update pending → preparing → ready → served with role and branch authorization, timestamps, and idempotent retries.
+3. Refresh/poll or receive push updates without losing a ticket during temporary connectivity loss.
+4. Keep kitchen display legible and usable on large touch screens; keyboard/bump input is optional but supported where available.
+
+### Owner and manager
+
+1. Read real branch-scoped sales, outstanding payments, order throughput, and inventory metrics from persisted data.
+2. Manage staff roles, branch membership, catalog, modifiers, availability, tables, discounts, stock policy, and settings through audited server APIs.
+3. Distinguish unavailable data from zero values; never substitute seeded/sample sales in a live account.
+4. Generate backups, close shifts, reconcile transfers, and review access/security events.
+
+### Accountant
+
+1. Read cash closures, tax summaries, refunds, payment ledger, and reconciliation by branch/business date/timezone.
+2. Export tax/Tally data from server-authoritative persisted values, with stable repeatable exports.
+3. See source, totals, and unresolved discrepancies; do not synthesize GST or financial totals from demo constants.
+
+### Delivery and online order operations
+
+1. Ingest orders from a provider only after signature, tenant/branch, and duplicate validation.
+2. Show dispatch/rider status and order address only to authorized roles.
+3. Record handoff, delivery, cancellation, COD collection, and settlement as auditable transitions.
+4. Keep integrations explicitly “not connected” until partner credentials, certification, and signed live callbacks are verified.
+
+### Customer QR ordering
+
+1. Resolve a revocable per-table capability server-side; never trust a table ID supplied by the browser.
+2. Fetch live branch catalog and modifiers/prices, submit an idempotent request, and show only scoped order tracking.
+3. Wait for staff approval before kitchen acceptance, occupancy, and stock movement.
+4. Validate cross-network flow from a phone, retry behavior, rate limits, privacy, and recovery if the restaurant is offline.
+
+### Platform admin and pilot onboarding
+
+1. Keep platform admin authentication and tenant data separate from restaurant identities.
+2. Review pilot access requests, issue expiring single-use setup links, provision accounts atomically, and capture an audit event.
+3. Operate SaaS subscriptions from persisted plans and payment webhook records; distinguish event receipt from provider settlement.
+4. Verify all of this against the deployed Worker and reconciled D1 schema before live onboarding.
+
+## Specific gaps to close before claiming all dashboards work end to end
+
+1. **Authenticated landing operations are partly connected.** `landing/src/components/dashboard/CloudOperationsWorkspace.tsx` routes actual authenticated sessions to branch-scoped Cloud data and persisted order/ticket/cash actions; the seeded `dashboard-store.ts` views remain only in the marked demo preview. Complete end-to-end coverage for delivery, expenses, stock, reservations, shifts, receipt printing, and every owner workflow.
+2. **Cloud API coverage is incomplete for those role views.** Existing order/table/kitchen/catalog/accountant routes are useful foundations. Define missing staff/branch assignment, stock ledger/adjustments, reservation, expense, customer/wallet, invoice/refund/provider, delivery dispatch/COD, and audit/reporting APIs from the actual local domain before wiring a view to a partial endpoint.
+3. **The main Next.js dashboard uses Cloud-backed report routes.** The Worker now serves daily stats, date summaries, ledger-backed financial summaries, top products, recent orders, and owner insights. Requests are gated by `advancedReports` and branch memberships, and date windows use the organization's IANA timezone. Cloud now persists order completion timestamps for direct status changes and sync events, so average table-turn time can be calculated from completed dine-in orders. New-customer acquisition remains explicitly unavailable in Cloud because there is no Cloud customer registry; the UI shows an em dash instead of estimating from orders. The retryable unavailable state remains for API errors.
+4. **React tablet POS packaging is scaffolded, not release-ready.** `frontend/src/app/(dashboard)/tablet-pos/page.tsx` shares the existing POS controls; `tablet-android/` wraps the static export with Capacitor. The export passed locally; add/Sync passed; the APK still needs an Android SDK build and real tablet verification. Secure native session storage, release signing, and hardware support remain open.
+5. **Tablet POS is not yet an offline-first peer.** Browser-mode `frontend/src/lib/api.ts` targets Cloud API; Electron-mode targets the local Express API. The tablet has an explicitly labeled localStorage outbox for takeaway orders and idempotent Cloud submission, but lacks a durable database, safe multi-device conflict resolution, and verified restart/recovery semantics.
+6. **Native tablet peripherals need adapters.** Electron printing, cash drawer, backup/restore, and update controls are not automatically available to Capacitor. Specify and implement supported Bluetooth/network/USB printer and barcode paths; gate unsupported hardware actions rather than showing a false success.
+7. **Role coverage exists in Flutter but parity is unproven.** Compare every Flutter provider method with its live API implementation. Remove any implicit demo authentication fallback in non-demo mode and test waiter, cashier, chef, owner, inventory, reports, reservations, online orders, and CRM workflows against a real local API fixture.
+8. **Cross-app data ownership needs one contract.** Desktop SQLite is the offline POS authority; Cloud D1 is the coordination/control plane. Define IDs, branch scope, versions, idempotency, deleted/disabled semantics, conflict policy, and sync acknowledgements before adding two-way catalog or order flows.
+9. **Repository docs are stale/inconsistent.** The production readiness plan baseline was refreshed to reflect PR #35 being merged. Its historical deployment and readiness claims still require a current environment and D1 check before a release decision.
+
+## Tablet architecture research and decision
+
+- The existing UI is already React 19 in a Next.js static-export-capable frontend. Reusing its components is the most direct way to keep the tablet POS visually and behaviorally aligned with desktop.
+- Capacitor documents that it can be added to an existing modern JavaScript app and packages web code for Android while exposing native device APIs through plugins. A thin container is appropriate; app behavior should remain in the shared React product code.
+- The existing Next config uses `output: 'export'` for web/desktop. Next's static export supports client-side data fetching but excludes server-only runtime features and API routes; the tablet must call authenticated APIs directly and cannot rely on a Next server running inside the APK.
+- Android adaptive guidance expects layouts to respond to window size/orientation and large-screen interaction. The tablet UI should support portrait/landscape, resized windows, touch targets, keyboard/mouse/stylus, and multi-window behavior rather than merely scaling a phone view.
+- Capacitor wrapper alone does not provide database/offline parity, secure token storage, receipt printing, cash drawer control, or scanner support. Each requires an explicit supported implementation and device-level verification.
+
+### Technical references
+
+- [React components and reuse](https://react.dev/learn/your-first-component)
+- [Capacitor overview](https://capacitorjs.com/docs)
+- [Capacitor installation for existing web apps](https://capacitorjs.com/docs/getting-started)
+- [Capacitor native plugins](https://capacitorjs.com/docs/plugins)
+- [Next.js static export: supported and unsupported features](https://nextjs.org/docs/app/guides/static-exports)
+- [Android adaptive app quality guidelines](https://developer.android.com/docs/quality-guidelines/adaptive-app-quality)
+- [Android adaptive app guidance](https://developer.android.com/develop/adaptive-apps/guides/get-started-with-adaptive-apps)
+
+## Recommended implementation sequence (before production work)
+
+1. Establish live-vs-demo contracts and remove all sample-data fallbacks from signed-in production screens.
+2. Expand Cloud operational schema/routes to cover the role workflows that do not yet exist remotely; test authorization, branch isolation, idempotency, and transaction rollback at the Worker boundary.
+3. Wire landing merchant dashboards to those live APIs, keeping a visibly labeled, isolated preview mode for prospective customers.
+4. Extend the React tablet POS scaffold with secure session storage, durable offline data, complete tender/split-payment UI, kitchen lifecycle, native peripherals, and device verification.
+5. Add native peripheral adapters and complete the Flutter/API parity audit; add cross-device end-to-end tests for waiter → POS → kitchen → cashier → accounting.
+6. Only after all role acceptance tests pass, reconcile remote D1, provision production credentials/domains, deploy, and verify the real pilot flow.
+
+## Audit limits
+
+This is a source/configuration and documentation audit, supported by code-path inspection and primary platform documentation. It does not certify every screen, provider integration, legal obligation, security control, Android device, or remote deployment. Automated tests and live device/backend runs must be tied to each acceptance criterion before calling a workflow complete.
+
+## Work completed in this pass
+
+- Added the shared React tablet route and Capacitor Android wrapper; static export, Capacitor add/sync, frontend TypeScript check, Cloud API TypeScript check, and the focused transaction/payment integration suite passed.
+- Added catalog modifier validation for both initial orders and added order items; server catalog prices and required/quantity rules remain authoritative.
+- Added cash payment capture in the tablet open-order panel with a persisted idempotency key, server balance lookup, and completion transition after full payment.
+- Added an Android debug build job to CI. A local APK build was attempted but stopped because no Android SDK is installed; CI/device verification has not yet run.
+- Added an authenticated landing Cloud workspace for waiter/cashier order entry, kitchen ticket transitions, auditable cash settlement, owner/manager live order metrics, and accountant tax data. The M3 landing dashboard regression suite passed after updating two stale assertions to match current audited platform-admin controls.
+- Removed fabricated sales, product, staff, and recent-order figures from the main React dashboard; report failures now clear the view and expose a retry action. Frontend production export passed; the repo-wide ESLint command exits successfully with existing warnings, and the focused dashboard file lint has no errors (one existing React effect warning remains).
+- Added Cloud report endpoints consumed by the React owner dashboard, with role checks, authorized branch filtering, organization-timezone day windows, ledger-based payment/refund reporting, and subscription feature gating. The focused report test runs the complete Cloud migration chain in SQLite and invokes both the report handler and authenticated Worker route; it verifies real SQL results, date bounds, invalid dates, and cross-branch denial.
+- Added Cloud order completion timestamps through migration 0019, direct order completion, and terminal sync. The API readiness check now requires the new column, and the owner dashboard derives table-turn time only from this authoritative completion event.
+- The landing delivery, inventory, reservations, expenses, shift closure, receipt printing, and provider-backed payment workflows remain incomplete. The rest of the audit gaps above are still outstanding; this pass does not complete the full product or authorize production deployment.

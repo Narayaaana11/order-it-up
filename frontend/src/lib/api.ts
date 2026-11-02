@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { Capacitor } from '@capacitor/core';
 
 let authRedirectInProgress = false;
 
@@ -16,6 +17,16 @@ export function isElectronEnvironment(): boolean {
     (window as any).process?.versions?.electron ||
     navigator.userAgent.toLowerCase().includes('electron')
   );
+}
+
+/** Returns true inside the Android tablet WebView packaged with Capacitor. */
+export function isCapacitorEnvironment(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return Capacitor.isNativePlatform();
+  } catch {
+    return false;
+  }
 }
 
 /**

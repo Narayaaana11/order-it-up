@@ -39,7 +39,7 @@ interface DaySummary {
   date: string;
   orders: { count: number; total: number };
   bills: { count: number; total: number; collected: number };
-  customers: { new: number };
+  customers: { new: number | null };
   paymentMethods: PaymentMethodBreakdown[];
 }
 
@@ -184,6 +184,8 @@ export default function DashboardPage() {
   const [recentOrders, setRecentOrders] = useState<RecentOrder[]>([]);
   const [insights, setInsights] = useState<Insights | null>(null);
   const [loading, setLoading] = useState(true);
+  const [reportError, setReportError] = useState(false);
+  const [reloadReports, setReloadReports] = useState(0);
 
   const isOwnerOrManager = hasRole(currentTenant?.role, ROLE_ACCESS.ownerManager);
   const fmt = useFormatCurrency();
@@ -235,7 +237,7 @@ export default function DashboardPage() {
     const scopedSummary = periodMode === 'month'
       ? Promise.resolve(null)
       : isToday
-        ? api.get('/reports/daily-stats', { signal: controller.signal })
+        ? api.get('/reports/daily-stats', { params: { date: selectedDate }, signal: controller.signal })
         : api.get('/reports/summary', { params: { date: selectedDate }, signal: controller.signal });
     Promise.all([
       scopedSummary,
@@ -250,6 +252,7 @@ export default function DashboardPage() {
       api.get('/reports/insights', { params: { days: 30 }, signal: controller.signal }),
     ])
       .then(([statsRes, financialRes, topRes, recentRes, insightsRes]) => {
+        setReportError(false);
         setStats(isToday && statsRes ? statsRes.data : null);
         setDaySummary(!isToday && statsRes ? statsRes.data.summary : null);
         setFinancialSummary(financialRes.data.financialSummary);
@@ -259,71 +262,13 @@ export default function DashboardPage() {
       })
       .catch((err: unknown) => {
         if (err instanceof Error && (err.name === 'CanceledError' || err.name === 'AbortError')) return;
-        if (!isElectronEnvironment()) {
-          // Schema-compliant store operational metrics fallback for web mode
-          const sampleStats: DailyStats = {
-            sales: 42650,
-            runningOrders: 3,
-            pendingOrders: 1,
-            tablesOccupied: 6,
-            avgTableTurnMinutes: 42,
-            paymentMethods: [
-              { method: 'upi', count: 58, total: 19800 },
-              { method: 'card', count: 34, total: 13400 },
-              { method: 'cash', count: 26, total: 9450 },
-            ],
-          };
-          const sampleFinancial: FinancialSummary = {
-            startDate: range.startDate,
-            endDate: range.endDate,
-            grossCollected: 43200,
-            refunded: 550,
-            netCollected: 42650,
-            billCount: 118,
-            refundCount: 1,
-            averageOrderValue: 361.44,
-            paymentMethods: [
-              { method: 'upi', count: 58, total: 19800 },
-              { method: 'card', count: 34, total: 13400 },
-              { method: 'cash', count: 26, total: 9450 },
-            ],
-            refunds: [],
-          };
-          const sampleTopProducts: TopProduct[] = [
-            { product_id: 1, product_name: 'Butter Chicken Biryani Box', total_quantity: 42, total_revenue: 14700, order_count: 38 },
-            { product_id: 2, product_name: 'Woodfired Truffle Margherita', total_quantity: 28, total_revenue: 13720, order_count: 26 },
-            { product_id: 3, product_name: 'Paneer Tikka Kebab Platter', total_quantity: 24, total_revenue: 7920, order_count: 22 },
-            { product_id: 4, product_name: 'Iced Hazelnut Cold Brew', total_quantity: 22, total_revenue: 4840, order_count: 20 },
-          ];
-          const sampleRecentOrders: RecentOrder[] = [
-            { id: 101, order_number: 'ORD-101', status: 'completed', total: 720, customer_name: 'Aditi Rao', table_name: 'T-04', created_at: new Date(Date.now() - 15 * 60000).toISOString() },
-            { id: 102, order_number: 'ORD-102', status: 'completed', total: 490, customer_name: 'Karan Mehra', table_name: 'T-02', created_at: new Date(Date.now() - 32 * 60000).toISOString() },
-            { id: 103, order_number: 'ORD-103', status: 'completed', total: 1150, customer_name: 'Rohit Sharma', table_name: 'T-07', created_at: new Date(Date.now() - 48 * 60000).toISOString() },
-          ];
-          const sampleInsights: Insights = {
-            windowDays: 30,
-            aov: 361.44,
-            avgPrepTimeMinutes: 14,
-            topStaff: [
-              { user_id: 'u-1', name: 'Priya Sharma', role: 'cashier', revenue: 18400, orderCount: 48 },
-              { user_id: 'u-2', name: 'Rahul Verma', role: 'server', revenue: 14250, orderCount: 39 },
-            ],
-            topCategories: [
-              { category_id: 'c-1', name: 'Mains', quantity: 72, revenue: 21600 },
-              { category_id: 'c-2', name: 'Starters', quantity: 54, revenue: 14580 },
-            ],
-            busiestHour: { hour: 19, orderCount: 34 },
-            idlestHour: { hour: 15, orderCount: 4 },
-            busiestDayOfWeek: { dayIndex: 6, orderCount: 142 },
-            idlestDayOfWeek: { dayIndex: 1, orderCount: 48 },
-          };
-          setStats(sampleStats);
-          setFinancialSummary(sampleFinancial);
-          setTopProducts(sampleTopProducts);
-          setRecentOrders(sampleRecentOrders);
-          setInsights(sampleInsights);
-          return;
-        }
+        setStats(null);
+        setDaySummary(null);
+        setFinancialSummary(null);
+        setTopProducts([]);
+        setRecentOrders([]);
+        setInsights(null);
+        setReportError(true);
         toast.error(tCommon('somethingWrong'));
       })
       .finally(() => {
@@ -331,7 +276,7 @@ export default function DashboardPage() {
       });
     return () => controller.abort();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isOwnerOrManager, periodMode, selectedDate, selectedMonth]);
+  }, [isOwnerOrManager, periodMode, selectedDate, selectedMonth, reloadReports]);
 
   // Day-close wizard lives in useCashClose + CashCloseModal; the page
   // only opens it and mounts it.
@@ -433,7 +378,7 @@ export default function DashboardPage() {
         },
         {
           label: t('newCustomers'),
-          value: daySummary?.customers.new ?? 0,
+          value: daySummary?.customers.new ?? '—',
           icon: Clock,
           iconBg: 'bg-amber-50',
           iconColor: 'text-amber-700',
@@ -568,6 +513,14 @@ export default function DashboardPage() {
       {loading ? (
         <div className="flex items-center justify-center py-20">
           <div className="w-8 h-8 border-3 border-brand border-t-transparent rounded-full animate-spin" />
+        </div>
+      ) : reportError ? (
+        <div role="alert" className="rounded-2xl border border-amber-300 bg-amber-50 p-6 text-center text-amber-950">
+          <p className="font-semibold">Live dashboard reports are unavailable.</p>
+          <p className="mt-1 text-sm">No sample figures are shown. Check the connection and try loading the reports again.</p>
+          <Button type="button" variant="outline" className="mt-4" onClick={() => { setLoading(true); setReloadReports((value) => value + 1); }}>
+            Retry reports
+          </Button>
         </div>
       ) : (
         <>

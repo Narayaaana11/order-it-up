@@ -21,6 +21,7 @@ interface Props {
   submitting: boolean;
   onPlaceOrder: () => void;
   onShowTablePicker: () => void;
+  enableHold?: boolean;
   onEditItem?: (item: CartItem) => void;
   variant?: 'sidebar' | 'drawer';
   existingOrder?: Order | null;
@@ -33,7 +34,7 @@ const orderTypeIcons = {
   online: Globe,
 };
 
-export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem, variant = 'sidebar', existingOrder }: Props) {
+export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem, variant = 'sidebar', existingOrder, enableHold = true }: Props) {
   const cart = useCartStore();
   const heldOrders = useHeldOrdersStore();
   const { currentTenant } = useAuthStore();
@@ -42,7 +43,7 @@ export default function CartPanel({ tables, submitting, onPlaceOrder, onEditItem
   const tCommon = useTranslations('common');
   const isRestaurant = (currentTenant?.business_type ?? 'restaurant') === 'restaurant';
   const fmt = useFormatCurrency();
-  const canHold = isRestaurant && cart.orderType === 'dine_in' && cart.tableId && cart.items.length > 0 && billingType === 'postpaid';
+  const canHold = enableHold && isRestaurant && cart.orderType === 'dine_in' && cart.tableId && cart.items.length > 0 && billingType === 'postpaid';
 
   const handleHold = async () => {
     if (!cart.tableId) {

@@ -4,6 +4,10 @@
 **Last read-only audit:** 2026-11-02 18:09 UTC  
 **Status:** Do not apply the checked-in migration chain to production until this reconciliation is reviewed and staged.
 
+## Source change since the audit
+
+On 2026-11-03, migration 0019 added `synced_orders.completed_at` and its branch index so Cloud reports can calculate table-turn duration from an explicit order completion event. The audit below is a historical snapshot against migrations 0001–0018; production and staging have not been inspected for migration 0019, and the baseline/reconciliation warning still applies. The Worker readiness probe now checks this column, so an environment without 0019 will correctly remain not ready for the current source.
+
 ## Current evidence
 
 Run `npm run audit:cloud-d1-schema` with authorized Wrangler access. The command reads SQLite schema metadata plus aggregate counts used to check migration backfills. It does not return row-level business records or write to D1. It exits nonzero when it detects drift.

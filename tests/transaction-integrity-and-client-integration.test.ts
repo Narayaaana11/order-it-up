@@ -57,7 +57,14 @@ function createSqliteD1(db: DatabaseSync) {
 function runSqlFile(db: DatabaseSync, filePath: string): void {
   const content = fs.readFileSync(filePath, 'utf-8');
   const clean = content.replace(/--.*$/gm, '');
-  const statements = clean.split(';').map((s) => s.trim()).filter((s) => s.length > 0);
+  const triggers: string[] = [];
+  const withoutTriggerSemicolons = clean.replace(/CREATE TRIGGER[\s\S]*?\bEND;/gi, (trigger) => {
+    const marker = `__SQL_TRIGGER_${triggers.length}__`;
+    triggers.push(trigger);
+    return marker;
+  });
+  const statements = withoutTriggerSemicolons.split(';').map((s) => s.trim()).filter((s) => s.length > 0)
+    .map((statement) => statement.replace(/__SQL_TRIGGER_(\d+)__/g, (_marker, index: string) => triggers[Number(index)]));
   for (const stmt of statements) {
     try {
       db.exec(stmt);
@@ -82,6 +89,11 @@ async function runTestSuite(): Promise<void> {
   const m4Path = path.join(migrationsDir, '0004_restaurant_hierarchy_and_memberships.sql');
   const m5Path = path.join(migrationsDir, '0005_shared_operations_tables_and_kitchen.sql');
   const m6Path = path.join(migrationsDir, '0006_customer_payment_ledger.sql');
+  const m8Path = path.join(migrationsDir, '0008_saas_subscription_and_platform_admin.sql');
+  const m9Path = path.join(migrationsDir, '0009_subscription_grace_periods.sql');
+  const m10Path = path.join(migrationsDir, '0010_cloud_token_revocations.sql');
+  const m12Path = path.join(migrationsDir, '0012_cloud_catalog_modifiers.sql');
+  const m19Path = path.join(migrationsDir, '0019_synced_order_completion_time.sql');
 
   const rawDb = new DatabaseSync(':memory:');
   const d1Bridge = createSqliteD1(rawDb);
@@ -97,6 +109,11 @@ async function runTestSuite(): Promise<void> {
   runSqlFile(rawDb, m4Path);
   runSqlFile(rawDb, m5Path);
   runSqlFile(rawDb, m6Path);
+  runSqlFile(rawDb, m8Path);
+  runSqlFile(rawDb, m9Path);
+  runSqlFile(rawDb, m10Path);
+  runSqlFile(rawDb, m12Path);
+  runSqlFile(rawDb, m19Path);
 
   // Repeat migration 0006 to verify idempotency
   runSqlFile(rawDb, m6Path);
@@ -158,6 +175,36 @@ async function runTestSuite(): Promise<void> {
     INSERT INTO master_products (id, organization_id, category_id, name, sku, base_price, tax_rate, is_active, version, created_at, updated_at)
     VALUES ('prod-soup-inactive', 'org-alpha', 'cat-pizza', 'Winter Squash Soup', 'SOU-01', 180.0, 5.0, 0, 1, ?, ?)
   `).run(nowIso, nowIso);
+
+  rawDb.prepare(`
+    INSERT INTO master_products (id, organization_id, category_id, name, sku, base_price, tax_rate, is_active, version, created_at, updated_at)
+    VALUES ('prod-required-modifier', 'org-alpha', 'cat-pizza', 'Stuffed Crust Pizza', 'PIZ-02', 220.0, 5.0, 1, 1, ?, ?)
+  `).run(nowIso, nowIso);
+
+  rawDb.prepare(`
+    INSERT INTO master_addon_groups (id, organization_id, name, is_required, allow_multiple_quantities, min_selection, max_selection, sort_order, is_active, created_at, updated_at)
+    VALUES ('group-optional-toppings', 'org-alpha', 'Optional toppings', 0, 1, 0, 2, 1, 1, ?, ?)
+  `).run(nowIso, nowIso);
+  rawDb.prepare(`
+    INSERT INTO master_addons (id, organization_id, addon_group_id, name, price, is_active, sort_order, created_at, updated_at)
+    VALUES ('addon-extra-cheese', 'org-alpha', 'group-optional-toppings', 'Extra cheese', 25.0, 1, 1, ?, ?)
+  `).run(nowIso, nowIso);
+  rawDb.prepare(`
+    INSERT INTO master_product_addon_groups (organization_id, product_id, addon_group_id, sort_order, created_at)
+    VALUES ('org-alpha', 'prod-margherita', 'group-optional-toppings', 1, ?)
+  `).run(nowIso);
+  rawDb.prepare(`
+    INSERT INTO master_addon_groups (id, organization_id, name, is_required, allow_multiple_quantities, min_selection, max_selection, sort_order, is_active, created_at, updated_at)
+    VALUES ('group-required-crust', 'org-alpha', 'Crust option', 1, 0, 1, 1, 1, 1, ?, ?)
+  `).run(nowIso, nowIso);
+  rawDb.prepare(`
+    INSERT INTO master_addons (id, organization_id, addon_group_id, name, price, is_active, sort_order, created_at, updated_at)
+    VALUES ('addon-cheese-crust', 'org-alpha', 'group-required-crust', 'Cheese crust', 40.0, 1, 1, ?, ?)
+  `).run(nowIso, nowIso);
+  rawDb.prepare(`
+    INSERT INTO master_product_addon_groups (organization_id, product_id, addon_group_id, sort_order, created_at)
+    VALUES ('org-alpha', 'prod-required-modifier', 'group-required-crust', 1, ?)
+  `).run(nowIso);
 
   // Product 4 (Org Beta): Competitor Burger
   rawDb.prepare(`
@@ -395,6 +442,48 @@ async function runTestSuite(): Promise<void> {
   assert.equal(waiterModRes.status, 400);
   const waiterModJson = await waiterModRes.json() as any;
   assert.match(waiterModJson.error, /Arbitrary modifier price/i);
+
+  // A5d1. Catalog modifiers are accepted at their server-canonical price.
+  const catalogModifierReq = new Request('https://cloud.orderitup.internal/api/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenWaiter}` },
+    body: JSON.stringify({
+      id: 'ord-catalog-modifier-001',
+      branch_id: 'br-a1',
+      items: [{ product_id: 'prod-margherita', quantity: 1, modifiers: [{ id: 'addon-extra-cheese', price: 999 }] }],
+    }),
+  });
+  const catalogModifierRes = await cloudWorker.fetch(catalogModifierReq, env);
+  assert.equal(catalogModifierRes.status, 201);
+  const catalogModifierJson = await catalogModifierRes.json() as any;
+  assert.equal(catalogModifierJson.order.subtotal, 424.0);
+  assert.equal(catalogModifierJson.order.tax_total, 21.2);
+
+  // Repeated modifier quantities are allowed only when the catalog group permits them.
+  const repeatedModifierReq = new Request('https://cloud.orderitup.internal/api/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenWaiter}` },
+    body: JSON.stringify({
+      id: 'ord-catalog-modifier-quantity-001',
+      branch_id: 'br-a1',
+      items: [{ product_id: 'prod-margherita', quantity: 1, modifiers: [{ id: 'addon-extra-cheese', quantity: 2 }] }],
+    }),
+  });
+  const repeatedModifierRes = await cloudWorker.fetch(repeatedModifierReq, env);
+  assert.equal(repeatedModifierRes.status, 201);
+  const repeatedModifierJson = await repeatedModifierRes.json() as any;
+  assert.equal(repeatedModifierJson.order.subtotal, 449.0);
+
+  // Required catalog modifier groups cannot be skipped.
+  const missingRequiredModifierReq = new Request('https://cloud.orderitup.internal/api/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenWaiter}` },
+    body: JSON.stringify({ branch_id: 'br-a1', items: [{ product_id: 'prod-required-modifier', quantity: 1 }] }),
+  });
+  const missingRequiredModifierRes = await cloudWorker.fetch(missingRequiredModifierReq, env);
+  assert.equal(missingRequiredModifierRes.status, 400);
+  const missingRequiredModifierJson = await missingRequiredModifierRes.json() as any;
+  assert.match(missingRequiredModifierJson.error, /Choose at least 1 option/i);
 
   // A5e. Waiter attempts unauthorized line discount (C-12.1)
   const waiterLineDiscountReq = new Request('https://cloud.orderitup.internal/api/orders', {
@@ -826,6 +915,17 @@ async function runTestSuite(): Promise<void> {
   });
   const completeOrderRes = await cloudWorker.fetch(completeOrderReq, env);
   assert.equal(completeOrderRes.status, 200);
+  const completedOrderSnapshot = rawDb.prepare('SELECT completed_at, version FROM synced_orders WHERE id = ?').get('ord-integrity-001') as any;
+  assert.ok(completedOrderSnapshot.completed_at, 'Cloud completion persists an authoritative completion timestamp');
+  const repeatCompleteReq = new Request('https://cloud.orderitup.internal/api/orders/ord-integrity-001/status', {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${tokenCashier}` },
+    body: JSON.stringify({ status: 'completed', expected_version: completedOrderSnapshot.version }),
+  });
+  const repeatCompleteRes = await cloudWorker.fetch(repeatCompleteReq, env);
+  assert.equal(repeatCompleteRes.status, 200);
+  const completedOrderAfterReplay = rawDb.prepare('SELECT completed_at FROM synced_orders WHERE id = ?').get('ord-integrity-001') as any;
+  assert.equal(completedOrderAfterReplay.completed_at, completedOrderSnapshot.completed_at, 'repeated completion does not move the original turn timestamp');
 
   // E5. Table T-01 is now automatically released to 'available'
   const tblCheck2 = rawDb.prepare('SELECT status, current_order_id FROM dining_tables WHERE id = ?').get('tbl-a1-t1') as any;

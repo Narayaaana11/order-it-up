@@ -11,6 +11,7 @@
     "test:e2e:electron": "playwright test --config=playwright.electron.config.ts --project=electron-desktop"
   },
   "dependencies": {
+    "@capacitor/core": "8.6.0",
     "@dnd-kit/dom": "^0.5.0",
     "@dnd-kit/react": "^0.5.0",
     "@point-of-sale/receipt-printer-encoder": "^3.0.3",

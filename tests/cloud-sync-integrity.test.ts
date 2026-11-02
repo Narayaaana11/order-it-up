@@ -191,7 +191,7 @@ class MockD1SyncDatabase {
 
         // Insert synced_orders
         if (normalized.includes('INSERT INTO synced_orders')) {
-          const [id, orgId, branchId, termId, orderNumber, orderType, status, subtotal, taxTotal, discountTotal, grandTotal, paymentMethod, orderedAt, syncedAt] = params;
+          const [id, orgId, branchId, termId, orderNumber, orderType, status, subtotal, taxTotal, discountTotal, grandTotal, paymentMethod, orderedAt, syncedAt, restaurantId, kitchenStatus, completedAt, updatedAt] = params;
           const existingOrd = db.syncedOrders.get(id);
           db.syncedOrders.set(id, {
             id,
@@ -210,6 +210,10 @@ class MockD1SyncDatabase {
             version: existingOrd?.version || 1,
             ordered_at: orderedAt,
             synced_at: syncedAt,
+            restaurant_id: restaurantId,
+            kitchen_status: kitchenStatus,
+            completed_at: existingOrd?.completed_at || completedAt,
+            updated_at: updatedAt,
           });
           return { success: true };
         }
@@ -1001,6 +1005,8 @@ async function testOfflinePaymentLedgerIntegrity(): Promise<void> {
 
   // 1. Ordinary order.completed claiming payment_status: 'paid' must NOT mark paid or insert customer_payments
   const orderId = 'ord-c123-sync-001';
+  const syncedOrderTime = new Date(Date.now() - 120_000).toISOString();
+  const syncedCompletionTime = new Date(Date.now() - 60_000).toISOString();
   db.syncedOrders.set(orderId, {
     id: orderId,
     organization_id: orgId,
@@ -1026,7 +1032,8 @@ async function testOfflinePaymentLedgerIntegrity(): Promise<void> {
         tax_total: 10.0,
         discount_total: 0,
         items: [{ product_id: 'p1', name: 'Item 1', quantity: 1, unit_price: 200.0, subtotal: 200.0 }],
-        ordered_at: new Date().toISOString(),
+        ordered_at: syncedOrderTime,
+        completed_at: syncedCompletionTime,
       },
     },
   ]);
@@ -1035,6 +1042,7 @@ async function testOfflinePaymentLedgerIntegrity(): Promise<void> {
   assert.equal(resOrder.status, 200);
   const ordAfter = db.syncedOrders.get(orderId);
   assert.equal(ordAfter.payment_status, 'unpaid', 'Ordinary order event must not mark paid');
+  assert.equal(ordAfter.completed_at, syncedCompletionTime, 'order sync preserves the source completion timestamp');
   assert.equal(db.customerPayments.size, 0, 'Ordinary order event must not insert customer_payments');
 
   // 2. Partial payment (₹100 on ₹210 order) -> partially_paid
