@@ -12,6 +12,9 @@ export interface Env {
   RATE_LIMIT_DEMO_SETUP_IP?: string | number;
   RATE_LIMIT_SYNC_EVENTS_TERMINAL?: string | number;
   FRONTEND_ORIGIN?: string;
+  PLATFORM_ADMIN_EMAIL?: string;
+  PLATFORM_ADMIN_PASSWORD_HASH?: string;
+  PLATFORM_ADMIN_JWT_SECRET?: string;
 }
 
 export const MAX_PAIRING_CODE_ATTEMPTS = 5;
