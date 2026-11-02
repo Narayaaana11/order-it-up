@@ -32,6 +32,14 @@ export function getCloudApiBase(): string {
 export function getStoredUser(): AuthUser | null {
   if (typeof window === "undefined") return null;
   try {
+    const legacyToken = localStorage.getItem("token") || localStorage.getItem("cloud_token");
+    if (legacyToken && (legacyToken.startsWith("demo_") || legacyToken.startsWith("demo-jwt"))) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("cloud_token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("tenant");
+      localStorage.removeItem("orderitup_demo_auth_user");
+    }
     const raw = localStorage.getItem(AUTH_STORAGE_KEY);
     if (raw) {
       const user = JSON.parse(raw) as AuthUser;
