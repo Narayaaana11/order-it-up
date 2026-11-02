@@ -168,6 +168,38 @@ async function run() {
   assert.equal(planData.plans[0].monthly_price, 499);
   assert.equal(planData.plans[0].entitlements.maxTerminals, 1);
 
+  const accountChange = await cloudWorker.fetch(request('/api/platform-admin/tenants/org-real-1/account-status', 'PATCH', {
+    account_status: 'suspended',
+    reason: 'Temporary suspension requested for account review.',
+  }, loginData.token), env);
+  assert.equal(accountChange.status, 200, 'Platform admin can update tenant account status');
+  assert.equal(env.DB.organizationStatus, 'suspended');
+  assert.ok(env.DB.auditRecords.some((entry: any) => entry.action === 'tenant.account_status.changed'));
+
+  const invalidReason = await cloudWorker.fetch(request('/api/platform-admin/tenants/org-real-1/account-status', 'PATCH', {
+    account_status: 'active',
+    reason: 'no',
+  }, loginData.token), env);
+  assert.equal(invalidReason.status, 400, 'Account status updates require an audit reason');
+
+  const trialChange = await cloudWorker.fetch(request('/api/platform-admin/tenants/org-real-1/subscription', 'PATCH', {
+    plan_code: 'pro',
+    billing_cycle: 'monthly',
+    reason: 'Approved trial plan change by the support team.',
+  }, loginData.token), env);
+  assert.equal(trialChange.status, 200, 'Platform admin can assign a subscription trial');
+  assert.equal(env.DB.subscription.plan_code, 'pro');
+  assert.equal(env.DB.subscription.status, 'trial');
+  assert.equal(env.DB.subscription.amount_minor, 129900);
+  assert.ok(env.DB.auditRecords.some((entry: any) => entry.action === 'tenant.subscription.changed'));
+
+  const blockedActivation = await cloudWorker.fetch(request('/api/platform-admin/tenants/org-real-1/subscription', 'PATCH', {
+    plan_code: 'pro',
+    status: 'active',
+    reason: 'Paid activation requested without provider settlement.',
+  }, loginData.token), env);
+  assert.equal(blockedActivation.status, 409, 'Admin cannot activate unpaid subscription without verified provider settlement');
+
   console.log('Cloud platform admin tests passed.');
 }
 
