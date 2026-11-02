@@ -146,8 +146,21 @@ async function run() {
     PLATFORM_ADMIN_PASSWORD_HASH: 'scrypt$test-hash-not-used-by-verifier',
     PLATFORM_ADMIN_JWT_SECRET: PLATFORM_SECRET,
     ENVIRONMENT: 'staging',
-    FRONTEND_ORIGIN: 'https://orderitup.in',
+    FRONTEND_ORIGIN: 'https://orderitup.in, https://orderitup.pages.dev',
   };
+  const preflight = await cloudWorker.fetch(new Request('https://api.orderitup.in/api/pilot-requests', {
+    method: 'OPTIONS',
+    headers: {
+      Origin: 'https://orderitup.pages.dev',
+      'Access-Control-Request-Method': 'POST',
+      'Access-Control-Request-Headers': 'content-type,idempotency-key',
+    },
+  }), env);
+  assert.equal(preflight.status, 200, 'Pilot request CORS preflight is accepted');
+  assert.equal(preflight.headers.get('Access-Control-Allow-Origin'), 'https://orderitup.pages.dev');
+  assert.match(preflight.headers.get('Access-Control-Allow-Headers') || '', /Idempotency-Key/i,
+    'CORS preflight explicitly permits the Idempotency-Key request header');
+
   const adminToken = await createJWT({
     sub: 'order-it-up-platform-admin', org: '__platform_admin__', email: ADMIN_EMAIL,
     role: 'owner', branch: null, exp: Math.floor(Date.now() / 1000) + 3600,
