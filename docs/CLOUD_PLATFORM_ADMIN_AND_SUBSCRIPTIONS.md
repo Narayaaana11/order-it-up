@@ -10,6 +10,10 @@ The Cloudflare Worker exposes a separate platform-administrator namespace:
 - `GET /api/platform-admin/tenants`
 - `GET /api/platform-admin/tenants/:organizationId`
 - `GET /api/platform-admin/plans`
+- `PATCH /api/platform-admin/tenants/:organizationId/account-status` (reason required; writes an audit record)
+- `PATCH /api/platform-admin/tenants/:organizationId/subscription` (reason required; writes an audit record and subscription event)
+- `GET /api/subscription` (tenant-scoped subscription status, trial/period/grace information and entitlements)
+- `GET /api/subscription/plans` (active plan catalogue)
 
 The API reads organizations, branches, terminals, users, synced orders, subscription records and plan definitions from Cloudflare D1. It does not read the local desktop SQLite database and does not synthesize demo tenant records.
 
@@ -17,7 +21,13 @@ GMV and recurring revenue are grouped by currency. No implicit INR/USD/EUR conve
 
 The Starter, Professional and Enterprise prices in migration 0008 preserve the currently configured local subscription prices (₹499 / ₹1,299 / ₹2,999 per month). The yearly snapshots are ₹4,999 / ₹12,999 / ₹29,999. Changes to the plan catalogue do not rewrite prices already stored in an organization subscription.
 
-New self-service registrations receive a 14-day Starter trial and an audit event. Existing organizations are intentionally not backfilled or downgraded by migration 0008; they remain on their existing access state until explicitly migrated. They appear in the platform directory with no subscription row until that migration is performed.
+New self-service registrations receive a 14-day Starter trial and a `trial_started` event. Existing organizations are intentionally not backfilled or downgraded by migrations 0008/0009; organizations without a subscription row preserve legacy access until explicitly migrated and appear with no subscription assigned.
+
+The Worker now checks the D1 organization and subscription record before protected tenant operations. It expires trials, starts a persisted seven-day grace period after paid-period expiry or past-due status, and suspends access when that grace period ends. Platform-suspended or closed organizations are blocked. The session-inspection and subscription-status routes remain available so owners can understand the restriction.
+
+Plan entitlements are checked server-side for multi-outlet branch creation, KDS tickets, advanced reports and inventory transfers. A Starter plan does not acquire those features just because a client changes a UI flag. Legacy organizations without a subscription record retain legacy entitlements until a controlled migration is performed.
+
+Platform administrators may suspend/reactivate/close organizations and change a plan snapshot with a reason. These operations are recorded in `platform_admin_audit_log` and `subscription_events`. The API refuses to transition an unpaid or non-active subscription to `active`: paid activation remains reserved for provider-verified billing settlement. A plan change to an already active subscription retains its existing billing period and payment provider reference.
 
 ## Required rollout order
 
@@ -35,7 +45,7 @@ New self-service registrations receive a 14-day Starter trial and an audit event
 5. Provision the platform-admin environment values in the Cloudflare Worker secret store.
 6. Deploy the Worker only after the migration and secrets are verified.
 
-Do not deploy a Worker build that queries migration 0008 before the D1 migration has been applied.
+Wrangler applies all pending migrations in filename order, including `0008_saas_subscription_and_platform_admin.sql` and `0009_subscription_grace_periods.sql`. Do not deploy a Worker build that queries these tables/columns until both migrations have been applied in the target environment.
 
 ## Platform administrator credentials
 
@@ -59,6 +69,6 @@ Store the three values in Cloudflare's encrypted secret/variable configuration. 
 
 ## Current billing boundary
 
-Migration 0008 establishes the plan catalogue, per-organization subscription snapshot and subscription event ledger. New tenants receive a recorded trial. It does **not** yet create a live paid subscription, collect recurring fees, verify payment provider callbacks, or automatically renew/cancel subscriptions. Those state transitions must be wired to a verified SaaS billing provider before paid entitlements are enforced.
+Migrations 0008 and 0009 establish the plan catalogue, per-organization subscription snapshot, subscription event/audit ledgers, and persisted grace-period dates. The Worker can read plan state and enforce trial/renewal expiry. It does **not** yet create live paid billing orders, collect recurring fees, verify provider callbacks, automatically renew/cancel subscriptions, issue refunds, or reconcile settlements. The subscription create-order and verify-payment endpoints intentionally return HTTP 503 until a dedicated SaaS billing provider implementation is configured and tested.
 
 Do not mark an organization as paid based on a browser redirect, screenshot, UTR or client-supplied payment flag. Only authoritative provider verification and an idempotent signed webhook should activate a paid subscription.
