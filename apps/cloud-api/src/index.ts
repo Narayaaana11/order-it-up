@@ -57,6 +57,7 @@ import { handleCatalogAdminRequest } from './routes/catalog-admin';
 import { handleCustomersRequest } from './routes/customers';
 import { handleStaffRequest } from './routes/staff';
 import { handleMenuCsvRequest } from './routes/menu-csv';
+import { handleMobileCompatRequest, handleRefreshSession } from './routes/mobile-compat';
 
 function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const requestOrigin = request?.headers.get('Origin');
@@ -441,6 +442,11 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     return Response.json({ error: 'Unauthorized: cloud user session has been revoked' }, { status: 401 });
   }
 
+  // Mobile clients refresh a valid session without re-entering credentials.
+  if (path === '/api/auth/refresh' && method === 'POST') {
+    return handleRefreshSession(env, claims as any);
+  }
+
   // Logout must remain available after membership or subscription revocation.
   // The verified bearer token itself is the session identifier.
   if (path === '/api/auth/logout' && method === 'POST') {
@@ -493,6 +499,10 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   if (memberships.length === 0) {
     return Response.json({ error: 'Forbidden: No active organization memberships' }, { status: 403 });
   }
+
+  // Mobile compatibility adapters (session refresh is handled above).
+  const mobileCompatResponse = await handleMobileCompatRequest(request, env, path, method, claims, memberships);
+  if (mobileCompatResponse) return mobileCompatResponse;
 
   // Organization customer registry used by the CRM screen and waiter seating.
   const customersResponse = await handleCustomersRequest(request, env, path, method, claims, memberships);

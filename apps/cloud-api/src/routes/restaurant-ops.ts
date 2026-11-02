@@ -954,7 +954,7 @@ async function shiftSummary(ctx: { request: Request; env: Env; orgId: string; me
   return Response.json({ summary });
 }
 
-async function closeShift(ctx: { request: Request; env: Env; orgId: string; memberships: UserMembership[]; actor: Actor }): Promise<Response> {
+export async function closeShift(ctx: { request: Request; env: Env; orgId: string; memberships: UserMembership[]; actor: Actor }): Promise<Response> {
   const body = await readJson(ctx.request);
   if (!body) return badRequest('Invalid JSON payload');
 
@@ -1010,7 +1010,7 @@ async function closeShift(ctx: { request: Request; env: Env; orgId: string; memb
   }, { status: 201 });
 }
 
-async function listShiftClosures(ctx: { request: Request; env: Env; orgId: string; memberships: UserMembership[] }): Promise<Response> {
+export async function listShiftClosures(ctx: { request: Request; env: Env; orgId: string; memberships: UserMembership[] }): Promise<Response> {
   const url = new URL(ctx.request.url);
   const auth = await authorizeBranch(ctx.env, ctx.orgId, ctx.memberships, url.searchParams.get('branch_id'), ACCOUNTING_ROLES);
   if ('error' in auth) return auth.error;

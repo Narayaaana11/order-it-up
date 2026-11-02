@@ -158,6 +158,9 @@ jobs:
       - name: Cloud Menu CSV Templates, Exports & Imports
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-menu-csv.test.ts
 
+      - name: Mobile Session Refresh & Cash Closure Compatibility
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-mobile-compat.test.ts
+
       - name: Comprehensive E2E Multi-Branch & Mobile Parity Audit
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/comprehensive-e2e-audit.test.ts
 

@@ -17,6 +17,7 @@ Current local work also adds Cloud D1 migration 0019 for authoritative order com
 - **Migration 0020** adds `restaurant_vendors`, `expense_categories`, `expenses`, `reservations`, `ingredients`, `inventory_transactions`, `recipes`, and `delivery_jobs`.
 - **Migration 0021 + `apps/cloud-api/src/routes/catalog-admin.ts`** close the menu-management gap: the desktop-compatible `/products` and `/categories` CRUD contract now runs on D1 with the richer product fields, modifier-group links, category reassign/delete-all rules, and owner/manager-only writes.
 - **Cloud menu CSV** (`routes/menu-csv.ts`) serves the product dashboard's templates, exports and imports with quoted-cell parsing, per-row validation, and owner/manager-only access.
+- **Mobile compatibility** (`routes/mobile-compat.ts`) adds session refresh and maps the Flutter cash-closure contract onto Cloud shift closures, so the mobile app no longer calls missing Worker routes for those flows.
 - **Cloud staff management** (`routes/staff.ts`) serves the desktop `/staff` directory against `cloud_users` + `memberships`, with password login/reset, role changes that rewrite memberships, and protections for self-deactivation and the last active owner.
 - **Cloud customer registry** (migration 0022 + `routes/customers.ts`) provides tenant-scoped customer CRUD, phone search, and order-derived spend/visit aggregates for the CRM screen and waiter seating; loyalty balances are reported as zero rather than fabricated. Owner reports now count new customers from this registry for the caller's authorized branches.
 - **Cloud table management** now supports create, configuration updates, deactivate/reactivate, and inactive-table listing with occupied-table protection, so the web `/tables` dashboard works against D1.
@@ -45,6 +46,7 @@ Current local work also adds Cloud D1 migration 0019 for authoritative order com
 | `cloud-terminal-pairing` | 76 checks: pairing, catalog/QR import, outbox, replay |
 | `cloud-saas-subscription-payments` | Razorpay order/capture/webhook/replay |
 | `landing-cloud-workspace` (browser) | waiter → kitchen → cashier → accountant against the live workspace |
+| `cloud-mobile-compat` | Flutter session refresh and cash-closure contract against the Worker |
 | `npm run check:cloud-worker` | Wrangler dry-run production bundle (477.58 KiB upload / 92.05 KiB gzip) with the real D1 binding |
 | `npm run check:cloud-release` | 38 release-input checks: migration continuity, readiness tables, CORS/secrets safety, staging isolation, script presence |
 
