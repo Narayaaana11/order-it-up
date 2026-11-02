@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import { authenticateAdmin, isAdminAuthConfigured, generateAdminToken, requireAdminAuth, requireAdminRole } from './auth';
-import { subscriptionService } from '../services/subscription';
 import { mongoSyncService } from '../services/mongodb-sync';
 import { amazonS3Service } from '../services/amazon-s3';
 import { getDatabase } from '../db';
@@ -8,67 +7,6 @@ import { asyncHandler } from '../middleware/async-handler';
 import { authRateLimit } from '../middleware/security';
 
 const router = Router();
-
-// In-memory tenant store for simulated Central SaaS Multi-Tenant Management
-interface TenantRecord {
-  id: string;
-  name: string;
-  contactEmail: string;
-  contactPhone: string;
-  plan: 'starter' | 'pro' | 'enterprise';
-  status: 'trial' | 'active' | 'past_due' | 'suspended' | 'cancelled';
-  terminalsCount: number;
-  maxTerminals: number;
-  city: string;
-  state: string;
-  createdAt: string;
-  lastActiveAt: string;
-}
-
-const MOCK_TENANTS: TenantRecord[] = [
-  {
-    id: 'store_bengaluru_01',
-    name: 'Brew & Byte Cafe',
-    contactEmail: 'manager@brewbyte.in',
-    contactPhone: '+919876543210',
-    plan: 'pro',
-    status: 'active',
-    terminalsCount: 2,
-    maxTerminals: 5,
-    city: 'Bengaluru',
-    state: 'Karnataka',
-    createdAt: '2026-01-15T10:00:00.000Z',
-    lastActiveAt: new Date().toISOString(),
-  },
-  {
-    id: 'store_mumbai_02',
-    name: 'Masala Street Kitchen',
-    contactEmail: 'billing@masalastreet.in',
-    contactPhone: '+919812345678',
-    plan: 'enterprise',
-    status: 'active',
-    terminalsCount: 6,
-    maxTerminals: 50,
-    city: 'Mumbai',
-    state: 'Maharashtra',
-    createdAt: '2026-02-01T12:30:00.000Z',
-    lastActiveAt: new Date().toISOString(),
-  },
-  {
-    id: 'store_delhi_03',
-    name: 'Crust & Crumbs Bakery',
-    contactEmail: 'contact@crustcrumbs.in',
-    contactPhone: '+919988776655',
-    plan: 'starter',
-    status: 'trial',
-    terminalsCount: 1,
-    maxTerminals: 1,
-    city: 'New Delhi',
-    state: 'Delhi',
-    createdAt: '2026-03-01T08:00:00.000Z',
-    lastActiveAt: new Date().toISOString(),
-  },
-];
 
 /**
  * POST /api/admin/login
@@ -112,46 +50,12 @@ router.get('/me', requireAdminAuth, asyncHandler(async (req: Request, res: Respo
 }));
 
 /**
- * Helper to fetch the live local restaurant tenant from SQLite settings
- */
-function getLiveLocalTenant(): TenantRecord {
-  try {
-    const db = getDatabase();
-    const rows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[];
-    const s: Record<string, string> = Object.fromEntries(rows.map(r => [r.key, r.value]));
-    return {
-      id: s.store_id || 'store_local_primary',
-      name: s.business_name || 'Order It Up Flagship',
-      contactEmail: s.contact_email || 'owner@orderitup.local',
-      contactPhone: s.phone || '+919876543210',
-      plan: (s.subscription_tier as any) || 'pro',
-      status: (s.subscription_status as any) || 'active',
-      terminalsCount: 1,
-      maxTerminals: 5,
-      city: s.city || 'Hyderabad',
-      state: s.state || 'Telangana',
-      createdAt: s.install_timestamp || '2026-01-01T10:00:00.000Z',
-      lastActiveAt: new Date().toISOString(),
-    };
-  } catch {
-    return MOCK_TENANTS[0];
-  }
-}
-
-function getAllTenants(): TenantRecord[] {
-  const local = getLiveLocalTenant();
-  const remote = MOCK_TENANTS.filter(t => t.id !== local.id);
-  return [local, ...remote];
-}
-
-/**
  * GET /api/admin/metrics
  * System-wide business & technical metrics
  */
 router.get('/metrics', requireAdminAuth, asyncHandler(async (_req: Request, res: Response) => {
   const mongoStatus = await mongoSyncService.getStatus();
   const s3Config = amazonS3Service.getConfig();
-  const tenants = getAllTenants();
 
   let sqliteOk = true;
   let localBillsCount = 0;
@@ -169,11 +73,15 @@ router.get('/metrics', requireAdminAuth, asyncHandler(async (_req: Request, res:
   res.json({
     ok: true,
     metrics: {
-      totalStores: tenants.length,
-      activeStores: tenants.filter((t) => t.status === 'active').length,
-      trialStores: tenants.filter((t) => t.status === 'trial').length,
-      totalTerminals: tenants.reduce((acc, t) => acc + t.terminalsCount, 0),
-      estimatedMrrInr: 45000,
+      // This process owns one local SQLite database, not the global SaaS tenant registry.
+      // Never present local/demo values as platform-wide subscription or revenue metrics.
+      tenantMetricsAvailable: false,
+      tenantMetricsUnavailableReason: 'Global tenant and subscription aggregates are not connected to this local POS API.',
+      totalStores: null,
+      activeStores: null,
+      trialStores: null,
+      totalTerminals: null,
+      estimatedMrrInr: null,
       currency: 'INR',
       cloudSync: {
         connected: mongoStatus.connected,
@@ -196,57 +104,26 @@ router.get('/metrics', requireAdminAuth, asyncHandler(async (_req: Request, res:
 
 /**
  * GET /api/admin/tenants
- * List all restaurant accounts
+ * The local POS process is not the authoritative global SaaS tenant directory.
  */
 router.get('/tenants', requireAdminAuth, asyncHandler(async (_req: Request, res: Response) => {
-  res.json({
-    ok: true,
-    tenants: getAllTenants(),
+  res.status(503).json({
+    ok: false,
+    availability: 'unavailable',
+    error: 'Global tenant directory is not configured for this local POS API.',
+    tenants: [],
   });
 }));
 
 /**
  * POST /api/admin/tenants/:id/plan
- * Update tenant subscription plan and status (Super Admin or Finance only)
+ * Global subscription changes must be performed by the authoritative cloud control plane.
  */
-router.post('/tenants/:id/plan', requireAdminAuth, requireAdminRole('SUPER_ADMIN', 'FINANCE', 'ADMIN'), asyncHandler(async (req: Request, res: Response) => {
-  const { id } = req.params;
-  const { plan, status } = req.body;
-
-  const local = getLiveLocalTenant();
-  if (id === local.id || id === 'store_local_primary') {
-    const db = getDatabase();
-    if (plan) {
-      db.prepare(`
-        INSERT INTO settings (key, value, updated_at) VALUES ('subscription_tier', ?, datetime('now'))
-        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-      `).run(plan);
-    }
-    if (status) {
-      db.prepare(`
-        INSERT INTO settings (key, value, updated_at) VALUES ('subscription_status', ?, datetime('now'))
-        ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
-      `).run(status);
-    }
-    return res.json({
-      ok: true,
-      message: `Local store subscription updated to ${plan} (${status}).`,
-      tenant: getLiveLocalTenant(),
-    });
-  }
-
-  const tenant = MOCK_TENANTS.find((t) => t.id === id);
-  if (!tenant) {
-    return res.status(404).json({ ok: false, error: 'Tenant not found.' });
-  }
-
-  if (plan) tenant.plan = plan;
-  if (status) tenant.status = status;
-
-  res.json({
-    ok: true,
-    message: `Tenant ${tenant.name} updated successfully.`,
-    tenant,
+router.post('/tenants/:id/plan', requireAdminAuth, requireAdminRole('SUPER_ADMIN', 'FINANCE', 'ADMIN'), asyncHandler(async (_req: Request, res: Response) => {
+  res.status(503).json({
+    ok: false,
+    availability: 'unavailable',
+    error: 'Global subscription management is not configured for this local POS API.',
   });
 }));
 
