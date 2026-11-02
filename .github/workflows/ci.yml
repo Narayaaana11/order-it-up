@@ -64,6 +64,12 @@ jobs:
       - name: Backend Lint
         run: npm run lint:backend
 
+      - name: Central Admin Security Regression Tests
+        run: npm run test:security
+
+      - name: Aggregator Webhook Signature Integration Tests
+        run: node tests/run-electron-node-test.cjs tests/aggregator-webhooks.test.ts
+
       - name: Database Schema & Migration Integrity Audit
         run: npm run audit:db
 
