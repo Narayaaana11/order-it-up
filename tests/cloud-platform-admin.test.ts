@@ -8,47 +8,48 @@ const PLATFORM_SECRET = 'separate-platform-admin-jwt-secret-32-characters-minimu
 class MockPlatformAdminD1 {
   prepare(sql: string) {
     const normalized = sql.replace(/\s+/g, ' ').trim();
-    return {
-      bind: (...params: any[]) => ({
-        first: async <T = any>(): Promise<T | null> => {
-          if (normalized.includes('INSERT INTO rate_limits')) return null;
-          if (normalized.includes('SUM(CASE WHEN account_status')) {
-            return { total: 2, active: 1, suspended: 1, closed: 0 } as T;
-          }
-          if (normalized.includes('SELECT COUNT(*) AS total FROM branches')) return { total: 3 } as T;
-          if (normalized.includes('SELECT COUNT(*) AS total FROM terminals')) return { total: 5 } as T;
-          if (normalized.includes("SELECT COUNT(*) AS total FROM cloud_users WHERE status = 'active'")) return { total: 7 } as T;
-          if (normalized.includes('SELECT COUNT(*) AS total FROM synced_orders')) return { total: 25 } as T;
-          if (normalized.includes("FROM organization_subscriptions WHERE status = 'trial'")) return { total: 1 } as T;
-          if (normalized.includes('SELECT COUNT(*) AS total FROM organizations o')) return { total: 2 } as T;
-          return null;
-        },
-        all: async <T = any>(): Promise<{ results: T[] }> => {
-          if (normalized.includes('FROM synced_orders so') && normalized.includes('GROUP BY o.currency')) {
-            return { results: [{ currency: 'INR', orders: 20, gmv: 85000 }, { currency: 'USD', orders: 5, gmv: 400 }] as T[] };
-          }
-          if (normalized.includes('FROM organization_subscriptions') && normalized.includes('GROUP BY currency')) {
-            return { results: [{ currency: 'INR', mrr_minor: 129900 }, { currency: 'USD', mrr_minor: 0 }] as T[] };
-          }
-          if (normalized.includes('FROM saas_plans')) {
-            return { results: [{
-              code: 'starter', name: 'Starter', currency: 'INR',
-              monthly_price_minor: 49900, yearly_price_minor: 499900,
-              entitlements_json: '{"maxTerminals":1}', is_active: 1,
-            }] as T[] };
-          }
-          if (normalized.includes('FROM organizations o') && normalized.includes('LEFT JOIN organization_subscriptions s')) {
-            return { results: [{
-              id: 'org-real-1', name: 'Real Restaurant', account_status: 'active',
-              plan_code: 'pro', subscription_status: 'active', branch_count: 2,
-              terminal_count: 4, active_user_count: 5,
-            }] as T[] };
-          }
-          return { results: [] as T[] };
-        },
-        run: async () => ({ success: true, meta: { changes: 1 } }),
-      }),
+    let params: any[] = [];
+    const statement: any = {
+      bind: (...values: any[]) => { params = values; return statement; },
+      first: async <T = any>(): Promise<T | null> => {
+        if (normalized.includes('INSERT INTO rate_limits')) return null;
+        if (normalized.includes('SUM(CASE WHEN account_status')) {
+          return { total: 2, active: 1, suspended: 1, closed: 0 } as T;
+        }
+        if (normalized.includes('SELECT COUNT(*) AS total FROM branches')) return { total: 3 } as T;
+        if (normalized.includes('SELECT COUNT(*) AS total FROM terminals')) return { total: 5 } as T;
+        if (normalized.includes("SELECT COUNT(*) AS total FROM cloud_users WHERE status = 'active'")) return { total: 7 } as T;
+        if (normalized.includes('SELECT COUNT(*) AS total FROM synced_orders')) return { total: 25 } as T;
+        if (normalized.includes("FROM organization_subscriptions WHERE status = 'trial'")) return { total: 1 } as T;
+        if (normalized.includes('SELECT COUNT(*) AS total FROM organizations o')) return { total: 2 } as T;
+        return null;
+      },
+      all: async <T = any>(): Promise<{ results: T[] }> => {
+        if (normalized.includes('FROM synced_orders so') && normalized.includes('GROUP BY o.currency')) {
+          return { results: [{ currency: 'INR', orders: 20, gmv: 85000 }, { currency: 'USD', orders: 5, gmv: 400 }] as T[] };
+        }
+        if (normalized.includes('FROM organization_subscriptions') && normalized.includes('GROUP BY currency')) {
+          return { results: [{ currency: 'INR', mrr_minor: 129900 }, { currency: 'USD', mrr_minor: 0 }] as T[] };
+        }
+        if (normalized.includes('FROM saas_plans')) {
+          return { results: [{
+            code: 'starter', name: 'Starter', currency: 'INR',
+            monthly_price_minor: 49900, yearly_price_minor: 499900,
+            entitlements_json: '{"maxTerminals":1}', is_active: 1,
+          }] as T[] };
+        }
+        if (normalized.includes('FROM organizations o') && normalized.includes('LEFT JOIN organization_subscriptions s')) {
+          return { results: [{
+            id: 'org-real-1', name: 'Real Restaurant', account_status: 'active',
+            plan_code: 'pro', subscription_status: 'active', branch_count: 2,
+            terminal_count: 4, active_user_count: 5,
+          }] as T[] };
+        }
+        return { results: [] as T[] };
+      },
+      run: async () => ({ success: true, meta: { changes: 1 }, params }),
     };
+    return statement;
   }
 }
 
