@@ -67,6 +67,9 @@ jobs:
       - name: Central Admin Security Regression Tests
         run: npm run test:security
 
+      - name: Central Admin Platform Data Regression Tests
+        run: node tests/run-electron-node-test.cjs tests/admin-platform-data.test.ts
+
       - name: Production Authentication Regression Tests
         run: node tests/landing-auth-production.test.cjs
 
