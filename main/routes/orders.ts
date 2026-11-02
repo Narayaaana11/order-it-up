@@ -990,6 +990,24 @@ router.patch('/:id/status', orderWriteRateLimit, requireRole(...ROLE_ACCESS.orde
 
       switch (status) {
         case 'preparing':
+          // A QR order is only accepted when staff explicitly move it into
+          // preparation. Deduct recipe stock at this transition, not at guest
+          // submission. Fail closed if the recipe stock is insufficient.
+          if (String(currentOrder.special_instructions || '').startsWith('[QR Self-Order]')) {
+            const qrItems = db.prepare(
+              'SELECT product_id, quantity FROM order_items WHERE order_id = ?'
+            ).all(req.params.id) as { product_id: string; quantity: number }[];
+            const inventoryResult = deductIngredientsForOrderItems(qrItems, currentOrder.order_number, false);
+            if (!inventoryResult.success) {
+              const shortages = inventoryResult.insufficientIngredients
+                .map((item) => `${item.ingredientName}: need ${item.requiredStock}, available ${item.availableStock}`)
+                .join('; ');
+              throw Object.assign(
+                new Error(`Cannot accept QR order because ingredient stock is insufficient. ${shortages}`),
+                { statusCode: 409 }
+              );
+            }
+          }
           db.prepare('UPDATE orders SET status = ?, cooking_started_at = ?, updated_at = ? WHERE id = ?')
             .run(status, nowStr, nowStr, req.params.id);
           break;
