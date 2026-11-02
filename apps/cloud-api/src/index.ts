@@ -56,6 +56,7 @@ import { handleRestaurantOpsRequest } from './routes/restaurant-ops';
 import { handleCatalogAdminRequest } from './routes/catalog-admin';
 import { handleCustomersRequest } from './routes/customers';
 import { handleStaffRequest } from './routes/staff';
+import { handleMenuCsvRequest } from './routes/menu-csv';
 
 function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const requestOrigin = request?.headers.get('Origin');
@@ -500,6 +501,10 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   // Staff directory backed by cloud_users + memberships.
   const staffResponse = await handleStaffRequest(request, env, path, method, claims, memberships);
   if (staffResponse) return staffResponse;
+
+  // Menu CSV templates, exports and imports for the product dashboard.
+  const menuCsvResponse = await handleMenuCsvRequest(request, env, path, method, claims, memberships);
+  if (menuCsvResponse) return menuCsvResponse;
 
   // Desktop-compatible menu management (/products, /categories) backed by the
   // Cloud master catalog, so the web and tablet dashboards can edit the menu.
