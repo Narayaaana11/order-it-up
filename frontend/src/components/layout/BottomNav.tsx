@@ -15,6 +15,7 @@ import { usePosSettingsStore } from '@/store/pos-settings';
 import { ROLE_ACCESS, hasRole, type Role } from '@shared/role-permissions';
 import { cn } from '@/lib/utils';
 import { isElectronEnvironment } from '@/lib/api';
+import { shouldHideInCloud } from '@/lib/cloud-surface';
 import { useIsClient } from '@/hooks/useIsClient';
 
 type NavLabelKey = 'pos' | 'orders' | 'tables' | 'dashboard' | 'settings';
@@ -49,6 +50,7 @@ export default function BottomNav() {
   const navItems = ALL_NAV_ITEMS.filter((item) => {
     // POS is exclusive to Desktop Electron App and Flutter Mobile; hide from web portal navigation
     if (item.href === '/pos' && !isElectron) return false;
+    if (shouldHideInCloud(item.href, isElectron)) return false;
     if (item.href === '/tables' && !tablesRequired) return false;
     return hasRole(role, item.roles)
       && (item.businessTypes === null || item.businessTypes.includes(businessType));

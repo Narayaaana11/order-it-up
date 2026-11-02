@@ -1283,7 +1283,7 @@ export default function OrdersPage() {
       ) : viewMode === 'table' ? (
         <div className="flex-1 overflow-y-auto border border-border rounded-xl bg-card shadow-xs">
           <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm border-collapse">
+            <table className="w-full text-start text-sm border-collapse">
               <thead>
                 <tr className="border-b border-border bg-muted/60 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   <th className="py-3.5 px-4">Order & Time</th>
@@ -1293,7 +1293,7 @@ export default function OrdersPage() {
                   <th className="py-3.5 px-4">Amount</th>
                   <th className="py-3.5 px-4">Payment</th>
                   <th className="py-3.5 px-4">Status</th>
-                  <th className="py-3.5 px-4 text-right">Actions</th>
+                  <th className="py-3.5 px-4 text-end">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
@@ -1381,7 +1381,7 @@ export default function OrdersPage() {
                           <span className="text-xs text-muted-foreground">{order.status}</span>
                         )}
                       </td>
-                      <td className="py-3 px-4 text-right">
+                      <td className="py-3 px-4 text-end">
                         <div className="flex items-center justify-end gap-1.5 flex-wrap">
                           {/* Print Bill with Dynamic UPI QR */}
                           {order.bill && (

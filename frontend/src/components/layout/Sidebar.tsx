@@ -35,6 +35,7 @@ import { useTranslations, type AppConfig } from 'use-intl';
 import { useAuthStore } from '@/store/auth';
 import { usePosSettingsStore } from '@/store/pos-settings';
 import { getLandingPage } from '@/components/layout/AuthGuard';
+import { shouldHideInCloud } from '@/lib/cloud-surface';
 import api, { isElectronEnvironment } from '@/lib/api';
 import { useIsClient } from '@/hooks/useIsClient';
 import { useConfirm } from '@/hooks/use-confirm';
@@ -122,6 +123,8 @@ export default function AppSidebar() {
   const navItems = ALL_NAV_ITEMS.filter((item) => {
     // POS billing is exclusive to Desktop Electron App and Flutter Mobile; hide from web portal navigation
     if (item.href === '/pos' && !isElectron) return false;
+    // Settings, WhatsApp, AI and aggregator pages still depend on the LAN server.
+    if (shouldHideInCloud(item.href, isElectron)) return false;
     // The tablet POS is the web/Android terminal; the desktop build uses /pos instead.
     if (item.href === '/tablet-pos' && isElectron) return false;
     // The waiter floor station is a mobile/tablet surface, not the desktop shell.
