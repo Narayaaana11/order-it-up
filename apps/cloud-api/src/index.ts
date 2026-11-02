@@ -55,6 +55,7 @@ import { handleQrPosDelivery } from './routes/qr-pos-delivery';
 import { handleRestaurantOpsRequest } from './routes/restaurant-ops';
 import { handleCatalogAdminRequest } from './routes/catalog-admin';
 import { handleCustomersRequest } from './routes/customers';
+import { handleStaffRequest } from './routes/staff';
 
 function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const requestOrigin = request?.headers.get('Origin');
@@ -495,6 +496,10 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   // Organization customer registry used by the CRM screen and waiter seating.
   const customersResponse = await handleCustomersRequest(request, env, path, method, claims, memberships);
   if (customersResponse) return customersResponse;
+
+  // Staff directory backed by cloud_users + memberships.
+  const staffResponse = await handleStaffRequest(request, env, path, method, claims, memberships);
+  if (staffResponse) return staffResponse;
 
   // Desktop-compatible menu management (/products, /categories) backed by the
   // Cloud master catalog, so the web and tablet dashboards can edit the menu.

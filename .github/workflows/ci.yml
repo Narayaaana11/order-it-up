@@ -146,6 +146,9 @@ jobs:
       - name: Cloud Customer Registry & Wallet Aggregates
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-customers.test.ts
 
+      - name: Cloud Staff Management & Owner Protections
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-staff.test.ts
+
       - name: Comprehensive E2E Multi-Branch & Mobile Parity Audit
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/comprehensive-e2e-audit.test.ts
 
