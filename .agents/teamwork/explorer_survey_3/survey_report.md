@@ -38,17 +38,17 @@ Per `users.md` Section 1:
 
 | Role / Persona | Internal Role Key | Primary Client App | Target Dashboard Route(s) | Operational Scope & Authority | Demo / Seed Credential |
 | :--- | :--- | :--- | :--- | :--- | :--- |
-| **Super Administrator** | `SUPER_ADMIN` / `super_admin` | Web Cloud HQ Portal | `/cloud-portal` | Global tenant lifecycle, platform health, database audits | `admin@orderitup.in` / `AdminPass123!` |
-| **Central Admin** | `ADMIN` / `admin` | Web Cloud HQ Portal | `/cloud-portal` | Platform ops, tenant support escalation | `admin@orderitup.local` / `AdminPass123!` |
-| **Finance Operator** | `FINANCE` | Web Cloud HQ Portal | `/cloud-portal` (Tab: Accountant) | SaaS subscription billing, franchise royalty audits | `finance@orderitup.in` / `AdminPass123!` |
-| **Support Operator** | `SUPPORT` | Web Cloud HQ Portal | `/cloud-portal` | Pairing token regeneration, diagnostics | `support@orderitup.in` / `AdminPass123!` |
-| **Compliance Auditor** | `READ_ONLY` | Web Cloud HQ Portal | `/cloud-portal` | Read-only inspection of tenant metrics and logs | `readonly@orderitup.in` / `AdminPass123!` |
-| **Restaurant Owner** | `owner` | Web Dashboard & Desktop App | `/cloud-portal` & `/dashboard` | Root authority over branches, menus, taxes, staff, finances | `demo.owner@orderitup.in` / `DemoOwner2026!` |
-| **Branch Manager** | `manager` / `branch_manager` | Web Dashboard & Desktop App | `/dashboard`, `/reports`, `/orders`, `/tables` | Operational supervisor: staff shifts, refunds, discounts, tables | `demo.manager@orderitup.in` / `DemoManager2026!` |
-| **Head Accountant** | `accountant` | Web Cloud Dashboard | `/reports` | GST/tax summaries (CGST, SGST, IGST), ledger audits, Tally XML | `demo.accountant@orderitup.in` / `DemoAccountant2026!` |
-| **Counter Cashier** | `cashier` | Desktop POS App (& Flutter) | `/pos` (Desktop) / Web guidance card | Counter billing, split tenders, cash drawer, shift closures | `demo.cashier@orderitup.in` / `DemoCashier2026!` |
-| **Floor Waiter / Server** | `server` / `waiter` | Flutter Mobile App / Web | `/tables`, `/orders` (Web: `/server-standalone`) | Table ordering, course firing, spice/allergy notes, floor map | `demo.server@orderitup.in` / `DemoServer2026!` |
-| **Kitchen Station Chef** | `chef` / `kitchen` | Flutter KDS / Desktop KDS | `/kds`, `/kds-standalone` | Order ticket queue, ticket bumping, station routing | `demo.chef@orderitup.in` / `DemoChef2026!` |
+| **Super Administrator** | `SUPER_ADMIN` / `super_admin` | Web Cloud HQ Portal | `/cloud-portal` | Global tenant lifecycle, platform health, database audits | `admin@orderitup.in` / `[REDACTED: historical demo credential]` |
+| **Central Admin** | `ADMIN` / `admin` | Web Cloud HQ Portal | `/cloud-portal` | Platform ops, tenant support escalation | `admin@orderitup.local` / `[REDACTED: historical demo credential]` |
+| **Finance Operator** | `FINANCE` | Web Cloud HQ Portal | `/cloud-portal` (Tab: Accountant) | SaaS subscription billing, franchise royalty audits | `finance@orderitup.in` / `[REDACTED: historical demo credential]` |
+| **Support Operator** | `SUPPORT` | Web Cloud HQ Portal | `/cloud-portal` | Pairing token regeneration, diagnostics | `support@orderitup.in` / `[REDACTED: historical demo credential]` |
+| **Compliance Auditor** | `READ_ONLY` | Web Cloud HQ Portal | `/cloud-portal` | Read-only inspection of tenant metrics and logs | `readonly@orderitup.in` / `[REDACTED: historical demo credential]` |
+| **Restaurant Owner** | `owner` | Web Dashboard & Desktop App | `/cloud-portal` & `/dashboard` | Root authority over branches, menus, taxes, staff, finances | `demo.owner@orderitup.in` / `[REDACTED: historical demo credential]` |
+| **Branch Manager** | `manager` / `branch_manager` | Web Dashboard & Desktop App | `/dashboard`, `/reports`, `/orders`, `/tables` | Operational supervisor: staff shifts, refunds, discounts, tables | `demo.manager@orderitup.in` / `[REDACTED: historical demo credential]` |
+| **Head Accountant** | `accountant` | Web Cloud Dashboard | `/reports` | GST/tax summaries (CGST, SGST, IGST), ledger audits, Tally XML | `demo.accountant@orderitup.in` / `[REDACTED: historical demo credential]` |
+| **Counter Cashier** | `cashier` | Desktop POS App (& Flutter) | `/pos` (Desktop) / Web guidance card | Counter billing, split tenders, cash drawer, shift closures | `demo.cashier@orderitup.in` / `[REDACTED: historical demo credential]` |
+| **Floor Waiter / Server** | `server` / `waiter` | Flutter Mobile App / Web | `/tables`, `/orders` (Web: `/server-standalone`) | Table ordering, course firing, spice/allergy notes, floor map | `demo.server@orderitup.in` / `[REDACTED: historical demo credential]` |
+| **Kitchen Station Chef** | `chef` / `kitchen` | Flutter KDS / Desktop KDS | `/kds`, `/kds-standalone` | Order ticket queue, ticket bumping, station routing | `demo.chef@orderitup.in` / `[REDACTED: historical demo credential]` |
 | **Delivery Driver** | `delivery` | Mobile Driver App | Mobile / Dispatch | Package pickup verification, COD tally, customer privacy | Native App |
 | **Customer / Guest** | `customer` | Mobile Browser | `/menu`, `/qr` | Contactless digital menu, table self-ordering, UPI QR | Public / Anonymous |
 
