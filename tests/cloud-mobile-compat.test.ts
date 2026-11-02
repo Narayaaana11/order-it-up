@@ -134,6 +134,18 @@ async function run() {
   const waiterList = await call('user-mobile-waiter', '/api/cash-closures');
   assert.equal(waiterList.status, 403, 'waiters cannot read cash closures');
 
+  // ── Mobile reports summary ──────────────────────────────────────────────
+  const reports = await call('user-mobile-owner', '/api/reports');
+  assert.equal(reports.status, 200);
+  const reportData = await reports.json() as any;
+  assert.equal(reportData.grossCollected, 100);
+  assert.equal(reportData.netCollected, 100);
+  assert.equal(reportData.refunded, 0);
+  assert.equal(reportData.billCount, 1);
+  assert.equal(reportData.avgOrderValue, 100);
+  assert.ok(Array.isArray(reportData.paymentMethods));
+  assert.ok(Array.isArray(reportData.topProducts));
+
   // ── Mobile KDS vocabulary aliases ───────────────────────────────────────
   rawDb.prepare(`INSERT INTO kitchen_tickets (id, organization_id, branch_id, order_id, ticket_number, station, status, items_json, created_at, updated_at) VALUES ('kds-mobile', ?, 'branch-mobile', 'order-mobile', 'KOT-M-1', 'main_kitchen', 'pending', '[]', ?, ?)`)
     .run(ORG, NOW, NOW);
@@ -184,7 +196,7 @@ async function run() {
   assert.equal(missingLookup.status, 200);
   assert.equal((await missingLookup.json() as any).customer, null);
 
-  console.log('Mobile compatibility passed: refresh, cash closures, KDS aliases, held orders, and CRM lookup.');
+  console.log('Mobile compatibility passed: refresh, cash closures, KDS aliases, held orders, CRM lookup, and reports.');
 }
 
 run().catch((error) => { console.error(error); process.exitCode = 1; });

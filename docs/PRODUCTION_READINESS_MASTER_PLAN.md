@@ -46,7 +46,8 @@ Current local work also adds Cloud D1 migration 0019 for authoritative order com
 | `cloud-terminal-pairing` | 76 checks: pairing, catalog/QR import, outbox, replay |
 | `cloud-saas-subscription-payments` | Razorpay order/capture/webhook/replay |
 | `landing-cloud-workspace` (browser) | waiter → kitchen → cashier → accountant against the live workspace |
-| `cloud-mobile-compat` | Flutter session refresh and cash-closure contract against the Worker |
+| `cloud-mobile-compat` | Flutter session refresh, cash-closure contract, held orders, CRM lookup and reports against the Worker |
+| `npm run check:mobile-cloud` | Static parity: 35 mobile endpoints classified as Cloud/local-only/partner-gated |
 | `npm run check:cloud-worker` | Wrangler dry-run production bundle (477.58 KiB upload / 92.05 KiB gzip) with the real D1 binding |
 | `npm run check:cloud-release` | 38 release-input checks: migration continuity, readiness tables, CORS/secrets safety, staging isolation, script presence |
 

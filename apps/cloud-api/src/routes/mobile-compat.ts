@@ -10,6 +10,7 @@ import { Env } from './pairing';
 import { UserMembership, isAuthorizedForBranch } from '../rbac';
 import { createJWT } from '../auth';
 import { closeShift, listShiftClosures } from './restaurant-ops';
+import { handleDashboardReport } from './dashboard-reports';
 
 const FLOOR_ROLES = ['owner', 'admin', 'manager', 'cashier', 'server', 'waiter', 'host'];
 
@@ -172,10 +173,8 @@ async function lookupCustomer(request: Request, env: Env, orgId: string): Promis
 }
 
 /**
- * Handles mobile compatibility paths. Returns null when the path is not owned.
+ * POST /api/auth/refresh — rotates a valid staff token for another 7 days.
  */
-
-/** POST /api/auth/refresh — rotates a valid staff token for another 7 days. */
 export async function handleRefreshSession(env: Env, claims: Claims): Promise<Response> {
   const user = await env.DB.prepare(`
     SELECT id, email, name, role, status, assigned_branch_id FROM cloud_users
@@ -289,6 +288,41 @@ async function createMobileClosure(
   return Response.json({ closure: mobileClosure(data.closure, 0), summary: data.summary }, { status: 201 });
 }
 
+async function mobileReports(request: Request, env: Env, orgId: string, memberships: UserMembership[]): Promise<Response> {
+  const url = new URL(request.url);
+  const startDate = text(url.searchParams.get('start_date'), 20);
+  const endDate = text(url.searchParams.get('end_date'), 20);
+  const params = new URLSearchParams();
+  if (startDate) params.set('start_date', startDate);
+  if (endDate) params.set('end_date', endDate);
+
+  const financialUrl = `https://internal/reports/financial-summary${params.size ? `?${params}` : ''}`;
+  const productsUrl = `https://internal/reports/topProducts${params.size ? `?${params}&limit=5` : '?limit=5'}`;
+
+  const [financialResponse, productsResponse] = await Promise.all([
+    handleDashboardReport(new Request(financialUrl), env, orgId, memberships),
+    handleDashboardReport(new Request(productsUrl), env, orgId, memberships),
+  ]);
+  const financialData = await financialResponse.json().catch(() => ({})) as any;
+  if (!financialResponse.ok) return Response.json(financialData, { status: financialResponse.status });
+  const productsData = await productsResponse.json().catch(() => ({})) as any;
+  const summary = financialData.financialSummary || {};
+
+  return Response.json({
+    grossCollected: Number(summary.grossCollected || 0),
+    netCollected: Number(summary.netCollected || 0),
+    refunded: Number(summary.refunded || 0),
+    billCount: Number(summary.billCount || 0),
+    avgOrderValue: Number(summary.averageOrderValue || 0),
+    paymentMethods: summary.paymentMethods || [],
+    topProducts: (productsData.topProducts || []).map((row: any) => ({
+      name: row.product_name,
+      qty: Number(row.total_quantity || 0),
+      revenue: Number(row.total_revenue || 0),
+    })),
+  });
+}
+
 /**
  * Handles mobile compatibility paths. Returns null when the path is not owned.
  */
@@ -318,6 +352,9 @@ export async function handleMobileCompatRequest(
   }
   if (path === '/api/crm/lookup' && method === 'GET') {
     return lookupCustomer(request, env, claims.org);
+  }
+  if (path === '/api/reports' && method === 'GET') {
+    return mobileReports(request, env, claims.org, memberships);
   }
   return null;
 }

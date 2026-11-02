@@ -967,7 +967,17 @@ class ApiService {
       };
     }
     try {
-      final res = await apiClient.get('/api/reports');
+      final queryParams = <String, String>{};
+      if (startDate != null && startDate.isNotEmpty) {
+        queryParams['start_date'] = startDate;
+      }
+      if (endDate != null && endDate.isNotEmpty) {
+        queryParams['end_date'] = endDate;
+      }
+      final res = await apiClient.get(
+        '/api/reports',
+        queryParams: queryParams.isEmpty ? null : queryParams,
+      );
       if (res is Map<String, dynamic>) return res;
       return {};
     } catch (_) {

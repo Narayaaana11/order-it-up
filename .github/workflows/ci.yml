@@ -161,6 +161,9 @@ jobs:
       - name: Mobile Session Refresh & Cash Closure Compatibility
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-mobile-compat.test.ts
 
+      - name: Mobile/Cloud Endpoint Parity
+        run: npm run check:mobile-cloud
+
       - name: Comprehensive E2E Multi-Branch & Mobile Parity Audit
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/comprehensive-e2e-audit.test.ts
 
