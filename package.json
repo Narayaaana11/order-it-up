@@ -74,6 +74,7 @@
                     "check:mobile-cloud":  "node scripts/check-mobile-cloud-parity.cjs",
                     "check:tablet-android":  "node scripts/check-tablet-android-hardening.cjs",
                     "check:d1-rehearsal":  "node scripts/rehearse-d1-reconciliation.cjs",
+                    "plan:d1":  "node scripts/generate-d1-change-plan.cjs",
                     "test:cloud-e2e":  "ts-node --transpile-only -P tests/tsconfig.json tests/comprehensive-e2e-audit.test.ts",
                     "test:payment-methods-split":  "node tests/run-electron-node-test.cjs tests/payment-methods-split-checks.test.ts",
                     "test:kds-integration":  "node tests/run-electron-node-test.cjs tests/kds-integration.test.ts",
