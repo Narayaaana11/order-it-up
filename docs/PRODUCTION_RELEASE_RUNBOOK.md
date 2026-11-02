@@ -104,6 +104,13 @@ npx wrangler secret put RAZORPAY_WEBHOOK_SECRET
 
 ## 7. Known deployment gaps
 
+### Desktop release pipeline — locally verified, GitHub workflow missing
+
+- `npm run build`, `npm run build:frontend`, and `npm run pack` pass; electron-builder 26.15.3 produces `release/win-unpacked` with the Electron 43.4.1 runtime.
+- `npm run verify:electron` and `npm run verify:release-artifacts` pass.
+- `npm run test:release-config` currently fails because `.github/workflows/release.yml` — plus `publish-mas.yml`, `release-candidate-gate.yml`, `nightly-release.yml` and `upgrade-matrix.yml` — are absent from this checkout. They were deleted earlier in the repository history, and some scripts they referenced are also gone.
+- Therefore **do not claim signed installers, macOS/MAS builds, the upgrade matrix or electron-updater publishing**. The release gates must be re-authored (or restored and reconciled) and `test:release-config` must pass before distributing desktop builds. Signing identities/notarization secrets and the GitHub release environment also remain unprovisioned.
+
 - Remote D1 schema drift and historical backfills are not reconciled yet.
 - No production credentials, domains or DNS are configured in this repository.
 - Provider-backed card/UPI settlement, receipt printing from Android, durable tablet offline storage and Flutter/Cloud parity are not release-verified.
