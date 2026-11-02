@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
+    "check:bundle": "wrangler deploy --dry-run --outdir .wrangler/dry-run",
     "d1:migrate": "wrangler d1 migrations apply orderitup-d1-prod --local",
     "d1:migrate:remote": "wrangler d1 migrations apply orderitup-d1-prod --remote"
   },

@@ -107,6 +107,9 @@ jobs:
       - name: Cloud API Type Check
         run: npx tsc -p apps/cloud-api/tsconfig.json --noEmit
 
+      - name: Cloud Worker Deployment Bundle (dry run)
+        run: npm run check:cloud-worker
+
       - name: Cloud Sync Integrity & Concurrency Verification
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-sync-integrity.test.ts
 
