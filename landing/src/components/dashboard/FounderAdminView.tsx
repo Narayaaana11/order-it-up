@@ -174,9 +174,10 @@ export function FounderAdminView() {
         method: "PATCH",
         body: JSON.stringify({ account_status: accountStatus, reason: actionReason.trim() }),
       });
-      setActionMessage(`Account status updated to ${accountStatus}. The action was recorded in the platform audit log.`);
+      const changedTenantId = selected.tenant.id;
       await loadDashboard();
-      await openTenant(selected.tenant.id);
+      await openTenant(changedTenantId);
+      setActionMessage(`Account status updated to ${accountStatus}. The action was recorded in the platform audit log.`);
     } catch (err) {
       setActionMessage(err instanceof Error ? err.message : "Account status update failed.");
     } finally { setActionBusy(false); }
@@ -198,9 +199,11 @@ export function FounderAdminView() {
           reason: actionReason.trim(),
         }),
       });
-      setActionMessage(result.note || "Subscription plan snapshot updated and audited.");
+      const changedTenantId = selected.tenant.id;
+      const message = result.note || "Subscription plan snapshot updated and audited.";
       await loadDashboard();
-      await openTenant(selected.tenant.id);
+      await openTenant(changedTenantId);
+      setActionMessage(message);
     } catch (err) {
       setActionMessage(err instanceof Error ? err.message : "Subscription update failed.");
     } finally { setActionBusy(false); }
