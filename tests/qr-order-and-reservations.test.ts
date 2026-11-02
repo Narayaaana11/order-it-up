@@ -26,7 +26,7 @@ Module._load = function (request: string, parent: unknown, isMain: boolean) {
 
 const {
   initTestDb, createApp, startServer,
-  seedOwnerUser, seedCategory, seedProduct, seedTable,
+  seedOwnerUser, seedManagerUser, seedCategory, seedProduct, seedTable,
   api, assert, assertEqual,
   getResults, closeDatabase,
 } = require('./helpers/test-setup');
@@ -39,6 +39,7 @@ async function main() {
 
   const db = initTestDb();
   const { authHeader } = seedOwnerUser(db);
+  const { authHeader: managerAuthHeader } = seedManagerUser(db);
 
   seedCategory(db, 'cat-desserts', 'Desserts');
   seedProduct(db, 'prod-gulab-jamun', 'cat-desserts', 'Gulab Jamun (2 pcs)', 90);
@@ -123,6 +124,28 @@ async function main() {
     const stockAfterRepeat = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
     assertEqual(Number(stockAfterRepeat.current_stock), 7, 'Repeated approval does not deduct ingredients twice');
 
+    const cancelAccepted = await api(baseUrl, `/api/orders/${orderId}/status`, {
+      method: 'PATCH',
+      body: { status: 'cancelled', reason: 'Guest cancelled after acceptance', override_pin: '1234' },
+      headers: managerAuthHeader,
+    });
+    assertEqual(cancelAccepted.status, 200, 'Accepted QR order can be cancelled with manager override');
+    const stockAfterAcceptedCancel = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
+    assertEqual(Number(stockAfterAcceptedCancel.current_stock), 10, 'Cancelling accepted QR order restores recipe ingredients');
+    const firstRestorationCount = db.prepare(
+      "SELECT COUNT(*) as count FROM inventory_transactions WHERE type = 'order_restoration'"
+    ).get() as any;
+    assertEqual(Number(firstRestorationCount.count), 1, 'Accepted QR cancellation creates one restoration ledger movement');
+
+    const repeatCancelAccepted = await api(baseUrl, `/api/orders/${orderId}/status`, {
+      method: 'PATCH',
+      body: { status: 'cancelled', reason: 'Repeated cancellation', override_pin: '1234' },
+      headers: managerAuthHeader,
+    });
+    assertEqual(repeatCancelAccepted.status, 200, 'Repeated accepted-order cancellation is idempotent');
+    const stockAfterRepeatCancel = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
+    assertEqual(Number(stockAfterRepeatCancel.current_stock), 10, 'Repeated cancellation does not restore ingredients twice');
+
     // A pending QR request cancelled before acceptance must not restore stock
     // that was never deducted.
     const resSecondOrder = await api(baseUrl, '/api/qr/order', {
@@ -142,7 +165,7 @@ async function main() {
     const restorationCount = db.prepare(
       "SELECT COUNT(*) as count FROM inventory_transactions WHERE type = 'order_restoration'"
     ).get() as any;
-    assertEqual(Number(restorationCount.count), 0, 'Cancelling unaccepted QR request creates no restoration ledger entry');
+    assertEqual(Number(restorationCount.count), 1, 'Cancelling unaccepted QR request creates no additional restoration ledger entry');
 
     // 5. Live Order Status Tracking
     console.log('\nStep 4: Live Order Status Tracking');
