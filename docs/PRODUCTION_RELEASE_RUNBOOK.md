@@ -37,7 +37,7 @@ npx wrangler d1 migrations apply orderitup-d1-prod --remote
 npx wrangler d1 execute orderitup-d1-prod --remote --command "SELECT COUNT(*) FROM d1_migrations"
 ```
 
-Expected: the ledger reaches the highest checked-in migration (currently `0022_cloud_customer_registry.sql`) and the new tables exist. The Worker `/ready` endpoint independently verifies every readiness table and required column.
+Expected: the ledger reaches the highest checked-in migration (currently `0023_held_orders.sql`) and the new tables exist. The Worker `/ready` endpoint independently verifies every readiness table and required column.
 
 Order matters: **D1 migrations before the Worker deploy**, because the new Worker expects the new schema. The old Worker tolerates the added tables/columns.
 

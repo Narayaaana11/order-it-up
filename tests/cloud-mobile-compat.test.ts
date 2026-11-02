@@ -48,6 +48,10 @@ function seed(rawDb: DatabaseSync) {
   insertMembership.run('m-mobile-owner', ORG, 'user-mobile-owner', null, 'owner', NOW, NOW);
   insertMembership.run('m-mobile-cashier', ORG, 'user-mobile-cashier', 'branch-mobile', 'cashier', NOW, NOW);
   insertMembership.run('m-mobile-waiter', ORG, 'user-mobile-waiter', 'branch-mobile', 'server', NOW, NOW);
+  rawDb.prepare(`INSERT INTO dining_tables (id, organization_id, branch_id, table_number, capacity, status, is_active, created_at, updated_at) VALUES ('table-mobile', ?, 'branch-mobile', 'T-1', 4, 'available', 1, ?, ?)`)
+    .run(ORG, NOW, NOW);
+  rawDb.prepare(`INSERT INTO customers (id, organization_id, name, phone, phone_digits, country_code, email, created_at, updated_at) VALUES ('customer-mobile', ?, 'Asha Mobile', '+919876500000', '919876500000', '+91', 'asha@mobile.test', ?, ?)`)
+    .run(ORG, NOW, NOW);
 }
 
 async function run() {
@@ -149,7 +153,38 @@ async function run() {
   assert.equal(waitingBump.status, 200, 'the mobile "waiting" status maps to pending');
   assert.equal((rawDb.prepare("SELECT status FROM kitchen_tickets WHERE id = 'kds-mobile-2'").get() as any).status, 'pending');
 
-  console.log('Mobile compatibility passed: session refresh, revocation/inactive rejection, cash closures, and KDS status aliases.');
+  // ── Held orders and CRM lookup ──────────────────────────────────────────
+  const held = await call('user-mobile-waiter', '/api/held-orders', {
+    method: 'POST',
+    body: JSON.stringify({ id: 'hold-1', table_id: 'table-mobile', guest_count: 3, order_notes: 'Window seat' }),
+  });
+  assert.equal(held.status, 201, JSON.stringify(await held.clone().json()));
+  const heldOrder = (await held.json() as any).held_order;
+  assert.equal(heldOrder.table_name, 'T-1');
+  assert.equal(heldOrder.guest_count, 3);
+  assert.equal(heldOrder.order_notes, 'Window seat');
+
+  const heldList = await call('user-mobile-waiter', '/api/held-orders');
+  assert.equal(heldList.status, 200);
+  const heldRows = await heldList.json() as any;
+  assert.ok(Array.isArray(heldRows), 'the mobile client expects a bare array');
+  assert.equal(heldRows.length, 1);
+
+  const removed = await call('user-mobile-waiter', '/api/held-orders/hold-1', { method: 'DELETE' });
+  assert.equal(removed.status, 200);
+  assert.equal((await (await call('user-mobile-waiter', '/api/held-orders')).json() as any).length, 0);
+
+  const lookup = await call('user-mobile-waiter', '/api/crm/lookup?phone=%2B919876500000');
+  assert.equal(lookup.status, 200);
+  const found = (await lookup.json() as any).customer;
+  assert.equal(found.name, 'Asha Mobile');
+  assert.equal(found.phone_digits, '919876500000');
+
+  const missingLookup = await call('user-mobile-waiter', '/api/crm/lookup?phone=%2B910000000000');
+  assert.equal(missingLookup.status, 200);
+  assert.equal((await missingLookup.json() as any).customer, null);
+
+  console.log('Mobile compatibility passed: refresh, cash closures, KDS aliases, held orders, and CRM lookup.');
 }
 
 run().catch((error) => { console.error(error); process.exitCode = 1; });
