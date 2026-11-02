@@ -67,6 +67,9 @@ jobs:
       - name: Central Admin Security Regression Tests
         run: npm run test:security
 
+      - name: Production Authentication Regression Tests
+        run: node tests/landing-auth-production.test.cjs
+
       - name: Aggregator Webhook Signature Integration Tests
         run: node tests/run-electron-node-test.cjs tests/aggregator-webhooks.test.ts
 
