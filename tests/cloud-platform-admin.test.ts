@@ -25,6 +25,13 @@ class MockPlatformAdminD1 {
         if (normalized.includes("SELECT COUNT(*) AS total FROM cloud_users WHERE status = 'active'")) return { total: 7 } as T;
         if (normalized.includes('SELECT COUNT(*) AS total FROM synced_orders')) return { total: 25 } as T;
         if (normalized.includes("FROM organization_subscriptions WHERE status = 'trial'")) return { total: 1 } as T;
+        if (normalized.includes('SELECT id, name, account_status FROM organizations WHERE id = ?')) {
+          return { id: 'org-real-1', name: 'Real Restaurant', account_status: this.organizationStatus } as T;
+        }
+        if (normalized.includes('SELECT code, name, currency, monthly_price_minor, yearly_price_minor, is_active FROM saas_plans')) {
+          return { code: 'pro', name: 'Professional', currency: 'INR', monthly_price_minor: 129900, yearly_price_minor: 1299900, is_active: 1 } as T;
+        }
+        if (normalized.includes('SELECT * FROM organization_subscriptions WHERE organization_id = ?')) return this.subscription as T || null;
         if (normalized.includes('SELECT COUNT(*) AS total FROM organizations o')) return { total: 2 } as T;
         return null;
       },
