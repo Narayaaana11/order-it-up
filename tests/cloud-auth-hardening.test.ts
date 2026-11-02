@@ -449,6 +449,32 @@ async function testLoginEndpoint(): Promise<void> {
   });
 
   const env = { DB: db as any, JWT_SECRET: STRONG_TEST_SECRET };
+  const productionCorsEnv = {
+    DB: db as any,
+    JWT_SECRET: STRONG_TEST_SECRET,
+    ENVIRONMENT: 'production',
+    FRONTEND_ORIGIN: 'https://app.orderitup.in,https://orderitup.pages.dev',
+  };
+
+  // Production CORS must match an explicit allowlist and must not reflect arbitrary origins.
+  const allowedCorsResponse = await cloudWorker.fetch(
+    new Request('https://api.test/api/health', { headers: { Origin: 'https://app.orderitup.in' } }),
+    productionCorsEnv as any,
+  );
+  assert.equal(allowedCorsResponse.headers.get('Access-Control-Allow-Origin'), 'https://app.orderitup.in');
+
+  const rejectedCorsResponse = await cloudWorker.fetch(
+    new Request('https://api.test/api/health', { headers: { Origin: 'https://attacker.example' } }),
+    productionCorsEnv as any,
+  );
+  assert.equal(rejectedCorsResponse.headers.get('Access-Control-Allow-Origin'), null);
+
+  const missingAllowlistResponse = await cloudWorker.fetch(
+    new Request('https://api.test/api/health', { headers: { Origin: 'https://attacker.example' } }),
+    { DB: db as any, JWT_SECRET: STRONG_TEST_SECRET, ENVIRONMENT: 'production' } as any,
+  );
+  assert.equal(missingAllowlistResponse.headers.get('Access-Control-Allow-Origin'), null);
+
 
   // Helper to create fresh Request instances
   const makeLoginReq = (bodyObj: any) => new Request('http://localhost/api/auth/login', {
