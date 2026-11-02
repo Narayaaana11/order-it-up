@@ -103,7 +103,7 @@ export default function AuthModal({
               </h3>
               <p className="text-xs text-slate-600 mt-0.5">
                 {downloadPendingPlatform
-                  ? "Authentication required to access desktop binaries"
+                  ? "Desktop installer downloads are temporarily unavailable"
                   : "Access cloud dashboards, franchise analytics & offline POS"}
               </p>
             </div>
@@ -122,7 +122,7 @@ export default function AuthModal({
         {downloadPendingPlatform && (
           <div className="px-6 py-2.5 bg-orange-500 text-white text-xs font-semibold flex items-center justify-center gap-2">
             <Download className="w-4 h-4" />
-            <span>Sign in to unlock the {downloadPendingPlatform.toUpperCase()} Desktop POS installer</span>
+            <span>{downloadPendingPlatform.toUpperCase()} Desktop POS installer is not currently available. Contact support for release information.</span>
           </div>
         )}
 
@@ -253,11 +253,7 @@ export default function AuthModal({
               ) : (
                 <>
                   <span>
-                    {mode === "login"
-                      ? downloadPendingPlatform
-                        ? "Sign In & Start Download"
-                        : "Sign In to Dashboard"
-                      : "Create Account & Unlock Download"}
+                    {mode === "login" ? "Sign In to Dashboard" : "Create Restaurant Account"}
                   </span>
                   <ArrowRight className="w-4 h-4" />
                 </>
