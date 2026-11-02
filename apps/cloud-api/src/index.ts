@@ -37,6 +37,7 @@ import {
 import { getUserMemberships, isOrgOwnerOrAdmin, isOrgAccountant } from './rbac';
 import { createJWT, verifyJWT, hashPassword, verifyPassword, isSecretValid } from './auth';
 import { checkRateLimit, createRateLimitResponse, getClientIp, DEFAULT_RATE_LIMITS, getEffectiveLimit } from './rate-limit';
+import { handlePlatformAdminRequest } from './routes/platform-admin';
 
 function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const requestOrigin = request?.headers.get('Origin');
@@ -273,6 +274,11 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   // 5. POS Ingest Events
   if (path === '/api/pos/events' && method === 'POST') {
     return handleIngestSyncEvents(request, env);
+  }
+
+  // 5a. Isolated platform-level admin API; this auth namespace never falls through to restaurant JWT auth.
+  if (path === '/api/platform-admin' || path.startsWith('/api/platform-admin/')) {
+    return handlePlatformAdminRequest(request, env, path, method);
   }
 
   // Authenticated Portal Endpoints (Require Bearer JWT)
