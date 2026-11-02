@@ -141,6 +141,22 @@ async function main() {
     });
     assertEqual(missingSignature.status, 401, 'Rejects unsigned Swiggy webhook');
 
+    const invalidSignature = await api(baseUrl, '/api/webhooks/swiggy/order', {
+      method: 'POST',
+      body: swiggyPayload,
+      headers: { 'x-swiggy-signature': 'not-a-valid-signature' },
+    });
+    assertEqual(invalidSignature.status, 401, 'Rejects invalid Swiggy webhook signature');
+
+    db.prepare("UPDATE aggregator_configs SET webhook_secret = NULL WHERE platform = 'swiggy'").run();
+    const unconfiguredWebhook = await api(baseUrl, '/api/webhooks/swiggy/order', {
+      method: 'POST',
+      body: swiggyPayload,
+      headers: signedHeaders('swiggy', swiggyPayload),
+    });
+    assertEqual(unconfiguredWebhook.status, 503, 'Fails closed when Swiggy signing secret is missing');
+    db.prepare("UPDATE aggregator_configs SET webhook_secret = ? WHERE platform = 'swiggy'").run(webhookSecret);
+
     const resSwiggy = await api(baseUrl, '/api/webhooks/swiggy/order', {
       method: 'POST',
       body: swiggyPayload,
