@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
-import bcrypt from 'bcryptjs';
-import { ADMIN_OPERATORS, generateAdminToken, requireAdminAuth, requireAdminRole, AdminUser } from './auth';
+import { authenticateAdmin, isAdminAuthConfigured, generateAdminToken, requireAdminAuth, requireAdminRole } from './auth';
 import { subscriptionService } from '../services/subscription';
 import { mongoSyncService } from '../services/mongodb-sync';
 import { amazonS3Service } from '../services/amazon-s3';
@@ -80,10 +79,15 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
     return res.status(400).json({ ok: false, error: 'Email and password required.' });
   }
 
-  const normalized = String(email).trim().toLowerCase();
-  const operator = ADMIN_OPERATORS.find((op) => op.email.toLowerCase() === normalized);
+  if (!isAdminAuthConfigured()) {
+    return res.status(503).json({
+      ok: false,
+      error: 'Central admin authentication is not configured. Set the required OIU_ADMIN_* environment variables.',
+    });
+  }
 
-  if (!operator || !bcrypt.compareSync(password, operator.passwordHash)) {
+  const operator = authenticateAdmin(String(email), String(password));
+  if (!operator) {
     return res.status(401).json({ ok: false, error: 'Invalid operator credentials.' });
   }
 
@@ -91,12 +95,7 @@ router.post('/login', asyncHandler(async (req: Request, res: Response) => {
   res.json({
     ok: true,
     token,
-    operator: {
-      id: operator.id,
-      email: operator.email,
-      name: operator.name,
-      role: operator.role,
-    },
+    operator,
   });
 }));
 
