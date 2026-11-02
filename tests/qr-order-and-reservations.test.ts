@@ -171,7 +171,9 @@ async function main() {
     });
     assertEqual(cancelPending.status, 200, 'Pending QR request can be cancelled');
     const stockAfterPendingCancel = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
-    assertEqual(Number(stockAfterPendingCancel.current_stock), 7, 'Cancelling unaccepted QR request does not create stock');
+    // The accepted order was cancelled above, restoring stock to its original value (10).
+    // Cancelling this still-pending request must leave that restored stock unchanged.
+    assertEqual(Number(stockAfterPendingCancel.current_stock), 10, 'Cancelling unaccepted QR request leaves stock unchanged');
     const restorationCount = db.prepare(
       "SELECT COUNT(*) as count FROM inventory_transactions WHERE type = 'order_restoration'"
     ).get() as any;
