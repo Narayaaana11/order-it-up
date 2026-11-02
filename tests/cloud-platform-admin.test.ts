@@ -6,6 +6,10 @@ const JWT_SECRET = 'ordinary-restaurant-jwt-secret-32-characters-minimum';
 const PLATFORM_SECRET = 'separate-platform-admin-jwt-secret-32-characters-minimum';
 
 class MockPlatformAdminD1 {
+  organizationStatus = 'active';
+  subscription: any = null;
+  auditRecords: any[] = [];
+
   prepare(sql: string) {
     const normalized = sql.replace(/\s+/g, ' ').trim();
     let params: any[] = [];
