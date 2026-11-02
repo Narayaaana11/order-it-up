@@ -140,6 +140,7 @@ export function deductIngredientsForOrderItems(
   // Pre-check for insufficient stock if strict check requested
   if (!allowNegativeStock) {
     for (const [ingId, req] of aggregatedNeeded.entries()) {
+      if (req.needed <= 0) continue;
       if (req.currentStock < req.needed) {
         insufficient.push({
           ingredientId: ingId,
@@ -157,6 +158,7 @@ export function deductIngredientsForOrderItems(
   // Apply deductions
   const currentTime = now();
   for (const [ingId, req] of aggregatedNeeded.entries()) {
+    if (req.needed <= 0) continue;
     stmtUpdateStock.run(req.needed, currentTime, ingId);
     const newStock = req.currentStock - req.needed;
     stmtLogTx.run(ingId, -req.needed, newStock, `Order #${orderNumber}`, currentTime);
