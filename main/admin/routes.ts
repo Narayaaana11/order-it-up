@@ -1,6 +1,5 @@
 import { Router, Request, Response } from 'express';
 import { authenticateAdmin, isAdminAuthConfigured, generateAdminToken, requireAdminAuth, requireAdminRole } from './auth';
-import { subscriptionService } from '../services/subscription';
 import { mongoSyncService } from '../services/mongodb-sync';
 import { amazonS3Service } from '../services/amazon-s3';
 import { getDatabase } from '../db';
