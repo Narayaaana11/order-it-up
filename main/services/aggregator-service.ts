@@ -433,7 +433,7 @@ export function cancelAggregatorOrder(
   // Restore raw ingredients
   if (items.length > 0) {
     try {
-      restoreIngredientsForOrderItems(items, `${platform.toUpperCase()} #${externalOrderId} (Cancellation)`);
+      restoreIngredientsForOrderItems(items, `${platform.toUpperCase()} #${externalOrderId}`, 'Aggregator Order Cancellation');
     } catch (err) {
       console.error('[Aggregator] Stock restoration warning:', err);
     }

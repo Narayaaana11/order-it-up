@@ -26,12 +26,13 @@ Module._load = function (request: string, parent: unknown, isMain: boolean) {
 
 const {
   initTestDb, createApp, startServer,
-  seedOwnerUser, seedCategory, seedProduct, seedTable,
+  seedOwnerUser, seedManagerUser, seedCategory, seedProduct, seedTable,
   api, assert, assertEqual,
   getResults, closeDatabase,
 } = require('./helpers/test-setup');
 
 const { registerRoutes } = require('../main/routes/index');
+const { deductIngredientsForOrderItems } = require('../main/services/inventory-engine');
 
 async function main() {
   console.log('Integration Test: QR Self-Ordering & Reservations');
@@ -39,10 +40,22 @@ async function main() {
 
   const db = initTestDb();
   const { authHeader } = seedOwnerUser(db);
+  const { authHeader: managerAuthHeader } = seedManagerUser(db);
 
   seedCategory(db, 'cat-desserts', 'Desserts');
   seedProduct(db, 'prod-gulab-jamun', 'cat-desserts', 'Gulab Jamun (2 pcs)', 90);
   seedTable(db, 'tbl-12', 12, 4);
+
+  // Recipe stock lets the test verify that a pending QR request does not
+  // consume ingredients before staff approval.
+  db.prepare(`
+    INSERT INTO raw_ingredients (id, name, unit, current_stock, minimum_stock, cost_per_unit, is_active)
+    VALUES ('ing-milk-qr', 'Milk', 'litre', 10, 1, 60, 1)
+  `).run();
+  db.prepare(`
+    INSERT INTO product_recipes (id, product_id, ingredient_id, quantity_required, unit, wastage_percentage)
+    VALUES ('recipe-gulab-jamun-milk', 'prod-gulab-jamun', 'ing-milk-qr', 1.5, 'litre', 0)
+  `).run();
 
   const app = createApp({});
   registerRoutes(app);
@@ -82,8 +95,89 @@ async function main() {
     assertEqual(Number(resOrder.data.order.table_number), 12, 'Self-order tied to Table 12');
     assertEqual(resOrder.data.order.status, 'pending', 'Self-order initial status is pending');
     const orderId = resOrder.data.order.id;
+    const stockBeforeApproval = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
+    assertEqual(Number(stockBeforeApproval.current_stock), 10, 'Pending QR request does not deduct recipe ingredients');
+    const pendingDeductions = db.prepare(
+      "SELECT COUNT(*) as count FROM inventory_transactions WHERE type = 'order_deduction'"
+    ).get() as any;
+    assertEqual(Number(pendingDeductions.count), 0, 'Pending QR request creates no inventory deduction ledger entries');
 
-    // 4. Live Order Status Tracking
+    // 4. Staff approval moves the request to preparation and deducts ingredients once.
+    const resAccept = await api(baseUrl, `/api/orders/${orderId}/status`, {
+      method: 'PATCH',
+      body: { status: 'preparing' },
+      headers: authHeader,
+    });
+    assertEqual(resAccept.status, 200, 'Waiter can accept QR request into preparation');
+    const stockAfterApproval = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
+    assertEqual(Number(stockAfterApproval.current_stock), 7, 'Recipe ingredients deducted after staff approval');
+    const deductionCount = db.prepare(
+      "SELECT COUNT(*) as count FROM inventory_transactions WHERE type = 'order_deduction'"
+    ).get() as any;
+    assertEqual(Number(deductionCount.count), 1, 'Approval creates one inventory ledger movement');
+
+    const resRepeatAccept = await api(baseUrl, `/api/orders/${orderId}/status`, {
+      method: 'PATCH',
+      body: { status: 'preparing' },
+      headers: authHeader,
+    });
+    assertEqual(resRepeatAccept.status, 200, 'Repeated approval request is idempotent');
+    const stockAfterRepeat = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
+    assertEqual(Number(stockAfterRepeat.current_stock), 7, 'Repeated approval does not deduct ingredients twice');
+
+    const duplicateDeduction = deductIngredientsForOrderItems(
+      [{ product_id: 'prod-gulab-jamun', quantity: 2 }],
+      resOrder.data.order.order_number,
+      false
+    );
+    assertEqual(duplicateDeduction.success, true, 'Direct retry of the same order deduction is accepted idempotently');
+    const stockAfterDirectRetry = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
+    assertEqual(Number(stockAfterDirectRetry.current_stock), 7, 'Direct retry does not deduct the same recipe twice');
+
+    const cancelAccepted = await api(baseUrl, `/api/orders/${orderId}/status`, {
+      method: 'PATCH',
+      body: { status: 'cancelled', reason: 'Guest cancelled after acceptance', override_pin: '1234' },
+      headers: managerAuthHeader,
+    });
+    assertEqual(cancelAccepted.status, 200, 'Accepted QR order can be cancelled with manager override');
+    const stockAfterAcceptedCancel = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
+    assertEqual(Number(stockAfterAcceptedCancel.current_stock), 10, 'Cancelling accepted QR order restores recipe ingredients');
+    const firstRestorationCount = db.prepare(
+      "SELECT COUNT(*) as count FROM inventory_transactions WHERE type = 'order_restoration'"
+    ).get() as any;
+    assertEqual(Number(firstRestorationCount.count), 1, 'Accepted QR cancellation creates one restoration ledger movement');
+
+    const repeatCancelAccepted = await api(baseUrl, `/api/orders/${orderId}/status`, {
+      method: 'PATCH',
+      body: { status: 'cancelled', reason: 'Repeated cancellation', override_pin: '1234' },
+      headers: managerAuthHeader,
+    });
+    assertEqual(repeatCancelAccepted.status, 200, 'Repeated accepted-order cancellation is idempotent');
+    const stockAfterRepeatCancel = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
+    assertEqual(Number(stockAfterRepeatCancel.current_stock), 10, 'Repeated cancellation does not restore ingredients twice');
+
+    // A pending QR request cancelled before acceptance must not restore stock
+    // that was never deducted.
+    const resSecondOrder = await api(baseUrl, '/api/qr/order', {
+      method: 'POST',
+      body: { table_id: 'tbl-12', items: [{ product_id: 'prod-gulab-jamun', quantity: 1 }] },
+    });
+    assertEqual(resSecondOrder.status, 201, 'Second QR request is created for cancellation check');
+    const pendingOrderId = resSecondOrder.data.order.id;
+    const cancelPending = await api(baseUrl, `/api/orders/${pendingOrderId}/status`, {
+      method: 'PATCH',
+      body: { status: 'cancelled', reason: 'Guest cancelled before approval' },
+      headers: authHeader,
+    });
+    assertEqual(cancelPending.status, 200, 'Pending QR request can be cancelled');
+    const stockAfterPendingCancel = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
+    assertEqual(Number(stockAfterPendingCancel.current_stock), 7, 'Cancelling unaccepted QR request does not create stock');
+    const restorationCount = db.prepare(
+      "SELECT COUNT(*) as count FROM inventory_transactions WHERE type = 'order_restoration'"
+    ).get() as any;
+    assertEqual(Number(restorationCount.count), 1, 'Cancelling unaccepted QR request creates no additional restoration ledger entry');
+
+    // 5. Live Order Status Tracking
     console.log('\nStep 4: Live Order Status Tracking');
     const resTrack = await api(baseUrl, `/api/qr/order/${orderId}`);
     assertEqual(resTrack.status, 200, 'Live tracking status retrieved (200)');

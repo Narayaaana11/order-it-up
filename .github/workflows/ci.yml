@@ -73,6 +73,9 @@ jobs:
       - name: Aggregator Webhook Signature Integration Tests
         run: node tests/run-electron-node-test.cjs tests/aggregator-webhooks.test.ts
 
+      - name: QR Staff Approval & Inventory Lifecycle
+        run: node tests/run-electron-node-test.cjs tests/qr-order-and-reservations.test.ts
+
       - name: Database Schema & Migration Integrity Audit
         run: npm run audit:db
 

@@ -268,12 +268,20 @@ function QROrderContent() {
           {/* Stepper */}
           <div className="space-y-4 text-left mb-8">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-full bg-emerald-500 text-slate-950 font-bold flex items-center justify-center text-xs">
-                ✓
+              <div className={`w-8 h-8 rounded-full font-bold flex items-center justify-center text-xs ${
+                orderStatus === 'pending' ? 'bg-amber-500 text-slate-950' : 'bg-emerald-500 text-slate-950'
+              }`}>
+                {orderStatus === 'pending' ? '…' : '✓'}
               </div>
               <div>
-                <p className="font-semibold text-sm">Order Sent to Kitchen</p>
-                <p className="text-xs text-slate-400">Your order has been routed to the kitchen line</p>
+                <p className="font-semibold text-sm">
+                  {orderStatus === 'pending' ? 'Waiting for Staff Confirmation' : 'Order Accepted'}
+                </p>
+                <p className="text-xs text-slate-400">
+                  {orderStatus === 'pending'
+                    ? 'A team member will review your request before it reaches the kitchen.'
+                    : 'Your request has been accepted and sent to the kitchen.'}
+                </p>
               </div>
             </div>
 
@@ -288,7 +296,11 @@ function QROrderContent() {
               <div>
                 <p className="font-semibold text-sm">Preparation</p>
                 <p className="text-xs text-slate-400">
-                  {orderStatus === 'preparing' ? 'Chefs are currently cooking your meal' : 'Waiting in kitchen queue'}
+                  {orderStatus === 'preparing'
+                    ? 'Chefs are currently cooking your meal'
+                    : orderStatus === 'pending'
+                      ? 'Preparation starts after staff approval'
+                      : 'Waiting in kitchen queue'}
                 </p>
               </div>
             </div>
