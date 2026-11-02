@@ -46,6 +46,7 @@ const SUPPORTED = [
   '/api/crm/lookup',
   '/api/held-orders',
   '/api/cash-closures',
+  '/api/payments',
   '/api/products',
   '/api/categories',
   '/api/menu-csv',

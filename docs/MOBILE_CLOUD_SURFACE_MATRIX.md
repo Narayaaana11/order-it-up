@@ -1,7 +1,7 @@
 # Mobile ↔ Cloud surface matrix
 
 **Source of truth:** `mobile/lib/services/api_service.dart`, checked by `npm run check:mobile-cloud`.
-**Last check:** 35 mobile endpoints — 29 Cloud, 5 local-only, 1 partner-gated, 0 unclassified.
+**Last check:** 36 mobile endpoints — 30 Cloud, 5 local-only, 1 partner-gated, 0 unclassified.
 
 The Flutter app runs in two modes: a Cloud session (bearer token present) and a LAN session (desktop server). This matrix records which endpoints each mode can use and what the UI must show when a surface is unavailable.
 
@@ -13,7 +13,7 @@ The Flutter app runs in two modes: a Cloud session (bearer token present) and a 
 | Orders | `/api/orders`, `/api/orders/:id/items`, `/api/orders/:id/payments` |
 | Floor | `/api/tables`, `/api/held-orders`, `/api/held-orders/:id` |
 | Kitchen | `/api/kitchen/tickets`, `/api/kitchen/tickets/:id/status` |
-| Payments | `/api/cash-closures` |
+| Payments | `/api/cash-closures`, `/api/payments/capabilities` |
 | Menu | `/api/products`, `/api/categories`, `/api/inventory/ingredients` |
 | People | `/api/customers`, `/api/crm/lookup`, `/api/staff` |
 | Ops | `/api/expenses`, `/api/reservations`, `/api/delivery`, `/api/shifts` |

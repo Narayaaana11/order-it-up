@@ -331,6 +331,19 @@ class ApiService {
   // Stable operation/idempotency key cache per order payment attempt
   final Map<int, String> _orderPaymentIdempotencyKeys = {};
 
+  /// Cloud capability discovery for card/UPI collection. Empty on LAN-only
+  /// servers (the local POS records tenders itself).
+  Future<Map<String, dynamic>> getPaymentCapabilities() async {
+    if (isDemoMode) return const {'cash': true, 'card': true, 'upi': true, 'configured': true};
+    try {
+      final res = await apiClient.get('/api/payments/capabilities');
+      if (res is Map<String, dynamic>) return res;
+      return {};
+    } catch (_) {
+      return {};
+    }
+  }
+
   Future<bool> settleBill({
     required int orderId,
     required String paymentMethod,
@@ -364,6 +377,23 @@ class ApiService {
         }
       }
       return true;
+    }
+
+    // Non-cash tenders require a server-verified provider flow in Cloud mode.
+    // Check capability first so the cashier sees the real reason instead of a
+    // generic 400 after the drawer/terminal interaction.
+    if (paymentMethod != 'cash' &&
+        apiClient.authToken != null &&
+        apiClient.authToken!.isNotEmpty) {
+      final capabilities = await getPaymentCapabilities();
+      if (capabilities.isNotEmpty && capabilities['configured'] == false) {
+        throw ApiException(
+          (capabilities['reason'] ??
+                  'Card/UPI payments require provider verification.')
+              .toString(),
+          statusCode: 400,
+        );
+      }
     }
 
     // Stable idempotency key across retries for the same payment operation
