@@ -26,6 +26,28 @@ Current local work also adds Cloud D1 migration 0019 for authoritative order com
 - **Verification:** `tests/cloud-restaurant-ops.test.ts`, `tests/cloud-catalog-admin.test.ts`, Cloud auth suite, 9-part Cloud E2E audit, migration compatibility suite, Cloud API TypeScript check, frontend TypeScript, `npm run build:web`, landing production build, and the landing Cloud workspace browser E2E all pass locally.
 - **Still open:** remote D1 reconciliation/deployment, provider-verified card/UPI and refund settlement, receipt printing from the tablet, durable tablet offline storage, Flutter/Cloud parity, and the remaining SaaS/onboarding production checks. No deployment or push was performed for this increment.
 
+### Verification matrix — 2026-11-03
+
+`npm run verify:cloud` runs the Cloud contracts end to end. The following all passed locally after migrations 0020–0022:
+
+| Suite | Scope |
+|---|---|
+| `cloud-auth-hardening` | JWT/RBAC, revocation and rate-limit boundaries |
+| `comprehensive-e2e-audit` | 9-part multi-branch, catalog, transfers, mobile parity |
+| `cloud-restaurant-ops` | expenses, reservations, inventory, recipes, shift close, delivery, waiter rounds, table management |
+| `cloud-catalog-admin` | product/category CRUD, modifier links, tenant isolation, delete rules |
+| `cloud-customers` | registry, search, aggregates, wallet, tenant isolation |
+| `cloud-staff` | create, login, reset, role changes, owner protections, deactivation |
+| `cloud-menu-csv` | templates, exports, imports, row validation, role denial |
+| `cloud-dashboard-reports` | live totals, timezone bounds, branch isolation, new-customer count |
+| `cloud-saas-migrations` | full migration chain 0001–0022 |
+| `cloud-public-qr` | public QR ordering, staff approval, tracking, pilot setup |
+| `cloud-terminal-pairing` | 76 checks: pairing, catalog/QR import, outbox, replay |
+| `cloud-saas-subscription-payments` | Razorpay order/capture/webhook/replay |
+| `landing-cloud-workspace` (browser) | waiter → kitchen → cashier → accountant against the live workspace |
+
+These verify repository contracts, not a deployment. Live D1 schema, Worker secrets, payment credentials, Pages hosting, Android packaging and external-network QR still require the separate production phase.
+
 | Area | Current evidence | Status |
 |---|---|---|
 | Central admin authentication | Environment-provisioned bootstrap identity, bcrypt hash validation, fail-closed JWT configuration and rate-limited login in `main/admin/auth.ts` and `main/admin/routes.ts`. Admin dashboard reports global tenant/MRR metrics as unavailable instead of synthesizing them. | Implemented in source; deployment secrets and live admin provisioning not verified. |
