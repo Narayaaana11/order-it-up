@@ -101,6 +101,16 @@ describe('Milestone M3: FounderAdminView (D1-backed platform administration)', (
     assert.match(content, /active_user_count|users/);
   });
 
+  it('provides audited account status and subscription plan controls through privileged API routes', () => {
+    assert.match(content, /\/account-status/);
+    assert.match(content, /\/subscription/);
+    assert.match(content, /method: "PATCH"/);
+    assert.match(content, /actionReason/);
+    assert.match(content, /updateAccountStatus/);
+    assert.match(content, /updateSubscriptionPlan/);
+    assert.match(content, /Paid activation is reserved for verified billing-provider settlement/);
+  });
+
   it('does not present fake onboarding, local license generation or fabricated storage audits as real actions', () => {
     assert.doesNotMatch(content, /useTenants|useDashboardActions|updateDashboardState/);
     assert.doesNotMatch(content, /handleOnboardTenant|handleGenerateLicense|handleRunIsolationAudit/);
