@@ -58,7 +58,7 @@ import { handleCustomersRequest } from './routes/customers';
 import { handleStaffRequest } from './routes/staff';
 import { handleMenuCsvRequest } from './routes/menu-csv';
 import { handleMobileCompatRequest, handleRefreshSession } from './routes/mobile-compat';
-import { handleGuestPaymentsRequest } from './routes/guest-payments';
+import { handleGuestPaymentsRequest, handleGuestPaymentWebhook } from './routes/guest-payments';
 
 function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const requestOrigin = request?.headers.get('Origin');
@@ -100,7 +100,7 @@ const REQUIRED_READINESS_TABLES = [
   'saas_subscription_payment_orders', 'saas_payment_webhook_events', 'qr_order_pos_deliveries',
   'pilot_access_invitations', 'restaurant_vendors', 'expense_categories', 'expenses',
   'reservations', 'ingredients', 'inventory_transactions', 'recipes', 'delivery_jobs',
-  'customers', 'held_orders', 'payment_intents',
+  'customers', 'held_orders', 'payment_intents', 'payment_webhook_events',
 ] as const;
 
 function hasRequiredAuthenticationConfiguration(env: Env): boolean {
@@ -169,6 +169,7 @@ export default {
         headers.set('Cache-Control', 'no-store');
       }
       if (url.pathname === '/api/webhooks/razorpay') headers.set('Cache-Control', 'no-store');
+      if (url.pathname === '/api/webhooks/razorpay-payments') headers.set('Cache-Control', 'no-store');
       return new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
@@ -230,6 +231,11 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   // Razorpay server-to-server delivery uses its own HMAC over the raw body.
   if (path === '/api/webhooks/razorpay' && method === 'POST') {
     return handleRazorpaySubscriptionWebhook(request, env);
+  }
+
+  // Guest bill payments are settled from the signed provider callback too.
+  if (path === '/api/webhooks/razorpay-payments' && method === 'POST') {
+    return handleGuestPaymentWebhook(request, env);
   }
 
   // 2. Auth: Login

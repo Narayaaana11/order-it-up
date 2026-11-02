@@ -225,6 +225,17 @@ export async function handleVerifyPaymentIntent(
     return Response.json({ error: 'Provider amount or currency does not match the intent', code: 'PAYMENT_AMOUNT_MISMATCH' }, { status: 409 });
   }
 
+  return settleIntent(env, orgId, intent, paymentId, payment, { id: userId, name: 'Gateway' });
+}
+
+async function settleIntent(
+  env: Env,
+  orgId: string,
+  intent: any,
+  paymentId: string,
+  payment: any,
+  actor: { id: string; name: string },
+): Promise<Response> {
   const duplicate = await env.DB.prepare(`
     SELECT id, order_id FROM customer_payments WHERE branch_id = ? AND payment_method = ? AND external_reference_id = ? AND status != 'failed'
   `).bind(intent.branch_id, String(payment.method || 'upi'), paymentId).first<any>();
@@ -254,7 +265,7 @@ export async function handleVerifyPaymentIntent(
     `).bind(
       paymentRowId, orgId, order.restaurant_id, order.branch_id, order.id,
       String(payment.method || 'upi'), Number(intent.amount), intent.currency, paymentId,
-      userId, 'Gateway', `intent:${intent.id}`, currentPaid > 0 ? 1 : 0,
+      actor.id, actor.name, `intent:${intent.id}`, currentPaid > 0 ? 1 : 0,
       JSON.stringify({ payment_intent_id: intent.id, provider_order_id: intent.provider_order_id }), now, now,
     ));
   }
@@ -275,6 +286,77 @@ export async function handleVerifyPaymentIntent(
     order_payment_status: newStatus,
     outstanding_balance: newOutstanding,
   });
+}
+
+export async function handleGuestPaymentWebhook(request: Request, env: Env): Promise<Response> {
+  const secret = text(env.RAZORPAY_WEBHOOK_SECRET);
+  if (!secret) {
+    return Response.json({ error: 'Payment webhook is not configured' }, { status: 503 });
+  }
+
+  const raw = await request.text();
+  const signature = text(request.headers.get('X-Razorpay-Signature'), 200).toLowerCase();
+  const expected = await hmacSha256(secret, raw);
+  if (!signature || !constantTimeEqual(expected, signature)) {
+    return Response.json({ error: 'Invalid webhook signature' }, { status: 401 });
+  }
+
+  let payload: any;
+  try { payload = JSON.parse(raw); } catch { return Response.json({ error: 'Invalid JSON payload' }, { status: 400 }); }
+  const eventType = text(payload?.event, 80);
+  const entity = payload?.payload?.payment?.entity;
+  if (eventType !== 'payment.captured' || !entity?.id || !entity?.order_id) {
+    return Response.json({ received: true, ignored: true });
+  }
+
+  const paymentId = text(entity.id, 100);
+  const providerOrderId = text(entity.order_id, 100);
+  const headerEventId = text(request.headers.get('X-Razorpay-Event-Id'), 120);
+  const eventId = headerEventId || hex(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(raw)));
+
+  const existingEvent = await env.DB.prepare('SELECT id FROM payment_webhook_events WHERE id = ?')
+    .bind(eventId).first<any>();
+  if (existingEvent) return Response.json({ received: true, duplicate: true });
+
+  const intent = await env.DB.prepare(`
+    SELECT * FROM payment_intents WHERE provider_order_id = ?
+  `).bind(providerOrderId).first<any>();
+  if (!intent) {
+    await env.DB.prepare(`
+      INSERT OR IGNORE INTO payment_webhook_events (id, provider, event_type, provider_order_id, provider_payment_id, payload_json, received_at)
+      VALUES (?, 'razorpay', ?, ?, ?, ?, ?)
+    `).bind(eventId, eventType, providerOrderId, paymentId, raw.slice(0, 10_000), new Date().toISOString()).run();
+    return Response.json({ received: true, ignored: true, reason: 'No matching payment intent' });
+  }
+
+  if (intent.status !== 'verified') {
+    if (!providerConfigured(env)) {
+      return Response.json({ error: 'The payment provider is not configured', code: 'PAYMENT_PROVIDER_NOT_CONFIGURED' }, { status: 503 });
+    }
+    const providerResponse = await razorpayRequest(env, `/payments/${encodeURIComponent(paymentId)}`);
+    const payment = await providerResponse.json().catch(() => ({})) as any;
+    if (!providerResponse.ok || !payment?.id) {
+      return Response.json({ error: 'Could not verify the payment with the provider' }, { status: 502 });
+    }
+    if (payment.order_id !== intent.provider_order_id) {
+      return Response.json({ error: 'Provider order mismatch' }, { status: 409 });
+    }
+    if (payment.status !== 'captured') {
+      return Response.json({ received: true, ignored: true, reason: `Payment status is ${payment.status}` });
+    }
+    if (Number(payment.amount) !== Math.round(Number(intent.amount) * 100) || String(payment.currency || '').toUpperCase() !== intent.currency) {
+      return Response.json({ error: 'Provider amount or currency does not match the intent' }, { status: 409 });
+    }
+    const settled = await settleIntent(env, intent.organization_id, intent, paymentId, payment, { id: 'razorpay-webhook', name: 'Razorpay Webhook' });
+    if (!settled.ok) return settled;
+  }
+
+  await env.DB.prepare(`
+    INSERT OR IGNORE INTO payment_webhook_events (id, provider, event_type, provider_order_id, provider_payment_id, payload_json, received_at)
+    VALUES (?, 'razorpay', ?, ?, ?, ?, ?)
+  `).bind(eventId, eventType, providerOrderId, paymentId, raw.slice(0, 10_000), new Date().toISOString()).run();
+
+  return Response.json({ received: true, settled: intent.status !== 'verified' });
 }
 
 /**

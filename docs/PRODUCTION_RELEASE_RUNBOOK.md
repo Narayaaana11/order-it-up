@@ -37,7 +37,7 @@ npx wrangler d1 migrations apply orderitup-d1-prod --remote
 npx wrangler d1 execute orderitup-d1-prod --remote --command "SELECT COUNT(*) FROM d1_migrations"
 ```
 
-Expected: the ledger reaches the highest checked-in migration (currently `0024_guest_payment_intents.sql`) and the new tables exist. The Worker `/ready` endpoint independently verifies every readiness table and required column.
+Expected: the ledger reaches the highest checked-in migration (currently `0025_payment_webhook_events.sql`) and the new tables exist. The Worker `/ready` endpoint independently verifies every readiness table and required column.
 
 Order matters: **D1 migrations before the Worker deploy**, because the new Worker expects the new schema. The old Worker tolerates the added tables/columns.
 
@@ -55,7 +55,7 @@ Order matters: **D1 migrations before the Worker deploy**, because the new Worke
 
 `REQUIRE_PROVIDER_VERIFIED_NONCASH` is set to `true` in production/staging `wrangler.toml`. With no guest-payment provider flow configured, the Cloud API records cash only and rejects client-entered card/UPI tenders with `PROVIDER_VERIFICATION_REQUIRED`. Do not disable this flag to make a demo work; implement and verify the provider flow instead.
 
-The guest provider flow now exists in source: `GET /api/payments/capabilities`, `POST /api/orders/:id/payment-intent`, and `POST /api/payments/verify`. It creates a provider order, verifies the client signature, fetches the captured payment from Razorpay, checks the amount/currency/order binding, and only then writes a `gateway_verified` ledger row. It fails closed with `PAYMENT_PROVIDER_NOT_CONFIGURED` until live keys are provided. Keep `REQUIRE_PROVIDER_VERIFIED_NONCASH=true` even after enabling the flow: card/UPI must only enter through `/api/payments/verify`, never through the cashier payment endpoint.
+The guest provider flow now exists in source: `GET /api/payments/capabilities`, `POST /api/orders/:id/payment-intent`, `POST /api/payments/verify`, and the signed callback `POST /api/webhooks/razorpay-payments`. It creates a provider order, verifies the client signature, fetches the captured payment from Razorpay, checks the amount/currency/order binding, and only then writes a `gateway_verified` ledger row. The webhook settles the intent even if the client disconnects and deduplicates replayed event IDs. It fails closed with `PAYMENT_PROVIDER_NOT_CONFIGURED` until live keys are provided. Configure Razorpay's webhook URL to the Worker's `/api/webhooks/razorpay-payments` with `RAZORPAY_WEBHOOK_SECRET`. Keep `REQUIRE_PROVIDER_VERIFIED_NONCASH=true` even after enabling the flow: card/UPI must only enter through `/api/payments/verify` or the signed webhook, never through the cashier payment endpoint.
 
 ```powershell
 cd apps/cloud-api

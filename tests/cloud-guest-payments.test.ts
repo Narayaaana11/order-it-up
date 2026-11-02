@@ -33,6 +33,7 @@ class SqliteD1 {
 const SECRET = 'guest-payments-integration-secret-32-bytes';
 const KEY_ID = 'rzp_test_key_guest';
 const KEY_SECRET = 'rzp_test_secret_guest';
+const WEBHOOK_SECRET = 'rzp_test_webhook_secret_guest';
 const ORG = 'org-pay';
 const NOW = new Date().toISOString();
 
@@ -52,6 +53,7 @@ function seed(rawDb: DatabaseSync) {
   const insertOrder = rawDb.prepare(`INSERT INTO synced_orders (id, organization_id, branch_id, order_number, order_type, status, subtotal, tax_total, discount_total, grand_total, payment_method, payment_status, ordered_at, synced_at, updated_at) VALUES (?, ?, 'branch-pay', ?, 'dine_in', 'active', 500, 0, 0, 500, 'cash', 'unpaid', ?, ?, ?)`);
   insertOrder.run('order-pay-1', ORG, 'P-1', NOW, NOW, NOW);
   insertOrder.run('order-pay-2', ORG, 'P-2', NOW, NOW, NOW);
+  insertOrder.run('order-pay-3', ORG, 'P-3', NOW, NOW, NOW);
 }
 
 async function run() {
@@ -60,7 +62,7 @@ async function run() {
   const db = new SqliteD1(rawDb);
   const env = {
     DB: db, JWT_SECRET: SECRET, ENVIRONMENT: 'test',
-    RAZORPAY_KEY_ID: KEY_ID, RAZORPAY_KEY_SECRET: KEY_SECRET,
+    RAZORPAY_KEY_ID: KEY_ID, RAZORPAY_KEY_SECRET: KEY_SECRET, RAZORPAY_WEBHOOK_SECRET: WEBHOOK_SECRET,
   } as any;
   const envNoKeys = { DB: db, JWT_SECRET: SECRET, ENVIRONMENT: 'test' } as any;
 
@@ -180,7 +182,45 @@ async function run() {
 
     assert.equal((rawDb.prepare("SELECT COUNT(*) AS count FROM customer_payments WHERE order_id = 'order-pay-2'").get() as any).count, 0, 'failed verifications never write the ledger');
 
-    console.log('Guest payment intents passed: capabilities, fail-closed creation, signature/capture/amount checks, idempotency, and ledger verification.');
+    // ── Signed provider webhook ──────────────────────────────────────────
+    const webhookIntent = (await (await call('user-pay-owner', '/api/orders/order-pay-3/payment-intent', { method: 'POST', body: '{}' })).json() as any).intent;
+    payments.pay_webhook = {
+      id: 'pay_webhook', order_id: webhookIntent.provider_order_id,
+      amount: 50000, currency: 'INR', status: 'captured', method: 'upi',
+    };
+    const webhookBody = JSON.stringify({
+      event: 'payment.captured',
+      payload: { payment: { entity: { id: 'pay_webhook', order_id: webhookIntent.provider_order_id, amount: 50000, currency: 'INR', status: 'captured' } } },
+    });
+    const webhookSignature = createHmac('sha256', WEBHOOK_SECRET).update(webhookBody).digest('hex');
+    const webhook = (body: string, signature: string, eventId: string) => cloudWorker.fetch(
+      new Request('https://cloud.test/api/webhooks/razorpay-payments', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-Razorpay-Signature': signature, 'X-Razorpay-Event-Id': eventId },
+        body,
+      }), env,
+    );
+
+    assert.equal((await webhook(webhookBody, 'deadbeef', 'evt-bad')).status, 401, 'invalid webhook signatures are rejected');
+
+    const settled = await webhook(webhookBody, webhookSignature, 'evt-1');
+    assert.equal(settled.status, 200, JSON.stringify(await settled.clone().json()));
+    assert.equal((await settled.json() as any).settled, true);
+    assert.equal((rawDb.prepare("SELECT payment_status FROM synced_orders WHERE id = 'order-pay-3'").get() as any).payment_status, 'paid');
+    assert.equal((rawDb.prepare("SELECT COUNT(*) AS count FROM customer_payments WHERE order_id = 'order-pay-3'").get() as any).count, 1);
+    assert.equal((rawDb.prepare("SELECT status FROM payment_intents WHERE id = ?").get(webhookIntent.id) as any).status, 'verified');
+
+    const replayWebhook = await webhook(webhookBody, webhookSignature, 'evt-1');
+    assert.equal(replayWebhook.status, 200);
+    assert.equal((await replayWebhook.json() as any).duplicate, true, 'a replayed webhook event is deduplicated');
+    assert.equal((rawDb.prepare("SELECT COUNT(*) AS count FROM customer_payments WHERE order_id = 'order-pay-3'").get() as any).count, 1);
+
+    const unknownOrderBody = JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_unknown', order_id: 'order_missing', amount: 100 } } } });
+    const unknownOrder = await webhook(unknownOrderBody, createHmac('sha256', WEBHOOK_SECRET).update(unknownOrderBody).digest('hex'), 'evt-unknown');
+    assert.equal(unknownOrder.status, 200);
+    assert.equal((await unknownOrder.json() as any).ignored, true);
+
+    console.log('Guest payment intents passed: capabilities, fail-closed creation, signature/capture/amount checks, idempotency, webhook settlement and replay dedupe.');
   } finally {
     globalThis.fetch = originalFetch;
   }
