@@ -50,6 +50,25 @@ The product should preserve the offline-first desktop POS while adding dependabl
 - Cloud operations include customer-payment ledger endpoints. Recording a payment row is not proof that a payment provider settled the transaction.
 - No customer-review/Google-review workflow was confirmed in the files inspected so far.
 
+## Implementation status — 2026-11-02
+
+### Phase 1 security hardening — implemented on `security/phase-1-hardening`, pending CI review
+
+- [x] Removed the source-code JWT fallback and hardcoded central admin operator/password seeds.
+- [x] Added environment-provisioned bootstrap admin credentials with bcrypt hash validation.
+- [x] Central admin authentication fails closed when required environment settings are missing.
+- [x] Central admin login attempts use the production authentication rate limiter.
+- [x] Preserved exact raw HTTP request bytes for webhook HMAC validation.
+- [x] Swiggy/Zomato order, rider and cancellation webhook routes require an enabled integration and a valid platform signature.
+- [x] Missing webhook secrets fail closed with HTTP 503; invalid/missing signatures fail with HTTP 401.
+- [x] Removed default central admin passwords and documented local default PINs from `users.md`.
+- [x] Added regression coverage for central admin bootstrap, unsigned/invalid/unconfigured webhooks and signed webhook workflows.
+- [ ] CI, lint and build results still need to be confirmed.
+- [ ] Production deployment secrets must be provisioned and any previously exposed credentials rotated before enabling central admin or aggregator webhooks.
+- [ ] Demo authentication in the separate marketing landing app still requires a production-mode review; it must not be treated as a real identity provider.
+
+See [SECURITY_BOOTSTRAP_AND_WEBHOOKS.md](./SECURITY_BOOTSTRAP_AND_WEBHOOKS.md) for required environment variables and validation commands.
+
 ## Delivery roadmap and acceptance criteria
 
 ### Phase 0 — Baseline and safeguards
