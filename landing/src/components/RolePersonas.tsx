@@ -139,7 +139,7 @@ export default function RolePersonas() {
         </div>
 
         {/* Role Selector Tabs */}
-        <div className="mt-12 flex flex-wrap justify-center gap-3">
+        <div className="mt-12 flex max-w-full flex-nowrap justify-start gap-3 overflow-x-auto px-1 py-2 sm:flex-wrap sm:justify-center sm:overflow-visible">
           {ROLE_PERSONAS.map((role) => (
             <Magnet
               key={role.id}

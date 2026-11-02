@@ -39,6 +39,7 @@ import { getUserMemberships, isOrgOwnerOrAdmin, isOrgAccountant } from './rbac';
 import { createJWT, verifyJWT, hashPassword, verifyPassword, hashString, isSecretValid } from './auth';
 import { checkRateLimit, createRateLimitResponse, getClientIp, DEFAULT_RATE_LIMITS, getEffectiveLimit } from './rate-limit';
 import { handlePlatformAdminRequest } from './routes/platform-admin';
+import { handleCreatePilotRequest } from './routes/pilot-requests';
 import { resolveOrganizationAccess, requiredPlanFeature } from './subscriptions';
 import {
   handleCreatePublicQrOrder,
@@ -93,6 +94,9 @@ export default {
       for (const [key, val] of Object.entries(corsHeaders(request, env))) {
         headers.set(key, val);
       }
+      if (url.pathname === '/api/pilot-requests' || url.pathname.startsWith('/api/platform-admin/')) {
+        headers.set('Cache-Control', 'no-store');
+      }
       return new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
@@ -131,6 +135,10 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
       mode: 'cloud_saas',
       status: 'operational'
     });
+  }
+
+  if (path === '/api/pilot-requests' && method === 'POST') {
+    return handleCreatePilotRequest(request, env);
   }
 
   // 2. Auth: Login

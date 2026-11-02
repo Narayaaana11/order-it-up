@@ -2,6 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { getCloudApiBase } from "@/lib/auth";
+import PilotRequestsPanel from "@/components/dashboard/PilotRequestsPanel";
 
 type MoneyRow = { currency: string; amount: number; amount_minor?: number; orders?: number };
 type Overview = {
@@ -76,6 +77,7 @@ export function FounderAdminView() {
   const [nextBillingCycle, setNextBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
+  const [activeSection, setActiveSection] = useState<"overview" | "pilot_requests">("overview");
 
   const request = useCallback(async <T,>(path: string, init: RequestInit = {}): Promise<T> => {
     const headers = new Headers(init.headers);
@@ -149,10 +151,10 @@ export function FounderAdminView() {
     } finally { setLoginBusy(false); }
   };
 
-  const signOut = () => {
+  const signOut = useCallback(() => {
     sessionStorage.removeItem(TOKEN_KEY); sessionStorage.removeItem(EMAIL_KEY);
     setToken(""); setAdminEmail(""); setOverview(null); setPlans([]); setTenants([]); setSelected(null); setError("");
-  };
+  }, []);
 
   const applyFilters = (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault(); setOffset(0); setSearch(searchInput.trim());
@@ -236,6 +238,13 @@ export function FounderAdminView() {
       <div><p className="text-xs font-bold uppercase tracking-widest text-orange-600">D1-backed control plane</p><h1 className="mt-1 text-2xl font-extrabold text-slate-950">Platform operations</h1><p className="mt-1 text-sm text-slate-600">Signed in as {adminEmail}. Data is read from Cloudflare D1, not local browser fixtures.</p></div>
       <div className="flex gap-2"><button type="button" onClick={() => void loadDashboard()} disabled={busy} className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold hover:bg-slate-50 disabled:opacity-50">{busy ? "Refreshing…" : "Refresh"}</button><button type="button" onClick={signOut} className="rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-slate-700">Sign out</button></div>
     </header>
+    <nav aria-label="Platform admin sections" className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2">
+      <button type="button" onClick={() => setActiveSection("overview")} aria-pressed={activeSection === "overview"} className={`min-h-10 rounded-xl px-4 py-2 text-sm font-bold transition ${activeSection === "overview" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>Platform overview</button>
+      <button type="button" onClick={() => setActiveSection("pilot_requests")} aria-pressed={activeSection === "pilot_requests"} className={`min-h-10 rounded-xl px-4 py-2 text-sm font-bold transition ${activeSection === "pilot_requests" ? "bg-orange-600 text-white" : "text-slate-600 hover:bg-orange-50 hover:text-orange-700"}`}>Pilot access requests</button>
+    </nav>
+    {activeSection === "pilot_requests" ? (
+      <PilotRequestsPanel apiBase={apiBase} token={token} onSessionExpired={signOut} />
+    ) : <>
     {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
     {!overview && busy && <p className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">Loading verified platform records…</p>}
     {overview && <>
@@ -265,10 +274,11 @@ export function FounderAdminView() {
         <div className="mt-4 flex items-center justify-between"><p className="text-xs text-slate-500">Showing {tenants.length ? offset + 1 : 0}–{Math.min(offset + tenants.length, total)} of {total}</p><div className="flex gap-2"><button type="button" disabled={offset === 0 || busy} onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold disabled:opacity-40">Previous</button><button type="button" disabled={offset + PAGE_SIZE >= total || busy} onClick={() => setOffset(offset + PAGE_SIZE)} className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold disabled:opacity-40">Next</button></div></div>
       </section>
       <section className="rounded-2xl border border-slate-200 bg-white p-5"><h2 className="text-sm font-bold">Published subscription plans</h2><div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">{plans.map((plan) => <article key={plan.code} className="rounded-xl border border-slate-200 p-4"><div className="flex justify-between"><h3 className="font-bold">{plan.name}</h3><span className="text-xs text-emerald-700">{plan.active ? "Active" : "Inactive"}</span></div><p className="mt-2 text-lg font-extrabold">{money(plan.monthly_price, plan.currency)}<span className="text-xs font-normal text-slate-500"> / month</span></p><p className="text-xs text-slate-500">{money(plan.yearly_price, plan.currency)} / year</p><p className="mt-2 text-xs text-slate-600">Maximum terminals: {String(plan.entitlements.maxTerminals ?? "—")}</p></article>)}</div></section>
-      <p className="text-xs leading-5 text-slate-500">Read-only control plane. Tenant creation, status changes, subscription grants, license issuance and storage audits are not available until audited server-side workflows are implemented. Updated {dateLabel(overview.generated_at)} · Source: {overview.data_source}.</p>
+      <p className="text-xs leading-5 text-slate-500">Organization records and metrics are read from D1. Account status and subscription snapshot changes require an audit reason; paid activation remains reserved for verified billing. Updated {dateLabel(overview.generated_at)} · Source: {overview.data_source}.</p>
     </>}
-    {detailBusy && <p role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Loading organization details…</p>}
-    {selected && <div role="dialog" aria-modal="true" aria-labelledby="tenant-detail-title" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}><section className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"><div className="flex items-start justify-between"><div><p className="text-xs font-bold uppercase tracking-wider text-orange-600">Organization detail</p><h2 id="tenant-detail-title" className="mt-1 text-xl font-bold">{selected.tenant.name}</h2><p className="font-mono text-xs text-slate-500">{selected.tenant.id}</p></div><button type="button" onClick={() => setSelected(null)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm">Close</button></div>
+    </>}
+    {detailBusy && activeSection === "overview" && <p role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Loading organization details…</p>}
+    {selected && activeSection === "overview" && <div role="dialog" aria-modal="true" aria-labelledby="tenant-detail-title" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}><section className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"><div className="flex items-start justify-between"><div><p className="text-xs font-bold uppercase tracking-wider text-orange-600">Organization detail</p><h2 id="tenant-detail-title" className="mt-1 text-xl font-bold">{selected.tenant.name}</h2><p className="font-mono text-xs text-slate-500">{selected.tenant.id}</p></div><button type="button" onClick={() => setSelected(null)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm">Close</button></div>
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"><Metric label="Branches" value={selected.branches.length} /><Metric label="Terminals" value={selected.terminals.length} /><Metric label="Users" value={selected.users.length} /><Metric label="Account" value={selected.tenant.account_status} /></div>
       <section className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
         <h3 className="font-bold">Audited account and subscription actions</h3>

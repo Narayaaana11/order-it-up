@@ -136,11 +136,24 @@ export interface CloudAuthResponse {
 }
 
 export async function authenticateWithCloud(payload: Record<string, string>, endpoint: "login" | "register"): Promise<AuthUser> {
-  const response = await fetch(`${CLOUD_API_BASE}/api/auth/${endpoint === "register" ? "register" : "login"}`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", Accept: "application/json" },
-    body: JSON.stringify(payload),
-  });
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), 15_000);
+  let response: Response;
+  try {
+    response = await fetch(`${CLOUD_API_BASE}/api/auth/${endpoint === "register" ? "register" : "login"}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Accept: "application/json" },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error("The authentication service took too long to respond. Please try again.");
+    }
+    throw new Error("Could not reach the authentication service. Check your connection and try again.");
+  } finally {
+    window.clearTimeout(timeout);
+  }
   const data = await response.json().catch(() => ({})) as CloudAuthResponse;
   if (!response.ok) {
     throw new Error(data.error || (response.status === 429 ? "Too many attempts. Please try again later." : "Authentication failed."));

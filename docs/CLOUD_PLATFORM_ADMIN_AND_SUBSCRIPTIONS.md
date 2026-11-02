@@ -10,12 +10,18 @@ The Cloudflare Worker exposes a separate platform-administrator namespace:
 - `GET /api/platform-admin/tenants`
 - `GET /api/platform-admin/tenants/:organizationId`
 - `GET /api/platform-admin/plans`
+- `GET /api/platform-admin/pilot-requests` (authenticated search, status filtering and pagination)
+- `GET /api/platform-admin/pilot-requests/:requestId` (authenticated request details)
+- `PATCH /api/platform-admin/pilot-requests/:requestId` (status and internal notes; audited reason required)
+- `POST /api/pilot-requests` (public, validated and rate-limited pilot access application)
 - `PATCH /api/platform-admin/tenants/:organizationId/account-status` (reason required; writes an audit record)
 - `PATCH /api/platform-admin/tenants/:organizationId/subscription` (reason required; writes an audit record and subscription event)
 - `GET /api/subscription` (tenant-scoped subscription status, trial/period/grace information and entitlements)
 - `GET /api/subscription/plans` (active plan catalogue)
 
 The API reads organizations, branches, terminals, users, synced orders, subscription records and plan definitions from Cloudflare D1. It does not read the local desktop SQLite database and does not synthesize demo tenant records.
+
+Pilot access applications are stored separately from restaurant organizations in `pilot_access_requests` (migration 0014). The public form validates and rate-limits submissions; an idempotency key prevents network retries from creating duplicate records. Only the separate platform-admin identity can search, inspect, or update those requests. Request status changes and internal-note updates are written to `platform_admin_audit_log`. An approval records the decision only: no restaurant account is created and no invitation email is sent automatically.
 
 GMV and recurring revenue are grouped by currency. No implicit INR/USD/EUR conversion is performed. MRR is calculated from active subscription price snapshots: monthly amounts are used directly and yearly amounts are divided by twelve. Trials, suspended subscriptions and cancelled subscriptions are not included in MRR.
 
@@ -32,7 +38,7 @@ Platform administrators may suspend/reactivate/close organizations and change a 
 ## Required rollout order
 
 1. Back up the production D1 database.
-2. Apply the migration in staging first:
+2. Apply pending migrations in staging first (including migration 0014 for the pilot inbox):
    ```sh
    cd apps/cloud-api
    npx wrangler d1 migrations apply orderitup-d1-staging --env staging --remote
@@ -45,7 +51,7 @@ Platform administrators may suspend/reactivate/close organizations and change a 
 5. Provision the platform-admin environment values in the Cloudflare Worker secret store.
 6. Deploy the Worker only after the migration and secrets are verified.
 
-Wrangler applies all pending migrations in filename order, including `0008_saas_subscription_and_platform_admin.sql` and `0009_subscription_grace_periods.sql`. Do not deploy a Worker build that queries these tables/columns until both migrations have been applied in the target environment.
+Wrangler applies all pending migrations in filename order, including `0008_saas_subscription_and_platform_admin.sql`, `0009_subscription_grace_periods.sql` and `0014_pilot_access_requests.sql`. Do not deploy a Worker build that queries these tables until the migrations have been applied in the target environment.
 
 ## Platform administrator credentials
 

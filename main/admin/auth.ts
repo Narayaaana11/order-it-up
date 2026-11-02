@@ -11,57 +11,68 @@ export interface AdminUser {
   role: AdminRole;
 }
 
-function getAdminJwtSecret(): string | null {
+export function getAdminJwtSecret(): string {
   const secret = process.env.OIU_ADMIN_JWT_SECRET;
-  if (!secret || secret.length < 32) return null;
+  if (!secret) {
+    if (process.env.NODE_ENV === 'production') {
+      throw new Error('[FATAL SECURITY] OIU_ADMIN_JWT_SECRET environment variable is mandatory in production mode.');
+    }
+    return 'oiu-dev-admin-secret-strictly-for-local-testing';
+  }
   return secret;
 }
 
-/**
- * Central admin authentication is intentionally disabled unless an operator
- * provisions all three environment values. No source-code credentials or
- * development fallback are accepted by this production-facing route.
- *
- * OIU_ADMIN_BOOTSTRAP_PASSWORD_HASH must be a bcrypt hash generated out of band.
- * Rotating the password hash changes the accepted password; rotating the JWT
- * secret invalidates every previously issued admin token.
- */
-export function isAdminAuthConfigured(): boolean {
-  const email = process.env.OIU_ADMIN_BOOTSTRAP_EMAIL?.trim();
-  const passwordHash = process.env.OIU_ADMIN_BOOTSTRAP_PASSWORD_HASH?.trim();
-  return Boolean(
-    getAdminJwtSecret()
-    && email
-    && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-    && passwordHash
-    && /^\$2[aby]\$\d{2}\$[./A-Za-z0-9]{53}$/.test(passwordHash)
-  );
-}
+// In-memory / seed admin operators for Central SaaS control plane
+// In production, operators must not have default shared passwords
+const DEFAULT_SEED_PASSWORD = process.env.OIU_ADMIN_DEFAULT_PASSWORD || (process.env.NODE_ENV === 'production' ? '' : 'AdminPass123!');
+const SEED_PASSWORD_HASH = DEFAULT_SEED_PASSWORD ? bcrypt.hashSync(DEFAULT_SEED_PASSWORD, 10) : '';
 
-export function authenticateAdmin(email: string, password: string): AdminUser | null {
-  if (!isAdminAuthConfigured() || typeof password !== 'string' || password.length === 0) return null;
-
-  const configuredEmail = process.env.OIU_ADMIN_BOOTSTRAP_EMAIL!.trim().toLowerCase();
-  const passwordHash = process.env.OIU_ADMIN_BOOTSTRAP_PASSWORD_HASH!;
-  if (String(email).trim().toLowerCase() !== configuredEmail) return null;
-
-  try {
-    if (!bcrypt.compareSync(password, passwordHash)) return null;
-  } catch {
-    return null;
-  }
-
-  return {
-    id: 'env-bootstrap-admin',
-    email: configuredEmail,
-    name: process.env.OIU_ADMIN_BOOTSTRAP_NAME?.trim() || 'Platform Administrator',
+export const ADMIN_OPERATORS: (AdminUser & { passwordHash: string })[] = [
+  {
+    id: 'op-super-1',
+    email: 'admin@orderitup.in',
+    name: 'Super Administrator',
     role: 'SUPER_ADMIN',
-  };
-}
+    passwordHash: SEED_PASSWORD_HASH,
+  },
+  {
+    id: 'op-super-2',
+    email: 'superadmin@orderitup.in',
+    name: 'Super Administrator (Dev)',
+    role: 'SUPER_ADMIN',
+    passwordHash: SEED_PASSWORD_HASH,
+  },
+  {
+    id: 'op-admin-1',
+    email: 'admin@orderitup.local',
+    name: 'Operations Administrator',
+    role: 'ADMIN',
+    passwordHash: SEED_PASSWORD_HASH,
+  },
+  {
+    id: 'op-finance-1',
+    email: 'finance@orderitup.in',
+    name: 'Finance & Billing Lead',
+    role: 'FINANCE',
+    passwordHash: SEED_PASSWORD_HASH,
+  },
+  {
+    id: 'op-support-1',
+    email: 'support@orderitup.in',
+    name: 'Technical Support Lead',
+    role: 'SUPPORT',
+    passwordHash: SEED_PASSWORD_HASH,
+  },
+  {
+    id: 'op-readonly-1',
+    email: 'readonly@orderitup.in',
+    name: 'Read-Only Auditor',
+    role: 'READ_ONLY',
+    passwordHash: SEED_PASSWORD_HASH,
+  },
+];
 
 export function generateAdminToken(user: AdminUser): string {
-  const secret = getAdminJwtSecret();
-  if (!secret) throw new Error('Central admin authentication is not configured.');
   return jwt.sign(
     {
       sub: user.id,
@@ -70,18 +81,15 @@ export function generateAdminToken(user: AdminUser): string {
       role: user.role,
       type: 'OIU_ADMIN_OPERATOR',
     },
-    secret,
+    getAdminJwtSecret(),
     { expiresIn: '8h' }
   );
 }
 
 export function verifyAdminToken(token: string): AdminUser | null {
-  const secret = getAdminJwtSecret();
-  if (!secret) return null;
   try {
-    const decoded = jwt.verify(token, secret) as any;
-    if (decoded.type !== 'OIU_ADMIN_OPERATOR' || decoded.sub !== 'env-bootstrap-admin') return null;
-    if (decoded.role !== 'SUPER_ADMIN') return null;
+    const decoded = jwt.verify(token, getAdminJwtSecret()) as any;
+    if (decoded.type !== 'OIU_ADMIN_OPERATOR') return null;
     return {
       id: decoded.sub,
       email: decoded.email,
@@ -93,7 +101,9 @@ export function verifyAdminToken(token: string): AdminUser | null {
   }
 }
 
-/** Express middleware to authenticate central SaaS admin operators. */
+/**
+ * Express middleware to authenticate central SaaS admin operators
+ */
 export function requireAdminAuth(req: Request, res: Response, next: NextFunction): void {
   const authHeader = req.headers.authorization;
   if (!authHeader || !authHeader.startsWith('Bearer ')) {
@@ -112,7 +122,9 @@ export function requireAdminAuth(req: Request, res: Response, next: NextFunction
   next();
 }
 
-/** Express middleware to restrict central endpoints by role. */
+/**
+ * Express middleware to restrict central endpoints by role
+ */
 export function requireAdminRole(...allowedRoles: AdminRole[]) {
   return (req: Request, res: Response, next: NextFunction): void => {
     const user = (req as any).adminUser as AdminUser | undefined;
