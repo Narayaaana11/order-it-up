@@ -163,9 +163,12 @@ export async function handleRegisterTenant(request: Request, env: Env): Promise<
   // 4. Secure password derivation
   const passwordHash = await hashPassword(password);
   const now = new Date().toISOString();
+  const trialEndsAt = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString();
   const orgId = crypto.randomUUID();
   const branchId = crypto.randomUUID();
   const userId = crypto.randomUUID();
+  const subscriptionId = crypto.randomUUID();
+  const subscriptionEventId = crypto.randomUUID();
 
   // 5. Atomic D1 Batch Transaction
   const statements: any[] = [];
@@ -178,6 +181,19 @@ export async function handleRegisterTenant(request: Request, env: Env): Promise<
     INSERT INTO organizations (id, name, legal_name, tax_number, currency, country, timezone, created_at, updated_at)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
   `).bind(orgId, restaurantName, body.legal_name || restaurantName, body.tax_number || null, currency, country, timezone, now, now));
+
+  // 5a. New organizations receive a 14-day Starter trial with a price snapshot.
+  // The catalog remains the source of future pricing; this snapshot never changes retroactively.
+  statements.push(env.DB.prepare(`
+    INSERT INTO organization_subscriptions
+      (id, organization_id, plan_code, status, billing_cycle, currency, amount_minor, trial_ends_at, created_at, updated_at)
+    VALUES (?, ?, 'starter', 'trial', 'monthly', 'INR', 49900, ?, ?, ?)
+  `).bind(subscriptionId, orgId, trialEndsAt, now, now));
+  statements.push(env.DB.prepare(`
+    INSERT INTO subscription_events
+      (id, organization_id, subscription_id, event_type, source, event_json, created_at)
+    VALUES (?, ?, ?, 'trial_started', 'self_service_registration', '{}', ?)
+  `).bind(subscriptionEventId, orgId, subscriptionId, now));
 
   // 5b. Default Restaurant Concept
   statements.push(env.DB.prepare(`
@@ -253,8 +269,9 @@ export async function handleRegisterTenant(request: Request, env: Env): Promise<
     country,
     currency,
     timezone,
-    plan: 'saas_production',
-    status: 'active',
+    plan: 'starter',
+    status: 'trial',
+    trial_expires_at: trialEndsAt,
     role: 'owner',
   };
 
