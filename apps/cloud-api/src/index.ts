@@ -176,9 +176,12 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     }
 
     const user = await env.DB.prepare(`
-      SELECT u.*, o.name as organization_name, o.currency, o.timezone
+      SELECT u.*, o.name as organization_name, o.currency, o.timezone,
+             o.account_status, s.plan_code AS subscription_plan,
+             s.status AS subscription_status, s.trial_ends_at, s.current_period_end
       FROM cloud_users u
       JOIN organizations o ON u.organization_id = o.id
+      LEFT JOIN organization_subscriptions s ON s.organization_id = o.id
       WHERE u.email = ? AND u.status = 'active'
     `).bind(email).first<any>();
 
@@ -192,6 +195,15 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     const { valid, needsRehash } = await verifyPassword(password, user.password_hash);
     if (!valid) {
       return Response.json({ error: 'Invalid credentials' }, { status: 401 });
+    }
+
+    // The platform operator can suspend an organization or subscription centrally.
+    // Check this server-side after verifying the password to avoid leaking account state.
+    if (user.account_status && user.account_status !== 'active') {
+      return Response.json({ error: 'This organization is currently unavailable. Contact platform support.' }, { status: 403 });
+    }
+    if (['suspended', 'cancelled', 'expired'].includes(user.subscription_status)) {
+      return Response.json({ error: 'This subscription is not active. Contact the organization owner or platform support.' }, { status: 402 });
     }
 
     // Rehash legacy hash (e.g. SHA-256) to modern scrypt on successful login
@@ -232,8 +244,10 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
       country: user.country || 'IN',
       currency: user.currency || 'INR',
       timezone: user.timezone || 'Asia/Kolkata',
-      plan: 'saas_production',
-      status: 'active',
+      plan: user.subscription_plan || 'saas_production',
+      status: user.subscription_status || 'active',
+      trial_expires_at: user.trial_ends_at || null,
+      current_period_end: user.current_period_end || null,
       role: user.role,
     };
 
@@ -314,14 +328,23 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   // 5b. Auth: Current User & Session Validation (/api/auth/me)
   if (path === '/api/auth/me' && method === 'GET') {
     const user = await env.DB.prepare(`
-      SELECT u.*, o.name as organization_name, o.currency, o.timezone, o.country
+      SELECT u.*, o.name as organization_name, o.currency, o.timezone, o.country,
+             o.account_status, s.plan_code AS subscription_plan,
+             s.status AS subscription_status, s.trial_ends_at, s.current_period_end
       FROM cloud_users u
       JOIN organizations o ON u.organization_id = o.id
+      LEFT JOIN organization_subscriptions s ON s.organization_id = o.id
       WHERE u.id = ? AND u.status = 'active'
     `).bind(userId).first<any>();
 
     if (!user) {
       return Response.json({ error: 'User account not found' }, { status: 404 });
+    }
+    if (user.account_status && user.account_status !== 'active') {
+      return Response.json({ error: 'This organization is currently unavailable. Contact platform support.' }, { status: 403 });
+    }
+    if (['suspended', 'cancelled', 'expired'].includes(user.subscription_status)) {
+      return Response.json({ error: 'This subscription is not active. Contact the organization owner or platform support.' }, { status: 402 });
     }
 
     const tenantObj = {
@@ -334,8 +357,10 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
       country: user.country || 'IN',
       currency: user.currency || 'INR',
       timezone: user.timezone || 'Asia/Kolkata',
-      plan: 'saas_production',
-      status: 'active',
+      plan: user.subscription_plan || 'saas_production',
+      status: user.subscription_status || 'active',
+      trial_expires_at: user.trial_ends_at || null,
+      current_period_end: user.current_period_end || null,
       role: claims.role,
     };
 
