@@ -167,6 +167,9 @@ jobs:
       - name: Web Navigation Cloud Surface Gate
         run: npm run test:cloud-surface
 
+      - name: Guest Payment Intents (Provider Verification & Fail-Closed)
+        run: npm run test:cloud-guest-payments
+
       - name: Comprehensive E2E Multi-Branch & Mobile Parity Audit
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/comprehensive-e2e-audit.test.ts
 

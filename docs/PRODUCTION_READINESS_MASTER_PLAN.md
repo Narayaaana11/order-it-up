@@ -19,7 +19,8 @@ Current local work also adds Cloud D1 migration 0019 for authoritative order com
 - **Cloud menu CSV** (`routes/menu-csv.ts`) serves the product dashboard's templates, exports and imports with quoted-cell parsing, per-row validation, and owner/manager-only access.
 - **Mobile compatibility** (`routes/mobile-compat.ts`, migration 0023) adds session refresh, the Flutter cash-closure contract, branch-scoped held orders (`/api/held-orders`), and CRM phone lookup; kitchen ticket status accepts the mobile/KDS vocabulary (`waiting`/`served`).
 - **Cloud staff management** (`routes/staff.ts`) serves the desktop `/staff` directory against `cloud_users` + `memberships`, with password login/reset, role changes that rewrite memberships, and protections for self-deactivation and the last active owner.
-- **Non-cash tender guard:** production/staging set `REQUIRE_PROVIDER_VERIFIED_NONCASH=true`, so a cashier cannot mark card/UPI paid from a typed reference. Only cash is recordable until a server-verified guest payment provider flow is implemented.
+- **Guest payment intents** (migration 0024 + `routes/guest-payments.ts`) add capability discovery, server-created provider intents, signature and provider-capture verification, and a `gateway_verified` ledger write; without live keys it fails closed.
+- **Non-cash tender guard:** production/staging set `REQUIRE_PROVIDER_VERIFIED_NONCASH=true`, so a cashier cannot mark card/UPI paid from a typed reference. Only cash (or the verified intent flow) is recordable.
 - **Cloud customer registry** (migration 0022 + `routes/customers.ts`) provides tenant-scoped customer CRUD, phone search, and order-derived spend/visit aggregates for the CRM screen and waiter seating; loyalty balances are reported as zero rather than fabricated. Owner reports now count new customers from this registry for the caller's authorized branches.
 - **Cloud table management** now supports create, configuration updates, deactivate/reactivate, and inactive-table listing with occupied-table protection, so the web `/tables` dashboard works against D1.
 - **`apps/cloud-api/src/routes/restaurant-ops.ts`** implements branch-scoped, role-checked expenses (void-not-delete), vendor/category management, reservations with a state machine and table occupancy, inventory adjustments with an idempotent ledger and recipe costing, shift cash closure with persisted variance in `synced_cash_closures`, and delivery dispatch with assignment/handoff and explicit COD collection.
@@ -48,6 +49,7 @@ Current local work also adds Cloud D1 migration 0019 for authoritative order com
 | `cloud-saas-subscription-payments` | Razorpay order/capture/webhook/replay |
 | `landing-cloud-workspace` (browser) | waiter → kitchen → cashier → accountant against the live workspace |
 | `cloud-mobile-compat` | Flutter session refresh, cash-closure contract, held orders, CRM lookup and reports against the Worker |
+| `cloud-guest-payments` | Payment capabilities, provider intent creation, signature/capture/amount verification, idempotency, fail-closed behaviour |
 | `npm run check:mobile-cloud` | Static parity: 35 mobile endpoints classified as Cloud/local-only/partner-gated |
 | `npm run test:cloud-surface` | Web navigation hides desktop-only settings/WhatsApp/AI/aggregator pages in Cloud mode |
 | `npm run check:cloud-worker` | Wrangler dry-run production bundle (477.58 KiB upload / 92.05 KiB gzip) with the real D1 binding |
