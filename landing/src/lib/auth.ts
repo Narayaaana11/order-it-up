@@ -10,90 +10,45 @@ export interface AuthUser {
   token?: string;
 }
 
-export const DEMO_USERS: Record<string, { email: string; pass: string; user: AuthUser }> = {
-  owner: {
-    email: "demo.owner@orderitup.in",
-    pass: "DemoOwner2026!",
-    user: {
-      id: "usr_owner_01",
-      name: "Priya Sharma",
-      email: "demo.owner@orderitup.in",
-      role: "owner",
-      organizationId: "org_demo_showcase_01",
-      organizationName: "The Rustic Olive Bistro & Bar",
-    },
-  },
-  manager: {
-    email: "demo.manager@orderitup.in",
-    pass: "DemoManager2026!",
-    user: {
-      id: "usr_manager_01",
-      name: "Arjun Verma",
-      email: "demo.manager@orderitup.in",
-      role: "manager",
-      organizationId: "org_demo_showcase_01",
-      organizationName: "The Rustic Olive (Connaught Place)",
-    },
-  },
-  accountant: {
-    email: "demo.accountant@orderitup.in",
-    pass: "DemoAccountant2026!",
-    user: {
-      id: "usr_acc_01",
-      name: "Kavita Rao",
-      email: "demo.accountant@orderitup.in",
-      role: "accountant",
-      organizationId: "org_demo_showcase_01",
-      organizationName: "The Rustic Olive Accounting",
-    },
-  },
-  cashier: {
-    email: "demo.cashier@orderitup.in",
-    pass: "DemoCashier2026!",
-    user: {
-      id: "usr_cashier_01",
-      name: "Rohit Singh",
-      email: "demo.cashier@orderitup.in",
-      role: "cashier",
-      organizationId: "org_demo_showcase_01",
-      organizationName: "Counter Terminal 01",
-    },
-  },
-  server: {
-    email: "demo.server@orderitup.in",
-    pass: "DemoServer2026!",
-    user: {
-      id: "usr_server_01",
-      name: "Aman Kapoor",
-      email: "demo.server@orderitup.in",
-      role: "server",
-      organizationId: "org_demo_showcase_01",
-      organizationName: "Floor Service Station",
-    },
-  },
-  chef: {
-    email: "demo.chef@orderitup.in",
-    pass: "DemoChef2026!",
-    user: {
-      id: "usr_chef_01",
-      name: "Chef Marco D.",
-      email: "demo.chef@orderitup.in",
-      role: "chef",
-      organizationId: "org_demo_showcase_01",
-      organizationName: "Main Kitchen KDS",
-    },
-  },
+type DemoProfile = { user: AuthUser };
 
+export const DEMO_USERS: Record<string, DemoProfile> = {
+  owner: { user: { id: "preview-owner", name: "Priya Sharma", email: "owner@example.invalid", role: "owner", organizationId: "preview-org", organizationName: "Sample Restaurant" } },
+  manager: { user: { id: "preview-manager", name: "Arjun Verma", email: "manager@example.invalid", role: "manager", organizationId: "preview-org", organizationName: "Sample Restaurant" } },
+  accountant: { user: { id: "preview-accountant", name: "Kavita Rao", email: "accountant@example.invalid", role: "accountant", organizationId: "preview-org", organizationName: "Sample Restaurant" } },
+  cashier: { user: { id: "preview-cashier", name: "Rohit Singh", email: "cashier@example.invalid", role: "cashier", organizationId: "preview-org", organizationName: "Sample Restaurant" } },
+  server: { user: { id: "preview-server", name: "Aman Kapoor", email: "server@example.invalid", role: "server", organizationId: "preview-org", organizationName: "Sample Restaurant" } },
+  chef: { user: { id: "preview-chef", name: "Chef Marco", email: "chef@example.invalid", role: "chef", organizationId: "preview-org", organizationName: "Sample Restaurant" } },
 };
 
-const AUTH_STORAGE_KEY = "orderitup_demo_auth_user";
+const AUTH_STORAGE_KEY = "orderitup_auth_user";
+const DEMO_PREVIEW_KEY = "orderitup_demo_preview_user";
+const CLOUD_API_BASE = (process.env.NEXT_PUBLIC_OIU_CLOUD_API_URL || "https://orderitup-cloud-api.narayaaana11.workers.dev").replace(/\/$/, "");
+
+export function getCloudApiBase(): string {
+  return CLOUD_API_BASE;
+}
 
 export function getStoredUser(): AuthUser | null {
   if (typeof window === "undefined") return null;
   try {
+    const legacyToken = localStorage.getItem("token") || localStorage.getItem("cloud_token");
+    if (legacyToken && (legacyToken.startsWith("demo_") || legacyToken.startsWith("demo-jwt"))) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("cloud_token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("tenant");
+      localStorage.removeItem("orderitup_demo_auth_user");
+    }
     const raw = localStorage.getItem(AUTH_STORAGE_KEY);
-    if (!raw) return null;
-    return JSON.parse(raw) as AuthUser;
+    if (raw) {
+      const user = JSON.parse(raw) as AuthUser;
+      if (typeof user.token === "string" && user.token.length > 20) return user;
+      // Never trust or restore old synthetic/demo tokens.
+      setStoredUser(null);
+    }
+    const preview = sessionStorage.getItem(DEMO_PREVIEW_KEY);
+    return preview ? JSON.parse(preview) as AuthUser : null;
   } catch {
     return null;
   }
@@ -103,52 +58,106 @@ export function setStoredUser(user: AuthUser | null): void {
   if (typeof window === "undefined") return;
   try {
     if (user) {
+      if (typeof user.token !== "string" || user.token.length < 20) {
+        throw new Error("A valid cloud access token is required to create an authenticated session.");
+      }
+      sessionStorage.removeItem(DEMO_PREVIEW_KEY);
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(user));
-      // Dual-write keys for frontend unified session storage
-      const token = user.token || `demo_jwt_token_${user.id}`;
-      localStorage.setItem("token", token);
-      localStorage.setItem("cloud_token", token);
-      localStorage.setItem(
-        "user",
-        JSON.stringify({
-          id: user.id,
-          name: user.name,
-          email: user.email,
-          role: user.role,
-          isOwner: user.role === "owner" || user.role === "SUPER_ADMIN",
-          organization_id: user.organizationId || "org_demo_showcase_01",
-          organization_name: user.organizationName || "The Rustic Olive Bistro & Bar",
-          currency: "INR",
-          timezone: "Asia/Kolkata",
-        })
-      );
-      localStorage.setItem(
-        "tenant",
-        JSON.stringify({
-          id: user.organizationId || "org_demo_showcase_01",
-          business_name: user.organizationName || "The Rustic Olive Bistro & Bar",
-          name: user.organizationName || "The Rustic Olive Bistro & Bar",
-          slug: (user.organizationName || "the-rustic-olive").toLowerCase().replace(/\s+/g, "-"),
-          database_name: "cloud_d1",
-          business_type: "restaurant",
-          country: "IN",
-          currency: "INR",
-          timezone: "Asia/Kolkata",
-          plan: "saas_production",
-          status: "active",
-          role: user.role,
-        })
-      );
+      localStorage.setItem("token", user.token);
+      localStorage.setItem("cloud_token", user.token);
+      localStorage.setItem("user", JSON.stringify({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        isOwner: user.role === "owner" || user.role === "SUPER_ADMIN",
+        organization_id: user.organizationId,
+        organization_name: user.organizationName,
+      }));
+      localStorage.setItem("tenant", JSON.stringify({
+        id: user.organizationId,
+        business_name: user.organizationName,
+        name: user.organizationName,
+        database_name: "cloud_d1",
+        business_type: "restaurant",
+        country: "IN",
+        currency: "INR",
+        timezone: "Asia/Kolkata",
+        role: user.role,
+      }));
     } else {
       localStorage.removeItem(AUTH_STORAGE_KEY);
       localStorage.removeItem("token");
       localStorage.removeItem("cloud_token");
       localStorage.removeItem("user");
       localStorage.removeItem("tenant");
+      sessionStorage.removeItem(DEMO_PREVIEW_KEY);
+      // Remove credentials created by earlier demo builds.
+      localStorage.removeItem("orderitup_demo_auth_user");
     }
     window.dispatchEvent(new Event("orderitup_auth_change"));
-  } catch {
-    // ignore
+  } catch (error) {
+    if (user) throw error;
   }
 }
 
+/** A preview is intentionally stored only in sessionStorage and never creates an API token. */
+export function setDemoPreviewUser(user: AuthUser | null): void {
+  if (typeof window === "undefined") return;
+  if (user) {
+    localStorage.removeItem(AUTH_STORAGE_KEY);
+    localStorage.removeItem("token");
+    localStorage.removeItem("cloud_token");
+    localStorage.removeItem("user");
+    localStorage.removeItem("tenant");
+    sessionStorage.setItem(DEMO_PREVIEW_KEY, JSON.stringify(user));
+  } else {
+    sessionStorage.removeItem(DEMO_PREVIEW_KEY);
+  }
+  window.dispatchEvent(new Event("orderitup_auth_change"));
+}
+
+export function isDemoPreviewSession(): boolean {
+  return typeof window !== "undefined" && sessionStorage.getItem(DEMO_PREVIEW_KEY) !== null;
+}
+
+export interface CloudAuthResponse {
+  token?: string;
+  access_token?: string;
+  user?: {
+    id: string;
+    name: string;
+    email: string;
+    role: AuthUser["role"];
+    organization_id: string;
+    organization_name: string;
+  };
+  error?: string;
+}
+
+export async function authenticateWithCloud(payload: Record<string, string>, endpoint: "login" | "register"): Promise<AuthUser> {
+  const response = await fetch(`${CLOUD_API_BASE}/api/auth/${endpoint === "register" ? "register" : "login"}`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", Accept: "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await response.json().catch(() => ({})) as CloudAuthResponse;
+  if (!response.ok) {
+    throw new Error(data.error || (response.status === 429 ? "Too many attempts. Please try again later." : "Authentication failed."));
+  }
+  const token = data.token || data.access_token;
+  if (!token || !data.user?.id || !data.user.email || !data.user.role) {
+    throw new Error("The authentication service returned an incomplete session. Please contact support.");
+  }
+  const user: AuthUser = {
+    id: data.user.id,
+    name: data.user.name || data.user.email,
+    email: data.user.email,
+    role: data.user.role,
+    organizationId: data.user.organization_id,
+    organizationName: data.user.organization_name,
+    token,
+  };
+  setStoredUser(user);
+  return user;
+}
