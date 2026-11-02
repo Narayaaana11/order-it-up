@@ -1,6 +1,7 @@
 # Order It Up — Production Release Runbook
 
 **Status:** Prepared, not executed. This runbook does not authorize a production change by itself.
+**Current verified source status:** [PRODUCTION_STATUS.md](./PRODUCTION_STATUS.md)
 **Scope:** Cloudflare Worker + D1, Cloudflare Pages (web dashboard/QR), and post-deploy verification for the desktop/tablet clients.
 **Related:** [D1 baseline reconciliation](./CLOUD_D1_BASELINE_RECONCILIATION.md), [security bootstrap](./SECURITY_BOOTSTRAP_AND_WEBHOOKS.md), [deployment guide](../DEPLOYMENT.md), [master plan](./PRODUCTION_READINESS_MASTER_PLAN.md).
 

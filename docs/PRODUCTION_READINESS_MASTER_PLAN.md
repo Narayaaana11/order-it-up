@@ -5,6 +5,7 @@
 **Planning baseline:** Repository inspection on 2026-11-03
 **Current source baseline:** `origin/main` at `07f6d3f` (PR #35 merged the pilot access, admin inbox, migration, CI, and multi-platform changes)
 **Current local work branch:** `feat/tablet-pos-and-role-dashboard-foundation`
+**Current verified status:** [PRODUCTION_STATUS.md](./PRODUCTION_STATUS.md)
 
 ## Current verified source state — 2026-11-03
 
