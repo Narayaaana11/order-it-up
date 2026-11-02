@@ -53,6 +53,8 @@ Order matters: **D1 migrations before the Worker deploy**, because the new Worke
 | `RAZORPAY_KEY_SECRET` | Razorpay API auth | Live secret |
 | `RAZORPAY_WEBHOOK_SECRET` | Webhook HMAC | Must match the dashboard webhook config |
 
+`REQUIRE_PROVIDER_VERIFIED_NONCASH` is set to `true` in production/staging `wrangler.toml`. With no guest-payment provider flow configured, the Cloud API records cash only and rejects client-entered card/UPI tenders with `PROVIDER_VERIFICATION_REQUIRED`. Do not disable this flag to make a demo work; implement and verify the provider flow instead.
+
 ```powershell
 cd apps/cloud-api
 npx wrangler secret put JWT_SECRET

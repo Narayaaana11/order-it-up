@@ -1315,6 +1315,16 @@ export async function handleRecordCustomerPayment(
     }, { status: 400 });
   }
 
+  // 2b. Production can require authoritative provider evidence for non-cash
+  // tenders. Without a configured guest-payment provider, cash is the only
+  // tender this endpoint may record.
+  if (paymentMethod !== 'cash' && String(env.REQUIRE_PROVIDER_VERIFIED_NONCASH || '').toLowerCase() === 'true') {
+    return Response.json({
+      error: 'Card and UPI payments require provider verification. Only cash can be recorded directly until the payment provider flow is configured.',
+      code: 'PROVIDER_VERIFICATION_REQUIRED',
+    }, { status: 400 });
+  }
+
   const extRef = typeof body?.external_reference_id === 'string' && body.external_reference_id.trim()
     ? body.external_reference_id.trim()
     : (typeof body?.reference_number === 'string' && body.reference_number.trim() ? body.reference_number.trim() : null);

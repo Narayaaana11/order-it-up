@@ -24,6 +24,7 @@ export interface Env {
   RAZORPAY_KEY_ID?: string;
   RAZORPAY_KEY_SECRET?: string;
   RAZORPAY_WEBHOOK_SECRET?: string;
+  REQUIRE_PROVIDER_VERIFIED_NONCASH?: string;
 }
 
 export const MAX_PAIRING_CODE_ATTEMPTS = 5;

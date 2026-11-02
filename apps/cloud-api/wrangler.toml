@@ -9,6 +9,7 @@ crons = ["17 3 * * *"]
 [vars]
 ENVIRONMENT = "production"
 ALLOW_SELF_SERVICE_REGISTRATION = "false"
+REQUIRE_PROVIDER_VERIFIED_NONCASH = "true"
 FRONTEND_ORIGIN = "https://app.orderitup.in, https://orderitup.in, https://orderitup.pages.dev"
 # Mandatory Security Requirement:
 # JWT_SECRET must be configured as an encrypted environment secret (minimum 32 characters / 256 bits):
@@ -35,6 +36,7 @@ crons = ["17 3 * * *"]
 [env.staging.vars]
 ENVIRONMENT = "staging"
 ALLOW_SELF_SERVICE_REGISTRATION = "false"
+REQUIRE_PROVIDER_VERIFIED_NONCASH = "true"
 FRONTEND_ORIGIN = "https://staging.orderitup.in"
 
 [[env.staging.d1_databases]]

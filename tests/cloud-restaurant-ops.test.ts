@@ -448,7 +448,23 @@ async function run() {
   const restored = (await (await call('user-owner', '/api/tables')).json() as any).tables;
   assert.ok(restored.some((table: any) => table.id === newTableRow.id), 'a reactivated table returns to the floor');
 
-  console.log('Cloud restaurant operations passed: expenses, reservations, inventory, recipes, shift closure, delivery dispatch, waiter rounds, and table management.');
+  // ── Non-cash tender guard ───────────────────────────────────────────────
+  env.REQUIRE_PROVIDER_VERIFIED_NONCASH = 'true';
+  const blockedCard = await call('user-owner', '/api/orders/order-waiter-round/payments', {
+    method: 'POST',
+    body: JSON.stringify({ amount: 1, payment_method: 'card', external_reference_id: 'UTR12345' }),
+  });
+  assert.equal(blockedCard.status, 400, 'production rejects client-recorded card tenders');
+  assert.equal((await blockedCard.json() as any).code, 'PROVIDER_VERIFICATION_REQUIRED');
+
+  const cashStillWorks = await call('user-owner', '/api/orders/order-waiter-round/payments', {
+    method: 'POST',
+    body: JSON.stringify({ amount: 1, payment_method: 'cash', idempotency_key: 'noncash-guard-cash-1' }),
+  });
+  assert.equal(cashStillWorks.status, 201, 'cash remains recordable under the guard');
+  delete env.REQUIRE_PROVIDER_VERIFIED_NONCASH;
+
+  console.log('Cloud restaurant operations passed: expenses, reservations, inventory, recipes, shift closure, delivery dispatch, waiter rounds, table management, and the non-cash tender guard.');
 }
 
 run().catch((error) => { console.error(error); process.exitCode = 1; });
