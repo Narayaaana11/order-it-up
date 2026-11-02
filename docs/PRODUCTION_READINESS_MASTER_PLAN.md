@@ -58,6 +58,7 @@ The product should preserve the offline-first desktop POS while adding dependabl
 - [x] Added environment-provisioned bootstrap admin credentials with bcrypt hash validation.
 - [x] Central admin authentication fails closed when required environment settings are missing.
 - [x] Central admin login attempts use the production authentication rate limiter.
+- [x] Cloud API CORS requires exact allowlisted origins in production and staging; missing allowlists deny browser origins.
 - [x] Preserved exact raw HTTP request bytes for webhook HMAC validation.
 - [x] Swiggy/Zomato order, rider and cancellation webhook routes require an enabled integration and a valid platform signature.
 - [x] Missing webhook secrets fail closed with HTTP 503; invalid/missing signatures fail with HTTP 401.
