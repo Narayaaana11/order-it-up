@@ -408,7 +408,47 @@ async function run() {
   const amendmentTickets = rawDb.prepare("SELECT COUNT(*) AS count FROM kitchen_tickets WHERE order_id = 'order-waiter-round'").get() as any;
   assert.equal(amendmentTickets.count, 2, 'the added round dispatches its own kitchen ticket');
 
-  console.log('Cloud restaurant operations passed: expenses, reservations, inventory, recipes, shift closure, delivery dispatch, and waiter rounds.');
+  // ── Table management ────────────────────────────────────────────────────
+  const newTable = await call('user-owner', '/api/tables', {
+    method: 'POST', body: JSON.stringify({ name: 'T-2', capacity: 6, floor: 'Patio', section: 'Outdoor' }),
+  });
+  assert.equal(newTable.status, 201);
+  const newTableRow = (await newTable.json() as any).table;
+  assert.equal(newTableRow.name, 'T-2');
+  assert.equal(newTableRow.capacity, 6);
+
+  const waiterTableCreate = await call('user-waiter', '/api/tables', {
+    method: 'POST', body: JSON.stringify({ name: 'T-3', capacity: 2 }),
+  });
+  assert.equal(waiterTableCreate.status, 403, 'waiters cannot configure tables');
+
+  const updatedTable = await call('user-owner', `/api/tables/${newTableRow.id}`, {
+    method: 'PUT', body: JSON.stringify({ name: 'T-2B', capacity: 8 }),
+  });
+  assert.equal(updatedTable.status, 200);
+  assert.equal((await updatedTable.json() as any).table.name, 'T-2B');
+
+  const managerBTableEdit = await call('user-manager-b', `/api/tables/${newTableRow.id}`, {
+    method: 'PUT', body: JSON.stringify({ capacity: 2 }),
+  });
+  assert.equal(managerBTableEdit.status, 403, 'a manager of another branch cannot edit this table');
+
+  const deactivated = await call('user-owner', `/api/tables/${newTableRow.id}/deactivate`, { method: 'POST' });
+  assert.equal(deactivated.status, 200);
+  const activeTables = (await (await call('user-owner', '/api/tables')).json() as any).tables;
+  assert.ok(!activeTables.some((table: any) => table.id === newTableRow.id), 'inactive tables leave the floor list');
+  const allTables = (await (await call('user-owner', '/api/tables?include_inactive=1')).json() as any).tables;
+  assert.equal(allTables.find((table: any) => table.id === newTableRow.id)?.is_active, 0, 'management can still see inactive tables');
+
+  const blockedDeactivate = await call('user-owner', '/api/tables/table-a1/deactivate', { method: 'POST' });
+  assert.equal(blockedDeactivate.status, 409, 'an occupied table cannot be removed from service');
+
+  const reactivated = await call('user-owner', `/api/tables/${newTableRow.id}/reactivate`, { method: 'POST' });
+  assert.equal(reactivated.status, 200);
+  const restored = (await (await call('user-owner', '/api/tables')).json() as any).tables;
+  assert.ok(restored.some((table: any) => table.id === newTableRow.id), 'a reactivated table returns to the floor');
+
+  console.log('Cloud restaurant operations passed: expenses, reservations, inventory, recipes, shift closure, delivery dispatch, waiter rounds, and table management.');
 }
 
 run().catch((error) => { console.error(error); process.exitCode = 1; });

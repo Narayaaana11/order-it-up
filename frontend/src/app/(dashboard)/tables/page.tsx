@@ -236,7 +236,8 @@ export default function TablesPage() {
 
   const fetchTables = async () => {
     try {
-      const { data } = await api.get('/tables');
+      // The management screen must see inactive tables so they can be reactivated.
+      const { data } = await api.get('/tables?include_inactive=1');
       setTables(data.tables || []);
     } catch {
       toast.error(tTables('loadFailed'));
@@ -247,7 +248,7 @@ export default function TablesPage() {
 
   useEffect(() => {
     const load = () => {
-      api.get('/tables')
+      api.get('/tables?include_inactive=1')
         .then(({ data }) => setTables(data.tables || []))
         .catch(() => toast.error(tTables('loadFailed')))
         .finally(() => setLoading(false));

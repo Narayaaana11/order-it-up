@@ -1694,11 +1694,13 @@ export async function handleListTables(
   }
   if (authorizedBranchIds.length === 0) return Response.json({ error: 'Forbidden: Insufficient privileges for this branch' }, { status: 403 });
 
+  const includeInactive = url.searchParams.get('include_inactive') === '1';
+  const activeClause = includeInactive ? '' : 'AND t.is_active = 1';
   const tablesResult = await env.DB.prepare(`
     SELECT t.*, o.order_number, o.grand_total as current_order_total, o.kitchen_status as current_order_kitchen_status
     FROM dining_tables t
     LEFT JOIN synced_orders o ON t.current_order_id = o.id
-    WHERE t.organization_id = ? AND t.branch_id IN (${authorizedBranchIds.map(() => '?').join(',')}) AND t.is_active = 1
+    WHERE t.organization_id = ? AND t.branch_id IN (${authorizedBranchIds.map(() => '?').join(',')}) ${activeClause}
     ORDER BY t.table_number ASC
   `).bind(orgId, ...authorizedBranchIds).all();
 
@@ -1783,12 +1785,109 @@ export async function handleCreateTable(
       id: tableId,
       branch_id: branchId,
       table_number: tableNumber,
+      name: tableNumber,
       capacity,
       status: 'available',
       floor,
       section,
+      is_active: 1,
     },
   }, { status: 201 });
+}
+
+/**
+ * Updates a dining table's configuration (Owners & Managers only).
+ */
+export async function handleUpdateTable(
+  request: Request,
+  env: Env,
+  claims: any,
+  tableId: string
+): Promise<Response> {
+  const orgId = claims.org;
+  const userId = claims.sub;
+
+  const table = await env.DB.prepare(`
+    SELECT * FROM dining_tables WHERE id = ? AND organization_id = ?
+  `).bind(tableId, orgId).first<any>();
+  if (!table) return Response.json({ error: 'Table not found' }, { status: 404 });
+
+  const memberships = await getUserMemberships(env.DB, orgId, userId);
+  const authCheck = await isAuthorizedForBranch(env.DB, orgId, memberships, table.branch_id, ['owner', 'manager']);
+  if (!authCheck.authorized) {
+    return Response.json({ error: 'Forbidden: Only owners and managers can configure dining tables' }, { status: 403 });
+  }
+
+  let body: any;
+  try { body = await request.json(); } catch { return Response.json({ error: 'Invalid JSON payload' }, { status: 400 }); }
+
+  const tableNumber = typeof body?.name === 'string' && body.name.trim()
+    ? body.name.trim()
+    : (typeof body?.table_number === 'string' && body.table_number.trim() ? body.table_number.trim() : table.table_number);
+  if (!tableNumber) return Response.json({ error: 'Table name is required', code: 'TABLE_NAME_REQUIRED' }, { status: 400 });
+
+  const capacity = body?.capacity === undefined ? Number(table.capacity) : Number(body.capacity);
+  if (!Number.isInteger(capacity) || capacity < 1 || capacity > 100) {
+    return Response.json({ error: 'Table capacity must be a whole number between 1 and 100', code: 'TABLE_CAPACITY_INVALID' }, { status: 400 });
+  }
+
+  const floor = body?.floor === undefined ? table.floor : (typeof body.floor === 'string' ? body.floor.trim() || null : null);
+  const section = body?.section === undefined ? table.section : (typeof body.section === 'string' ? body.section.trim() || null : null);
+
+  const duplicate = await env.DB.prepare(`
+    SELECT id FROM dining_tables WHERE branch_id = ? AND table_number = ? AND id != ?
+  `).bind(table.branch_id, tableNumber, tableId).first<any>();
+  if (duplicate) {
+    return Response.json({ error: `Table '${tableNumber}' already exists at this branch`, code: 'TABLE_NAME_DUPLICATE' }, { status: 409 });
+  }
+
+  const now = new Date().toISOString();
+  await env.DB.prepare(`
+    UPDATE dining_tables SET table_number = ?, capacity = ?, floor = ?, section = ?, updated_at = ? WHERE id = ?
+  `).bind(tableNumber, capacity, floor, section, now, tableId).run();
+
+  return Response.json({
+    success: true,
+    table: {
+      ...table, table_number: tableNumber, name: tableNumber, capacity, floor, section, updated_at: now,
+    },
+  });
+}
+
+/**
+ * Activates or deactivates a dining table. An occupied table cannot be removed
+ * from service until its order is closed.
+ */
+export async function handleSetTableActive(
+  request: Request,
+  env: Env,
+  claims: any,
+  tableId: string,
+  active: boolean
+): Promise<Response> {
+  const orgId = claims.org;
+  const userId = claims.sub;
+
+  const table = await env.DB.prepare(`
+    SELECT * FROM dining_tables WHERE id = ? AND organization_id = ?
+  `).bind(tableId, orgId).first<any>();
+  if (!table) return Response.json({ error: 'Table not found' }, { status: 404 });
+
+  const memberships = await getUserMemberships(env.DB, orgId, userId);
+  const authCheck = await isAuthorizedForBranch(env.DB, orgId, memberships, table.branch_id, ['owner', 'manager']);
+  if (!authCheck.authorized) {
+    return Response.json({ error: 'Forbidden: Only owners and managers can configure dining tables' }, { status: 403 });
+  }
+
+  if (!active && table.current_order_id) {
+    return Response.json({ error: 'Close the table order before deactivating this table', code: 'TABLE_OCCUPIED' }, { status: 409 });
+  }
+
+  const now = new Date().toISOString();
+  await env.DB.prepare('UPDATE dining_tables SET is_active = ?, updated_at = ? WHERE id = ?')
+    .bind(active ? 1 : 0, now, tableId).run();
+
+  return Response.json({ success: true, table: { ...table, is_active: active ? 1 : 0, updated_at: now } });
 }
 
 /**

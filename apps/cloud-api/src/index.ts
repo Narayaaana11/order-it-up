@@ -33,6 +33,8 @@ import {
   handleListTables,
   handleCreateTable,
   handleUpdateTableStatus,
+  handleUpdateTable,
+  handleSetTableActive,
   handleListKitchenTickets,
   handleUpdateKitchenTicketStatus,
 } from './routes/operations';
@@ -705,6 +707,14 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     const parts = path.split('/');
     const tableId = parts[parts.length - 2];
     return handleUpdateTableStatus(request, env, claims, tableId);
+  }
+  const tableActiveMatch = path.match(/^\/api\/tables\/([^/]+)\/(deactivate|reactivate)$/);
+  if (tableActiveMatch && method === 'POST') {
+    return handleSetTableActive(request, env, claims, decodeURIComponent(tableActiveMatch[1]), tableActiveMatch[2] === 'reactivate');
+  }
+  if (path.startsWith('/api/tables/') && method === 'PUT') {
+    const tableId = path.split('/').pop() || '';
+    return handleUpdateTable(request, env, claims, decodeURIComponent(tableId));
   }
 
   // 11. Kitchen Display Tickets
