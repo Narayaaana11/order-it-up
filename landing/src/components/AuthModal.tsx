@@ -9,7 +9,6 @@ import {
   User,
   ShieldCheck,
   ArrowRight,
-  Sparkles,
   Download,
   Building,
 } from "lucide-react";
@@ -162,14 +161,6 @@ export default function AuthModal({
 
           <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
             Sign in and account creation use the Order It Up Cloud authentication service. Google sign-in is not enabled yet.
-          </div>
-
-          <div className="relative flex py-1 items-center mb-5">
-            <div className="flex-grow border-t border-slate-200"></div>
-            <span className="flex-shrink mx-3 text-[11px] text-slate-400 font-mono uppercase">
-              Or with email
-            </span>
-            <div className="flex-grow border-t border-slate-200"></div>
           </div>
 
           {errorMsg && (
