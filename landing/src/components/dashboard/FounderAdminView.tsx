@@ -71,11 +71,20 @@ export function FounderAdminView() {
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState<Detail | null>(null);
   const [detailBusy, setDetailBusy] = useState(false);
+  const [actionReason, setActionReason] = useState("");
+  const [nextPlanCode, setNextPlanCode] = useState("starter");
+  const [nextBillingCycle, setNextBillingCycle] = useState<"monthly" | "yearly">("monthly");
+  const [actionBusy, setActionBusy] = useState(false);
+  const [actionMessage, setActionMessage] = useState("");
 
-  const request = useCallback(async <T,>(path: string): Promise<T> => {
-    const headers = new Headers({ Accept: "application/json" });
+  const request = useCallback(async <T,>(path: string, init: RequestInit = {}): Promise<T> => {
+    const headers = new Headers(init.headers);
+    headers.set("Accept", "application/json");
+    if (init.body) headers.set("Content-Type", "application/json");
     if (token) headers.set("Authorization", `Bearer ${token}`);
-    const res = await fetch(`${apiBase}${path}`, { method: "GET", headers, credentials: "omit", cache: "no-store" });
+    const res = await fetch(`${apiBase}${path}`, {
+      ...init, headers, credentials: "omit", cache: "no-store",
+    });
     return responseData<T>(res);
   }, [apiBase, token]);
 
@@ -144,10 +153,57 @@ export function FounderAdminView() {
   };
 
   const openTenant = async (id: string) => {
-    setSelected(null); setDetailBusy(true); setError("");
-    try { setSelected(await request<Detail>(`/api/platform-admin/tenants/${encodeURIComponent(id)}`)); }
-    catch (err) { setError(err instanceof Error ? err.message : "Could not load organization details."); }
+    setSelected(null); setDetailBusy(true); setError(""); setActionMessage(""); setActionReason("");
+    try {
+      const detail = await request<Detail>(`/api/platform-admin/tenants/${encodeURIComponent(id)}`);
+      setSelected(detail);
+      setNextPlanCode(detail.tenant.plan_code || "starter");
+      setNextBillingCycle(detail.tenant.billing_cycle === "yearly" ? "yearly" : "monthly");
+    } catch (err) { setError(err instanceof Error ? err.message : "Could not load organization details."); }
     finally { setDetailBusy(false); }
+  };
+
+  const updateAccountStatus = async (accountStatus: "active" | "suspended" | "closed") => {
+    if (!selected || actionReason.trim().length < 10) {
+      setActionMessage("Enter a reason of at least 10 characters before changing account status.");
+      return;
+    }
+    setActionBusy(true); setActionMessage(""); setError("");
+    try {
+      await request(`/api/platform-admin/tenants/${encodeURIComponent(selected.tenant.id)}/account-status`, {
+        method: "PATCH",
+        body: JSON.stringify({ account_status: accountStatus, reason: actionReason.trim() }),
+      });
+      setActionMessage(`Account status updated to ${accountStatus}. The action was recorded in the platform audit log.`);
+      await loadDashboard();
+      await openTenant(selected.tenant.id);
+    } catch (err) {
+      setActionMessage(err instanceof Error ? err.message : "Account status update failed.");
+    } finally { setActionBusy(false); }
+  };
+
+  const updateSubscriptionPlan = async (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    if (!selected || actionReason.trim().length < 10) {
+      setActionMessage("Enter a reason of at least 10 characters before changing a subscription.");
+      return;
+    }
+    setActionBusy(true); setActionMessage(""); setError("");
+    try {
+      const result = await request<{ note?: string }>(`/api/platform-admin/tenants/${encodeURIComponent(selected.tenant.id)}/subscription`, {
+        method: "PATCH",
+        body: JSON.stringify({
+          plan_code: nextPlanCode,
+          billing_cycle: nextBillingCycle,
+          reason: actionReason.trim(),
+        }),
+      });
+      setActionMessage(result.note || "Subscription plan snapshot updated and audited.");
+      await loadDashboard();
+      await openTenant(selected.tenant.id);
+    } catch (err) {
+      setActionMessage(err instanceof Error ? err.message : "Subscription update failed.");
+    } finally { setActionBusy(false); }
   };
 
   const mrr = useMemo(() => overview?.monthly_recurring_revenue_by_currency || [], [overview]);
@@ -205,6 +261,29 @@ export function FounderAdminView() {
     {detailBusy && <p role="status" className="rounded-xl border border-slate-200 bg-white p-4 text-sm text-slate-600">Loading organization details…</p>}
     {selected && <div role="dialog" aria-modal="true" aria-labelledby="tenant-detail-title" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/50 p-4" onMouseDown={(event) => { if (event.target === event.currentTarget) setSelected(null); }}><section className="max-h-[85vh] w-full max-w-3xl overflow-y-auto rounded-2xl bg-white p-5 shadow-xl"><div className="flex items-start justify-between"><div><p className="text-xs font-bold uppercase tracking-wider text-orange-600">Organization detail</p><h2 id="tenant-detail-title" className="mt-1 text-xl font-bold">{selected.tenant.name}</h2><p className="font-mono text-xs text-slate-500">{selected.tenant.id}</p></div><button type="button" onClick={() => setSelected(null)} className="rounded-lg border border-slate-200 px-3 py-1.5 text-sm">Close</button></div>
       <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-4"><Metric label="Branches" value={selected.branches.length} /><Metric label="Terminals" value={selected.terminals.length} /><Metric label="Users" value={selected.users.length} /><Metric label="Account" value={selected.tenant.account_status} /></div>
+      <section className="mt-6 rounded-xl border border-slate-200 bg-slate-50 p-4">
+        <h3 className="font-bold">Audited account and subscription actions</h3>
+        <p className="mt-1 text-xs leading-5 text-slate-600">Every change requires a reason and is recorded in the platform audit log. These actions do not collect or verify payment.</p>
+        <label className="mt-3 block text-xs font-semibold text-slate-700">Reason for this administrative change
+          <textarea minLength={10} maxLength={500} value={actionReason} onChange={(event) => setActionReason(event.target.value)} rows={2} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm" placeholder="Explain the customer request or support decision (minimum 10 characters)." />
+        </label>
+        {actionMessage && <p role="status" className="mt-2 rounded-lg border border-slate-200 bg-white p-2 text-xs text-slate-700">{actionMessage}</p>}
+        <div className="mt-3 flex flex-wrap gap-2">
+          <button type="button" disabled={actionBusy || selected.tenant.account_status === "active"} onClick={() => void updateAccountStatus("active")} className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800 disabled:opacity-40">Reactivate account</button>
+          <button type="button" disabled={actionBusy || selected.tenant.account_status === "suspended"} onClick={() => void updateAccountStatus("suspended")} className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-bold text-amber-800 disabled:opacity-40">Suspend account</button>
+          <button type="button" disabled={actionBusy || selected.tenant.account_status === "closed"} onClick={() => void updateAccountStatus("closed")} className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs font-bold text-rose-800 disabled:opacity-40">Close account</button>
+        </div>
+        <form onSubmit={updateSubscriptionPlan} className="mt-4 grid grid-cols-1 gap-2 sm:grid-cols-[1fr_150px_auto]">
+          <label className="text-xs font-semibold text-slate-700">Subscription plan
+            <select value={nextPlanCode} onChange={(event) => setNextPlanCode(event.target.value)} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value="starter">Starter</option><option value="pro">Professional</option><option value="enterprise">Enterprise</option></select>
+          </label>
+          <label className="text-xs font-semibold text-slate-700">Billing cycle
+            <select value={nextBillingCycle} onChange={(event) => setNextBillingCycle(event.target.value as "monthly" | "yearly")} className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"><option value="monthly">Monthly</option><option value="yearly">Yearly</option></select>
+          </label>
+          <button type="submit" disabled={actionBusy} className="self-end rounded-lg bg-orange-600 px-4 py-2 text-xs font-bold text-white hover:bg-orange-700 disabled:opacity-40">{actionBusy ? "Saving…" : "Save plan"}</button>
+        </form>
+        <p className="mt-2 text-[11px] leading-5 text-slate-500">A manual change cannot activate a trial or unpaid subscription. Paid activation is reserved for verified billing-provider settlement.</p>
+      </section>
       <h3 className="mt-6 font-bold">Branches</h3><ul className="mt-2 divide-y divide-slate-100">{selected.branches.map((branch) => <li key={branch.id} className="py-2 text-sm"><strong>{branch.name}</strong><span className="ml-2 text-xs text-slate-500">{branch.code} · {branch.status}</span></li>)}</ul>
       <h3 className="mt-5 font-bold">Terminals</h3><ul className="mt-2 divide-y divide-slate-100">{selected.terminals.map((terminal) => <li key={terminal.id} className="py-2 text-sm"><strong>{terminal.terminal_name}</strong><span className="ml-2 text-xs text-slate-500">{terminal.last_seen_at ? dateLabel(terminal.last_seen_at) : "Never seen"} · {terminal.app_version || "Unknown version"}</span></li>)}</ul>
       <h3 className="mt-5 font-bold">Users</h3><ul className="mt-2 divide-y divide-slate-100">{selected.users.map((user) => <li key={user.id} className="py-2 text-sm"><strong>{user.name}</strong><span className="ml-2 text-xs text-slate-500">{user.email} · {user.role} · {user.status}</span></li>)}</ul></section></div>}
