@@ -375,7 +375,40 @@ async function run() {
   assert.equal(jobs.length, 1);
   assert.match(String(jobs[0].order_number), /^ORD-\d{6}$/);
 
-  console.log('Cloud restaurant operations passed: expenses, reservations, inventory, recipes, shift closure, and delivery dispatch.');
+  // ── Waiter floor flow: open a table order, then add a round ─────────────
+  const waiterOrderResponse = await call('user-waiter', '/api/orders', {
+    method: 'POST',
+    body: JSON.stringify({
+      id: 'order-waiter-round', branch_id: BRANCH_A, order_type: 'dine_in', table_id: 'table-a1',
+      items: [{ product_id: 'product-a', quantity: 1 }],
+    }),
+  });
+  assert.equal(waiterOrderResponse.status, 201);
+  const waiterOrder = (await waiterOrderResponse.json() as any).order;
+  assert.equal(waiterOrder.table_number == null || waiterOrder.table_number === 'T-1', true);
+
+  const tableAfterOrder = rawDb.prepare('SELECT status, current_order_id FROM dining_tables WHERE id = ?').get('table-a1') as any;
+  assert.equal(tableAfterOrder.status, 'occupied', 'a dine-in waiter order occupies its table');
+
+  const amendment = await call('user-waiter', '/api/orders/order-waiter-round/items', {
+    method: 'POST',
+    body: JSON.stringify({ expected_version: waiterOrder.version, items: [{ product_id: 'product-a', quantity: 1 }] }),
+  });
+  assert.equal(amendment.status, 200);
+  const amendmentData = await amendment.json() as any;
+  assert.equal(amendmentData.version, waiterOrder.version + 1);
+  assert.ok(Number(amendmentData.grand_total) > Number(waiterOrder.grand_total), 'adding a round increases the bill');
+
+  const staleAmendment = await call('user-waiter', '/api/orders/order-waiter-round/items', {
+    method: 'POST',
+    body: JSON.stringify({ expected_version: waiterOrder.version, items: [{ product_id: 'product-a', quantity: 1 }] }),
+  });
+  assert.equal(staleAmendment.status, 409, 'a stale waiter device cannot double-add a round');
+
+  const amendmentTickets = rawDb.prepare("SELECT COUNT(*) AS count FROM kitchen_tickets WHERE order_id = 'order-waiter-round'").get() as any;
+  assert.equal(amendmentTickets.count, 2, 'the added round dispatches its own kitchen ticket');
+
+  console.log('Cloud restaurant operations passed: expenses, reservations, inventory, recipes, shift closure, delivery dispatch, and waiter rounds.');
 }
 
 run().catch((error) => { console.error(error); process.exitCode = 1; });
