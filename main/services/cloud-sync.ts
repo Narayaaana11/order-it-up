@@ -2,20 +2,47 @@
 
 import * as crypto from 'crypto';
 import * as os from 'os';
+import { safeStorage } from 'electron';
 import log from 'electron-log';
 import { WebSocket, type RawData } from 'ws';
 import { readCountryProvenance } from './country-provenance';
 import { getDatabase, now, parseItemJson, attachEffectiveAddons, ensureCloudIdentity, isDiagnosticsConsentEnabled, isDatabaseMaintenanceActive, registerDatabaseMaintenanceEndListener, registerDatabaseMaintenanceStartListener, utcDayBounds, utcTodayDate, withDatabaseRequest } from '../db';
 import { getTenantCurrency } from './refund';
 import { getCurrencyMinorUnitFactor } from '../countries';
+import { importCloudQrOrder, type CloudQrOrder } from './cloud-qr-order-import';
+import { importCloudCatalog, type CloudCatalogSnapshot } from './cloud-catalog-import';
 
-export const DEFAULT_CLOUD_SERVER_URL = process.env.OIU_CLOUD_API_URL || 'https://api.orderitup.in';
+export const DEFAULT_CLOUD_SERVER_URL = process.env.OIU_CLOUD_API_URL || 'https://orderitup-cloud-api.narayaaana11.workers.dev';
 export const DEFAULT_TERMINAL_CLOUD_API_URL = process.env.OIU_TERMINAL_CLOUD_API_URL || 'https://orderitup-cloud-api.narayaaana11.workers.dev';
 
 const HEARTBEAT_INTERVAL_MS = 5 * 60_000;
 const OUTBOX_INTERVAL_MS = 15_000;
 const COMMAND_POLL_INTERVAL_MS = 10_000;
+const QR_ORDER_POLL_INTERVAL_MS = 15_000;
+const CLOUD_CATALOG_POLL_INTERVAL_MS = 5 * 60_000;
 const REQUEST_TIMEOUT_MS = 8_000;
+const TERMINAL_TOKEN_STORAGE_PREFIX = 'safe-storage:v1:';
+
+function terminalTokenEncryptionAvailable(): boolean {
+  try { return safeStorage.isEncryptionAvailable(); } catch { return false; }
+}
+
+function encryptTerminalToken(token: string): string {
+  if (!terminalTokenEncryptionAvailable()) {
+    throw new Error('Secure operating-system storage is unavailable; this POS cannot pair a cloud terminal safely.');
+  }
+  return TERMINAL_TOKEN_STORAGE_PREFIX + safeStorage.encryptString(token).toString('base64');
+}
+
+function decryptTerminalToken(value: string): string {
+  if (!terminalTokenEncryptionAvailable()) return '';
+  try {
+    return safeStorage.decryptString(Buffer.from(value.slice(TERMINAL_TOKEN_STORAGE_PREFIX.length), 'base64'));
+  } catch {
+    log.error('[CloudSync] Could not decrypt the saved terminal credential; cloud sync is disabled until the terminal is paired again.');
+    return '';
+  }
+}
 
 function requestSignal(signal?: AbortSignal): AbortSignal {
   return signal ? AbortSignal.any([signal, AbortSignal.timeout(REQUEST_TIMEOUT_MS)]) : AbortSignal.timeout(REQUEST_TIMEOUT_MS);
@@ -71,6 +98,7 @@ type CloudSettings = {
   server_url: string;
   terminal_server_url: string;
   terminal_token: string;
+  terminal_branch_id: string;
   terminal_mode: boolean;
   api_key: string;
   store_id: string;
@@ -254,6 +282,10 @@ export class CloudSyncService {
   private supportOutboxTimer: ReturnType<typeof setInterval> | null = null;
   private diagnosticsOutboxTimer: ReturnType<typeof setInterval> | null = null;
   private commandTimer: ReturnType<typeof setInterval> | null = null;
+  private qrOrderTimer: ReturnType<typeof setInterval> | null = null;
+  private pollingQrOrders = false;
+  private catalogTimer: ReturnType<typeof setInterval> | null = null;
+  private pollingCatalog = false;
   private settings: CloudSettings | null = null;
   private flushing = false;
   private outboxFlushPromise: Promise<void> | null = null;
@@ -317,6 +349,14 @@ export class CloudSyncService {
       this.runBackground(this.flushOutbox(), 'outbox flush');
       this.outboxTimer = setInterval(() => this.runBackground(this.flushOutbox(), 'outbox flush'), OUTBOX_INTERVAL_MS);
     }
+    if (cfg.sync_enabled && cfg.orders_enabled && cfg.terminal_token && cfg.terminal_mode) {
+      this.runBackground(this.pollCloudQrOrders(), 'QR order inbox');
+      this.qrOrderTimer = setInterval(() => this.runBackground(this.pollCloudQrOrders(), 'QR order inbox'), QR_ORDER_POLL_INTERVAL_MS);
+    }
+    if (cfg.sync_enabled && cfg.terminal_token && cfg.terminal_mode) {
+      this.runBackground(this.pollCloudCatalog(), 'catalog download');
+      this.catalogTimer = setInterval(() => this.runBackground(this.pollCloudCatalog(), 'catalog download'), CLOUD_CATALOG_POLL_INTERVAL_MS);
+    }
     if (cfg.sync_enabled && cfg.api_key) {
       this.runBackground(this.flushSupportTicketOutbox(), 'support outbox flush');
       this.supportOutboxTimer = setInterval(() => this.runBackground(this.flushSupportTicketOutbox(), 'support outbox flush'), OUTBOX_INTERVAL_MS);
@@ -345,6 +385,8 @@ export class CloudSyncService {
     if (this.supportOutboxTimer) { clearInterval(this.supportOutboxTimer); this.supportOutboxTimer = null; }
     if (this.diagnosticsOutboxTimer) { clearInterval(this.diagnosticsOutboxTimer); this.diagnosticsOutboxTimer = null; }
     if (this.commandTimer) { clearInterval(this.commandTimer); this.commandTimer = null; }
+    if (this.qrOrderTimer) { clearInterval(this.qrOrderTimer); this.qrOrderTimer = null; }
+    if (this.catalogTimer) { clearInterval(this.catalogTimer); this.catalogTimer = null; }
     this.commandPollAbortController?.abort();
     this.commandPollAbortController = null;
     if (this.autoRegisterTimer) { clearTimeout(this.autoRegisterTimer); this.autoRegisterTimer = null; }
@@ -418,6 +460,9 @@ export class CloudSyncService {
   /** Claim a Cloud Worker terminal pairing code and begin syncing the local POS outbox. */
   async claimTerminalPairingCode(codeInput: string): Promise<Record<string, unknown>> {
     if (this.cloudDeletionInProgress || this.shutdownRequested) throw new Error('Cloud services are shutting down');
+    if (!terminalTokenEncryptionAvailable()) {
+      throw new Error('Secure operating-system storage is unavailable; configure the OS key store before pairing this terminal.');
+    }
     const code = String(codeInput || '').replace(/\D/g, '');
     if (!/^\d{6}$/.test(code)) throw new Error('Enter the 6-digit pairing code shown in Cloud Portal');
     const db = getDatabase();
@@ -438,7 +483,7 @@ export class CloudSyncService {
     }
     this.upsertSettings({
       cloud_terminal_api_url: serverUrl,
-      cloud_terminal_token: data.terminal_token,
+      cloud_terminal_token: encryptTerminalToken(data.terminal_token),
       cloud_terminal_mode: 'worker',
       cloud_terminal_id: data.terminal_id,
       cloud_terminal_organization_id: typeof data.organization_id === 'string' ? data.organization_id : '',
@@ -449,6 +494,8 @@ export class CloudSyncService {
       cloud_registration_status: 'registered',
       cloud_connected: 'true',
       cloud_last_error: '',
+      cloud_catalog_last_error: '',
+      cloud_qr_last_error: '',
       cloud_last_heartbeat: new Date().toISOString(),
     });
     this.reload();
@@ -475,6 +522,7 @@ export class CloudSyncService {
       cloud_sync_enabled: '0', cloud_orders_enabled: '0', cloud_connected: 'false',
       cloud_registration_status: settings.cloud_api_key ? 'registered' : 'unregistered',
       cloud_last_error: '',
+      cloud_catalog_last_error: '', cloud_qr_last_error: '',
     });
     this.reload();
   }
@@ -496,6 +544,9 @@ export class CloudSyncService {
       cloud_orders_enabled: refreshed.cloud_orders_enabled === '1',
       cloud_reports_enabled: refreshed.cloud_reports_enabled === '1',
       cloud_command_polling_enabled: refreshed.cloud_command_polling_enabled === '1',
+      cloud_catalog_last_sync: refreshed.cloud_catalog_last_sync || null,
+      cloud_catalog_sync_error: refreshed.cloud_catalog_last_error ? 'Cloud catalog sync needs attention' : null,
+      cloud_qr_sync_error: refreshed.cloud_qr_last_error ? 'Cloud QR order delivery needs attention' : null,
       cloud_registration_status: refreshed.cloud_registration_status || 'unregistered',
       cloud_services_disabled_by_user: refreshed.cloud_services_disabled_by_user === 'true',
       cloud_connected: refreshed.cloud_connected === 'true',
@@ -1080,7 +1131,7 @@ export class CloudSyncService {
     try {
       if (!this.loadSettings()?.orders_enabled) return;
       const snapshot = this.buildOrderSnapshot(orderId);
-      if (snapshot) this.enqueueEvent(eventType, 'order', String(orderId), snapshot);
+      if (snapshot) this.enqueueEvent(eventType, 'order', String((snapshot as any).id ?? orderId), snapshot);
     } catch (err) {
       log.warn('[CloudSync] order snapshot failed', (err as Error).message);
     }
@@ -1800,7 +1851,88 @@ export class CloudSyncService {
     const db = getDatabase();
     const order = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId) as any;
     if (!order) return null;
-    return this.decorateOrder(order);
+    const snapshot = this.decorateOrder(order) as any;
+    if (order.online_platform === 'cloud_qr' && order.external_order_id) {
+      const receipt = db.prepare('SELECT item_map_json FROM cloud_qr_order_receipts WHERE remote_order_id = ?')
+        .get(order.external_order_id) as { item_map_json: string } | undefined;
+      if (receipt) {
+        let itemMap: Record<string, number> = {};
+        try { itemMap = JSON.parse(receipt.item_map_json); } catch { itemMap = {}; }
+        snapshot.id = order.external_order_id;
+        snapshot.items = (snapshot.items || []).map((item: any) => {
+          const remoteItemId = Object.entries(itemMap).find(([, localId]) => Number(localId) === Number(item.id))?.[0];
+          return remoteItemId ? { ...item, id: remoteItemId } : item;
+        });
+      }
+    }
+    return snapshot;
+  }
+
+  private async pollCloudQrOrders(): Promise<void> {
+    if (this.pollingQrOrders || this.shutdownRequested || this.cloudDeletionInProgress) return;
+    const cfg = this.settings ?? this.loadSettings();
+    if (!cfg?.sync_enabled || !cfg.orders_enabled || !cfg.terminal_mode || !cfg.terminal_token) return;
+    this.pollingQrOrders = true;
+    try {
+      const base = normalizeCloudServerUrl(cfg.terminal_server_url || cfg.server_url);
+      if (!base) throw new Error('Cloud terminal API URL is invalid');
+      const response = await this.trackedFetch(endpoint(base, '/api/pos/qr-orders?limit=25'), {
+        method: 'GET', headers: { Authorization: `Bearer ${cfg.terminal_token}` },
+        signal: requestSignal(this.shutdownController.signal),
+      });
+      if (!response.ok) throw new Error(`Cloud QR inbox request failed (${response.status})`);
+      const payload = await response.json() as { orders?: CloudQrOrder[] };
+      let failed = false;
+      for (const order of payload.orders || []) {
+        try {
+          const imported = importCloudQrOrder(order);
+          const ack = await this.trackedFetch(endpoint(base, `/api/pos/qr-orders/${encodeURIComponent(order.id)}/ack`), {
+            method: 'POST', headers: { Authorization: `Bearer ${cfg.terminal_token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ local_order_id: String(imported.localOrderId) }),
+            signal: requestSignal(this.shutdownController.signal),
+          });
+          if (!ack.ok) throw new Error(`Cloud QR acknowledgement failed (${ack.status})`);
+        } catch (error) {
+          failed = true;
+          log.warn('[CloudSync] Cloud QR order was not acknowledged', (error as Error).message);
+        }
+      }
+      this.upsertSettings({ cloud_qr_last_error: failed ? '1' : '' });
+    } catch (error) {
+      if (!this.shutdownRequested && (error as { code?: string })?.code !== 'ERR_SHUTDOWN_ABORTED') {
+        log.warn('[CloudSync] Cloud QR inbox needs attention', (error as Error).message);
+        this.upsertSettings({ cloud_qr_last_error: '1' });
+      }
+    } finally {
+      this.pollingQrOrders = false;
+    }
+  }
+
+  private async pollCloudCatalog(): Promise<void> {
+    if (this.pollingCatalog || this.shutdownRequested || this.cloudDeletionInProgress) return;
+    const cfg = this.settings ?? this.loadSettings();
+    if (!cfg?.sync_enabled || !cfg.terminal_mode || !cfg.terminal_token) return;
+    this.pollingCatalog = true;
+    try {
+      const base = normalizeCloudServerUrl(cfg.terminal_server_url || cfg.server_url);
+      if (!base) throw new Error('Cloud terminal API URL is invalid');
+      const response = await this.trackedFetch(endpoint(base, '/api/pos/catalog'), {
+        method: 'GET', headers: { Authorization: `Bearer ${cfg.terminal_token}` },
+        signal: requestSignal(this.shutdownController.signal),
+      });
+      if (!response.ok) throw new Error(`Cloud catalog request failed (${response.status})`);
+      const snapshot = await response.json() as CloudCatalogSnapshot;
+      if (!cfg.terminal_branch_id) throw new Error('Paired terminal has no assigned Cloud branch');
+      importCloudCatalog(snapshot, cfg.terminal_branch_id);
+      this.upsertSettings({ cloud_catalog_last_sync: now(), cloud_catalog_last_error: '' });
+    } catch (error) {
+      if (!this.shutdownRequested && (error as { code?: string })?.code !== 'ERR_SHUTDOWN_ABORTED') {
+        log.warn('[CloudSync] Cloud catalog download needs attention', (error as Error).message);
+        this.upsertSettings({ cloud_catalog_last_error: '1' });
+      }
+    } finally {
+      this.pollingCatalog = false;
+    }
   }
 
   private decorateOrder(order: any, itemsOverride?: any[]) {
@@ -1948,6 +2080,7 @@ export class CloudSyncService {
         server_url,
         terminal_server_url: normalizeCloudServerUrl(s.cloud_terminal_api_url || DEFAULT_TERMINAL_CLOUD_API_URL),
         terminal_token: s.cloud_terminal_token || '',
+        terminal_branch_id: s.cloud_terminal_branch_id || '',
         terminal_mode: s.cloud_terminal_mode === 'worker',
         api_key: s.cloud_api_key || '',
         store_id: s.cloud_store_id || '',
@@ -1970,7 +2103,44 @@ export class CloudSyncService {
   private readSettings(db: ReturnType<typeof getDatabase>): Record<string, string> {
     const rows = db.prepare('SELECT key, value FROM settings').all() as { key: string; value: string }[];
     const s: Record<string, string> = {};
-    for (const row of rows) s[row.key] = row.value;
+    for (const row of rows) {
+      if (row.key !== 'cloud_terminal_token' || !row.value) {
+        s[row.key] = row.value;
+        continue;
+      }
+      if (row.value.startsWith(TERMINAL_TOKEN_STORAGE_PREFIX)) {
+        if (!terminalTokenEncryptionAvailable()) {
+          s[row.key] = '';
+          continue;
+        }
+        const token = decryptTerminalToken(row.value);
+        if (!token) {
+          db.prepare('UPDATE settings SET value = ?, updated_at = ? WHERE key = ?')
+            .run('', now(), 'cloud_terminal_token');
+          db.prepare("UPDATE settings SET value = '0', updated_at = ? WHERE key IN ('cloud_sync_enabled', 'cloud_orders_enabled')")
+            .run(now());
+          db.prepare("UPDATE settings SET value = 'false', updated_at = ? WHERE key = 'cloud_connected'")
+            .run(now());
+        }
+        s[row.key] = token;
+        continue;
+      }
+      if (terminalTokenEncryptionAvailable()) {
+        const encrypted = encryptTerminalToken(row.value);
+        db.prepare('UPDATE settings SET value = ?, updated_at = ? WHERE key = ?')
+          .run(encrypted, now(), 'cloud_terminal_token');
+        s[row.key] = row.value;
+      } else {
+        db.prepare('UPDATE settings SET value = ?, updated_at = ? WHERE key = ?')
+          .run('', now(), 'cloud_terminal_token');
+        db.prepare("UPDATE settings SET value = '0', updated_at = ? WHERE key IN ('cloud_sync_enabled', 'cloud_orders_enabled')")
+          .run(now());
+        db.prepare("UPDATE settings SET value = 'false', updated_at = ? WHERE key = 'cloud_connected'")
+          .run(now());
+        s[row.key] = '';
+        log.error('[CloudSync] Removed an unencrypted terminal credential because secure operating-system storage is unavailable. Pair the POS again after enabling the OS key store.');
+      }
+    }
     return s;
   }
 

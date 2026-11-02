@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../core/theme/app_theme.dart';
-import '../core/constants/app_constants.dart';
 import '../providers/server_config_provider.dart';
+import '../providers/auth_provider.dart';
 import '../providers/cloud_hq_provider.dart';
 import 'login_screen.dart';
+import 'main_navigation_screen.dart';
 
 class ServerConnectScreen extends StatefulWidget {
   const ServerConnectScreen({Key? key}) : super(key: key);
@@ -370,16 +371,23 @@ class _ServerConnectScreenState extends State<ServerConnectScreen> {
                         onPressed: config.isChecking
                             ? null
                             : () async {
+                                final auth = Provider.of<AuthProvider>(context,
+                                    listen: false);
                                 await config.setHost(_hostController.text);
                                 await config.setPort(
                                     int.tryParse(_portController.text) ?? 3003);
                                 await config.setDemoMode(false);
                                 final ok = await config.testConnection();
-                                if (ok && mounted) {
+                                if (ok) {
+                                  if (!context.mounted) return;
+                                  await auth.restoreSession();
+                                  if (!context.mounted) return;
                                   Navigator.pushReplacement(
                                     context,
                                     MaterialPageRoute(
-                                        builder: (_) => const LoginScreen()),
+                                        builder: (_) => auth.isAuthenticated
+                                            ? const MainNavigationScreen()
+                                            : const LoginScreen()),
                                   );
                                 }
                               },

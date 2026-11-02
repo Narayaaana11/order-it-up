@@ -77,6 +77,29 @@ class ApiService {
     throw ApiException('Invalid response from server');
   }
 
+  Future<String> refreshSession() async {
+    final response = await apiClient.post('/api/auth/refresh');
+    if (response is! Map || response['access_token'] == null) {
+      throw ApiException('Invalid session refresh response');
+    }
+    final token = response['access_token'].toString();
+    apiClient.authToken = token;
+    return token;
+  }
+
+  Future<UserModel> getCurrentUser() async {
+    final response = await apiClient.get('/api/auth/me');
+    if (response is Map && response['user'] is Map<String, dynamic>) {
+      return UserModel.fromJson(response['user'] as Map<String, dynamic>,
+          token: apiClient.authToken);
+    }
+    throw ApiException('Invalid current user response');
+  }
+
+  Future<void> logout() async {
+    await apiClient.post('/api/auth/logout');
+  }
+
   Future<List<CategoryModel>> getCategories() async {
     if (isDemoMode) return MockDataService.getCategories();
 

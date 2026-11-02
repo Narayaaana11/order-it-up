@@ -213,6 +213,7 @@ export function ingestAggregatorOrder(order: NormalizedAggregatorOrder): {
     .get(order.platform) as any;
   const autoAccept = config ? config.auto_accept === 1 : true;
   const initialStatus = autoAccept ? 'preparing' : 'pending';
+  let finalStatus = initialStatus;
   const prepTime = order.prep_time_minutes || (config ? config.default_prep_time_minutes : 20);
 
   const orderNumber = generateOrderNumber();
@@ -220,6 +221,8 @@ export function ingestAggregatorOrder(order: NormalizedAggregatorOrder): {
 
   let createdOrderId = 0;
   const inventoryItemsToDeduct: Array<{ product_id: string; quantity: number }> = [];
+  const trackedProductItems: Array<{ orderItemId: number; productId: string; quantity: number }> = [];
+  let hasUnmappedProduct = false;
 
   db.transaction(() => {
     // 3. Insert Master Order Record
@@ -264,7 +267,7 @@ export function ingestAggregatorOrder(order: NormalizedAggregatorOrder): {
 
     // 4. Insert Order Items (resolving to local products if possible)
     const findProductStmt = db.prepare(`
-      SELECT id, name, price, sku
+      SELECT id, name, price, sku, track_inventory
       FROM products
       WHERE (id = ? OR sku = ? OR LOWER(name) = LOWER(?)) AND is_active = 1
       LIMIT 1
@@ -294,6 +297,7 @@ export function ingestAggregatorOrder(order: NormalizedAggregatorOrder): {
       const productId = match ? match.id : (item.product_id || `agg-${crypto.randomBytes(4).toString('hex')}`);
       const productName = match ? match.name : item.name;
       const sku = match ? match.sku : (item.sku || null);
+      if (!match) hasUnmappedProduct = true;
       const unitPrice = item.unit_price;
       const quantity = item.quantity;
       const itemSubtotal = item.total || (unitPrice * quantity);
@@ -328,18 +332,51 @@ export function ingestAggregatorOrder(order: NormalizedAggregatorOrder): {
 
       if (match) {
         inventoryItemsToDeduct.push({ product_id: match.id, quantity });
+        if (match.track_inventory === 1) {
+          trackedProductItems.push({ orderItemId, productId: match.id, quantity });
+        }
+      }
+    }
+
+    // An automatically accepted order and its inventory movement must commit
+    // together. If stock is short, retain the provider order for staff review
+    // instead of acknowledging it as preparing without a matching deduction.
+    if (initialStatus === 'preparing' && hasUnmappedProduct) {
+      finalStatus = 'pending';
+      db.prepare("UPDATE orders SET status = 'pending', cooking_started_at = NULL WHERE id = ?").run(createdOrderId);
+      db.prepare("UPDATE order_items SET status = 'pending' WHERE order_id = ?").run(createdOrderId);
+    } else if (initialStatus === 'preparing' && inventoryItemsToDeduct.length > 0) {
+      const productDemand = new Map<string, number>();
+      for (const item of trackedProductItems) {
+        productDemand.set(item.productId, (productDemand.get(item.productId) || 0) + item.quantity);
+      }
+      const productStockShort = [...productDemand.entries()].some(([productId, quantity]) => {
+        const product = db.prepare('SELECT stock_quantity FROM products WHERE id = ? AND track_inventory = 1').get(productId) as { stock_quantity: number } | undefined;
+        return !product || Number(product.stock_quantity) < quantity;
+      });
+      const inventory = productStockShort ? null : deductIngredientsForOrderItems(
+        inventoryItemsToDeduct,
+        `${order.platform.toUpperCase()} #${order.external_order_id}`,
+        false,
+      );
+      if (productStockShort || !inventory?.success) {
+        finalStatus = 'pending';
+        db.prepare("UPDATE orders SET status = 'pending', cooking_started_at = NULL WHERE id = ?").run(createdOrderId);
+        db.prepare("UPDATE order_items SET status = 'pending' WHERE order_id = ?").run(createdOrderId);
+      } else {
+        const updateProductStock = db.prepare(`
+          UPDATE products SET stock_quantity = stock_quantity - ?, updated_at = ?
+          WHERE id = ? AND track_inventory = 1 AND stock_quantity >= ?
+        `);
+        const markProductDeduction = db.prepare('UPDATE order_items SET inventory_deducted_quantity = ? WHERE id = ?');
+        for (const item of trackedProductItems) {
+          const deducted = updateProductStock.run(item.quantity, timestamp, item.productId, item.quantity);
+          if (deducted.changes !== 1) throw new Error('Tracked product stock changed during aggregator acceptance');
+          markProductDeduction.run(item.quantity, item.orderItemId);
+        }
       }
     }
   })();
-
-  // 5. Deduct Raw Ingredient Inventory if Auto-Accepted / Preparing
-  if (initialStatus === 'preparing' && inventoryItemsToDeduct.length > 0) {
-    try {
-      deductIngredientsForOrderItems(inventoryItemsToDeduct, `${order.platform.toUpperCase()} #${order.external_order_id}`);
-    } catch (invErr) {
-      console.error('[Aggregator] Inventory deduction warning:', invErr);
-    }
-  }
 
   // 6. Notify Kitchen Display System (KDS) immediately
   notifyKdsUpdate();
@@ -348,7 +385,7 @@ export function ingestAggregatorOrder(order: NormalizedAggregatorOrder): {
     ok: true,
     order_id: createdOrderId,
     order_number: orderNumber,
-    status: initialStatus,
+    status: finalStatus,
   };
 }
 
@@ -398,21 +435,29 @@ export function cancelAggregatorOrder(
   const db = getDatabase();
   const timestamp = now();
 
-  const order = db.prepare(`
-    SELECT id, order_number, status
-    FROM orders
-    WHERE online_platform = ? AND external_order_id = ?
-  `).get(platform, externalOrderId) as any;
+  const changed = db.transaction(() => {
+    const order = db.prepare(`
+      SELECT id, order_number, status
+      FROM orders
+      WHERE online_platform = ? AND external_order_id = ?
+    `).get(platform, externalOrderId) as any;
+    if (!order || order.status === 'cancelled') return false;
 
-  if (!order || order.status === 'cancelled') return false;
+    const items = db.prepare(`
+      SELECT id, product_id, quantity, inventory_deducted_quantity
+      FROM order_items
+      WHERE order_id = ?
+    `).all(order.id) as any[];
 
-  const items = db.prepare(`
-    SELECT product_id, quantity
-    FROM order_items
-    WHERE order_id = ?
-  `).all(order.id) as any[];
+    for (const item of items) {
+      if (item.inventory_deducted_quantity > 0) {
+        db.prepare('UPDATE products SET stock_quantity = stock_quantity + ?, updated_at = ? WHERE id = ?')
+          .run(item.inventory_deducted_quantity, timestamp, item.product_id);
+      }
+    }
 
-  db.transaction(() => {
+    restoreIngredientsForOrderItems(items, `${platform.toUpperCase()} #${externalOrderId}`, 'Aggregator Order Cancellation');
+
     db.prepare(`
       UPDATE orders
       SET status = 'cancelled',
@@ -428,16 +473,10 @@ export function cancelAggregatorOrder(
           updated_at = ?
       WHERE order_id = ?
     `).run(timestamp, order.id);
+    return true;
   })();
 
-  // Restore raw ingredients
-  if (items.length > 0) {
-    try {
-      restoreIngredientsForOrderItems(items, `${platform.toUpperCase()} #${externalOrderId}`, 'Aggregator Order Cancellation');
-    } catch (err) {
-      console.error('[Aggregator] Stock restoration warning:', err);
-    }
-  }
+  if (!changed) return false;
 
   notifyKdsUpdate();
   return true;

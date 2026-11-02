@@ -25,6 +25,9 @@ type PilotRequestDetail = PilotRequest & {
   admin_notes: string;
   reviewed_by?: string | null;
   reviewed_at?: string | null;
+  invitation_status?: "active" | "expired" | "revoked" | "redeemed" | null;
+  invitation_expires_at?: string | null;
+  provisioned_organization_id?: string | null;
 };
 
 const PAGE_SIZE = 20;
@@ -72,6 +75,9 @@ export default function PilotRequestsPanel({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
+  const [invitationUrl, setInvitationUrl] = useState("");
+  const [invitationBusy, setInvitationBusy] = useState(false);
+  const [copiedInvitation, setCopiedInvitation] = useState(false);
 
   const apiRequest = useCallback(async <T,>(path: string, init: RequestInit = {}): Promise<T> => {
     const headers = new Headers(init.headers);
@@ -118,6 +124,8 @@ export default function PilotRequestsPanel({
     setSelected(null);
     setError("");
     setMessage("");
+    setInvitationUrl("");
+    setCopiedInvitation(false);
     try {
       const data = await apiRequest<{ request: PilotRequestDetail }>(`/api/platform-admin/pilot-requests/${encodeURIComponent(id)}`);
       setSelected(data.request);
@@ -126,6 +134,48 @@ export default function PilotRequestsPanel({
       setAuditReason("");
     } catch (requestError) {
       setError(requestError instanceof Error ? requestError.message : "Could not load the request details.");
+    }
+  };
+
+  const createInvitation = async () => {
+    if (!selected || selected.status !== "approved") return;
+    setInvitationBusy(true);
+    setError("");
+    setMessage("");
+    setInvitationUrl("");
+    setCopiedInvitation(false);
+    try {
+      const data = await apiRequest<{ invitation: { token: string; expires_at: string; delivery?: "sent" | "not_configured" | "failed"; url?: string } }>(
+        `/api/platform-admin/pilot-requests/${encodeURIComponent(selected.id)}/invitation`,
+        { method: "POST", body: JSON.stringify({}) },
+      );
+      const link = data.invitation.url || (() => {
+        const fallback = new URL("/pilot-invitation", window.location.origin);
+        fallback.hash = `token=${data.invitation.token}`;
+        return fallback.toString();
+      })();
+      setInvitationUrl(link);
+      setSelected({ ...selected, invitation_status: "active", invitation_expires_at: data.invitation.expires_at });
+      setMessage(data.invitation.delivery === "sent"
+        ? "Setup link emailed to the approved applicant. Copy the displayed link as a fallback; it expires in seven days."
+        : data.invitation.delivery === "failed"
+          ? "Email delivery failed. Copy and send the setup link to the approved applicant; it expires in seven days."
+          : "Setup link created. Email is not configured, so copy and send the link to the approved applicant; it expires in seven days.");
+      await loadRequests();
+    } catch (requestError) {
+      setError(requestError instanceof Error ? requestError.message : "Could not create an account setup link.");
+    } finally {
+      setInvitationBusy(false);
+    }
+  };
+
+  const copyInvitation = async () => {
+    if (!invitationUrl) return;
+    try {
+      await navigator.clipboard.writeText(invitationUrl);
+      setCopiedInvitation(true);
+    } catch {
+      setError("Clipboard access was blocked. Select and copy the setup link manually.");
     }
   };
 
@@ -143,7 +193,12 @@ export default function PilotRequestsPanel({
         method: "PATCH",
         body: JSON.stringify({ status: selectedStatus, admin_notes: adminNotes.trim(), reason: auditReason.trim() }),
       });
-      setSelected({ ...selected, ...data.request });
+      setSelected({
+        ...selected,
+        ...data.request,
+        ...(selectedStatus === "approved" ? {} : { invitation_status: "revoked" as const }),
+      });
+      if (selectedStatus !== "approved") setInvitationUrl("");
       setMessage("Request updated. The change was recorded in the platform audit log.");
       setAuditReason("");
       await loadRequests();
@@ -218,7 +273,20 @@ export default function PilotRequestsPanel({
               <label className="block text-sm font-semibold text-slate-700">Audit reason<textarea value={auditReason} onChange={(event) => setAuditReason(event.target.value)} minLength={10} maxLength={500} required rows={2} className="mt-1.5 w-full rounded-xl border border-slate-300 px-3 py-2.5 text-sm font-normal" placeholder="Why is this request being updated?" /></label>
               <button type="submit" disabled={saving} className="min-h-11 w-full rounded-xl bg-orange-600 px-4 py-2.5 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-50">{saving ? "Saving review…" : "Save review and status"}</button>
             </form>
-            <p className="mt-3 text-[11px] leading-5 text-slate-500">Approving a request records the review decision only. It does not create an account or send an invitation email.</p>
+            {selected.status === "approved" && !selected.provisioned_organization_id && <div className="mt-4 border-t border-slate-100 pt-4">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div><h4 className="text-sm font-bold text-slate-800">Account setup</h4><p className="text-xs leading-5 text-slate-500">Create a one-time password setup link for {selected.email}. Creating another link revokes the previous one.</p></div>
+                <button type="button" onClick={() => void createInvitation()} disabled={invitationBusy} className="min-h-10 shrink-0 rounded-xl border border-orange-300 bg-orange-50 px-3 py-2 text-xs font-bold text-orange-800 hover:bg-orange-100 disabled:opacity-50">{invitationBusy ? "Creating link…" : selected.invitation_status === "active" ? "Replace setup link" : "Create setup link"}</button>
+              </div>
+              {selected.invitation_status && <p className="mt-2 text-xs text-slate-500">Previous link: <span className="font-semibold capitalize">{selected.invitation_status}</span>{selected.invitation_expires_at ? ` · expires ${dateTime(selected.invitation_expires_at)}` : ""}</p>}
+              {invitationUrl && <div className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                <label className="block text-xs font-bold text-emerald-900" htmlFor="pilot-setup-link">One-time setup link · shown once</label>
+                <div className="mt-2 flex flex-col gap-2 sm:flex-row"><input id="pilot-setup-link" readOnly value={invitationUrl} onFocus={(event) => event.currentTarget.select()} className="min-h-10 min-w-0 flex-1 rounded-lg border border-emerald-200 bg-white px-2.5 py-2 font-mono text-xs text-slate-700" /><button type="button" onClick={() => void copyInvitation()} className="min-h-10 shrink-0 rounded-lg bg-emerald-800 px-3 py-2 text-xs font-bold text-white hover:bg-emerald-900">{copiedInvitation ? "Copied" : "Copy link"}</button></div>
+                <p className="mt-2 text-[11px] leading-5 text-emerald-900">The one-time link expires in seven days. The applicant sets their password and the restaurant account is provisioned when the link is redeemed.</p>
+              </div>}
+            </div>}
+            {selected.provisioned_organization_id && <p className="mt-3 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-900">Account provisioned · Organization <span className="font-mono">{selected.provisioned_organization_id}</span></p>}
+            {selected.status !== "approved" && <p className="mt-3 text-[11px] leading-5 text-slate-500">Approving a request enables a one-time account setup link. Links are invalidated when the request is moved out of the approved status.</p>}
           </>}
         </div>
       </div>

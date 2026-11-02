@@ -256,7 +256,12 @@ async function runTests() {
         tax_total: 0,
         discount_total: 0,
         final_payable: 340.00,
-        status: 'completed',
+        // Smoke sync validates order ingestion only; never synthesize a completed
+        // sale without an independently verified payment event.
+        status: 'pending',
+        kitchen_status: 'pending',
+        payment_status: 'unpaid',
+        payment_method: 'cash',
         created_at: new Date().toISOString(),
         items: [
           {

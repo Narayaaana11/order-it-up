@@ -40,7 +40,7 @@ async function main() {
   const { authHeader } = seedOwnerUser(db);
 
   seedCategory(db, 'cat-mains', 'Mains');
-  seedProduct(db, 'prod-biryani', 'cat-mains', 'Chicken Biryani', 250);
+  seedProduct(db, 'prod-biryani', 'cat-mains', 'Chicken Biryani', 250, { track_inventory: true, stock_quantity: 4 });
 
   const app = createApp({});
   registerRoutes(app);
@@ -116,10 +116,19 @@ async function main() {
 
     assertEqual(updatedRice.current_stock, 9.5, 'Rice stock decremented to 9.5 kg');
     assertEqual(updatedChicken.current_stock, 14.4, 'Chicken stock decremented to 14.4 kg');
+    assertEqual(db.prepare('SELECT stock_quantity FROM products WHERE id = ?').get('prod-biryani').stock_quantity, 2, 'Tracked product stock decremented on initial order');
 
     // Verify inventory transactions log
     const txCount = db.prepare("SELECT COUNT(*) as count FROM inventory_transactions WHERE type = 'order_deduction'").get() as any;
     assert(txCount.count >= 2, 'Inventory deduction transactions were logged in SQLite');
+
+    const addItemResponse = await api(baseUrl, `/api/orders/${orderId}/items`, {
+      method: 'POST', body: { items: [{ product_id: 'prod-biryani', quantity: 1 }] }, headers: authHeader,
+    });
+    assertEqual(addItemResponse.status, 200, 'Adding an item to an open order succeeds');
+    assertEqual(db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get(riceId).current_stock, 9.25, 'Added order item deducts its incremental rice requirement');
+    assertEqual(db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get(chickenId).current_stock, 14.1, 'Added order item deducts its incremental chicken requirement');
+    assertEqual(db.prepare('SELECT stock_quantity FROM products WHERE id = ?').get('prod-biryani').stock_quantity, 1, 'Added order item deducts tracked product stock');
 
     // 4. Cancel the Order
     console.log('\nStep 4: Cancel Order & Verify Stock Restoration');
@@ -138,6 +147,32 @@ async function main() {
 
     assertEqual(restoredRice.current_stock, 10, 'Rice stock restored back to 10 kg');
     assertEqual(restoredChicken.current_stock, 15, 'Chicken stock restored back to 15 kg');
+    assertEqual(db.prepare('SELECT stock_quantity FROM products WHERE id = ?').get('prod-biryani').stock_quantity, 4, 'Cancelling the enlarged order restores all tracked product units');
+
+    console.log('\nStep 4: Reject Overselling Without Partial Stock Changes');
+    db.prepare("UPDATE products SET track_inventory = 1, stock_quantity = 3 WHERE id = 'prod-biryani'").run();
+    const orderCountBeforeOversell = db.prepare('SELECT COUNT(*) AS count FROM orders').get().count;
+    const duplicateLineOversell = await api(baseUrl, '/api/orders', {
+      method: 'POST',
+      body: { type: 'takeaway', items: [
+        { product_id: 'prod-biryani', quantity: 2 },
+        { product_id: 'prod-biryani', quantity: 2 },
+      ] },
+      headers: authHeader,
+    });
+    assertEqual(duplicateLineOversell.status, 409, 'Tracked product demand is aggregated across duplicate cart lines');
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM orders').get().count, orderCountBeforeOversell, 'Rejected product oversell creates no order');
+    assertEqual(db.prepare("SELECT stock_quantity FROM products WHERE id = 'prod-biryani'").get().stock_quantity, 3, 'Rejected product oversell leaves sellable stock unchanged');
+
+    db.prepare('UPDATE raw_ingredients SET current_stock = 0.1 WHERE id = ?').run(chickenId);
+    const ingredientShortageOrder = await api(baseUrl, '/api/orders', {
+      method: 'POST', body: { type: 'takeaway', items: [{ product_id: 'prod-biryani', quantity: 1 }] }, headers: authHeader,
+    });
+    assertEqual(ingredientShortageOrder.status, 409, 'POS order is rejected when recipe ingredients are insufficient');
+    assertEqual(db.prepare('SELECT COUNT(*) AS count FROM orders').get().count, orderCountBeforeOversell, 'Ingredient shortage rolls back the order');
+    assertEqual(db.prepare("SELECT stock_quantity FROM products WHERE id = 'prod-biryani'").get().stock_quantity, 3, 'Ingredient shortage rolls back tracked product stock');
+    assertEqual(db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get(chickenId).current_stock, 0.1, 'Ingredient shortage leaves raw stock unchanged');
+    db.prepare('UPDATE raw_ingredients SET current_stock = 15 WHERE id = ?').run(chickenId);
 
     // 5. Test Low Stock Alert
     console.log('\nStep 5: Test Low Stock Alert');

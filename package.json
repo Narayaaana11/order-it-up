@@ -18,6 +18,7 @@
                     "lint":  "npm run lint:backend \u0026\u0026 npm --prefix frontend run lint",
                     "build:frontend":  "cd frontend \u0026\u0026 npx cross-env NEXT_BUILD_MODE=desktop npm run build",
     "build:web": "node scripts/build-web-export.cjs",
+    "check:cloud-ready": "node scripts/assert-cloud-ready.cjs",
                     "build:all-platforms":  "npm run build:frontend \u0026\u0026 npm run build \u0026\u0026 electron-builder --win --mac --linux",
                     "postinstall":  "node scripts/postinstall.cjs",
                     "verify:electron":  "node scripts/verify-electron-runtime.cjs",
@@ -93,6 +94,7 @@
                     "test:issue-278-fail-closed-db":  "node tests/run-electron-node-test.cjs tests/issue-278-fail-closed-missing-db.test.ts",
                     "test:recovery-cloud":  "node tests/run-electron-node-test.cjs tests/recovery-legacy-fk.test.ts \u0026\u0026 node tests/run-electron-node-test.cjs tests/cloud-deletion-recovery.test.ts",
                     "test:cloud-account-status":  "node tests/run-electron-node-test.cjs tests/cloud-account-status.test.ts",
+                    "test:cloud-saas-subscription-payments":  "node tests/run-electron-node-test.cjs tests/cloud-saas-subscription-payments.test.ts",
                     "test:printer":  "ts-node --transpile-only -P tests/tsconfig.json tests/printer.test.ts \u0026\u0026 npm run test:printer-api \u0026\u0026 npm run test:printer-ipc",
                     "test:printing-settings":  "node tests/run-electron-node-test.cjs tests/printing-settings.test.ts",
                     "test:printer-api":  "node tests/run-electron-node-test.cjs tests/printer-api.test.ts",
@@ -218,7 +220,9 @@
                     "test:printer-width-refresh":  "node tests/run-electron-node-test.cjs tests/printer-width-refresh.test.ts",
                     "test:printer-migrations":  "node tests/run-electron-node-test.cjs tests/printer-usb-device-path-migration.test.ts",
                     "test:issue-252":  "node tests/run-electron-node-test.cjs tests/issue-252-order-lifecycle-inventory.test.ts",
-    "test:cloud-terminal-pairing": "node tests/run-electron-node-test.cjs tests/cloud-terminal-pairing.test.ts"
+    "test:cloud-terminal-pairing": "node tests/run-electron-node-test.cjs tests/cloud-terminal-pairing.test.ts",
+    "test:cloud-public-qr": "node tests/run-electron-node-test.cjs tests/cloud-public-qr.test.ts",
+    "audit:cloud-d1-schema": "node --experimental-sqlite scripts/audit-cloud-d1-schema.cjs"
                 },
     "author":  {
                    "name":  "Order It Up",

@@ -16,12 +16,18 @@ The Cloudflare Worker exposes a separate platform-administrator namespace:
 - `POST /api/pilot-requests` (public, validated and rate-limited pilot access application)
 - `PATCH /api/platform-admin/tenants/:organizationId/account-status` (reason required; writes an audit record)
 - `PATCH /api/platform-admin/tenants/:organizationId/subscription` (reason required; writes an audit record and subscription event)
+- `GET /api/platform-admin/billing/webhook-events` (authenticated, filtered and paginated payment-event inbox)
+- `POST /api/platform-admin/billing/webhook-events/:eventId/retry` (reason required; retries provider verification and writes an admin audit record)
 - `GET /api/subscription` (tenant-scoped subscription status, trial/period/grace information and entitlements)
 - `GET /api/subscription/plans` (active plan catalogue)
+- `POST /api/subscription/create-order` (owner/admin only; idempotent, server-priced Razorpay order creation)
+- `POST /api/subscription/verify-payment` (owner/admin only; signed callback plus provider-side captured-payment lookup before activation)
 
 The API reads organizations, branches, terminals, users, synced orders, subscription records and plan definitions from Cloudflare D1. It does not read the local desktop SQLite database and does not synthesize demo tenant records.
 
 Pilot access applications are stored separately from restaurant organizations in `pilot_access_requests` (migration 0014). The public form validates and rate-limits submissions; an idempotency key prevents network retries from creating duplicate records. Only the separate platform-admin identity can search, inspect, or update those requests. Request status changes and internal-note updates are written to `platform_admin_audit_log`. An approval records the decision only: no restaurant account is created and no invitation email is sent automatically.
+
+The Worker runs a daily scheduled retention job at 03:17 UTC. Requests with no update for 180 days are deleted, including contact fields and internal notes; each non-empty purge writes a system audit entry with the deleted count and cutoff. Updating a request restarts its retention period. Deployments must retain the configured Cron Trigger for this guarantee to apply.
 
 GMV and recurring revenue are grouped by currency. No implicit INR/USD/EUR conversion is performed. MRR is calculated from active subscription price snapshots: monthly amounts are used directly and yearly amounts are divided by twelve. Trials, suspended subscriptions and cancelled subscriptions are not included in MRR.
 
@@ -37,6 +43,8 @@ Platform administrators may suspend/reactivate/close organizations and change a 
 
 ## Required rollout order
 
+**Migration-history safety note (verified 2026-11-02):** production `d1_migrations` is empty although the database already has four organizations and tables/columns created by migrations 0002, 0003 and 0004. Wrangler therefore reports all migrations as pending, and directly applying them would attempt duplicate `ALTER TABLE` statements (starting with the pairing-token columns). Do not run the generic migration command against production until the schema and data have been backed up, fully diffed against all migration files, and a reviewed baseline/reconciliation plan has been applied in staging. Staging D1 inspection currently fails with Cloudflare authorization error 7403.
+
 1. Back up the production D1 database.
 2. Apply pending migrations in staging first (including migration 0014 for the pilot inbox):
    ```sh
@@ -48,10 +56,12 @@ Platform administrators may suspend/reactivate/close organizations and change a 
    ```sh
    npx wrangler d1 migrations apply orderitup-d1-prod --remote
    ```
-5. Provision the platform-admin environment values in the Cloudflare Worker secret store.
-6. Deploy the Worker only after the migration and secrets are verified.
+5. Provision platform-admin settings and staging Razorpay test credentials in their respective Cloudflare Worker environments. Provision live Razorpay credentials only in production after merchant onboarding and a reviewed live-payment runbook.
+6. Deploy the Worker only after migrations, exact frontend origins, and environment-specific secrets are verified.
 
-Wrangler applies all pending migrations in filename order, including `0008_saas_subscription_and_platform_admin.sql`, `0009_subscription_grace_periods.sql` and `0014_pilot_access_requests.sql`. Do not deploy a Worker build that queries these tables until the migrations have been applied in the target environment.
+The production and staging Wrangler environments each schedule the pilot-request retention trigger. Verify the Cron Trigger is active after deploying Worker configuration; without scheduled-event delivery, the privacy notice's automated deletion promise is not met.
+
+Wrangler applies all pending migrations in filename order, including `0008_saas_subscription_and_platform_admin.sql`, `0009_subscription_grace_periods.sql`, `0014_pilot_access_requests.sql`, `0015_saas_subscription_payment_orders.sql` and `0016_saas_payment_webhook_inbox.sql`. Do not deploy a Worker build that queries these tables until the migrations have been applied in the target environment.
 
 ## Platform administrator credentials
 
@@ -73,8 +83,14 @@ node -e "console.log(require('node:crypto').randomBytes(48).toString('base64url'
 
 Store the three values in Cloudflare's encrypted secret/variable configuration. The platform-admin API returns HTTP 503 until its credentials are fully configured. Platform-admin tokens expire after one hour and are signed with the dedicated platform secret, not the tenant JWT secret.
 
-## Current billing boundary
+## SaaS subscription checkout
 
-Migrations 0008 and 0009 establish the plan catalogue, per-organization subscription snapshot, subscription event/audit ledgers, and persisted grace-period dates. The Worker can read plan state and enforce trial/renewal expiry. It does **not** yet create live paid billing orders, collect recurring fees, verify provider callbacks, automatically renew/cancel subscriptions, issue refunds, or reconcile settlements. The subscription create-order and verify-payment endpoints intentionally return HTTP 503 until a dedicated SaaS billing provider implementation is configured and tested.
+Migration `0015_saas_subscription_payment_orders.sql` adds an idempotency-scoped payment-order ledger. The Worker reads the active plan price from D1, reserves the order before contacting Razorpay, and refuses mismatched provider order details. Verification checks Razorpay's callback HMAC, independently retrieves the payment from Razorpay, and validates captured state, order, amount, and currency before recording the payment and activating the subscription. Retries return the existing order or subscription result. Order creation is limited to ten attempts per organization per hour. Suspended and closed organizations cannot start or verify billing.
 
-Do not mark an organization as paid based on a browser redirect, screenshot, UTR or client-supplied payment flag. Only authoritative provider verification and an idempotent signed webhook should activate a paid subscription.
+Configure `RAZORPAY_KEY_ID` and `RAZORPAY_KEY_SECRET` in each Cloudflare Worker environment's secret store. Production accepts only `rzp_live_...` key IDs; staging/local can use test keys. Never reuse a production key in staging. These provider secrets are separate from both tenant and platform-admin JWT secrets. The browser checkout must send the returned order ID, payment ID and signature to `/api/subscription/verify-payment`; a redirect or browser-provided success flag cannot activate a plan.
+
+The webhook receiver at `POST /api/webhooks/razorpay` verifies `X-Razorpay-Signature` against the exact raw body using the separate `RAZORPAY_WEBHOOK_SECRET`. It durably deduplicates `X-Razorpay-Event-Id`, processes `payment.captured`, and independently fetches the provider payment before activation. Other signed events are durably marked ignored. Configure the webhook URL in Razorpay and subscribe to `payment.captured`; migration `0016_saas_payment_webhook_inbox.sql` must be applied first.
+
+The platform-admin dashboard includes a failed/received event queue and an audited manual retry action for events with a linked order and payment. The retry still performs an independent provider fetch; it cannot mark a payment active by itself. Events that were malformed or have no captured-payment references stay visible for investigation but cannot be retried from this control. Automatic recurring collection, subscription cancellation/refunds, alerts for failed events, and provider settlement reconciliation remain incomplete. Complete those controls before broad paid rollout. Run `npm run test:cloud-saas-subscription-payments` and the platform-admin test before rollout, then exercise the provider's staging flow after applying migrations 0015 and 0016.
+
+Do not mark an organization as paid based on a screenshot, UTR or client-supplied payment flag. Only the server's signed callback and provider-side payment lookup can activate this checkout flow.

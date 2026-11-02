@@ -152,16 +152,13 @@ mobile/
 
 ---
 
-## 📦 Release Deliverable
+## 📦 Android Release Build
 
-The production release APK is generated and packaged in:
-```text
-release/mobile/order-it-up.apk
-```
-
-To re-package or build locally anytime:
+Build a signed release APK with:
 ```powershell
 powershell -ExecutionPolicy Bypass -File "scripts/package-release-apk.ps1"
 ```
 
-CI/CD automated build workflow is configured in [`.github/workflows/mobile-release.yml`](../.github/workflows/mobile-release.yml).
+The build requires a dedicated Android release keystore configured in `mobile/android/key.properties`; release builds intentionally fail without it and never use the debug signing key. The script builds through Flutter, checks the APK contents and verifies its signature before copying to `release/mobile/order-it-up.apk`.
+
+The [mobile release workflow](../.github/workflows/mobile-release.yml) requires the protected repository secrets `MOBILE_ANDROID_KEYSTORE_BASE64`, `MOBILE_ANDROID_STORE_PASSWORD`, `MOBILE_ANDROID_KEY_ALIAS`, and `MOBILE_ANDROID_KEY_PASSWORD`. Its uploaded APK is the release deliverable; an existing local APK is not considered current until rebuilt and verified.

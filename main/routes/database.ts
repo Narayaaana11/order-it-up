@@ -27,6 +27,8 @@ const EXPORT_SETTINGS_REDACT = new Set([
   'cloud_deletion_status_token',
   // Redact legacy error strings from exported settings.
   'cloud_last_error',
+  'cloud_catalog_last_error',
+  'cloud_qr_last_error',
 ]);
 
 // User columns stripped from export — hashes must never leave the server.

@@ -150,6 +150,7 @@ async function main() {
 
     // ── Over-collection guard (full refund succeeds = budget point 3) ─────
     const overBill = await newPaidBill('prod-refund');
+    db.prepare("UPDATE orders SET created_at = datetime('now', '-2 hours') WHERE id = ?").run(overBill.order.id);
     const overshoot = await api(baseUrl, '/api/refunds', {
       method: 'POST',
       body: { bill_id: overBill.bill.id, amount: (Number(overBill.bill.paid_amount) + 0.01).toFixed(2), method: 'cash', override_pin: '1234', manager_id: managerId },
@@ -161,7 +162,7 @@ async function main() {
       body: { bill_id: overBill.bill.id, amount: overBill.bill.paid_amount, method: 'cash', override_pin: '1234', manager_id: managerId },
       headers: ownerAuth,
     });
-    assertEqual(exact.status, 201, 'a refund exactly equal to the paid amount is accepted');
+    assertEqual(exact.status, 201, 'a recent payment remains refundable even when its dine-in order started more than one hour earlier');
     assertEqual(exact.data.bill.payment_status, 'refunded', 'refunding exactly the paid amount marks the bill refunded');
     const noBalanceLeft = await api(baseUrl, '/api/refunds', {
       method: 'POST', body: { bill_id: overBill.bill.id, amount: 1, method: 'cash', override_pin: '1234', manager_id: managerId }, headers: ownerAuth,
@@ -170,7 +171,11 @@ async function main() {
 
     // ── One-hour eligibility window (rejected before PIN budget) ─────────
     const expiredBill = await newPaidBill('prod-refund');
-    db.prepare("UPDATE orders SET created_at = datetime('now', '-61 minutes') WHERE id = ?").run(expiredBill.order.id);
+    const oldPaidAt = new Date(Date.now() - 61 * 60 * 1000).toISOString();
+    const expiredPaymentDetails = JSON.parse((db.prepare('SELECT payment_details FROM bills WHERE id = ?').get(expiredBill.bill.id) as any).payment_details);
+    expiredPaymentDetails.forEach((line: any) => { line.timestamp = oldPaidAt; });
+    db.prepare("UPDATE orders SET created_at = datetime('now', '-2 hours') WHERE id = ?").run(expiredBill.order.id);
+    db.prepare('UPDATE bills SET paid_at = ?, payment_details = ? WHERE id = ?').run(oldPaidAt, JSON.stringify(expiredPaymentDetails), expiredBill.bill.id);
     const expiredRefund = await api(baseUrl, '/api/refunds', {
       method: 'POST',
       body: { bill_id: expiredBill.bill.id, amount: expiredBill.bill.paid_amount, method: 'cash', override_pin: '1234', manager_id: managerId },
@@ -200,6 +205,10 @@ async function main() {
     );
     const cashAfterPartialRefund = salesAfterPartialRefund.data.paymentMethods.find((row: any) => row.method === 'cash');
     assertEqual(cashAfterPartialRefund.total, salesAfterPartialRefund.data.sales, 'cash payment reporting includes refund lines as negative cash movement');
+    const overRemainder = await api(baseUrl, '/api/refunds', {
+      method: 'POST', body: { bill_id: partialBill.bill.id, amount: partialBill.bill.paid_amount, method: 'cash', override_pin: '1234', manager_id: managerId }, headers: ownerAuth,
+    });
+    assertEqual(overRemainder.status, 400, 'a refund exceeding the remaining refundable balance is rejected');
 
     const paymentDate = '2025-01-10T12:00:00.000Z';
     const refundDate = '2025-01-11T12:00:00.000Z';
@@ -225,11 +234,6 @@ async function main() {
     assertEqual(monthly.data.financialSummary.refunds[0].bill_number, partialBill.bill.bill_number, 'monthly refund audit identifies the affected bill');
     const managerMonthly = await api(baseUrl, '/api/reports/financial-summary?start_date=2025-01-01&end_date=2025-01-31', { headers: managerAuth });
     assertEqual(managerMonthly.status, 403, 'monthly refund audit remains owner-only');
-    const overRemainder = await api(baseUrl, '/api/refunds', {
-      method: 'POST', body: { bill_id: partialBill.bill.id, amount: partialBill.bill.paid_amount, method: 'cash', override_pin: '1234', manager_id: managerId }, headers: ownerAuth,
-    });
-    assertEqual(overRemainder.status, 400, 'a refund exceeding the remaining refundable balance is rejected');
-
     // ── GET /api/refunds listing (no PIN, no budget cost) ──────────────────
     const list = await api(baseUrl, `/api/refunds?bill_id=${partialBill.bill.id}`, { headers: ownerAuth });
     assertEqual(list.status, 200, 'listing refunds for a bill succeeds');

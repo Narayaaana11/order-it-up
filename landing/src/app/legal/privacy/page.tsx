@@ -35,7 +35,7 @@ export default function PrivacyPage() {
           Do not enter full card numbers, CVVs, PINs, net-banking credentials, passwords belonging to other services, Aadhaar numbers, health data or other sensitive information unless the relevant workflow expressly requires it and the Operator has provided a separate lawful and secure collection notice. Do not send such data in support tickets or email.
         </p>
         <p>
-          When a pilot access request is submitted, the entered details are sent to the configured Order It Up Cloud API and stored in Cloudflare D1 so provisioned platform administrators can review and respond. The form does not create a restaurant account or send an invitation automatically. Pilot request records are not automatically purged; the Operator must establish and apply a retention schedule before using the form for ongoing production collection.
+          When a pilot access request is submitted, the entered details are sent to the configured Order It Up Cloud API and stored in Cloudflare D1 so provisioned platform administrators can review and respond. The form does not create a restaurant account or send an invitation automatically. Pilot request details and internal notes are automatically deleted after 180 days without an update. Any status or notes update, including approval, restarts that period. Approval still requires a separate account-provisioning step.
         </p>
       </LegalSection>
 

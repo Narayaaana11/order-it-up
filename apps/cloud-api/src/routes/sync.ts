@@ -519,10 +519,10 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
 
             eventStatements.push(env.DB.prepare(`
               INSERT INTO synced_order_items (
-                id, order_id, branch_id, product_id, product_name,
+                id, order_id, branch_id, product_id, product_name, product_sku,
                 quantity, unit_price, subtotal, tax_amount, discount_amount,
                 ordered_at, restaurant_id, kitchen_status, updated_at
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
               ON CONFLICT(id) DO UPDATE SET
                 quantity = excluded.quantity,
                 subtotal = excluded.subtotal,
@@ -533,6 +533,7 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
               terminal.branch_id,
               item.product_id || null,
               item.name || item.product_name || 'Item',
+              item.product_sku || item.sku || null,
               itemQty,
               itemPrice,
               itemSub,
@@ -624,8 +625,12 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
           continue;
         }
 
-        // 1. External payment references (UTR / auth code)
-        // For UPI, card and other non-cash payments, require a genuine external transaction reference.
+        const paymentId = typeof payload.payment_id === 'string' && payload.payment_id.trim()
+          ? payload.payment_id.trim()
+          : ('pay_sync_' + event.id);
+        const paymentIdempotencyKey = typeof payload.idempotency_key === 'string' && payload.idempotency_key.trim()
+          ? payload.idempotency_key.trim()
+          : ('sync_' + event.id);
         const extRef = typeof payload.external_reference_id === 'string' && payload.external_reference_id.trim()
           ? payload.external_reference_id.trim()
           : (typeof payload.reference_number === 'string' && payload.reference_number.trim()
@@ -635,7 +640,48 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
               : (typeof payload.transaction_id === 'string' && payload.transaction_id.trim()
                 ? payload.transaction_id.trim()
                 : null)));
+        const existingPayments = await env.DB.prepare(`
+          SELECT id, organization_id, branch_id, order_id, payment_method, amount,
+                 external_reference_id, idempotency_key, status
+            FROM customer_payments
+           WHERE id = ? OR (branch_id = ? AND idempotency_key = ?)
+           LIMIT 2
+        `).bind(paymentId, terminal.branch_id, paymentIdempotencyKey).all<any>();
+        const matches = existingPayments.results || [];
+        if (matches.length > 1) {
+          console.warn(`[SyncSecurity] Payment ID and idempotency key resolve to different records for event ${event.id}`);
+          continue;
+        }
+        const existingPayment = matches[0];
+        if (existingPayment) {
+          const samePayment = existingPayment.organization_id === terminal.organization_id &&
+            existingPayment.branch_id === terminal.branch_id && existingPayment.order_id === orderId &&
+            existingPayment.payment_method === rawMethod && Number(existingPayment.amount) === settlementAmount &&
+            (existingPayment.external_reference_id || null) === extRef &&
+            existingPayment.status === 'completed';
+          if (!samePayment) {
+            console.warn(`[SyncSecurity] Payment ID/idempotency conflict rejected for event ${event.id}`);
+            continue;
+          }
+          // A stable payment ID or idempotency key can be replayed under a new
+          // event ID, but it must not insert a second ledger row or reapply money.
+          try {
+            await executeBatch(env.DB, [env.DB.prepare(`
+              INSERT INTO sync_events (
+                id, organization_id, branch_id, terminal_id, event_type,
+                entity_type, entity_id, payload_hash, status, processed_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(event.id, terminal.organization_id, terminal.branch_id, terminal.id, event.type,
+              'payment', orderId, payloadHash, 'processed', now)]);
+            processedIds.push(event.id);
+          } catch (replayError: any) {
+            console.warn(`[SyncPayment] Idempotent payment replay recording failed for event ${event.id}:`, replayError?.message || replayError);
+          }
+          continue;
+        }
 
+        // 1. External payment references (UTR / auth code)
+        // For UPI, card and other non-cash payments, require a genuine external transaction reference.
         const BOGUS_REFS = ['123', 'test', 'null', 'na', 'none', 'dummy', '0000', '1111', 'fake', 'abc', 'xyz'];
         if (rawMethod !== 'cash') {
           if (!extRef || extRef.length < 4 || BOGUS_REFS.includes(extRef.toLowerCase())) {
@@ -695,13 +741,6 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
         const isSplit = currentNetPaid > 0 ? 1 : 0;
         const orderVersion = Number(existingOrder.version || 1);
 
-        const paymentId = typeof payload.payment_id === 'string' && payload.payment_id.trim()
-          ? payload.payment_id.trim()
-          : ('pay_sync_' + event.id);
-        const paymentIdempotencyKey = typeof payload.idempotency_key === 'string' && payload.idempotency_key.trim()
-          ? payload.idempotency_key.trim()
-          : ('sync_' + event.id);
-
         const paymentStatements: any[] = [];
         paymentStatements.push(env.DB.prepare(`
           INSERT INTO sync_events (
@@ -727,7 +766,6 @@ export async function handleIngestSyncEvents(request: Request, env: Env): Promis
             amount, currency, status, verification_method, external_reference_id, cashier_user_id, cashier_name,
             terminal_id, idempotency_key, is_split, metadata_json, created_at, updated_at
           ) VALUES (?, ?, ?, ?, ?, ?, ?, 'INR', 'completed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          ON CONFLICT(id) DO NOTHING
         `).bind(
           paymentId,
           terminal.organization_id,

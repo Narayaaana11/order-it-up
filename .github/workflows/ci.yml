@@ -85,6 +85,15 @@ jobs:
       - name: QR Staff Approval & Inventory Lifecycle
         run: node tests/run-electron-node-test.cjs tests/qr-order-and-reservations.test.ts
 
+      - name: POS Recipe Stock Reservation & Rollback
+        run: node tests/run-electron-node-test.cjs tests/inventory-recipe-deduction.test.ts
+
+      - name: Refund Authorization, Payment Window & Ledger Integrity
+        run: npm run test:refunds
+
+      - name: Cloud Public QR Pricing, Approval, Tracking & Token Rotation
+        run: npm run test:cloud-public-qr
+
       - name: Database Schema & Migration Integrity Audit
         run: npm run audit:db
 
@@ -103,8 +112,14 @@ jobs:
       - name: Cloud Platform Admin Authentication & D1 Metrics
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-platform-admin.test.ts
 
+      - name: Cloud Pilot Request Intake, Admin Review & Retention
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-pilot-requests.test.ts
+
       - name: Cloud Subscription Lifecycle & Plan Entitlement Tests
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-subscription-entitlements.test.ts
+
+      - name: Cloud SaaS Subscription Payment Verification & Webhook Replay
+        run: npm run test:cloud-saas-subscription-payments
 
       - name: Cloud SaaS D1 Migration Compatibility
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-saas-migrations.test.ts
@@ -120,6 +135,9 @@ jobs:
 
       - name: Terminal Pairing Security & PIN Rate Limiting Verification
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/pairing-security.test.ts
+
+      - name: Desktop Cloud Terminal Pairing, Catalog & QR Delivery
+        run: npm run test:cloud-terminal-pairing
 
       - name: SaaS Tenant Registration & Starter Catalog Seeding Verification
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-registration.test.ts
@@ -172,3 +190,7 @@ jobs:
       - name: Run Mobile Test Suite
         working-directory: mobile
         run: flutter test
+
+      - name: Build Android Debug APK
+        working-directory: mobile
+        run: flutter build apk --debug

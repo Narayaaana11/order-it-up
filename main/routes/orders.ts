@@ -530,14 +530,11 @@ router.post('/', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req: R
         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
       `);
 
+      const trackedProductDemand = new Map<string, { name: string; quantity: number }>();
       for (const item of items) {
         const product = db.prepare('SELECT * FROM products WHERE id = ?').get(item.product_id) as any;
         if (!product) {
           throw new Error(`Product ${item.product_id} not found`);
-        }
-
-        if (product.track_inventory && product.stock_quantity < item.quantity) {
-          throw new Error(`Insufficient stock for ${product.name}`);
         }
 
         const unitPrice = parseFloat(product.price);
@@ -547,6 +544,11 @@ router.post('/', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req: R
 
         // Validate quantity and price
         validateProductQuantity(product, quantity);
+        if (product.track_inventory) {
+          const demand = trackedProductDemand.get(product.id);
+          if (demand) demand.quantity += quantity;
+          else trackedProductDemand.set(product.id, { name: product.name, quantity });
+        }
         if (unitPrice < 0 || !Number.isFinite(unitPrice)) {
           throw new Error(`Invalid price for ${product.name}: must be a non-negative number`);
         }
@@ -592,14 +594,27 @@ router.post('/', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req: R
         );
         insertOrderItemAddons(db, insertItemResult.lastInsertRowid, item.addons, itemCreatedAt);
 
-        if (product.track_inventory) {
-          db.prepare('UPDATE products SET stock_quantity = stock_quantity - ?, updated_at = ? WHERE id = ?')
-            .run(quantity, now(), product.id);
+      }
+
+      const deductTrackedProduct = db.prepare(`
+        UPDATE products
+        SET stock_quantity = stock_quantity - ?, updated_at = ?
+        WHERE id = ? AND track_inventory = 1 AND stock_quantity >= ?
+      `);
+      for (const [productId, demand] of trackedProductDemand) {
+        const result = deductTrackedProduct.run(demand.quantity, now(), productId, demand.quantity);
+        if (result.changes !== 1) {
+          throw Object.assign(new Error(`Insufficient stock for ${demand.name}: need ${demand.quantity}`), { statusCode: 409 });
         }
       }
 
-      // Deduct raw ingredients if recipes are configured for these products
-      deductIngredientsForOrderItems(items, orderNumber, true);
+      const ingredientInventory = deductIngredientsForOrderItems(items, orderNumber, false);
+      if (!ingredientInventory.success) {
+        const shortages = ingredientInventory.insufficientIngredients
+          .map((item) => `${item.ingredientName}: need ${item.requiredStock}, available ${item.availableStock}`)
+          .join('; ');
+        throw Object.assign(new Error(`Insufficient ingredient stock: ${shortages}`), { statusCode: 409 });
+      }
 
       const chargeTaxes = calculateConfiguredChargeTaxes(tenantInfo, chargeContext, customer);
       const currency = getTenantCurrency();
@@ -743,6 +758,10 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
       }
 
       const customer = currentOrder.customer_id ? db.prepare('SELECT * FROM customers WHERE id = ?').get(currentOrder.customer_id) as any : null;
+      const isLocalQrOrder = String(currentOrder.special_instructions || '').startsWith('[QR Self-Order]');
+      const isQrOrder = isLocalQrOrder || currentOrder.online_platform === 'cloud_qr';
+      const deferInventoryUntilAcceptance = isQrOrder && currentOrder.status === 'pending';
+      const trackedProductDemand = new Map<string, { name: string; quantity: number }>();
 
       const insertItem = db.prepare(`
         INSERT INTO order_items (order_id, product_id, product_name, product_sku, unit_price, quantity, inventory_deducted_quantity,
@@ -756,9 +775,6 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
         if (!product) {
           throw new Error(`Product ${item.product_id} not found`);
         }
-        if (product.track_inventory && product.stock_quantity < item.quantity) {
-          throw new Error(`Insufficient stock for ${product.name}`);
-        }
 
         const unitPrice = parseFloat(product.price);
         const quantity = item.quantity;
@@ -767,6 +783,11 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
 
         // Validate quantity and price
         validateProductQuantity(product, quantity);
+        if (product.track_inventory && !deferInventoryUntilAcceptance) {
+          const demand = trackedProductDemand.get(product.id);
+          if (demand) demand.quantity += quantity;
+          else trackedProductDemand.set(product.id, { name: product.name, quantity });
+        }
         if (unitPrice < 0 || !Number.isFinite(unitPrice)) {
           throw new Error(`Invalid price for ${product.name}: must be a non-negative number`);
         }
@@ -792,7 +813,8 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
 
         const itemCreatedAt = now();
         const insertItemResult = insertItem.run(
-          req.params.id, product.id, product.name, product.sku, unitPrice, quantity, product.track_inventory ? quantity : 0,
+          req.params.id, product.id, product.name, product.sku, unitPrice, quantity,
+          product.track_inventory && !deferInventoryUntilAcceptance ? quantity : 0,
           itemSubtotal, taxResult.tax_amount, JSON.stringify(taxResult.tax_breakdown), itemTaxSnapshotJson,
           taxResult.tax_type, itemDiscount, itemTotal,
           JSON.stringify(item.variant_selection || null),
@@ -800,10 +822,30 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
           item.special_instructions || null, itemCreatedAt, itemCreatedAt
         );
         insertOrderItemAddons(db, insertItemResult.lastInsertRowid, item.addons, itemCreatedAt);
+      }
 
-        if (product.track_inventory) {
-          db.prepare('UPDATE products SET stock_quantity = stock_quantity - ?, updated_at = ? WHERE id = ?')
-            .run(quantity, now(), product.id);
+      if (!deferInventoryUntilAcceptance) {
+        const deductTrackedProduct = db.prepare(`
+          UPDATE products SET stock_quantity = stock_quantity - ?, updated_at = ?
+          WHERE id = ? AND track_inventory = 1 AND stock_quantity >= ?
+        `);
+        for (const [productId, demand] of trackedProductDemand) {
+          const result = deductTrackedProduct.run(demand.quantity, now(), productId, demand.quantity);
+          if (result.changes !== 1) {
+            throw Object.assign(new Error(`Insufficient stock for ${demand.name}: need ${demand.quantity}`), { statusCode: 409 });
+          }
+        }
+
+        const orderItemsForInventory = db.prepare(`
+          SELECT product_id, quantity FROM order_items
+          WHERE order_id = ? AND status NOT IN ('cancelled', 'voided', 'void_adjustment', 'refunded')
+        `).all(req.params.id) as { product_id: string; quantity: number }[];
+        const ingredientInventory = deductIngredientsForOrderItems(orderItemsForInventory, currentOrder.order_number, false);
+        if (!ingredientInventory.success) {
+          const shortages = ingredientInventory.insufficientIngredients
+            .map((ingredient) => `${ingredient.ingredientName}: need ${ingredient.requiredStock}, available ${ingredient.availableStock}`)
+            .join('; ');
+          throw Object.assign(new Error(`Insufficient ingredient stock: ${shortages}`), { statusCode: 409 });
         }
       }
 
@@ -870,9 +912,13 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
 
       // Update order totals and optionally update order-level notes
       if (special_instructions !== undefined) {
+        const requestedNotes = String(special_instructions || '').replace(/^\[QR Self-Order\]\s*/, '').trim();
+        const storedNotes = isLocalQrOrder
+          ? `[QR Self-Order]${requestedNotes ? ` ${requestedNotes}` : ''}`
+          : special_instructions || null;
         db.prepare(`
           UPDATE orders SET subtotal = ?, tax_amount = ?, tax_breakdown = ?, tax_snapshot = ?, discount_amount = ?, total = ?, round_off = ?, special_instructions = ?, updated_at = ? WHERE id = ?
-        `).run(subtotal, taxRollup.taxAmount, JSON.stringify(taxRollup.breakdowns), taxRollup.snapshotJson, newDiscountAmount, total, roundOff, special_instructions || null, now(), req.params.id);
+        `).run(subtotal, taxRollup.taxAmount, JSON.stringify(taxRollup.breakdowns), taxRollup.snapshotJson, newDiscountAmount, total, roundOff, storedNotes, now(), req.params.id);
       } else {
         db.prepare(`
           UPDATE orders SET subtotal = ?, tax_amount = ?, tax_breakdown = ?, tax_snapshot = ?, discount_amount = ?, total = ?, round_off = ?, updated_at = ? WHERE id = ?
@@ -973,6 +1019,25 @@ router.patch('/:id/status', orderWriteRateLimit, requireRole(...ROLE_ACCESS.orde
         throw Object.assign(new Error(`Cannot transition order status from '${currentOrder.status}' to '${status}'`), { statusCode: 400 });
       }
 
+      if (status === 'cancelled') {
+        const minorFactor = getCurrencyMinorUnitFactor(getTenantCurrency());
+        const outstandingPaidBills = db.prepare(`
+          SELECT b.id, b.paid_amount, COALESCE(SUM(r.amount_cents), 0) AS refunded_cents
+          FROM bills b
+          LEFT JOIN refunds r ON r.bill_id = b.id
+          WHERE b.order_id = ?
+          GROUP BY b.id
+        `).all(req.params.id) as { id: number; paid_amount: number; refunded_cents: number }[];
+        const hasOutstandingPayment = outstandingPaidBills.some((bill) =>
+          Math.round(Number(bill.paid_amount || 0) * minorFactor) > Number(bill.refunded_cents || 0));
+        if (hasOutstandingPayment) {
+          throw Object.assign(
+            new Error('Refund all collected payments before cancelling this order. Record refunds from the bill first.'),
+            { statusCode: 409 },
+          );
+        }
+      }
+
       // Cancellation authorization is based on the same transaction-local
       // order and item snapshot that will be mutated below.
       const hasItemsInProgress = db.prepare(`
@@ -1007,14 +1072,18 @@ router.patch('/:id/status', orderWriteRateLimit, requireRole(...ROLE_ACCESS.orde
 
       switch (status) {
         case 'preparing':
-          // A QR order is only accepted when staff explicitly move it into
-          // preparation. Deduct recipe stock at this transition, not at guest
-          // submission. Fail closed if the recipe stock is insufficient.
-          if (String(currentOrder.special_instructions || '').startsWith('[QR Self-Order]')) {
+          // Guest QR orders are requests until staff accept them. Both local
+          // and Cloud QR sources reserve recipe and tracked-product stock at
+          // this transition, not when the guest submits the request.
+          if (String(currentOrder.special_instructions || '').startsWith('[QR Self-Order]') || currentOrder.online_platform === 'cloud_qr') {
             const qrItems = db.prepare(
-              'SELECT product_id, quantity FROM order_items WHERE order_id = ?'
-            ).all(req.params.id) as { product_id: string; quantity: number }[];
-            const inventoryResult = deductIngredientsForOrderItems(qrItems, currentOrder.order_number, false);
+              'SELECT id, product_id, quantity FROM order_items WHERE order_id = ?'
+            ).all(req.params.id) as { id: number; product_id: string; quantity: number }[];
+            const inventoryResult = deductIngredientsForOrderItems(
+              qrItems.map(({ product_id, quantity }) => ({ product_id, quantity })),
+              currentOrder.order_number,
+              false,
+            );
             if (!inventoryResult.success) {
               const shortages = inventoryResult.insufficientIngredients
                 .map((item) => `${item.ingredientName}: need ${item.requiredStock}, available ${item.availableStock}`)
@@ -1023,6 +1092,29 @@ router.patch('/:id/status', orderWriteRateLimit, requireRole(...ROLE_ACCESS.orde
                 new Error(`Cannot accept QR order because ingredient stock is insufficient. ${shortages}`),
                 { statusCode: 409 }
               );
+            }
+
+            const trackedDemand = new Map<string, number>();
+            for (const item of qrItems) {
+              const product = db.prepare('SELECT is_active, deleted_at, track_inventory FROM products WHERE id = ?').get(item.product_id) as any;
+              if (!product || product.is_active !== 1 || product.deleted_at || product.track_inventory === null) {
+                throw Object.assign(new Error('Cannot accept QR order because a mapped product is no longer available.'), { statusCode: 409 });
+              }
+              if (product.track_inventory === 1) {
+                trackedDemand.set(item.product_id, (trackedDemand.get(item.product_id) || 0) + item.quantity);
+              }
+            }
+
+            for (const [productId, quantity] of trackedDemand) {
+              const deducted = db.prepare(`
+                UPDATE products SET stock_quantity = stock_quantity - ?, updated_at = ?
+                WHERE id = ? AND track_inventory = 1 AND is_active = 1 AND deleted_at IS NULL AND stock_quantity >= ?
+              `).run(quantity, nowStr, productId, quantity);
+              if (deducted.changes !== 1) {
+                throw Object.assign(new Error('Cannot accept QR order because tracked product stock is insufficient.'), { statusCode: 409 });
+              }
+              db.prepare('UPDATE order_items SET inventory_deducted_quantity = quantity WHERE order_id = ? AND product_id = ?')
+                .run(req.params.id, productId);
             }
           }
           db.prepare('UPDATE orders SET status = ?, cooking_started_at = ?, updated_at = ? WHERE id = ?')

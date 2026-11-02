@@ -53,7 +53,7 @@ async function main() {
 
   // Seed Menu
   seedCategory(db, 'cat-biryani', 'Biryani');
-  seedProduct(db, 'prod-chk-biryani', 'cat-biryani', 'Chicken Dum Biryani', 280);
+  seedProduct(db, 'prod-chk-biryani', 'cat-biryani', 'Chicken Dum Biryani', 280, { track_inventory: true, stock_quantity: 20 });
   seedProduct(db, 'prod-coke-can', 'cat-biryani', 'Coke 330ml Can', 40);
 
   const app = createApp({});
@@ -178,6 +178,7 @@ async function main() {
     // Check BOM Deduction (2 x 0.25kg = 0.5kg chicken deducted from 10.0kg -> 9.5kg)
     const chickenStock = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get(chickenId) as any;
     assertEqual(chickenStock.current_stock, 9.5, 'Raw chicken deducted accurately from recipe BOM (9.5 kg)');
+    assertEqual(db.prepare("SELECT stock_quantity FROM products WHERE id = 'prod-chk-biryani'").get().stock_quantity, 18, 'Tracked menu stock is deducted for auto-accepted aggregator items');
 
     // 3. Duplicate Order Handling (Idempotency)
     console.log('\nStep 3: Webhook Idempotency Check');
@@ -193,6 +194,7 @@ async function main() {
     // Stock should not be double-deducted
     const chickenStockAfterDup = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get(chickenId) as any;
     assertEqual(chickenStockAfterDup.current_stock, 9.5, 'Stock not double deducted on duplicate webhook');
+    assertEqual(db.prepare("SELECT stock_quantity FROM products WHERE id = 'prod-chk-biryani'").get().stock_quantity, 18, 'Tracked menu stock is not double deducted on duplicate webhook');
 
     // 4. Ingest Zomato Webhook
     console.log('\nStep 4: Ingest Zomato Webhook');
@@ -228,6 +230,7 @@ async function main() {
     assertEqual(resZomato.status, 200, 'Zomato webhook ingested successfully (200)');
     assertEqual(resZomato.data.zomato_order_id, 'ZM-445566', 'Returned zomato_order_id');
     const zomatoLocalOrderId = resZomato.data.order_id;
+    assertEqual(db.prepare("SELECT stock_quantity FROM products WHERE id = 'prod-chk-biryani'").get().stock_quantity, 17, 'Zomato auto-accept deducts tracked menu stock');
 
     // 5. Rider Assignment Webhook
     console.log('\nStep 5: Delivery Rider Assigned Webhook');
@@ -287,9 +290,102 @@ async function main() {
     // Upon cancellation of Zomato, 0.25kg is restored -> 9.50kg!
     const chickenStockRestored = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get(chickenId) as any;
     assertEqual(chickenStockRestored.current_stock, 9.5, 'Raw chicken restocked on cancellation (9.5 kg)');
+    assertEqual(db.prepare("SELECT stock_quantity FROM products WHERE id = 'prod-chk-biryani'").get().stock_quantity, 18, 'Aggregator cancellation restores tracked menu stock');
 
-    // 8. Aggregator Simulator Harness
-    console.log('\nStep 8: Simulate Test Order via UI Harness');
+    // Low stock must never leave an aggregator order marked as preparing while
+    // the matching raw-ingredient deduction is missing.
+    console.log('\nStep 8: Keep Auto-Accepted Orders Pending When Ingredient Stock Is Short');
+    db.prepare('UPDATE raw_ingredients SET current_stock = 0.1 WHERE id = ?').run(chickenId);
+    const shortagePayload = {
+      order_id: 'SW-LOW-STOCK-001',
+      items: [{ item_id: 'prod-chk-biryani', name: 'Chicken Dum Biryani', quantity: 1, price: 280 }],
+      pricing: { subtotal: 280, total: 280 },
+    };
+    const shortageResponse = await api(baseUrl, '/api/webhooks/swiggy/order', {
+      method: 'POST', body: shortagePayload, headers: signedHeaders('swiggy', shortagePayload),
+    });
+    assertEqual(shortageResponse.status, 200, 'Low-stock aggregator delivery is retained and acknowledged');
+    assertEqual(shortageResponse.data.kitchen_status, 'pending', 'Low-stock auto-accept falls back to staff review');
+    const shortageOrderId = shortageResponse.data.order_id;
+    assertEqual(db.prepare('SELECT status FROM orders WHERE id = ?').get(shortageOrderId).status, 'pending', 'Low-stock order is persisted as pending');
+    assertEqual(db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get(chickenId).current_stock, 0.1, 'Failed auto-accept does not partially deduct ingredients');
+
+    const shortageAccept = await api(baseUrl, `/api/aggregators/orders/${shortageOrderId}/accept`, { method: 'POST', headers: authHeader });
+    assertEqual(shortageAccept.status, 409, 'Manual acceptance rejects insufficient ingredient stock');
+    assertEqual(db.prepare('SELECT status FROM orders WHERE id = ?').get(shortageOrderId).status, 'pending', 'Rejected acceptance leaves the order pending');
+    assertEqual(db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get(chickenId).current_stock, 0.1, 'Rejected acceptance leaves ingredient stock unchanged');
+    assertEqual(db.prepare("SELECT stock_quantity FROM products WHERE id = 'prod-chk-biryani'").get().stock_quantity, 18, 'Low-stock pending order does not deduct tracked menu stock');
+
+    db.prepare('UPDATE raw_ingredients SET current_stock = 1 WHERE id = ?').run(chickenId);
+    const successfulAccept = await api(baseUrl, `/api/aggregators/orders/${shortageOrderId}/accept`, { method: 'POST', headers: authHeader });
+    assertEqual(successfulAccept.status, 200, 'Staff can accept the order after stock is replenished');
+    assertEqual(db.prepare('SELECT status FROM orders WHERE id = ?').get(shortageOrderId).status, 'preparing', 'Accepted order status advances with its stock deduction');
+    assertEqual(db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get(chickenId).current_stock, 0.75, 'Successful acceptance deducts the recipe exactly once');
+    assertEqual(db.prepare("SELECT stock_quantity FROM products WHERE id = 'prod-chk-biryani'").get().stock_quantity, 17, 'Manual acceptance deducts tracked menu stock');
+
+    const acceptedCancelPayload = { order_id: 'SW-LOW-STOCK-001', reason: 'Inventory lifecycle regression test' };
+    const acceptedCancel = await api(baseUrl, '/api/webhooks/swiggy/cancel', {
+      method: 'POST', body: acceptedCancelPayload, headers: signedHeaders('swiggy', acceptedCancelPayload),
+    });
+    assertEqual(acceptedCancel.status, 200, 'Signed provider cancellation succeeds after acceptance');
+    assertEqual(db.prepare("SELECT stock_quantity FROM products WHERE id = 'prod-chk-biryani'").get().stock_quantity, 18, 'Provider cancellation restores tracked menu stock exactly once');
+    assertEqual(db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get(chickenId).current_stock, 1, 'Provider cancellation restores recipe ingredients');
+
+    const unmappedPayload = {
+      order_id: 'SW-UNMAPPED-001',
+      items: [{ item_id: 'provider-only-item', name: 'Provider-only Dish', quantity: 1, price: 99 }],
+      pricing: { subtotal: 99, total: 99 },
+    };
+    const unmappedResponse = await api(baseUrl, '/api/webhooks/swiggy/order', {
+      method: 'POST', body: unmappedPayload, headers: signedHeaders('swiggy', unmappedPayload),
+    });
+    assertEqual(unmappedResponse.status, 200, 'Unmapped catalog order is retained from the provider');
+    assertEqual(unmappedResponse.data.kitchen_status, 'pending', 'Unmapped catalog items require staff review before preparation');
+    const unmappedOrderId = unmappedResponse.data.order_id;
+    assertEqual(db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get(chickenId).current_stock, 1, 'Unmapped catalog order does not deduct recipe stock');
+    assertEqual(db.prepare("SELECT stock_quantity FROM products WHERE id = 'prod-chk-biryani'").get().stock_quantity, 18, 'Unmapped catalog order does not alter tracked product stock');
+    const acceptUnmapped = await api(baseUrl, `/api/aggregators/orders/${unmappedOrderId}/accept`, { method: 'POST', headers: authHeader });
+    assertEqual(acceptUnmapped.status, 409, 'Manual acceptance rejects unmapped provider items');
+    assertEqual(db.prepare('SELECT status FROM orders WHERE id = ?').get(unmappedOrderId).status, 'pending', 'Unmapped items keep the order pending until catalog mapping is fixed');
+
+    db.prepare("UPDATE products SET stock_quantity = 0.5 WHERE id = 'prod-chk-biryani'").run();
+    const productShortagePayload = {
+      order_id: 'SW-PRODUCT-STOCK-001',
+      items: [{ item_id: 'prod-chk-biryani', name: 'Chicken Dum Biryani', quantity: 1, price: 280 }],
+      pricing: { subtotal: 280, total: 280 },
+    };
+    const productShortage = await api(baseUrl, '/api/webhooks/swiggy/order', {
+      method: 'POST', body: productShortagePayload, headers: signedHeaders('swiggy', productShortagePayload),
+    });
+    assertEqual(productShortage.data.kitchen_status, 'pending', 'Tracked product shortage prevents auto-accept');
+    const productShortageOrderId = productShortage.data.order_id;
+    assertEqual(db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get(chickenId).current_stock, 1, 'Product shortage does not deduct recipe ingredients');
+    const productShortageAccept = await api(baseUrl, `/api/aggregators/orders/${productShortageOrderId}/accept`, { method: 'POST', headers: authHeader });
+    assertEqual(productShortageAccept.status, 409, 'Manual acceptance rejects insufficient tracked product stock');
+    assertEqual(db.prepare('SELECT status FROM orders WHERE id = ?').get(productShortageOrderId).status, 'pending', 'Product shortage leaves the order pending');
+    assertEqual(db.prepare("SELECT stock_quantity FROM products WHERE id = 'prod-chk-biryani'").get().stock_quantity, 0.5, 'Product shortage leaves sellable stock unchanged');
+    assertEqual(db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get(chickenId).current_stock, 1, 'Failed product acceptance rolls back raw ingredient deduction');
+
+    db.prepare("UPDATE products SET stock_quantity = 1 WHERE id = 'prod-chk-biryani'").run();
+    const productRestockAccept = await api(baseUrl, `/api/aggregators/orders/${productShortageOrderId}/accept`, { method: 'POST', headers: authHeader });
+    assertEqual(productRestockAccept.status, 200, 'Staff can accept after the tracked product is restocked');
+    assertEqual(db.prepare("SELECT stock_quantity FROM products WHERE id = 'prod-chk-biryani'").get().stock_quantity, 0, 'Acceptance consumes the final tracked product unit');
+    assertEqual(db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get(chickenId).current_stock, 0.75, 'Acceptance deducts recipe stock only after all checks pass');
+    const productCancelPayload = { order_id: 'SW-PRODUCT-STOCK-001', reason: 'Inventory lifecycle regression test' };
+    const productCancel = await api(baseUrl, '/api/webhooks/swiggy/cancel', {
+      method: 'POST', body: productCancelPayload, headers: signedHeaders('swiggy', productCancelPayload),
+    });
+    assertEqual(productCancel.status, 200, 'Provider can cancel the accepted order');
+    assertEqual(db.prepare("SELECT stock_quantity FROM products WHERE id = 'prod-chk-biryani'").get().stock_quantity, 1, 'Cancellation restores the tracked product quantity');
+    assertEqual(db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get(chickenId).current_stock, 1, 'Cancellation restores the recipe quantity');
+    const repeatedProductCancel = await api(baseUrl, '/api/webhooks/swiggy/cancel', {
+      method: 'POST', body: productCancelPayload, headers: signedHeaders('swiggy', productCancelPayload),
+    });
+    assertEqual(repeatedProductCancel.data.cancelled, false, 'Repeated provider cancellation is acknowledged without applying twice');
+    assertEqual(db.prepare("SELECT stock_quantity FROM products WHERE id = 'prod-chk-biryani'").get().stock_quantity, 1, 'Repeated cancellation does not restore product stock twice');
+
+    // 9. Aggregator Simulator Harness
+    console.log('\nStep 9: Simulate Test Order via UI Harness');
     const resSim = await api(baseUrl, '/api/aggregators/test-order', {
       method: 'POST',
       headers: authHeader,

@@ -5,6 +5,7 @@ export interface Env {
   DB: D1Database;
   JWT_SECRET: string;
   ENVIRONMENT?: string;
+  ALLOW_SELF_SERVICE_REGISTRATION?: string;
   RATE_LIMIT_LOGIN_IP?: string | number;
   RATE_LIMIT_LOGIN_ACCOUNT?: string | number;
   RATE_LIMIT_PAIR_CLAIM_IP?: string | number;
@@ -17,6 +18,12 @@ export interface Env {
   PLATFORM_ADMIN_EMAIL?: string;
   PLATFORM_ADMIN_PASSWORD_HASH?: string;
   PLATFORM_ADMIN_JWT_SECRET?: string;
+  RESEND_API_KEY?: string;
+  PILOT_INVITATION_FROM?: string;
+  PILOT_INVITATION_BASE_URL?: string;
+  RAZORPAY_KEY_ID?: string;
+  RAZORPAY_KEY_SECRET?: string;
+  RAZORPAY_WEBHOOK_SECRET?: string;
 }
 
 export const MAX_PAIRING_CODE_ATTEMPTS = 5;

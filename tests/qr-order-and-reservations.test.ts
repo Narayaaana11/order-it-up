@@ -179,6 +179,15 @@ async function main() {
     ).get() as any;
     assertEqual(Number(pendingDeductions.count), 0, 'Pending QR request creates no inventory deduction ledger entries');
 
+    const addPendingQrItem = await api(baseUrl, `/api/orders/${orderId}/items`, {
+      method: 'POST',
+      body: { items: [{ product_id: 'prod-gulab-jamun', quantity: 1, addons: [{ id: 'addon-jamun-syrup' }] }], special_instructions: 'No nuts' },
+      headers: authHeader,
+    });
+    assertEqual(addPendingQrItem.status, 200, 'Staff can add a menu item to a pending QR request');
+    assertEqual(db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr').current_stock, 10, 'Adding to a pending QR request still defers recipe deductions');
+    assert(String(db.prepare('SELECT special_instructions FROM orders WHERE id = ?').get(orderId).special_instructions).startsWith('[QR Self-Order]'), 'Adding order notes preserves the local QR acceptance marker');
+
     // 4. Staff approval moves the request to preparation and deducts ingredients once.
     const resAccept = await api(baseUrl, `/api/orders/${orderId}/status`, {
       method: 'PATCH',
@@ -189,7 +198,7 @@ async function main() {
     const tableAfterApproval = db.prepare('SELECT status FROM tables WHERE id = ?').get('tbl-12') as any;
     assertEqual(tableAfterApproval.status, 'occupied', 'Staff acceptance marks the table occupied');
     const stockAfterApproval = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
-    assertEqual(Number(stockAfterApproval.current_stock), 7, 'Recipe ingredients deducted after staff approval');
+    assertEqual(Number(stockAfterApproval.current_stock), 5.5, 'Recipe ingredients for all QR items are deducted after staff approval');
     const deductionCount = db.prepare(
       "SELECT COUNT(*) as count FROM inventory_transactions WHERE type = 'order_deduction'"
     ).get() as any;
@@ -202,7 +211,7 @@ async function main() {
     });
     assertEqual(resRepeatAccept.status, 200, 'Repeated approval request is idempotent');
     const stockAfterRepeat = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
-    assertEqual(Number(stockAfterRepeat.current_stock), 7, 'Repeated approval does not deduct ingredients twice');
+    assertEqual(Number(stockAfterRepeat.current_stock), 5.5, 'Repeated approval does not deduct ingredients twice');
 
     const duplicateDeduction = deductIngredientsForOrderItems(
       [{ product_id: 'prod-gulab-jamun', quantity: 2 }],
@@ -211,7 +220,7 @@ async function main() {
     );
     assertEqual(duplicateDeduction.success, true, 'Direct retry of the same order deduction is accepted idempotently');
     const stockAfterDirectRetry = db.prepare('SELECT current_stock FROM raw_ingredients WHERE id = ?').get('ing-milk-qr') as any;
-    assertEqual(Number(stockAfterDirectRetry.current_stock), 7, 'Direct retry does not deduct the same recipe twice');
+    assertEqual(Number(stockAfterDirectRetry.current_stock), 5.5, 'Direct retry does not deduct the same recipe twice');
 
     const cancelAccepted = await api(baseUrl, `/api/orders/${orderId}/status`, {
       method: 'PATCH',
@@ -224,7 +233,7 @@ async function main() {
     const firstRestorationCount = db.prepare(
       "SELECT COUNT(*) as count FROM inventory_transactions WHERE type = 'order_restoration'"
     ).get() as any;
-    assertEqual(Number(firstRestorationCount.count), 1, 'Accepted QR cancellation creates one restoration ledger movement');
+    assertEqual(Number(firstRestorationCount.count), 2, 'Accepted QR cancellation restores each accepted line in the inventory ledger');
 
     const repeatCancelAccepted = await api(baseUrl, `/api/orders/${orderId}/status`, {
       method: 'PATCH',
@@ -244,6 +253,26 @@ async function main() {
     });
     assertEqual(resSecondOrder.status, 201, 'Second QR request is created for cancellation check');
     const pendingOrderId = resSecondOrder.data.order.id;
+    const paidOrder = db.prepare('SELECT total FROM orders WHERE id = ?').get(pendingOrderId) as { total: number };
+    const paidAt = new Date().toISOString();
+    const paidBillId = Number(db.prepare(`
+      INSERT INTO bills (bill_number, order_id, total, paid_amount, balance, payment_status, paid_at)
+      VALUES (?, ?, ?, ?, 0, 'paid', ?)
+    `).run('QR-PAID-CANCEL-GUARD', pendingOrderId, paidOrder.total, paidOrder.total, paidAt).lastInsertRowid);
+    const cancelPaidOrder = await api(baseUrl, `/api/orders/${pendingOrderId}/status`, {
+      method: 'PATCH', body: { status: 'cancelled', reason: 'Attempt before refund' }, headers: authHeader,
+    });
+    assertEqual(cancelPaidOrder.status, 409, 'Collected payment blocks cancellation until it is fully refunded');
+    assert(String(cancelPaidOrder.data.error).includes('Refund all collected payments'), 'Cancellation explains the required refund step');
+    const refundPaidOrder = await api(baseUrl, '/api/refunds', {
+      method: 'POST',
+      body: {
+        bill_id: paidBillId, amount: paidOrder.total, method: 'cash',
+        reason: 'Returning payment before cancelling the QR order', override_pin: '1234',
+      },
+      headers: managerAuthHeader,
+    });
+    assertEqual(refundPaidOrder.status, 201, 'Manager can record a full refund before cancellation');
     const cancelPending = await api(baseUrl, `/api/orders/${pendingOrderId}/status`, {
       method: 'PATCH',
       body: { status: 'cancelled', reason: 'Guest cancelled before approval' },
@@ -257,7 +286,7 @@ async function main() {
     const restorationCount = db.prepare(
       "SELECT COUNT(*) as count FROM inventory_transactions WHERE type = 'order_restoration'"
     ).get() as any;
-    assertEqual(Number(restorationCount.count), 1, 'Cancelling unaccepted QR request creates no additional restoration ledger entry');
+    assertEqual(Number(restorationCount.count), 2, 'Cancelling unaccepted QR request creates no additional restoration ledger entry');
 
     // 5. Live Order Status Tracking
     console.log('\nStep 4: Live Order Status Tracking');

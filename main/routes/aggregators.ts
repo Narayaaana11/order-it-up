@@ -160,27 +160,72 @@ router.post('/aggregators/orders/:id/accept', requireRole(...ROLE_ACCESS.allStaf
   const timestamp = now();
   const prepTime = Number(prep_time_minutes) || order.prep_time_minutes || 20;
 
-  db.transaction(() => {
-    db.prepare(`
-      UPDATE orders
-      SET status = 'preparing',
-          prep_time_minutes = ?,
-          cooking_started_at = ?,
-          updated_at = ?
-      WHERE id = ?
-    `).run(prepTime, timestamp, timestamp, id);
+  try {
+    db.transaction(() => {
+      const current = db.prepare('SELECT * FROM orders WHERE id = ?').get(id) as any;
+      if (!current) throw Object.assign(new Error('Order not found'), { statusCode: 404 });
+      if (current.status !== 'pending') throw Object.assign(new Error(`Order is already ${current.status}`), { statusCode: 400 });
 
-    db.prepare(`
-      UPDATE order_items
-      SET status = 'preparing', updated_at = ?
-      WHERE order_id = ?
-    `).run(timestamp, id);
-  })();
+      const unmappedItems = db.prepare(`
+        SELECT oi.product_name
+        FROM order_items oi
+        LEFT JOIN products p ON p.id = oi.product_id AND p.is_active = 1 AND p.deleted_at IS NULL
+        WHERE oi.order_id = ? AND p.id IS NULL
+      `).all(id) as { product_name: string }[];
+      if (unmappedItems.length > 0) {
+        const names = [...new Set(unmappedItems.map((item) => item.product_name))].join(', ');
+        throw Object.assign(new Error(`Cannot accept order because catalog items are not mapped to active products: ${names}`), { statusCode: 409 });
+      }
 
-  // Deduct raw ingredients
-  const items = db.prepare('SELECT product_id, quantity FROM order_items WHERE order_id = ?').all(id) as any[];
-  if (items.length > 0) {
-    deductIngredientsForOrderItems(items, `${order.online_platform?.toUpperCase()} #${order.external_order_id}`);
+      const items = db.prepare('SELECT product_id, quantity FROM order_items WHERE order_id = ?').all(id) as { product_id: string; quantity: number }[];
+      const inventory = deductIngredientsForOrderItems(
+        items,
+        `${current.online_platform?.toUpperCase()} #${current.external_order_id}`,
+        false,
+      );
+      if (!inventory.success) {
+        const shortages = inventory.insufficientIngredients
+          .map((item) => `${item.ingredientName}: need ${item.requiredStock}, available ${item.availableStock}`)
+          .join('; ');
+        throw Object.assign(new Error(`Cannot accept order because ingredient stock is insufficient. ${shortages}`), { statusCode: 409 });
+      }
+
+      const trackedItems = db.prepare(`
+        SELECT oi.id, oi.product_id, oi.quantity
+        FROM order_items oi
+        JOIN products p ON p.id = oi.product_id
+        WHERE oi.order_id = ? AND oi.inventory_deducted_quantity = 0 AND p.track_inventory = 1
+      `).all(id) as { id: number; product_id: string; quantity: number }[];
+      for (const item of trackedItems) {
+        const deducted = db.prepare(`
+          UPDATE products SET stock_quantity = stock_quantity - ?, updated_at = ?
+          WHERE id = ? AND track_inventory = 1 AND stock_quantity >= ?
+        `).run(item.quantity, timestamp, item.product_id, item.quantity);
+        if (deducted.changes !== 1) {
+          throw Object.assign(new Error('Cannot accept order because tracked product stock is insufficient.'), { statusCode: 409 });
+        }
+        db.prepare('UPDATE order_items SET inventory_deducted_quantity = ? WHERE id = ?')
+          .run(item.quantity, item.id);
+      }
+
+      db.prepare(`
+        UPDATE orders
+        SET status = 'preparing',
+            prep_time_minutes = ?,
+            cooking_started_at = ?,
+            updated_at = ?
+        WHERE id = ?
+      `).run(prepTime, timestamp, timestamp, id);
+
+      db.prepare(`
+        UPDATE order_items
+        SET status = 'preparing', updated_at = ?
+        WHERE order_id = ?
+      `).run(timestamp, id);
+    })();
+  } catch (error: any) {
+    if (error?.statusCode) return res.status(error.statusCode).json({ error: error.message });
+    throw error;
   }
 
   notifyKdsUpdate();

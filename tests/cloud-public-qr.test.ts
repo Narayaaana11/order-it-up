@@ -84,6 +84,9 @@ async function main() {
   const env: any = {
     DB: new D1SqliteAdapter(sqlite),
     JWT_SECRET: 'test-cloud-secret-with-more-than-32-bytes-123456',
+    PLATFORM_ADMIN_EMAIL: 'platform-admin@example.test',
+    PLATFORM_ADMIN_PASSWORD_HASH: 'scrypt$N=16384,r=8,p=1$0123456789abcdef0123456789abcdef$0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef',
+    PLATFORM_ADMIN_JWT_SECRET: 'separate-platform-admin-secret-for-tests-123456',
     ENVIRONMENT: 'test',
     FRONTEND_ORIGIN: 'https://app.orderitup.in,https://orderitup.pages.dev',
   };
@@ -93,9 +96,39 @@ async function main() {
   const serverToken = await createJWT({
     sub: 'server-qr', org: 'org-qr', email: 'server@example.test', role: 'server', exp: Math.floor(Date.now() / 1000) + 3600,
   }, env.JWT_SECRET);
+  const adminToken = await createJWT({
+    sub: 'order-it-up-platform-admin', org: '__platform_admin__', email: env.PLATFORM_ADMIN_EMAIL,
+    role: 'owner', branch: null, exp: Math.floor(Date.now() / 1000) + 3600,
+  }, env.PLATFORM_ADMIN_JWT_SECRET);
 
   const call = (url: string, init: RequestInit = {}) => worker.fetch(new Request(`https://api.orderitup.in${url}`, init), env);
   try {
+    const ready = await call('/ready');
+    assert.equal(ready.status, 200, 'readiness passes with current schema and required authentication configuration');
+    const missingAdminSecret = await worker.fetch(new Request('https://api.orderitup.in/ready'), {
+      ...env, PLATFORM_ADMIN_JWT_SECRET: undefined,
+    } as any);
+    assert.equal(missingAdminSecret.status, 503, 'readiness fails when the platform admin credential is not provisioned');
+    assert.equal((await missingAdminSecret.json() as any).code, 'SERVICE_CONFIGURATION_INCOMPLETE');
+    const emptySqlite = new Database(':memory:');
+    const notReady = await worker.fetch(new Request('https://api.orderitup.in/ready'), {
+      ...env, DB: new D1SqliteAdapter(emptySqlite),
+    } as any);
+    assert.equal(notReady.status, 503, 'readiness fails when cloud schema tables are missing');
+    assert.equal((await notReady.json() as any).code, 'DATABASE_SCHEMA_INCOMPLETE');
+    emptySqlite.close();
+
+    const missingCoreSqlite = new Database(':memory:');
+    missingCoreSqlite.pragma('foreign_keys = OFF');
+    for (const file of migrationFiles) missingCoreSqlite.exec(fs.readFileSync(path.join(migrationsDir, file), 'utf8'));
+    missingCoreSqlite.exec('DROP TABLE memberships');
+    const missingCoreReady = await worker.fetch(new Request('https://api.orderitup.in/ready'), {
+      ...env, DB: new D1SqliteAdapter(missingCoreSqlite),
+    } as any);
+    assert.equal(missingCoreReady.status, 503, 'readiness fails when a core tenant-authorization table is missing');
+    assert.equal((await missingCoreReady.json() as any).code, 'DATABASE_SCHEMA_INCOMPLETE');
+    missingCoreSqlite.close();
+
     const issued = await call('/api/qr/tables/table-qr/code', {
       method: 'GET', headers: { Authorization: `Bearer ${ownerToken}`, Origin: 'https://app.orderitup.in' },
     });
@@ -198,6 +231,35 @@ async function main() {
     assert.equal(savedItem.subtotal, 280);
     assert.equal(JSON.parse(savedItem.modifiers_json)[0].price, 20);
 
+    const terminalSecret = 'cloud-qr-pos-terminal-secret';
+    sqlite.prepare(`INSERT INTO terminals (id, organization_id, branch_id, terminal_name, terminal_token_hash, status, created_at)
+      VALUES (?, ?, ?, ?, ?, 'active', ?)`).run('terminal-qr', 'org-qr', 'branch-qr', 'QR POS', await hashString(terminalSecret), now);
+    const terminalCatalog = await call('/api/pos/catalog', { headers: { Authorization: `Bearer ${terminalSecret}` } });
+    assert.equal(terminalCatalog.status, 200, 'paired terminal can read only its authenticated branch catalog');
+    const terminalCatalogPayload = await terminalCatalog.json() as any;
+    assert.equal(terminalCatalogPayload.branch_id, 'branch-qr');
+    assert.equal(terminalCatalogPayload.products[0].effective_price, 120, 'terminal catalog includes branch-specific effective price');
+    assert.equal(terminalCatalogPayload.products[0].addon_groups[0].id, 'group-size', 'terminal catalog includes linked active modifier groups');
+    const qrInbox = await call('/api/pos/qr-orders?limit=25', { headers: { Authorization: `Bearer ${terminalSecret}` } });
+    assert.equal(qrInbox.status, 200, 'Paired active terminal can claim QR orders from its own branch');
+    const inboxPayload = await qrInbox.json() as any;
+    assert.equal(inboxPayload.orders.length, 1);
+    assert.equal(inboxPayload.orders[0].id, created.order.id);
+    assert.equal(inboxPayload.orders[0].items[0].product_sku, null);
+    const wrongTerminal = await call(`/api/pos/qr-orders/${created.order.id}/ack`, {
+      method: 'POST', headers: { Authorization: `Bearer ${await hashString('wrong-terminal')}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ local_order_id: '1' }),
+    });
+    assert.equal(wrongTerminal.status, 401, 'Unpaired terminal cannot acknowledge QR delivery');
+    const ack = () => call(`/api/pos/qr-orders/${created.order.id}/ack`, {
+      method: 'POST', headers: { Authorization: `Bearer ${terminalSecret}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ local_order_id: '42' }),
+    });
+    const acknowledged = await ack();
+    assert.equal(acknowledged.status, 200);
+    assert.equal((await (await ack()).json() as any).replay, true, 'Acknowledgement replay is idempotent for the same local order');
+    assert.equal(sqlite.prepare('SELECT status FROM qr_order_pos_deliveries WHERE order_id = ?').get(created.order.id).status, 'delivered');
+
     const replayedOrderResponse = await call('/api/qr/order', {
       method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${qr.table_token}`, 'Idempotency-Key': 'qr-order-success-0001' },
       body: JSON.stringify(orderPayload),
@@ -271,7 +333,86 @@ async function main() {
     });
     assert.equal(revokedMenu.status, 404, 'Reissuing a table QR code revokes the previous bearer capability');
 
-    console.log('✅ Cloud public QR ordering, pricing, table approval, tracking, and token rotation passed');
+    const pilotRequestId = 'pilot-request-onboarding-e2e';
+    const pilotRequestCreatedAt = new Date().toISOString();
+    sqlite.prepare(`
+      INSERT INTO pilot_access_requests
+        (id, contact_name, restaurant_name, email, country, restaurant_type, outlet_count,
+         consent_at, status, admin_notes, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'approved', '', ?, ?)
+    `).run(pilotRequestId, 'Asha Rao', 'Asha Cafe', 'asha-onboarding@example.test', 'IN', 'cafe', 1,
+      pilotRequestCreatedAt, pilotRequestCreatedAt, pilotRequestCreatedAt);
+    const invitationIssued = await call(`/api/platform-admin/pilot-requests/${pilotRequestId}/invitation`, {
+      method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' }, body: '{}',
+    });
+    assert.equal(invitationIssued.status, 201, 'Platform admin can issue an onboarding link for an approved pilot');
+    assert.equal(invitationIssued.headers.get('Cache-Control'), 'no-store', 'Raw one-time tokens are never cacheable');
+    const invitationData = await invitationIssued.json() as any;
+    assert.match(invitationData.invitation.token, /^[a-f0-9]{64}$/);
+    const storedInvitation = sqlite.prepare('SELECT token_hash, expires_at FROM pilot_access_invitations WHERE request_id = ?')
+      .get(pilotRequestId) as { token_hash: string; expires_at: string };
+    assert.equal(storedInvitation.token_hash, await hashString(invitationData.invitation.token));
+    assert.notEqual(storedInvitation.token_hash, invitationData.invitation.token, 'D1 stores only the invitation hash');
+
+    const setup = await call('/api/pilot-invitations/redeem', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '198.51.100.101' },
+      body: JSON.stringify({ token: invitationData.invitation.token, password: 'safe-pilot-password-123' }),
+    });
+    assert.equal(setup.status, 201, 'Applicant can set a password and provision the approved tenant');
+    assert.equal(setup.headers.get('Cache-Control'), 'no-store', 'Registration responses containing JWTs are never cacheable');
+    const setupData = await setup.json() as any;
+    assert.equal(setupData.user.email, 'asha-onboarding@example.test');
+    assert.equal(setupData.user.organization_name, 'Asha Cafe');
+    assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM memberships WHERE user_id = ?').get(setupData.user.id).count, 1);
+    assert.equal(sqlite.prepare('SELECT organization_id FROM pilot_access_invitations WHERE request_id = ?').get(pilotRequestId).organization_id,
+      setupData.user.organization_id, 'Invitation records the provisioned organization');
+
+    const duplicateSetupLink = await call(`/api/platform-admin/pilot-requests/${pilotRequestId}/invitation`, {
+      method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' }, body: '{}',
+    });
+    assert.equal(duplicateSetupLink.status, 409, 'A provisioned request cannot receive another account setup link');
+
+    const invitedLogin = await call('/api/auth/login', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'asha-onboarding@example.test', password: 'safe-pilot-password-123' }),
+    });
+    assert.equal(invitedLogin.status, 200, 'Provisioned pilot owner can sign in with the chosen password');
+    const loginData = await invitedLogin.json() as any;
+    const invitedMe = await call('/api/auth/me', { headers: { Authorization: `Bearer ${loginData.access_token}` } });
+    assert.equal(invitedMe.status, 200, 'Provisioned owner session works on the Cloud API');
+
+    const replayedInvitation = await call('/api/pilot-invitations/redeem', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '198.51.100.102' },
+      body: JSON.stringify({ token: invitationData.invitation.token, password: 'another-password-123' }),
+    });
+    assert.equal(replayedInvitation.status, 410, 'A setup link is single use');
+    assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM organizations WHERE name = ?').get('Asha Cafe').count, 1,
+      'A setup-link replay cannot create a duplicate organization');
+
+    const raceRequestId = 'pilot-request-race-e2e';
+    const raceRequestCreatedAt = new Date().toISOString();
+    sqlite.prepare(`
+      INSERT INTO pilot_access_requests
+        (id, contact_name, restaurant_name, email, country, restaurant_type, outlet_count,
+         consent_at, status, admin_notes, created_at, updated_at)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'approved', '', ?, ?)
+    `).run(raceRequestId, 'Ravi Rao', 'Concurrent Pilot Cafe', 'ravi-onboarding@example.test', 'IN', 'cafe', 1,
+      raceRequestCreatedAt, raceRequestCreatedAt, raceRequestCreatedAt);
+    const raceInvitationResponse = await call(`/api/platform-admin/pilot-requests/${raceRequestId}/invitation`, {
+      method: 'POST', headers: { Authorization: `Bearer ${adminToken}`, 'Content-Type': 'application/json' }, body: '{}',
+    });
+    assert.equal(raceInvitationResponse.status, 201);
+    const raceInvitation = await raceInvitationResponse.json() as any;
+    const competingRedemptions = await Promise.all(['password-a-123', 'password-b-123'].map((password, index) => call('/api/pilot-invitations/redeem', {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': `198.51.100.${110 + index}` },
+      body: JSON.stringify({ token: raceInvitation.invitation.token, password }),
+    })));
+    assert.deepEqual(competingRedemptions.map((response) => response.status).sort(), [201, 410],
+      'Concurrent redemptions have exactly one winner');
+    assert.equal(sqlite.prepare('SELECT COUNT(*) AS count FROM organizations WHERE name = ?').get('Concurrent Pilot Cafe').count, 1,
+      'A redemption race cannot create duplicate tenant organizations');
+
+    console.log('✅ Cloud public QR ordering and approved pilot account setup end-to-end passed');
   } finally {
     sqlite.close();
     fs.rmSync(tempDir, { recursive: true, force: true });

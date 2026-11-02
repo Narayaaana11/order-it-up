@@ -3,13 +3,20 @@ main = "src/index.ts"
 compatibility_date = "2024-04-01"
 compatibility_flags = ["nodejs_compat"]
 
+[triggers]
+crons = ["17 3 * * *"]
+
 [vars]
 ENVIRONMENT = "production"
+ALLOW_SELF_SERVICE_REGISTRATION = "false"
 FRONTEND_ORIGIN = "https://app.orderitup.in, https://orderitup.in, https://orderitup.pages.dev"
 # Mandatory Security Requirement:
 # JWT_SECRET must be configured as an encrypted environment secret (minimum 32 characters / 256 bits):
 # - Production: Run `wrangler secret put JWT_SECRET`
 # - Local Development: Add `JWT_SECRET=<secret>` to apps/cloud-api/.dev.vars
+# Platform-admin secrets are also required for /ready:
+# PLATFORM_ADMIN_EMAIL, PLATFORM_ADMIN_PASSWORD_HASH (scrypt), and a dedicated
+# PLATFORM_ADMIN_JWT_SECRET that differs from JWT_SECRET.
 
 [[d1_databases]]
 binding = "DB"
@@ -22,8 +29,12 @@ database_id = "145d0618-ed44-42ce-8209-658ad2bcc2fd"
 [env.staging]
 name = "orderitup-cloud-api-staging"
 
+[env.staging.triggers]
+crons = ["17 3 * * *"]
+
 [env.staging.vars]
 ENVIRONMENT = "staging"
+ALLOW_SELF_SERVICE_REGISTRATION = "false"
 FRONTEND_ORIGIN = "https://staging.orderitup.in"
 
 [[env.staging.d1_databases]]

@@ -5,6 +5,7 @@ import type { Env } from './pairing';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const REQUEST_STATUSES = ['new', 'reviewing', 'contacted', 'approved', 'declined', 'closed'] as const;
 type RequestStatus = typeof REQUEST_STATUSES[number];
+export const PILOT_REQUEST_RETENTION_DAYS = 180;
 
 function text(value: unknown, maxLength: number): string | null {
   if (typeof value !== 'string') return null;
@@ -124,6 +125,29 @@ export async function handleCreatePilotRequest(request: Request, env: Env): Prom
   return acceptedResponse(201, id);
 }
 
+export async function purgeExpiredPilotRequests(env: Env, now = new Date()): Promise<number> {
+  const cutoff = new Date(now.getTime() - PILOT_REQUEST_RETENTION_DAYS * 24 * 60 * 60 * 1000).toISOString();
+  const result = await env.DB.prepare(
+    'DELETE FROM pilot_access_requests WHERE updated_at < ?'
+  ).bind(cutoff).run();
+  const deleted = Number((result as any)?.meta?.changes ?? (result as any)?.changes ?? 0);
+  if (deleted > 0) {
+    const purgedAt = now.toISOString();
+    await env.DB.prepare(`
+      INSERT INTO platform_admin_audit_log
+        (id, actor_email, action, organization_id, reason, before_json, after_json, created_at)
+      VALUES (?, 'system:retention', 'pilot_access_request.retention_purged', NULL, ?, NULL, ?, ?)
+    `).bind(
+      crypto.randomUUID(),
+      `Automatically removed pilot access requests inactive for ${PILOT_REQUEST_RETENTION_DAYS} days.`,
+      JSON.stringify({ deleted_count: deleted, cutoff }),
+      purgedAt,
+    ).run();
+    console.info('[PilotRequest] Retention purge completed', { deleted, cutoff });
+  }
+  return deleted;
+}
+
 async function listPilotRequests(url: URL, env: Env): Promise<Response> {
   const query = (url.searchParams.get('q') || '').trim().slice(0, 100);
   const status = (url.searchParams.get('status') || '').trim().toLowerCase();
@@ -175,7 +199,17 @@ async function getPilotRequest(id: string, env: Env): Promise<Response> {
     const item = await env.DB.prepare(`
       SELECT id, contact_name, restaurant_name, email, phone, city, country,
              restaurant_type, outlet_count, current_pos, message, consent_at,
-             status, admin_notes, reviewed_by, reviewed_at, created_at, updated_at
+             status, admin_notes, reviewed_by, reviewed_at, created_at, updated_at,
+             (SELECT CASE WHEN redeemed_at IS NOT NULL THEN 'redeemed'
+                          WHEN revoked_at IS NOT NULL THEN 'revoked'
+                          WHEN julianday(expires_at) <= julianday('now') THEN 'expired'
+                          ELSE 'active' END
+                FROM pilot_access_invitations WHERE request_id = pilot_access_requests.id
+                ORDER BY created_at DESC LIMIT 1) AS invitation_status,
+             (SELECT expires_at FROM pilot_access_invitations WHERE request_id = pilot_access_requests.id
+                ORDER BY created_at DESC LIMIT 1) AS invitation_expires_at,
+             (SELECT organization_id FROM pilot_access_invitations WHERE request_id = pilot_access_requests.id
+                ORDER BY created_at DESC LIMIT 1) AS provisioned_organization_id
       FROM pilot_access_requests WHERE id = ?
     `).bind(id).first<any>();
     return item
@@ -185,6 +219,120 @@ async function getPilotRequest(id: string, env: Env): Promise<Response> {
     console.error('[PilotRequest] Admin detail query failed:', error);
     return Response.json({ error: 'Pilot request storage is not available. Apply D1 migration 0014.' }, { status: 503 });
   }
+}
+
+async function createPilotInvitation(
+  env: Env,
+  actorEmail: string,
+  requestId: string,
+): Promise<Response> {
+  if (!requestId || requestId.length > 128) return Response.json({ error: 'Invalid request identifier' }, { status: 400 });
+  let requestRecord: any;
+  try {
+    requestRecord = await env.DB.prepare(`
+      SELECT id, status, contact_name, restaurant_name, email,
+        EXISTS (SELECT 1 FROM pilot_access_invitations WHERE request_id = pilot_access_requests.id AND organization_id IS NOT NULL) AS provisioned
+      FROM pilot_access_requests WHERE id = ?
+    `).bind(requestId).first<any>();
+  } catch (error) {
+    console.error('[PilotInvitation] Request lookup failed:', error);
+    return Response.json({ error: 'Pilot invitation storage is not available. Apply the current Cloud D1 migrations.' }, { status: 503 });
+  }
+  if (!requestRecord) return Response.json({ error: 'Pilot request not found' }, { status: 404 });
+  if (requestRecord.status !== 'approved') {
+    return Response.json({ error: 'Approve this pilot request before creating an account setup link.' }, { status: 409 });
+  }
+  if (requestRecord.provisioned) {
+    return Response.json({ error: 'This pilot request already has a provisioned restaurant account.' }, { status: 409 });
+  }
+
+  const bytes = crypto.getRandomValues(new Uint8Array(32));
+  const token = Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('');
+  const tokenHash = await hashString(token);
+  const invitationId = crypto.randomUUID();
+  const now = new Date();
+  const createdAt = now.toISOString();
+  const expiresAt = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000).toISOString();
+  const auditId = crypto.randomUUID();
+
+  try {
+    const results = await env.DB.batch([
+      env.DB.prepare(`
+        UPDATE pilot_access_invitations SET revoked_at = ?
+        WHERE request_id = ? AND redeemed_at IS NULL AND revoked_at IS NULL
+      `).bind(createdAt, requestId),
+      env.DB.prepare(`
+        INSERT INTO pilot_access_invitations
+          (id, request_id, token_hash, created_by, expires_at, redeemed_at, revoked_at, organization_id, created_at)
+        SELECT ?, id, ?, ?, ?, NULL, NULL, NULL, ?
+        FROM pilot_access_requests WHERE id = ? AND status = 'approved'
+      `).bind(invitationId, tokenHash, actorEmail, expiresAt, createdAt, requestId),
+      env.DB.prepare(`
+        INSERT INTO platform_admin_audit_log
+          (id, actor_email, action, organization_id, reason, before_json, after_json, created_at)
+        SELECT ?, ?, 'pilot_access_request.invitation_created', NULL, ?, ?, ?, ?
+        WHERE EXISTS (SELECT 1 FROM pilot_access_invitations WHERE id = ?)
+      `).bind(
+        auditId, actorEmail, 'Created a seven-day one-time pilot account setup invitation.',
+        JSON.stringify({ request_id: requestId, status: 'approved' }),
+        JSON.stringify({ invitation_id: invitationId, expires_at: expiresAt }), createdAt, invitationId,
+      ),
+    ]);
+    const inserted = Number((results[1] as any)?.meta?.changes ?? (results[1] as any)?.changes ?? 0);
+    if (inserted !== 1) return Response.json({ error: 'This request is no longer approved. Refresh it and try again.' }, { status: 409 });
+  } catch (error) {
+    console.error('[PilotInvitation] Could not create setup link:', error);
+    return Response.json({ error: 'Pilot invitation storage is not available. Apply migration 0018 and try again.' }, { status: 503 });
+  }
+
+  let delivery: 'sent' | 'not_configured' | 'failed' = 'not_configured';
+  let invitationUrl: string | null = null;
+  const mailApiKey = env.RESEND_API_KEY?.trim();
+  const mailFrom = env.PILOT_INVITATION_FROM?.trim();
+  const landingBase = env.PILOT_INVITATION_BASE_URL?.trim();
+  if (mailApiKey && mailFrom && landingBase) {
+    try {
+      const baseUrl = new URL(landingBase);
+      if (baseUrl.protocol !== 'https:' || baseUrl.username || baseUrl.password || baseUrl.search || baseUrl.hash) {
+        throw new Error('Pilot invitation base URL must be a clean HTTPS URL.');
+      }
+      const inviteUrl = new URL('/pilot-invitation', baseUrl.origin);
+      inviteUrl.hash = `token=${token}`;
+      invitationUrl = inviteUrl.toString();
+      const escapedName = String(requestRecord.contact_name).replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      })[char]!);
+      const escapedRestaurant = String(requestRecord.restaurant_name).replace(/[&<>"']/g, (char) => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
+      })[char]!);
+      const mailResponse = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${mailApiKey}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          from: mailFrom,
+          to: [requestRecord.email],
+          subject: 'Your Order It Up pilot access is ready',
+          text: `Hello ${requestRecord.contact_name},\n\nYour pilot access for ${requestRecord.restaurant_name} is approved. Set your password using this one-time link within 7 days:\n${invitationUrl}\n\nIf you did not request access, you can ignore this email.`,
+          html: `<p>Hello ${escapedName},</p><p>Your pilot access for <strong>${escapedRestaurant}</strong> is approved.</p><p><a href="${invitationUrl}">Set your password and activate your account</a></p><p>This one-time link expires in 7 days. If you did not request access, you can ignore this email.</p>`,
+        }),
+        signal: AbortSignal.timeout(8_000),
+      });
+      if (!mailResponse.ok) throw new Error(`Email provider returned ${mailResponse.status}`);
+      delivery = 'sent';
+    } catch (error) {
+      delivery = 'failed';
+      console.error('[PilotInvitation] Email delivery failed; secure copy-link fallback remains available:', error);
+    }
+  }
+
+  // The raw bearer token is returned once; D1 stores only its hash.
+  return Response.json({
+    ok: true,
+    invitation: { id: invitationId, token, expires_at: expiresAt, path: '/pilot-invitation', delivery, ...(invitationUrl ? { url: invitationUrl } : {}) },
+    message: delivery === 'sent'
+      ? 'One-time setup link created and emailed. Copy the link now as a fallback; it cannot be retrieved later.'
+      : 'One-time setup link created. Email delivery is unavailable; copy and send it now because it cannot be retrieved later.',
+  }, { status: 201, headers: { 'Cache-Control': 'no-store' } });
 }
 
 function validReason(value: unknown): value is string {
@@ -223,6 +371,10 @@ async function updatePilotRequest(request: Request, env: Env, actorEmail: string
           (id, actor_email, action, organization_id, reason, before_json, after_json, created_at)
         VALUES (?, ?, 'pilot_access_request.updated', NULL, ?, ?, ?, ?)
       `).bind(auditId, actorEmail, body.reason.trim(), JSON.stringify(before), JSON.stringify(after), now),
+      ...(status === 'approved' ? [] : [env.DB.prepare(`
+        UPDATE pilot_access_invitations SET revoked_at = ?
+        WHERE request_id = ? AND redeemed_at IS NULL AND revoked_at IS NULL
+      `).bind(now, id)]),
     ]);
     return Response.json({
       ok: true,
@@ -246,6 +398,14 @@ export async function handleAdminPilotRequests(
     return listPilotRequests(new URL(request.url), env);
   }
   if (path.startsWith('/api/platform-admin/pilot-requests/')) {
+    const invitationMatch = path.match(/^\/api\/platform-admin\/pilot-requests\/([^/]+)\/invitation$/);
+    if (invitationMatch && method === 'POST') {
+      let requestId: string;
+      try { requestId = decodeURIComponent(invitationMatch[1]); }
+      catch { return Response.json({ error: 'Invalid request identifier' }, { status: 400 }); }
+      if (requestId.includes('/')) return Response.json({ error: 'Invalid request identifier' }, { status: 400 });
+      return createPilotInvitation(env, actorEmail, requestId);
+    }
     let id: string;
     try { id = decodeURIComponent(path.slice('/api/platform-admin/pilot-requests/'.length)); }
     catch { return Response.json({ error: 'Invalid request identifier' }, { status: 400 }); }
