@@ -75,14 +75,14 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
   const router = useRouter();
   const role = user.role.toLowerCase();
 
-  const canFloor = ["owner", "admin", "manager", "super_admin", "cashier", "server", "waiter", "host"].includes(role);
-  const canKitchen = ["owner", "admin", "manager", "super_admin", "chef", "kitchen"].includes(role);
-  const canCashier = ["owner", "admin", "manager", "super_admin", "cashier"].includes(role);
-  const canInventory = ["owner", "admin", "manager", "super_admin"].includes(role);
-  const canExpenses = ["owner", "admin", "manager", "super_admin", "cashier"].includes(role);
-  const canDelivery = ["owner", "admin", "manager", "super_admin", "cashier", "delivery"].includes(role);
-  const canReports = ["owner", "admin", "manager", "super_admin", "accountant"].includes(role);
-  const canCreateOrder = ["owner", "admin", "manager", "super_admin", "cashier", "server", "waiter"].includes(role);
+  const canFloor = ["owner", "admin", "manager", "branch_manager", "super_admin", "cashier", "server", "waiter", "host"].includes(role);
+  const canKitchen = ["owner", "admin", "manager", "branch_manager", "super_admin", "chef", "kitchen"].includes(role);
+  const canCashier = ["owner", "admin", "manager", "branch_manager", "super_admin", "cashier"].includes(role);
+  const canInventory = ["owner", "admin", "manager", "branch_manager", "super_admin"].includes(role);
+  const canExpenses = ["owner", "admin", "manager", "branch_manager", "super_admin", "cashier"].includes(role);
+  const canDelivery = ["owner", "admin", "manager", "branch_manager", "super_admin", "cashier", "delivery"].includes(role);
+  const canReports = ["owner", "admin", "manager", "branch_manager", "super_admin", "accountant"].includes(role);
+  const canCreateOrder = ["owner", "admin", "manager", "branch_manager", "super_admin", "cashier", "server", "waiter"].includes(role);
 
   const tabs = useMemo(() => {
     const list: { key: TabKey; label: string; icon: React.ReactNode }[] = [];
@@ -623,7 +623,7 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
   });
 
   const roleTitle = useMemo(() => ({
-    owner: "Owner / manager", manager: "Owner / manager", admin: "Administrator",
+    owner: "Owner / manager", manager: "Owner / manager", branch_manager: "Branch manager", admin: "Administrator",
     cashier: "Cashier", server: "Waiter / server", waiter: "Waiter / server",
     host: "Host / reservations", chef: "Kitchen", kitchen: "Kitchen",
     accountant: "Accountant", delivery: "Delivery", super_admin: "Platform administrator",
