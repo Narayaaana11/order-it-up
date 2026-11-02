@@ -2,16 +2,84 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { ArrowUpRight, Menu, X } from "lucide-react";
 import { NAV_LINKS } from "@/lib/constants";
+import { AuthUser, getStoredUser } from "@/lib/auth";
 import { triggerOpenAuthModal } from "@/lib/modalEvents";
 
 function sectionHref(href: string) {
   return href.startsWith("#") ? `/${href}` : href;
 }
 
+function getDashboardHref(user: AuthUser | null): string {
+  if (!user) return "/auth/login";
+
+  const role = String(user.role || "").trim().toLowerCase();
+
+  switch (role) {
+    case "super_admin":
+    case "admin":
+    case "finance":
+    case "support":
+    case "read_only":
+      return "/dashboard?perspective=founder";
+
+    case "owner":
+      return "/dashboard?perspective=merchant&role=owner";
+
+    case "manager":
+    case "branch_manager":
+      return "/dashboard?perspective=merchant&role=owner";
+
+    case "accountant":
+      return "/dashboard?perspective=merchant&role=accountant";
+
+    case "cashier":
+      return "/dashboard?perspective=merchant&role=cashier";
+
+    case "server":
+    case "waiter":
+      return "/dashboard?perspective=merchant&role=waiter";
+
+    case "chef":
+    case "kitchen":
+      return "/dashboard?perspective=merchant&role=chef";
+
+    case "delivery":
+    case "driver":
+      return "/dashboard?perspective=merchant&role=driver";
+
+    case "customer":
+    case "guest":
+      return "/#ui-preview";
+
+    default:
+      return "/auth/login";
+  }
+}
+
 export default function Navbar() {
+  const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<AuthUser | null>(null);
+  const [sessionChecked, setSessionChecked] = useState(false);
+
+  useEffect(() => {
+    const syncUser = () => {
+      setCurrentUser(getStoredUser());
+      setSessionChecked(true);
+    };
+
+    syncUser();
+    window.addEventListener("orderitup_auth_change", syncUser);
+    window.addEventListener("storage", syncUser);
+
+    return () => {
+      window.removeEventListener("orderitup_auth_change", syncUser);
+      window.removeEventListener("storage", syncUser);
+    };
+  }, []);
 
   useEffect(() => {
     if (!mobileMenuOpen) return;
@@ -25,6 +93,17 @@ export default function Navbar() {
   const openLogin = () => {
     setMobileMenuOpen(false);
     triggerOpenAuthModal("login");
+  };
+
+  const dashboardHref = getDashboardHref(currentUser);
+  const hasDashboardAccess = Boolean(currentUser && dashboardHref !== "/#ui-preview");
+  const openDashboard = () => {
+    setMobileMenuOpen(false);
+    if (!currentUser) {
+      triggerOpenAuthModal("login");
+      return;
+    }
+    router.push(dashboardHref);
   };
 
   return (
@@ -47,22 +126,34 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
-            <Link href="/dashboard?perspective=founder" className="whitespace-nowrap rounded-lg px-1 py-2 text-[13px] font-semibold text-slate-600 transition-colors hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
-              Platform Admin
-            </Link>
+            {sessionChecked && currentUser && hasDashboardAccess && (
+              <button type="button" onClick={openDashboard} className="whitespace-nowrap rounded-lg px-1 py-2 text-[13px] font-semibold text-slate-600 transition-colors hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
+                Dashboard
+              </button>
+            )}
           </nav>
 
           <div className="hidden shrink-0 items-center gap-2 xl:flex">
-            <button type="button" onClick={() => triggerOpenAuthModal("login")} className="min-h-10 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
-              Log in
-            </button>
-            <Link href="/request-access" className="inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-orange-600 px-4 py-2 text-sm font-bold text-white shadow-sm shadow-orange-600/20 transition hover:bg-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">
-              Request Pilot Access <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
+            {!currentUser ? (
+              <>
+                <button type="button" onClick={openLogin} className="min-h-10 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
+                  Log in
+                </button>
+                <Link href="/request-access" className="inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-orange-600 px-4 py-2 text-sm font-bold text-white shadow-sm shadow-orange-600/20 transition hover:bg-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">
+                  Request Pilot Access <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                </Link>
+              </>
+            ) : (
+              <button type="button" onClick={openDashboard} className="inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl bg-orange-600 px-4 py-2 text-sm font-bold text-white shadow-sm shadow-orange-600/20 transition hover:bg-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">
+                Open Dashboard <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
           </div>
 
           <div className="flex shrink-0 items-center gap-1 xl:hidden">
-            <button type="button" onClick={openLogin} className="min-h-10 rounded-lg px-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">Log in</button>
+            {!currentUser && (
+              <button type="button" onClick={openLogin} className="min-h-10 rounded-lg px-2.5 text-sm font-bold text-slate-700 hover:bg-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">Log in</button>
+            )}
             <button
               type="button"
               onClick={() => setMobileMenuOpen((open) => !open)}
@@ -74,7 +165,6 @@ export default function Navbar() {
               {mobileMenuOpen ? <X className="h-5 w-5" aria-hidden="true" /> : <Menu className="h-5 w-5" aria-hidden="true" />}
             </button>
           </div>
-
         </div>
 
         {mobileMenuOpen && (
@@ -85,12 +175,22 @@ export default function Navbar() {
                   {link.label}
                 </Link>
               ))}
-              <Link href="/dashboard?perspective=founder" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">Platform Admin</Link>
+              {sessionChecked && currentUser && hasDashboardAccess && (
+                <button type="button" onClick={openDashboard} className="rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-700 transition hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
+                  Dashboard
+                </button>
+              )}
               <Link href="/#ui-preview" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">Explore Demo</Link>
             </div>
-            <Link href="/request-access" onClick={() => setMobileMenuOpen(false)} className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">
-              Request Pilot Access <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
-            </Link>
+            {!currentUser ? (
+              <Link href="/request-access" onClick={() => setMobileMenuOpen(false)} className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">
+                Request Pilot Access <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              </Link>
+            ) : (
+              <button type="button" onClick={openDashboard} className="mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">
+                Open Dashboard <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              </button>
+            )}
           </nav>
         )}
       </div>
