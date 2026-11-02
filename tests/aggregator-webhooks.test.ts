@@ -19,6 +19,7 @@ const originalLoad = Module._load;
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
+const crypto = require('crypto');
 const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'oiu-aggregator-test-'));
 Module._load = function (request: string, parent: unknown, isMain: boolean) {
   if (request === 'electron') return { app: { isPackaged: true, getPath: () => testDir, getVersion: () => 'test' } };
@@ -40,6 +41,15 @@ async function main() {
 
   const db = initTestDb();
   const { authHeader } = seedOwnerUser(db);
+
+  // Configure explicit signing secrets for webhook integration tests.
+  const webhookSecret = 'aggregator-test-secret-change-me';
+  db.prepare("UPDATE aggregator_configs SET webhook_secret = ?, is_enabled = 1 WHERE platform = 'swiggy'").run(webhookSecret);
+  db.prepare("UPDATE aggregator_configs SET webhook_secret = ?, is_enabled = 1 WHERE platform = 'zomato'").run(webhookSecret);
+  const signedHeaders = (platform: 'swiggy' | 'zomato', payload: any) => ({
+    [platform === 'swiggy' ? 'x-swiggy-signature' : 'x-zomato-signature']:
+      crypto.createHmac('sha256', webhookSecret).update(JSON.stringify(payload)).digest('hex'),
+  });
 
   // Seed Menu
   seedCategory(db, 'cat-biryani', 'Biryani');
@@ -125,9 +135,16 @@ async function main() {
       instructions: 'Please provide extra spicy raita',
     };
 
+    const missingSignature = await api(baseUrl, '/api/webhooks/swiggy/order', {
+      method: 'POST',
+      body: swiggyPayload,
+    });
+    assertEqual(missingSignature.status, 401, 'Rejects unsigned Swiggy webhook');
+
     const resSwiggy = await api(baseUrl, '/api/webhooks/swiggy/order', {
       method: 'POST',
       body: swiggyPayload,
+      headers: signedHeaders('swiggy', swiggyPayload),
     });
     assertEqual(resSwiggy.status, 200, 'Swiggy webhook ingested successfully (200)');
     assertEqual(resSwiggy.data.swiggy_order_id, 'SW-987654', 'Returned swiggy_order_id');
@@ -151,6 +168,7 @@ async function main() {
     const resDup = await api(baseUrl, '/api/webhooks/swiggy/order', {
       method: 'POST',
       body: swiggyPayload,
+      headers: signedHeaders('swiggy', swiggyPayload),
     });
     assertEqual(resDup.status, 200, 'Duplicate webhook returns 200 acknowledged');
     assertEqual(resDup.data.duplicate, true, 'Marked as duplicate');
@@ -189,6 +207,7 @@ async function main() {
     const resZomato = await api(baseUrl, '/api/webhooks/zomato/order', {
       method: 'POST',
       body: zomatoPayload,
+      headers: signedHeaders('zomato', zomatoPayload),
     });
     assertEqual(resZomato.status, 200, 'Zomato webhook ingested successfully (200)');
     assertEqual(resZomato.data.zomato_order_id, 'ZM-445566', 'Returned zomato_order_id');
@@ -206,6 +225,14 @@ async function main() {
           status: 'arrived_at_store',
         },
       },
+      headers: signedHeaders('swiggy', {
+        order_id: 'SW-987654',
+        rider: {
+          name: 'Deepak Kumar',
+          phone: '+919988776655',
+          status: 'arrived_at_store',
+        },
+      }),
     });
     assertEqual(resRider.status, 200, 'Rider update accepted (200)');
     assertEqual(resRider.data.rider_status, 'arrived_at_store', 'Rider status updated');
@@ -232,6 +259,10 @@ async function main() {
         order_id: 'ZM-445566',
         reason: 'Customer requested cancellation',
       },
+      headers: signedHeaders('zomato', {
+        order_id: 'ZM-445566',
+        reason: 'Customer requested cancellation',
+      }),
     });
     assertEqual(resCancel.status, 200, 'Cancellation processed (200)');
     assertEqual(resCancel.data.status, 'cancelled', 'Order marked cancelled');
