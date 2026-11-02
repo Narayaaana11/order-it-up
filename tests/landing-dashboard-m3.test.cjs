@@ -69,61 +69,51 @@ describe('Milestone M3: File Integrity, Layout, and Design System Checks', () =>
   });
 });
 
-describe('Milestone M3: FounderAdminView ("For me - startup owner")', () => {
+describe('Milestone M3: FounderAdminView (D1-backed platform administration)', () => {
   const content = fs.readFileSync(FOUNDER_ADMIN_FILE, 'utf8');
 
-  it('renders Platform Overview with GMV, active tenants, licensed terminals, and S3 customer storage', () => {
-    assert.match(content, /Platform 30D GMV|monthGmv/i, 'Must track platform-wide 30-day GMV');
-    assert.match(content, /Active Tenants|activeTenantsCount/i, 'Must display active customer tenant brands count');
-    assert.match(content, /Active Terminals|totalTerminals/i, 'Must display active licensed desktop POS terminals');
-    assert.match(content, /S3 Customer Data|totalS3StorageMb/i, 'Must aggregate isolated S3 storage volume');
-    assert.match(content, /Issued Licenses|totalIssuedLicenses/i, 'Must track total issued POS licenses');
+  it('authenticates through the isolated platform administrator API', () => {
+    assert.match(content, /\/api\/platform-admin\/login/);
+    assert.match(content, /PLATFORM_ADMIN_EMAIL/);
+    assert.match(content, /PLATFORM_ADMIN_PASSWORD_HASH/);
+    assert.match(content, /PLATFORM_ADMIN_JWT_SECRET/);
+    assert.match(content, /orderitup_platform_admin_token/);
+    assert.match(content, /sessionStorage/);
   });
 
-  it('renders searchable and filterable Restaurant Tenant Directory with realistic customer brands', () => {
-    assert.match(content, /Subscribed Restaurant Customer Accounts/i, 'Must render customer directory section');
-    assert.match(content, /searchQuery/i, 'Must support search filtering by brand/owner/city');
-    assert.match(content, /tierFilter/i, 'Must support filtering by plan tier (enterprise, pro, starter)');
-    assert.match(content, /statusFilter/i, 'Must support filtering by tenant status');
-    assert.match(content, /handleToggleTenantStatus/i, 'Must provide interactive tenant status toggling');
+  it('loads platform metrics, subscription plans and tenant records from the Cloud API', () => {
+    assert.match(content, /\/api\/platform-admin\/overview/);
+    assert.match(content, /\/api\/platform-admin\/plans/);
+    assert.match(content, /\/api\/platform-admin\/tenants/);
+    assert.match(content, /monthly_recurring_revenue_by_currency/);
+    assert.match(content, /gross_merchandise_value_by_currency/);
+    assert.match(content, /data_source/);
   });
 
-  it('includes interactive "Onboard New Tenant" modal with validation and S3 isolation prefix preview', () => {
-    assert.match(content, /isOnboardModalOpen/i, 'Must maintain modal visibility state');
-    assert.match(content, /Onboard Restaurant Tenant|Onboard New Tenant/i, 'Must have Onboard Tenant modal dialog');
-    assert.match(content, /newBrandName/i, 'Must have brand name input');
-    assert.match(content, /newOwnerName/i, 'Must have owner name input');
-    assert.match(content, /newOwnerEmail/i, 'Must have owner email input');
-    assert.match(content, /newPlanTier/i, 'Must have plan tier selector');
-    assert.match(content, /newOutletsCount/i, 'Must have initial outlets count');
-    assert.match(content, /newTerminalsCount/i, 'Must have initial POS terminals count');
-    assert.match(content, /orderitup-tenant-/i, 'Must preview auto-provisioned isolated S3 bucket');
-    assert.match(content, /updateDashboardState/i, 'Must add newly onboarded tenant into reactive dashboard store');
+  it('supports searchable, filterable, paginated tenant directory and real tenant detail', () => {
+    assert.match(content, /Search organizations/);
+    assert.match(content, /statusFilter|status/);
+    assert.match(content, /planCode|plan/);
+    assert.match(content, /PAGE_SIZE/);
+    assert.match(content, /\/api\/platform-admin\/tenants\//);
+    assert.match(content, /branches/);
+    assert.match(content, /terminals/);
+    assert.match(content, /active_user_count|users/);
   });
 
-  it('implements 16-Character Hardware-Bound Desktop POS License Generator', () => {
-    assert.match(content, /OIUP-\[PLAN\]-\[MACHINE_HASH\]-\[CHECKSUM\]/i, 'Must document 16-character license key format');
-    assert.match(content, /ENT1/, 'Must support Enterprise Tier code ENT1');
-    assert.match(content, /PRO1/, 'Must support Professional Tier code PRO1');
-    assert.match(content, /STR1/, 'Must support Starter Tier code STR1');
-    assert.match(content, /hardwareHashInput/i, 'Must have machine hardware fingerprint input');
-    assert.match(content, /handleAutoGenerateHardwareHash/i, 'Must support auto-generating 4 hex characters HW fingerprint');
-    assert.match(content, /generateLicenseKey/i, 'Must invoke actions.generateLicenseKey store mutator');
-    assert.match(content, /handleCopyKey/i, 'Must provide 1-click copy key button with feedback');
-    assert.match(content, /QrCode|Optical 2D Barcode Scanner/i, 'Must provide optical 2D barcode scanner / QR visualization');
-    assert.match(content, /Recently Issued Hardware-Bound Licenses|allIssuedLicenses/i, 'Must list previously issued licenses history');
+  it('does not present fake onboarding, local license generation or fabricated storage audits as real actions', () => {
+    assert.doesNotMatch(content, /useTenants|useDashboardActions|updateDashboardState/);
+    assert.doesNotMatch(content, /handleOnboardTenant|handleGenerateLicense|handleRunIsolationAudit/);
+    assert.doesNotMatch(content, /Zero Data Commingling Verified|S3 Prefix Isolation Audit Passed/);
+    assert.match(content, /Read-only control plane/);
+    assert.match(content, /not available until audited server-side workflows/);
   });
 
-  it('implements Isolated Amazon S3 Customer Bucket Telemetry with Zero Data Commingling verification', () => {
-    assert.match(content, /Isolated Amazon S3 Customer Storage Telemetry/i, 'Must have dedicated S3 telemetry section');
-    assert.match(content, /selectedTenantId/i, 'Must allow selecting and inspecting individual tenant buckets');
-    assert.match(content, /Zero Data Commingling Verified/i, 'Must display Zero Data Commingling security invariant badge');
-    assert.match(content, /tenants\//, 'Must enforce tenants/{tenantId}/ prefix structure');
-    assert.match(content, /backups \//i, 'Must display backups/ domain for encrypted SQLite WAL snapshots');
-    assert.match(content, /payments \//i, 'Must display payments/ domain for UPI/card transaction batches');
-    assert.match(content, /users \//i, 'Must display users/ domain for staff credentials and roles');
-    assert.match(content, /media \//i, 'Must display media/ domain for catalog photos and logos');
-    assert.match(content, /handleRunIsolationAudit|auditResult/i, 'Must provide interactive S3 Prefix Isolation Audit runner');
+  it('clears the session when the platform API rejects the administrator token', () => {
+    assert.match(content, /Unauthorized/);
+    assert.match(content, /sessionStorage\.removeItem\(TOKEN_KEY\)/);
+    assert.match(content, /credentials: "omit"/);
+    assert.match(content, /cache: "no-store"/);
   });
 });
 
