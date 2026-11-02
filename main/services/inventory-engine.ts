@@ -71,16 +71,17 @@ export function deductIngredientsForOrderItems(
 ): InventoryDeductionResult {
   const db = getDatabase();
   const deductionReference = `Order #${orderNumber}`;
-  // Inventory mutations are keyed to the order reference. Retries and repeated
-  // status transitions must never deduct the same recipe twice.
-  const existingDeduction = db.prepare(`
-    SELECT 1 FROM inventory_transactions
+  // Existing deductions are tracked per ingredient so retries are idempotent,
+  // while later additions to the same open order only deduct the new delta.
+  const previouslyDeductedRows = db.prepare(`
+    SELECT ingredient_id, COALESCE(SUM(-quantity), 0) AS deducted_quantity
+    FROM inventory_transactions
     WHERE type = 'order_deduction' AND reference_id = ?
-    LIMIT 1
-  `).get(deductionReference);
-  if (existingDeduction) {
-    return { success: true, deductions: [], insufficientIngredients: [] };
-  }
+    GROUP BY ingredient_id
+  `).all(deductionReference) as { ingredient_id: string; deducted_quantity: number }[];
+  const previouslyDeducted = new Map(
+    previouslyDeductedRows.map((row) => [row.ingredient_id, Number(row.deducted_quantity || 0)])
+  );
 
   const deductions: InventoryDeductionResult['deductions'] = [];
   const insufficient: InventoryDeductionResult['insufficientIngredients'] = [];
@@ -129,6 +130,11 @@ export function deductIngredientsForOrderItems(
         });
       }
     }
+  }
+
+  // Only apply the outstanding quantity not already recorded for this order.
+  for (const [ingredientId, requirement] of aggregatedNeeded.entries()) {
+    requirement.needed = Math.max(0, requirement.needed - (previouslyDeducted.get(ingredientId) || 0));
   }
 
   // Pre-check for insufficient stock if strict check requested
