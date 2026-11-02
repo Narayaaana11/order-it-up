@@ -3,6 +3,9 @@ import Image from "next/image";
 import Link from "next/link";
 
 const PRODUCT_LINKS = [
+  { label: "Dashboard sandbox", href: "/dashboard" },
+  { label: "Platform admin", href: "/dashboard?perspective=founder" },
+  { label: "Request pilot access", href: "/request-access" },
   { label: "Counter POS Billing", href: "/#features" },
   { label: "Kitchen Display System", href: "/#ui-preview" },
   { label: "Mobile Waiter Workflow", href: "/#roles" },
@@ -68,7 +71,7 @@ export default function Footer() {
               devices and workflows may change as we gather feedback.
             </p>
             <a
-              href="mailto:narayaaana11@gmail.com?subject=Order%20It%20Up%20Pilot%20Enquiry"
+              href="/request-access"
               className="mt-4 inline-flex text-sm font-semibold text-orange-400 transition-colors hover:text-orange-300"
             >
               Contact the pilot team →

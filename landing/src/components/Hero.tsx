@@ -105,7 +105,7 @@ export default function Hero() {
           {/* CTAs with StarBorder & Magnet micro-interactions */}
           <div className="mt-9 flex flex-col sm:flex-row items-stretch sm:items-center gap-3.5 w-full sm:w-auto">
             {/* Primary Download CTA with StarBorder & Magnet */}
-            <Magnet padding={50} magnetStrength={3}>
+            <Magnet padding={50} magnetStrength={3} className="w-full sm:w-auto">
               <StarBorder
                 color="#F07928"
                 speed="4s"
@@ -113,7 +113,7 @@ export default function Hero() {
                 className="w-full sm:w-auto"
               >
                 <a
-                  href="mailto:narayaaana11@gmail.com?subject=Order%20It%20Up%20Pilot%20Access"
+                  href="/request-access"
                   className="w-full sm:w-auto h-14 px-8 rounded-xl bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-base shadow-xl shadow-orange-500/25 hover:shadow-orange-500/40 active:scale-[0.98] transition-all flex items-center justify-center gap-3"
                 >
                   <span>Request Pilot Access</span>
@@ -122,7 +122,7 @@ export default function Hero() {
             </Magnet>
 
             {/* 80mm Bill Template Direct CTA with Magnet */}
-            <Magnet padding={40} magnetStrength={3}>
+            <Magnet padding={40} magnetStrength={3} className="w-full sm:w-auto">
               <button
                 type="button"
                 onClick={() => triggerOpenBillModal("standard")}
@@ -134,7 +134,7 @@ export default function Hero() {
             </Magnet>
 
             {/* Secondary Interactive Demo CTA with Magnet */}
-            <Magnet padding={40} magnetStrength={3}>
+            <Magnet padding={40} magnetStrength={3} className="w-full sm:w-auto">
               <a
                 href="#ui-preview"
                 className="h-14 px-6 rounded-xl bg-white hover:bg-slate-50 text-slate-800 border border-slate-300 font-semibold text-base active:scale-[0.98] transition-all flex items-center justify-center gap-2.5 shadow-xs"

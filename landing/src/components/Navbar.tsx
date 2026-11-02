@@ -4,9 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { Menu, X } from "lucide-react";
 import { NAV_LINKS } from "@/lib/constants";
-
-const PILOT_EMAIL =
-  "mailto:narayaaana11@gmail.com?subject=Order%20It%20Up%20Pilot%20Enquiry";
+import { triggerOpenAuthModal } from "@/lib/modalEvents";
 
 export default function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
@@ -35,9 +33,19 @@ export default function Navbar() {
                 {link.label}
               </a>
             ))}
+            <Link href="/dashboard?perspective=founder" className="whitespace-nowrap text-xs font-semibold text-slate-600 transition-colors hover:text-orange-600 focus:outline-none focus:text-orange-600">
+              Platform Admin
+            </Link>
           </nav>
 
           <div className="hidden items-center gap-3 sm:flex">
+            <button
+              type="button"
+              onClick={() => triggerOpenAuthModal("login")}
+              className="whitespace-nowrap rounded-xl px-3 py-2.5 text-xs font-bold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            >
+              Log in
+            </button>
             <a
               href="#ui-preview"
               className="whitespace-nowrap rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-slate-700 transition-colors hover:border-orange-300 hover:bg-orange-50"
@@ -45,7 +53,7 @@ export default function Navbar() {
               Explore Demo
             </a>
             <a
-              href={PILOT_EMAIL}
+              href="/request-access"
               className="inline-flex items-center justify-center whitespace-nowrap rounded-xl bg-[#F07928] px-5 py-2.5 text-xs font-bold text-white shadow-md shadow-orange-500/20 transition-all hover:bg-[#EA580C]"
             >
               Request Pilot Access
@@ -75,6 +83,40 @@ export default function Navbar() {
               >
                 Explore Demo
               </a>
+              <Link
+                href="/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-orange-50 hover:text-orange-600"
+              >
+                Dashboard Sandbox
+              </Link>
+              <Link
+                href="/dashboard?perspective=founder"
+                onClick={() => setMobileMenuOpen(false)}
+                className="rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-orange-50 hover:text-orange-600"
+              >
+                Platform Admin
+              </Link>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  triggerOpenAuthModal("login");
+                }}
+                className="rounded-lg px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-orange-50 hover:text-orange-600"
+              >
+                Log in
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  triggerOpenAuthModal("signup");
+                }}
+                className="rounded-lg px-3 py-2 text-left text-sm font-semibold text-slate-700 hover:bg-orange-50 hover:text-orange-600"
+              >
+                Create account
+              </button>
               {NAV_LINKS.map((link) => (
                 <a
                   key={link.href}
@@ -86,7 +128,7 @@ export default function Navbar() {
                 </a>
               ))}
               <a
-                href={PILOT_EMAIL}
+                href="/request-access"
                 onClick={() => setMobileMenuOpen(false)}
                 className="mt-2 rounded-xl bg-[#F07928] px-4 py-3 text-center text-sm font-bold text-white hover:bg-[#EA580C]"
               >

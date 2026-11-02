@@ -6,6 +6,7 @@
  * All tenant and billing metrics are read from the authoritative Cloudflare D1 database.
  */
 import { Env } from './pairing';
+import { handleAdminPilotRequests } from './pilot-requests';
 import { createJWT, isSecretValid, verifyJWT, verifyPassword } from '../auth';
 import {
   checkRateLimit,
@@ -562,6 +563,9 @@ export async function handlePlatformAdminRequest(
   }
   if (path === '/api/platform-admin/tenants' && method === 'GET') {
     return handleListTenants(new URL(request.url), env);
+  }
+  if (path === '/api/platform-admin/pilot-requests' || path.startsWith('/api/platform-admin/pilot-requests/')) {
+    return handleAdminPilotRequests(request, env, path, method, admin.email);
   }
   const accountStatusMatch = path.match(/^\/api\/platform-admin\/tenants\/([^/]+)\/account-status$/);
   if (accountStatusMatch && method === 'PATCH') {

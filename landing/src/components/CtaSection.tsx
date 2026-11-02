@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import {
   ShieldCheck,
   CheckCircle2,
@@ -61,7 +62,7 @@ export default function CtaSection() {
           {/* Pilot enquiry and sample receipt preview */}
           <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
             <a
-              href="mailto:narayaaana11@gmail.com?subject=Order%20It%20Up%20Pilot%20Access"
+              href="/request-access"
               className="inline-flex h-16 items-center justify-center rounded-xl bg-[#F07928] px-8 text-sm font-bold text-white shadow-xl shadow-orange-500/25 transition-all hover:bg-[#EA580C] active:scale-[0.98]"
             >
               Request Pilot Access
@@ -82,6 +83,13 @@ export default function CtaSection() {
               </button>
             </Magnet>
           </div>
+
+          <Link
+            href="/dashboard"
+            className="mt-5 inline-flex min-h-11 items-center justify-center rounded-xl px-4 text-sm font-semibold text-slate-700 underline decoration-slate-300 underline-offset-4 transition-colors hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+          >
+            Explore the interactive dashboard sandbox
+          </Link>
 
           <p className="mt-4 text-xs text-slate-500">
             No public installer is available from this website yet. Pilot access is arranged individually.

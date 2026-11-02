@@ -11,6 +11,8 @@ export interface Env {
   RATE_LIMIT_PAIR_GENERATE_BRANCH?: string | number;
   RATE_LIMIT_DEMO_SETUP_IP?: string | number;
   RATE_LIMIT_SYNC_EVENTS_TERMINAL?: string | number;
+  RATE_LIMIT_PILOT_REQUEST_IP?: string | number;
+  RATE_LIMIT_PILOT_REQUEST_EMAIL?: string | number;
   FRONTEND_ORIGIN?: string;
   PLATFORM_ADMIN_EMAIL?: string;
   PLATFORM_ADMIN_PASSWORD_HASH?: string;

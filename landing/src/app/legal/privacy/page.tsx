@@ -24,15 +24,18 @@ export default function PrivacyPage() {
       <LegalSection title="2. Information that may be processed">
         <p>Depending on which parts of the pilot a business chooses to use, information may include:</p>
         <LegalList items={[
-          "Pilot enquiries sent to the published contact email: the sender's name, business or restaurant name, contact details and the information included in the enquiry.",
+          "Pilot access requests sent through the website form or published contact email: the contact person's name, restaurant name, email address, optional phone number, city or region, country, business type, outlet count, current POS setup and any message included in the request.",
           "Staff and access details: staff names or display names, usernames, role assignments, login and access events, and security-related records.",
           "Restaurant operations: menu items, product descriptions, prices, tables, orders, discounts, bills, cash closures, kitchen tickets, delivery status, inventory or other records entered by the restaurant.",
           "Customer and supplier details entered by the restaurant: for example, a customer name, phone number, email address, order notes, business contact or delivery details. The restaurant should collect only what it needs and is permitted to use.",
           "Technical and diagnostic information, if enabled or supplied: device and app version, operating-system details, error logs, timestamps, network diagnostics and information voluntarily attached to a support request.",
-          "Website technical information: basic hosting, access and security logs generated when the public website is accessed. The current landing page does not provide an on-site account registration or pilot application form."
+          "Website technical information: basic hosting, access and security logs generated when the public website is accessed."
         ]} />
         <p>
           Do not enter full card numbers, CVVs, PINs, net-banking credentials, passwords belonging to other services, Aadhaar numbers, health data or other sensitive information unless the relevant workflow expressly requires it and the Operator has provided a separate lawful and secure collection notice. Do not send such data in support tickets or email.
+        </p>
+        <p>
+          When a pilot access request is submitted, the entered details are sent to the configured Order It Up Cloud API and stored in Cloudflare D1 so provisioned platform administrators can review and respond. The form does not create a restaurant account or send an invitation automatically. Pilot request records are not automatically purged; the Operator must establish and apply a retention schedule before using the form for ongoing production collection.
         </p>
       </LegalSection>
 
