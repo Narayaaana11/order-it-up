@@ -70,6 +70,19 @@ export function deductIngredientsForOrderItems(
   allowNegativeStock = true,
 ): InventoryDeductionResult {
   const db = getDatabase();
+  const deductionReference = `Order #${orderNumber}`;
+  // Existing deductions are tracked per ingredient so retries are idempotent,
+  // while later additions to the same open order only deduct the new delta.
+  const previouslyDeductedRows = db.prepare(`
+    SELECT ingredient_id, COALESCE(SUM(-quantity), 0) AS deducted_quantity
+    FROM inventory_transactions
+    WHERE type = 'order_deduction' AND reference_id = ?
+    GROUP BY ingredient_id
+  `).all(deductionReference) as { ingredient_id: string; deducted_quantity: number }[];
+  const previouslyDeducted = new Map(
+    previouslyDeductedRows.map((row) => [row.ingredient_id, Number(row.deducted_quantity || 0)])
+  );
+
   const deductions: InventoryDeductionResult['deductions'] = [];
   const insufficient: InventoryDeductionResult['insufficientIngredients'] = [];
 
@@ -119,9 +132,15 @@ export function deductIngredientsForOrderItems(
     }
   }
 
+  // Only apply the outstanding quantity not already recorded for this order.
+  for (const [ingredientId, requirement] of aggregatedNeeded.entries()) {
+    requirement.needed = Math.max(0, requirement.needed - (previouslyDeducted.get(ingredientId) || 0));
+  }
+
   // Pre-check for insufficient stock if strict check requested
   if (!allowNegativeStock) {
     for (const [ingId, req] of aggregatedNeeded.entries()) {
+      if (req.needed <= 0) continue;
       if (req.currentStock < req.needed) {
         insufficient.push({
           ingredientId: ingId,
@@ -139,6 +158,7 @@ export function deductIngredientsForOrderItems(
   // Apply deductions
   const currentTime = now();
   for (const [ingId, req] of aggregatedNeeded.entries()) {
+    if (req.needed <= 0) continue;
     stmtUpdateStock.run(req.needed, currentTime, ingId);
     const newStock = req.currentStock - req.needed;
     stmtLogTx.run(ingId, -req.needed, newStock, `Order #${orderNumber}`, currentTime);
@@ -164,6 +184,26 @@ export function restoreIngredientsForOrderItems(
   reason = 'Order Cancellation',
 ): void {
   const db = getDatabase();
+  const deductionReference = `Order #${orderNumber}`;
+  const restorationReference = `${reason} (#${orderNumber})`;
+
+  // A pending QR request has not consumed stock. Do not manufacture stock on
+  // cancellation unless an order-deduction ledger entry exists.
+  const hasDeduction = db.prepare(`
+    SELECT 1 FROM inventory_transactions
+    WHERE type = 'order_deduction' AND reference_id = ?
+    LIMIT 1
+  `).get(deductionReference);
+  if (!hasDeduction) return;
+
+  // Cancellation/retry events are at-least-once; restore a given order once.
+  const hasRestoration = db.prepare(`
+    SELECT 1 FROM inventory_transactions
+    WHERE type = 'order_restoration' AND reference_id = ?
+    LIMIT 1
+  `).get(restorationReference);
+  if (hasRestoration) return;
+
   const stmtGetRecipe = db.prepare(`
     SELECT r.ingredient_id, r.quantity_required, r.wastage_percentage,
            i.name as ingredient_name, i.current_stock
