@@ -427,7 +427,7 @@ class ApiService {
               createdAt:
                   DateTime.tryParse(map['created_at']?.toString() ?? '') ??
                       DateTime.now(),
-              status: map['status']?.toString().toLowerCase() ?? 'waiting',
+              status: _kdsStatusForMobile(map['status']?.toString()),
               items: itemsRaw is List
                   ? itemsRaw
                       .map((i) =>
@@ -455,7 +455,7 @@ class ApiService {
             tableNumber: map['table_name']?.toString() ?? 'Dine-In',
             createdAt: DateTime.tryParse(map['created_at']?.toString() ?? '') ??
                 DateTime.now(),
-            status: map['status']?.toString().toLowerCase() ?? 'waiting',
+            status: _kdsStatusForMobile(map['status']?.toString()),
             items: (map['items'] as List? ?? [])
                 .map((i) => OrderItemModel.fromJson(i as Map<String, dynamic>))
                 .toList(),
@@ -1262,4 +1262,15 @@ class ApiService {
       return {};
     }
   }
+}
+
+/// Maps canonical Cloud kitchen-ticket states onto the KDS display vocabulary.
+/// Cloud uses pending/completed; the Flutter KDS renders waiting/preparing/
+/// ready/served. Unknown states pass through unchanged.
+String _kdsStatusForMobile(String? raw) {
+  final value = raw?.trim().toLowerCase() ?? '';
+  if (value.isEmpty) return 'waiting';
+  if (value == 'pending') return 'waiting';
+  if (value == 'completed') return 'served';
+  return value;
 }

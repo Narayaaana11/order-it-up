@@ -130,7 +130,26 @@ async function run() {
   const waiterList = await call('user-mobile-waiter', '/api/cash-closures');
   assert.equal(waiterList.status, 403, 'waiters cannot read cash closures');
 
-  console.log('Mobile compatibility passed: session refresh, revocation/inactive rejection, and cash closure mapping.');
+  // ── Mobile KDS vocabulary aliases ───────────────────────────────────────
+  rawDb.prepare(`INSERT INTO kitchen_tickets (id, organization_id, branch_id, order_id, ticket_number, station, status, items_json, created_at, updated_at) VALUES ('kds-mobile', ?, 'branch-mobile', 'order-mobile', 'KOT-M-1', 'main_kitchen', 'pending', '[]', ?, ?)`)
+    .run(ORG, NOW, NOW);
+  const servedBump = await call('user-mobile-cashier', '/api/kitchen/tickets/kds-mobile/status', {
+    method: 'PATCH', body: JSON.stringify({ status: 'served' }),
+  });
+  assert.equal(servedBump.status, 200, 'the mobile "served" status is accepted');
+  assert.equal((await servedBump.json() as any).ticket.status, 'completed');
+  assert.equal((rawDb.prepare("SELECT status FROM kitchen_tickets WHERE id = 'kds-mobile'").get() as any).status, 'completed');
+  assert.equal((rawDb.prepare("SELECT kitchen_status FROM synced_orders WHERE id = 'order-mobile'").get() as any).kitchen_status, 'served');
+
+  rawDb.prepare("INSERT INTO kitchen_tickets (id, organization_id, branch_id, order_id, ticket_number, station, status, items_json, created_at, updated_at) VALUES ('kds-mobile-2', ?, 'branch-mobile', 'order-mobile', 'KOT-M-2', 'main_kitchen', 'pending', '[]', ?, ?)")
+    .run(ORG, NOW, NOW);
+  const waitingBump = await call('user-mobile-cashier', '/api/kitchen/tickets/kds-mobile-2/status', {
+    method: 'PATCH', body: JSON.stringify({ status: 'waiting' }),
+  });
+  assert.equal(waitingBump.status, 200, 'the mobile "waiting" status maps to pending');
+  assert.equal((rawDb.prepare("SELECT status FROM kitchen_tickets WHERE id = 'kds-mobile-2'").get() as any).status, 'pending');
+
+  console.log('Mobile compatibility passed: session refresh, revocation/inactive rejection, cash closures, and KDS status aliases.');
 }
 
 run().catch((error) => { console.error(error); process.exitCode = 1; });

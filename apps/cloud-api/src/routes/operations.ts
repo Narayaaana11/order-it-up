@@ -2062,7 +2062,11 @@ export async function handleUpdateKitchenTicketStatus(
     return Response.json({ error: 'Invalid JSON payload' }, { status: 400 });
   }
 
-  const nextStatus = typeof body?.status === 'string' ? body.status.trim() : '';
+  const requestedStatus = typeof body?.status === 'string' ? body.status.trim().toLowerCase() : '';
+  // Accept the mobile/KDS vocabulary as aliases for the canonical Cloud states.
+  const nextStatus = requestedStatus === 'waiting' ? 'pending'
+    : requestedStatus === 'served' ? 'completed'
+      : requestedStatus;
   const ALLOWED = ['pending', 'preparing', 'ready', 'completed', 'cancelled'];
   if (!ALLOWED.includes(nextStatus)) {
     return Response.json({ error: `Invalid ticket status. Must be one of: ${ALLOWED.join(', ')}` }, { status: 400 });
