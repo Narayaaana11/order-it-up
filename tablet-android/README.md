@@ -18,6 +18,8 @@ Pop-Location
 
 Open `tablet-android/android` in Android Studio to install the debug build on a tablet or emulator.
 
+The Capacitor config pins `server.appStartPath` to `/tablet-pos/index.html`. Capacitor serves `index.html` for any extension-less path, so without that pin the packaged WebView would open the marketing landing page instead of the POS terminal. `npm run build:web` also fails closed if the exported `frontend/out/tablet-pos/index.html` is missing.
+
 ## Runtime boundary
 
 The packaged React app authenticates through the Cloud API. Its static assets are bundled, but operational data and order writes require a reachable API. The Capacitor container does not turn the Cloud API into an offline local server and does not automatically provide SQLite, receipt printing, cash-drawer control, or barcode hardware access. Those capabilities must be implemented and verified separately before describing the tablet as feature-parity or offline-first.

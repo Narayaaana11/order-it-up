@@ -6,6 +6,10 @@ const config: CapacitorConfig = {
   webDir: '../frontend/out',
   server: {
     androidScheme: 'https',
+    // Capacitor serves index.html for extension-less paths, so the packaged app
+    // must target the exported tablet route explicitly. Without this the WebView
+    // opens the marketing landing page instead of the POS terminal.
+    appStartPath: '/tablet-pos/index.html',
   },
 };
 

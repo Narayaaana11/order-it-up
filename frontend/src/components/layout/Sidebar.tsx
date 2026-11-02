@@ -27,6 +27,7 @@ import {
   CalendarDays,
   Bike,
   Sparkles,
+  Tablet,
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslations, type AppConfig } from 'use-intl';
@@ -75,6 +76,7 @@ interface NavItem {
 const ALL_NAV_ITEMS: NavItem[] = [
   { href: '/pos', labelKey: 'pos', icon: ShoppingCart, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
   { href: '/dashboard', labelKey: 'dashboard', icon: LayoutDashboard, roles: ROLE_ACCESS.owner, businessTypes: null },
+  { href: '/tablet-pos', labelKey: 'pos', icon: Tablet, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
   { href: '/ai-insights', labelKey: 'aiInsights', icon: Sparkles, roles: ROLE_ACCESS.ownerManager, businessTypes: null },
   { href: '/orders', labelKey: 'orders', icon: ClipboardList, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
   { href: '/online-orders', labelKey: 'onlineOrders', icon: Bike, roles: ROLE_ACCESS.ownerManagerCashier, businessTypes: null },
@@ -118,6 +120,8 @@ export default function AppSidebar() {
   const navItems = ALL_NAV_ITEMS.filter((item) => {
     // POS billing is exclusive to Desktop Electron App and Flutter Mobile; hide from web portal navigation
     if (item.href === '/pos' && !isElectron) return false;
+    // The tablet POS is the web/Android terminal; the desktop build uses /pos instead.
+    if (item.href === '/tablet-pos' && isElectron) return false;
     if (item.href === '/tables' && !tablesRequired) return false;
     // Hide KDS settings navigation when KDS is disabled.
     if (item.href === '/settings?tab=kds' && !kdsEnabled) return false;

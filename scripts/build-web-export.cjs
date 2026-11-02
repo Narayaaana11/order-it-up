@@ -21,6 +21,16 @@ if (!fs.existsSync(qrPage)) {
   process.exit(1);
 }
 
+const tabletPage = path.join(frontendDirectory, 'out', 'tablet-pos', 'index.html');
+if (!fs.existsSync(tabletPage)) {
+  console.error(`Cloud web export is missing the tablet POS route: ${tabletPage}`);
+  process.exit(1);
+}
+if (!fs.readFileSync(tabletPage, 'utf8').includes('__next')) {
+  console.error(`Cloud web export contains an invalid tablet POS document: ${tabletPage}`);
+  process.exit(1);
+}
+
 const html = fs.readFileSync(qrPage, 'utf8');
 if (!html.includes('<html') || !html.includes('__next')) {
   console.error(`Cloud web export contains an invalid customer QR document: ${qrPage}`);
