@@ -93,7 +93,7 @@
                     "test:e2e:browser":  "npm run build \u0026\u0026 npm run build:frontend \u0026\u0026 cd frontend \u0026\u0026 npx playwright install chromium \u0026\u0026 npx playwright test --config=playwright.config.ts --project=chromium",
                     "test:e2e:electron":  "npm run build \u0026\u0026 npm run build:frontend \u0026\u0026 cd frontend \u0026\u0026 npx playwright test --config=playwright.electron.config.ts --project=electron-desktop",
                     "test:e2e":  "npm run test:e2e:browser",
-                    "test:release-config":  "ts-node --transpile-only -P tests/tsconfig.json tests/release-config.test.ts \u0026\u0026 ts-node --transpile-only -P tests/tsconfig.json tests/verify-electron-runtime-xattr.test.ts \u0026\u0026 node tests/release-asset-verifier.test.cjs \u0026\u0026 node tests/release-gate.test.cjs",
+                    "test:release-config":  "ts-node --transpile-only -P tests/tsconfig.json tests/desktop-release-workflow.test.ts \u0026\u0026 ts-node --transpile-only -P tests/tsconfig.json tests/verify-electron-runtime-xattr.test.ts \u0026\u0026 node tests/release-asset-verifier.test.cjs \u0026\u0026 node tests/release-gate.test.cjs",
                     "test:windows-uninstaller":  "node tests/run-windows-uninstaller-tests.cjs",
                     "test:telemetry":  "node tests/run-electron-node-test.cjs tests/telemetry-delivery.test.ts",
                     "test:country-provenance":  "node tests/run-electron-node-test.cjs tests/country-provenance.test.ts",

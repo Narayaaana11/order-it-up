@@ -116,6 +116,9 @@ jobs:
       - name: D1 Reconciliation Rehearsal (synthetic legacy baseline)
         run: npm run check:d1-rehearsal
 
+      - name: Desktop Release Workflow & Release Gates
+        run: npm run test:release-config
+
       - name: Cloud Sync Integrity & Concurrency Verification
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-sync-integrity.test.ts
 

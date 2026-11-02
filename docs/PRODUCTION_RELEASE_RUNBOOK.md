@@ -109,13 +109,14 @@ npx wrangler secret put RAZORPAY_WEBHOOK_SECRET
 
 ## 7. Known deployment gaps
 
-### Desktop release pipeline — locally verified, GitHub workflow missing
+### Desktop release pipeline — draft workflow present, signing secrets absent
 
 - `npm run build`, `npm run build:frontend`, and `npm run pack` pass; electron-builder 26.15.3 produces `release/win-unpacked` with the Electron 43.4.1 runtime.
 - `npm run verify:electron` and `npm run verify:release-artifacts` pass.
-- `npm run test:release-config` currently fails because `.github/workflows/release.yml` — plus `publish-mas.yml`, `release-candidate-gate.yml`, `nightly-release.yml` and `upgrade-matrix.yml` — are absent from this checkout. They were deleted earlier in the repository history, and some scripts they referenced are also gone.
-- Recovery path (investigated 2026-11-03): the last complete release-workflow family exists at commit `50be6aa`, and the release-gate scripts/assets it references are still present in the current tree. A restore attempt reached the draft-notes assertion but then required the older CI architecture (`changes`, `e2e-playwright` with `Run renderer and printer regression suites`, native Electron E2E) that the current `ci.yml` no longer contains. Restoring only the workflows is therefore not sufficient; the release pipeline must be re-authored or the historical CI reconciled as a dedicated change, with the POSIX-only fake-command assumptions in `tests/release-config.test.ts` verified on the Linux runner.
-- Therefore **do not claim signed installers, macOS/MAS builds, the upgrade matrix or electron-updater publishing**. Signing identities/notarization secrets and the GitHub release environment also remain unprovisioned.
+- `.github/workflows/desktop-release.yml` builds the Windows NSIS x64 installer on `windows-latest`, uploads the installer and `latest.yml`, and creates a **draft** GitHub release from tag pushes. It never publishes automatically.
+- `npm run test:release-config` validates the workflow (triggers, signing env, artifact upload, draft-only release) together with the existing release verifier and release-gate suites, and passes.
+- Signing requires the repository secrets `WINDOWS_CERTIFICATE` and `WINDOWS_CERTIFICATE_PASSWORD`; without them the installer is unsigned and must not be distributed as production.
+- macOS/MAS builds, the upgrade matrix and electron-updater publishing have no workflow in this checkout and must not be claimed. Publishing a draft release remains a manual decision after artifact download and verification.
 
 - Remote D1 schema drift and historical backfills are not reconciled yet.
 - No production credentials, domains or DNS are configured in this repository.

@@ -1,0 +1,95 @@
+name: Desktop Release (draft)
+
+# Builds the Windows desktop installer and attaches it to a DRAFT GitHub
+# release. Publishing the draft is a separate, manual decision after the
+# artifacts have been downloaded and verified.
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing tag to build the draft release from (for example 1.0.0)
+        required: true
+        type: string
+  push:
+    tags:
+      - '[0-9]*'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: desktop-release-${{ github.ref }}
+  # A tag does not move; never cancel a release build midway through uploads.
+  cancel-in-progress: false
+
+jobs:
+  windows:
+    name: Windows installer (draft)
+    runs-on: windows-latest
+    timeout-minutes: 45
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: Install root dependencies
+        run: npm ci
+
+      - name: Install frontend dependencies
+        run: npm ci --prefix frontend
+
+      - name: Build desktop renderer
+        run: npm run build:frontend
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+
+      - name: Build backend
+        run: npm run build
+
+      - name: Verify Electron runtime
+        run: npm run verify:electron
+
+      # Signing is optional: provide both repository secrets to produce a signed
+      # installer. Without them the artifact is unsigned and must not be
+      # distributed as a production build.
+      - name: Package Windows installer
+        run: npx electron-builder --win nsis --x64 --publish never
+        env:
+          CSC_LINK: ${{ secrets.WINDOWS_CERTIFICATE }}
+          CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CERTIFICATE_PASSWORD }}
+
+      - name: Verify release artifact names
+        run: npm run verify:release-artifacts
+
+      - name: Upload installer artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-installer
+          path: |
+            release/*.exe
+            release/latest.yml
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Create draft GitHub release
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG="${GITHUB_REF_NAME}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "::error::Release ${TAG} already exists; refusing to overwrite it."
+            exit 1
+          fi
+          gh release create "$TAG" \
+            --draft \
+            --title "Order It Up ${TAG}" \
+            --notes "Desktop draft build for ${TAG}. Download and verify the installer before publishing this draft." \
+            release/*.exe \
+            release/latest.yml

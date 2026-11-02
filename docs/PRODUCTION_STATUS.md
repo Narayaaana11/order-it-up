@@ -22,6 +22,7 @@ The product surface is implemented and locally verified across desktop, Cloud, w
 | `npm run check:tablet-android` | 9/9 hardening checks |
 | `npm run check:cloud-release` | 41/41 |
 | `npm run check:d1-rehearsal` | 8/8 — synthetic legacy baseline: naive replay fails closed, ledger-baseline + 0008–0025 applies, membership repair and readiness pass |
+| `npm run test:release-config` | pass — desktop draft-release workflow, Electron runtime xattr, release asset verifier, release gate |
 | `npm run check:cloud-worker` | bundles at ~511 KiB / ~99 KiB gzip |
 | React/web export, landing build, backend build, Electron runtime/artifact checks | pass |
 | Desktop `electron-builder --dir` packaging | pass (unpacked Windows app) |
@@ -30,7 +31,7 @@ The product surface is implemented and locally verified across desktop, Cloud, w
 
 | Surface | Status | Evidence / gap |
 |---|---|---|
-| Desktop POS (Electron + local Express + SQLite) | Implemented; packaging pass | Signed installer/auto-update blocked on the missing release workflow family |
+| Desktop POS (Electron + local Express + SQLite) | Implemented; draft-release workflow + packaging pass | Signed installer needs certificate secrets; macOS/MAS and auto-update pipelines absent |
 | Cloud API (Worker + D1) | Implemented; bundle pass | Remote D1 unreconciled; secrets/domains absent |
 | Landing marketing + dashboards | Live workspace role tabs pass E2E | Demo preview remains sample data by design |
 | Web dashboards (products, staff, customers, tables, inventory, expenses, reservations, reports) | Cloud-backed routes exist | Orders/settings/aggregator screens are partially desktop-only |
@@ -48,7 +49,7 @@ The product surface is implemented and locally verified across desktop, Cloud, w
 1. **D1 reconciliation and backup** — review `CLOUD_D1_BASELINE_RECONCILIATION.md`, restore-test, apply 0008–0025 to staging first.
 2. **Secrets** — `JWT_SECRET`, platform-admin email/hash/separate JWT secret, Razorpay key id/secret/webhook secret.
 3. **Deploy** — Worker, then Pages via the guarded workflow; verify `/ready`, login, dashboards, QR from an external phone.
-4. **Desktop release pipeline** — the GitHub release workflow family is absent; `test:release-config` fails. Signed installers, macOS/MAS and electron-updater must not be claimed until re-authored and green.
+4. **Desktop release** — `.github/workflows/desktop-release.yml` builds and drafts a Windows installer; provision `WINDOWS_CERTIFICATE`/`WINDOWS_CERTIFICATE_PASSWORD`, verify the artifact, then publish manually. macOS/MAS, the upgrade matrix and auto-update monitoring are still absent.
 5. **Android** — build the APK in CI/with an SDK, install on a tablet, verify role routing, offline outbox, and Razorpay checkout in the WebView.
 6. **Printing/offline parity** — receipt/KOT printing and durable offline storage are still Electron/local-server capabilities.
 7. **Provider certification** — sandbox then live Razorpay capture/refund/webhook certification.
