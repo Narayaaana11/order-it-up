@@ -278,6 +278,9 @@ jobs:
       - name: Export Shared React POS
         run: npm run build:web
 
+      - name: Tablet Android Wrapper Hardening
+        run: npm run check:tablet-android
+
       - name: Sync Android Wrapper
         working-directory: tablet-android
         run: npx cap sync android

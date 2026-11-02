@@ -22,6 +22,10 @@ The Capacitor config pins `server.appStartPath` to `/tablet-pos/index.html`. Cap
 
 After sign-in the shell routes by role: cashier, owner and manager sessions open `/tablet-pos`, while server, waiter and host sessions open `/tablet-waiter` (the floor-station app). Both routes are exported by `npm run build:web` and reuse the same Cloud catalog, cart, modifier picker and table model.
 
+## Security hardening
+
+The WebView keeps its Cloud session token in local storage, so the Android manifest disables app-data backup (`allowBackup=false`, `fullBackupContent=false`) and cleartext traffic (`usesCleartextTraffic=false`). `npm run check:tablet-android` verifies those attributes, the INTERNET permission, the app id, the export directory and the `/tablet-pos/index.html` start path; CI runs it before the Gradle build.
+
 ## Runtime boundary
 
 The packaged React app authenticates through the Cloud API. Its static assets are bundled, but operational data and order writes require a reachable API. The Capacitor container does not turn the Cloud API into an offline local server and does not automatically provide SQLite, receipt printing, cash-drawer control, or barcode hardware access. Those capabilities must be implemented and verified separately before describing the tablet as feature-parity or offline-first.
