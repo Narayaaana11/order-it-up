@@ -4,8 +4,6 @@ import QRCode from 'qrcode';
 import { getDatabase, now, getSettingValue, withTxn } from '../db';
 import { asyncHandler } from '../middleware/async-handler';
 import { calculateItemTax } from '../services/tax';
-import { notifyKdsUpdate } from '../services/kds';
-import { deductIngredientsForOrderItems } from '../services/inventory-engine';
 
 const router = Router();
 
@@ -273,16 +271,9 @@ router.post('/order', asyncHandler(async (req: Request, res: Response) => {
       WHERE id = ?
     `).run(timestamp, table_id);
 
-    // 4. Deduct raw ingredients
-    deductIngredientsForOrderItems(
-      processedItems.map(p => ({ product_id: p.product_id, quantity: p.quantity })),
-      orderNumber,
-      true
-    );
+    // Raw ingredients are deducted only after a staff member accepts the
+    // request by moving it to preparing. Pending customer requests consume nothing.
   })();
-
-  // 5. Notify Kitchen Display System (KDS) immediately over WebSocket
-  notifyKdsUpdate();
 
   res.status(201).json({
     ok: true,
