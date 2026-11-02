@@ -120,7 +120,13 @@ export function FounderAdminView() {
     }
   }, [offset, planCode, request, search, status, token]);
 
-  useEffect(() => { if (token) void loadDashboard(); }, [loadDashboard, token]);
+  useEffect(() => {
+    if (!token) return;
+    // Defer the initial network refresh until after the effect commit.
+    // This avoids cascading synchronous state updates during effect execution.
+    const refreshHandle = window.setTimeout(() => { void loadDashboard(); }, 0);
+    return () => window.clearTimeout(refreshHandle);
+  }, [loadDashboard, token]);
 
   const handleLogin = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
