@@ -58,6 +58,9 @@ jobs:
         working-directory: landing
         run: npm run build
 
+      - name: Landing Dashboard Regression Tests
+        run: node --test tests/landing-dashboard-m3.test.cjs
+
       - name: Backend Build (TypeScript)
         run: npm run build
 
@@ -96,6 +99,12 @@ jobs:
 
       - name: Cloud Platform Admin Authentication & D1 Metrics
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-platform-admin.test.ts
+
+      - name: Cloud Subscription Lifecycle & Plan Entitlement Tests
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-subscription-entitlements.test.ts
+
+      - name: Cloud SaaS D1 Migration Compatibility
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-saas-migrations.test.ts
 
       - name: Multi-Branch Aggregation & Variance Verification
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/multi-branch-cloud.test.ts
