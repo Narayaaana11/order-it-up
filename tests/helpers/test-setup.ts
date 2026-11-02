@@ -123,7 +123,11 @@ function initTestDb() {
 
 function createApp(routeModules: Record<string, any>, options?: { authRole?: string }) {
   const app = express();
-  app.use(express.json());
+  app.use(express.json({
+    verify: (req: any, _res: any, buffer: Buffer) => {
+      req.rawBody = Buffer.from(buffer);
+    },
+  }));
 
   // Set JWT_SECRET for tests
   if (!process.env.JWT_SECRET) {

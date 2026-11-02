@@ -56,46 +56,25 @@ The system features **10 primary operational personas** categorized into Central
 
 ---
 
-## 3. Seed & Demo Credentials Reference
+## 3. Account Provisioning & Demo Access
 
-### 3.1 Central SaaS Control Plane Operators (In-Memory / Seed)
-These operators manage the central multi-tenant cloud control plane (`main/admin/auth.ts`).
+This repository must not be used as a source of production passwords, PINs, API keys, or bearer tokens.
 
-| Operator Name | Email Address | Role | Default Password | Environment |
-| :--- | :--- | :--- | :--- | :--- |
-| **Super Administrator** | `admin@orderitup.in` | `SUPER_ADMIN` | `AdminPass123!` | SaaS Production & Staging |
-| **Super Administrator (Dev)** | `superadmin@orderitup.in` | `SUPER_ADMIN` | `AdminPass123!` | Local Dev & Staging |
-| **Operations Admin** | `admin@orderitup.local` | `ADMIN` | `AdminPass123!` | Local Offline Engine |
-| **Finance & Billing Lead** | `finance@orderitup.in` | `FINANCE` | `AdminPass123!` | Cloud HQ |
-| **Technical Support Lead** | `support@orderitup.in` | `SUPPORT` | `AdminPass123!` | Cloud HQ |
-| **Compliance Auditor** | `readonly@orderitup.in` | `READ_ONLY` | `AdminPass123!` | Cloud HQ |
+- Central SaaS admin access is provisioned out of band using environment variables. No shared default operator password is supported.
+- Restaurant owner and staff accounts must be created through the product's setup and staff-management flows.
+- Demo accounts, where enabled in a dedicated demo environment, are non-production sample identities only. Never reuse demo passwords or tokens in production.
+- Local manager authorization PINs are configured by the restaurant owner during setup. Do not rely on documented or shared default PINs.
+- Rotate any credential that was previously committed or shared, and store secrets in the deployment provider's secret manager.
 
----
+### Central admin bootstrap environment
 
-### 3.2 Cloud Edge Multi-Location Staging Organization
-Provisioned under organization ID `org_demo_showcase_01` (Cloudflare D1 Edge Worker):
+Required variables:
+- `OIU_ADMIN_JWT_SECRET`: random secret of at least 32 characters.
+- `OIU_ADMIN_BOOTSTRAP_EMAIL`: the single initial platform administrator's email.
+- `OIU_ADMIN_BOOTSTRAP_PASSWORD_HASH`: bcrypt hash of the administrator password; never store the plaintext password in this repository.
+- `OIU_ADMIN_BOOTSTRAP_NAME`: optional display name.
 
-| Persona | Email Address | Role Key | Password / Token | Portal / Client |
-| :--- | :--- | :--- | :--- | :--- |
-| **Primary Organization Owner** | `demo.owner@orderitup.in` | `owner` | `DemoOwner2026!` | Web Cloud HQ & Owner Dashboard |
-| **Branch Operations Manager** | `demo.manager@orderitup.in` | `manager` | `DemoManager2026!` | Web Dashboard & Desktop App |
-| **Head Accountant** | `demo.accountant@orderitup.in` | `accountant` | `DemoAccountant2026!` | Web Cloud Dashboard (`/reports`) |
-| **Lead Counter Cashier** | `demo.cashier@orderitup.in` | `cashier` | `DemoCashier2026!` | **Desktop POS Client** |
-| **Floor Captain / Waiter** | `demo.server@orderitup.in` | `server` | `DemoServer2026!` | **Flutter Mobile App** |
-| **Executive Kitchen Chef** | `demo.chef@orderitup.in` | `chef` | `DemoChef2026!` | **Flutter KDS / Standalone KDS** |
-
----
-
-### 3.3 Desktop POS Client Local SQLite Store & Master PINs
-For offline-first local deployment running on SQLite (`dev-server.js` or packaged Electron app):
-
-| User / Function | Identifier | Default Credential / PIN | Details |
-| :--- | :--- | :--- | :--- |
-| **Initial Local Owner** | `owner@orderitup.local` | Configured during initial `/setup` wizard | Has root control over local SQLite database. |
-| **Manager Authorization PIN** | Master PIN | `1234` or `9999` (Configurable in Settings) | Authorizes bill refunds, manager discounts, and shift audits. |
-| **Demo Manager** | `manager@orderitup.local` | Seeded inactive with random hash | Activated via Owner staff settings (`/staff`). |
-| **Demo Cashier** | `cashier@orderitup.local` | Seeded inactive with random hash | Activated via Owner staff settings (`/staff`). |
-| **Demo Chef** | `chef@orderitup.local` | Seeded inactive with random hash | Activated via Owner staff settings (`/staff`). |
+The admin API returns `503` until these values are configured. Rotating the JWT secret invalidates existing central admin sessions. The bootstrap operator currently has the `SUPER_ADMIN` role; a persistent multi-operator management workflow remains future work.
 
 ---
 

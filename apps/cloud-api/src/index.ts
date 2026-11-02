@@ -40,28 +40,31 @@ import { checkRateLimit, createRateLimitResponse, getClientIp, DEFAULT_RATE_LIMI
 
 function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const requestOrigin = request?.headers.get('Origin');
-  let allowOrigin = '*';
-
-  if (requestOrigin) {
-    if (env?.FRONTEND_ORIGIN) {
-      const allowed = env.FRONTEND_ORIGIN.split(',').map((o) => o.trim());
-      if (allowed.includes(requestOrigin) || allowed.includes('*')) {
-        allowOrigin = requestOrigin;
-      } else {
-        allowOrigin = allowed[0];
-      }
-    } else if (env?.ENVIRONMENT === 'staging') {
-      // Avoid blanket wildcard for staging browser requests
-      allowOrigin = requestOrigin;
-    }
-  }
-
-  return {
-    'Access-Control-Allow-Origin': allowOrigin,
+  const allowedOrigins = (env?.FRONTEND_ORIGIN || '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+  const restrictedEnvironment = env?.ENVIRONMENT === 'production' || env?.ENVIRONMENT === 'staging';
+  const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With',
     'Access-Control-Max-Age': '86400',
+    'Vary': 'Origin',
   };
+
+  if (restrictedEnvironment) {
+    // Production and staging require an explicit exact-origin allowlist.
+    // Wildcard entries are deliberately not accepted in restricted environments.
+    if (requestOrigin && allowedOrigins.includes(requestOrigin) && !allowedOrigins.includes('*')) {
+      headers['Access-Control-Allow-Origin'] = requestOrigin;
+    }
+  } else if (allowedOrigins.length === 0 || allowedOrigins.includes('*')) {
+    headers['Access-Control-Allow-Origin'] = '*';
+  } else if (requestOrigin && allowedOrigins.includes(requestOrigin)) {
+    headers['Access-Control-Allow-Origin'] = requestOrigin;
+  }
+
+  return headers;
 }
 
 export default {

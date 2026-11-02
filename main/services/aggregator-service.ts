@@ -164,7 +164,7 @@ export function normalizeZomatoOrder(payload: any): NormalizedAggregatorOrder {
  * Validates HMAC-SHA256 signature for webhooks.
  */
 export function verifyWebhookSignature(payloadString: string, signature: string | undefined, secret: string | undefined): boolean {
-  if (!secret) return true; // If no secret configured, allow bypass for local dev/testing
+  if (!secret) return false;
   if (!signature) return false;
 
   try {
