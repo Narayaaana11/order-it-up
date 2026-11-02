@@ -63,6 +63,8 @@ async function run() {
     .run('table-a', 'T-1', now, now);
   rawDb.prepare(`INSERT INTO synced_order_items (id, order_id, branch_id, product_id, product_name, quantity, unit_price, subtotal, tax_amount, discount_amount, ordered_at) VALUES (?, 'order-a', 'branch-a', 'product-a', 'Test Meal', 2, 600, 1200, 0, 0, ?)`)
     .run('item-a', now);
+  rawDb.prepare(`INSERT INTO customers (id, organization_id, name, phone, created_at, updated_at) VALUES ('customer-a', 'org-a', 'Test Customer', '5550011', ?, ?)`)
+    .run(now, now);
   rawDb.prepare(`INSERT INTO customer_payments (id, organization_id, branch_id, order_id, payment_method, amount, status, verification_method, created_at, updated_at) VALUES (?, 'org-a', 'branch-a', 'order-a', 'cash', 1275, 'completed', 'cashier_collected', ?, ?)`)
     .run('payment-a', now, now);
   rawDb.prepare(`INSERT INTO customer_payments (id, organization_id, branch_id, order_id, payment_method, amount, status, verification_method, parent_payment_id, refund_reason, cashier_name, created_at, updated_at) VALUES (?, 'org-a', 'branch-a', 'order-a', 'cash', -25, 'refunded', 'cashier_collected', 'payment-a', 'Test refund', 'Casey', ?, ?)`)
@@ -101,7 +103,7 @@ async function run() {
   );
   assert.equal(summary.status, 200);
   const summaryData = (await summary.json() as any).summary;
-  assert.equal(summaryData.customers.new, null, 'Cloud does not fabricate customer acquisition without a customer registry');
+  assert.equal(summaryData.customers.new, 1, 'new customers come from the Cloud registry and authorized-branch orders');
   assert.deepEqual(summaryData.orders, { count: 3, total: 1875 });
   assert.deepEqual(summaryData.bills, { count: 1, total: 1275, collected: 1250 });
   const financial = await handleDashboardReport(

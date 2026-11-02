@@ -129,13 +129,22 @@ export async function handleDashboardReport(
         paymentMethods,
       });
     }
-    const [orders, bills] = await Promise.all([
+    const branchFilter = branchClause(branches, 'o');
+    const [orders, bills, newCustomers] = await Promise.all([
       env.DB.prepare(`SELECT COUNT(*) AS count, COALESCE(SUM(grand_total), 0) AS total FROM synced_orders WHERE organization_id = ? AND ${scope.sql} AND ordered_at >= ? AND ordered_at < ?`)
         .bind(orgId, ...scope.values, range.start, range.end).first<{ count: number; total: number }>(),
       env.DB.prepare(`SELECT COUNT(DISTINCT order_id) AS count, COALESCE(SUM(CASE WHEN amount > 0 THEN amount ELSE 0 END), 0) AS total, COALESCE(SUM(amount), 0) AS collected FROM customer_payments WHERE organization_id = ? AND ${scope.sql} AND created_at >= ? AND created_at < ? AND status IN ('completed','refunded')`)
         .bind(orgId, ...scope.values, range.start, range.end).first<{ count: number; total: number; collected: number }>(),
+      env.DB.prepare(`
+        SELECT COUNT(DISTINCT c.id) AS count FROM customers c
+        WHERE c.organization_id = ? AND c.created_at >= ? AND c.created_at < ?
+          AND EXISTS (
+            SELECT 1 FROM synced_orders o
+            WHERE o.organization_id = c.organization_id AND o.customer_phone = c.phone AND ${branchFilter.sql}
+          )
+      `).bind(orgId, range.start, range.end, ...branchFilter.values).first<{ count: number }>(),
     ]);
-    return Response.json({ summary: { date: range.startDate, orders: { count: Number(orders?.count || 0), total: Number(orders?.total || 0) }, bills: { count: Number(bills?.count || 0), total: Number(bills?.total || 0), collected: Number(bills?.collected || 0) }, customers: { new: null }, paymentMethods } });
+    return Response.json({ summary: { date: range.startDate, orders: { count: Number(orders?.count || 0), total: Number(orders?.total || 0) }, bills: { count: Number(bills?.count || 0), total: Number(bills?.total || 0), collected: Number(bills?.collected || 0) }, customers: { new: Number(newCustomers?.count || 0) }, paymentMethods } });
   }
 
   if (path === '/reports/financial-summary') {
