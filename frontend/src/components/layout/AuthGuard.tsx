@@ -9,17 +9,24 @@ import { showPrintLanguageLoadErrorsToast } from '@/lib/printer/warnings-toast';
 import { getRoleDefaultRoute, type UserRoleInfo } from '@/lib/role-routing';
 
 export function getLandingPage(): string {
-  if (isCapacitorEnvironment()) return '/tablet-pos';
   const isElectron = isElectronEnvironment();
+  let storedUser: UserRoleInfo | null = null;
   if (typeof window !== 'undefined') {
     try {
-      const storedUser = localStorage.getItem('user');
-      if (storedUser) {
-        const u: UserRoleInfo = JSON.parse(storedUser);
-        return getRoleDefaultRoute(u, isElectron);
-      }
+      const raw = localStorage.getItem('user');
+      if (raw) storedUser = JSON.parse(raw) as UserRoleInfo;
     } catch {}
   }
+
+  if (isCapacitorEnvironment()) {
+    // The same Android shell serves both field apps. Waiters and hosts land on
+    // the floor station; cashiers, owners and managers land on the POS.
+    const role = String((storedUser as { role?: string } | null)?.role || '').toLowerCase();
+    if (['server', 'waiter', 'host'].includes(role)) return '/tablet-waiter';
+    return '/tablet-pos';
+  }
+
+  if (storedUser) return getRoleDefaultRoute(storedUser, isElectron);
   return getRoleDefaultRoute(null, isElectron);
 }
 

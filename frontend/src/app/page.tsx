@@ -3,6 +3,7 @@
 import React, { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { isCapacitorEnvironment, isElectronEnvironment } from '@/lib/api';
+import { getLandingPage } from '@/components/layout/AuthGuard';
 import Navbar from '@/components/landing/Navbar';
 import Hero from '@/components/landing/Hero';
 import TrustMetrics from '@/components/landing/TrustMetrics';
@@ -18,7 +19,7 @@ export default function SaaSMainPage() {
 
   useEffect(() => {
     if (isCapacitorEnvironment()) {
-      router.replace('/tablet-pos');
+      router.replace(getLandingPage());
       return;
     }
     // When loaded inside the Electron desktop application, automatically direct to POS dashboard

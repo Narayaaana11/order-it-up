@@ -31,6 +31,12 @@ if (!fs.readFileSync(tabletPage, 'utf8').includes('__next')) {
   process.exit(1);
 }
 
+const waiterPage = path.join(frontendDirectory, 'out', 'tablet-waiter', 'index.html');
+if (!fs.existsSync(waiterPage)) {
+  console.error(`Cloud web export is missing the waiter station route: ${waiterPage}`);
+  process.exit(1);
+}
+
 const html = fs.readFileSync(qrPage, 'utf8');
 if (!html.includes('<html') || !html.includes('__next')) {
   console.error(`Cloud web export contains an invalid customer QR document: ${qrPage}`);

@@ -8,6 +8,7 @@ import CartPanel from '@/components/pos/CartPanel';
 import ProductGrid from '@/components/pos/ProductGrid';
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 import api from '@/lib/api';
+import { mapCloudCategory as mapCategory, mapCloudProduct as mapProduct, mapCloudTable as mapTable } from '@/lib/cloud-pos-mappers';
 import { useAuthStore } from '@/store/auth';
 import { useCartStore } from '@/store/cart';
 import type { Addon, Category, Order, Product, Table } from '@/lib/types';
@@ -21,66 +22,6 @@ type OrderAttempt = { id: string; createdAt: string; payload: Record<string, unk
 function messageFrom(error: unknown): string {
   const value = error as { response?: { data?: { error?: string } }; message?: string };
   return value?.response?.data?.error || value?.message || 'The request could not be completed.';
-}
-
-function mapProduct(row: Record<string, unknown>, effective: Record<string, unknown> | undefined): Product {
-  const groups = Array.isArray(row.addon_groups) ? row.addon_groups : [];
-  return {
-    id: String(row.id),
-    category_id: row.category_id == null ? null : String(row.category_id),
-    name: String(row.name || 'Unnamed product'),
-    sku: typeof row.sku === 'string' ? row.sku : null,
-    barcode: typeof row.barcode === 'string' ? row.barcode : null,
-    sale_unit: 'each',
-    allow_fractional_quantity: false,
-    weight_precision: 3,
-    description: typeof row.description === 'string' ? row.description : null,
-    price: Number(effective?.effective_price ?? row.base_price ?? 0),
-    cost_price: null,
-    tax_type: 'inclusive',
-    tax_rate: Number(row.tax_rate || 0),
-    track_inventory: false,
-    stock_quantity: 0,
-    low_stock_threshold: null,
-    is_active: Number(row.is_active ?? 1) === 1 && Number(effective?.is_available ?? 1) === 1,
-    available_online: true,
-    has_image: false,
-    updated_at: typeof row.updated_at === 'string' ? row.updated_at : new Date(0).toISOString(),
-    tags: null,
-    variants: null,
-    modifiers: null,
-    sort_order: Number(row.sort_order || 0),
-    addon_groups: groups as Product['addon_groups'],
-  };
-}
-
-function mapCategory(row: Record<string, unknown>): Category {
-  return {
-    id: String(row.id),
-    name: String(row.name || 'Category'),
-    slug: String(row.slug || row.name || row.id),
-    description: typeof row.description === 'string' ? row.description : null,
-    parent_id: typeof row.parent_id === 'string' ? row.parent_id : null,
-    sort_order: Number(row.sort_order || 0),
-    is_active: Number(row.is_active ?? 1) === 1,
-    color: typeof row.color === 'string' ? row.color : null,
-    icon: typeof row.icon === 'string' ? row.icon : null,
-  };
-}
-
-function mapTable(row: Record<string, unknown>): Table {
-  return {
-    id: String(row.id),
-    name: String(row.table_number || row.name || row.id),
-    capacity: Number(row.capacity || 4),
-    status: String(row.status || 'available') as Table['status'],
-    kitchen_station_id: null,
-    floor: typeof row.floor === 'string' ? row.floor : null,
-    section: typeof row.section === 'string' ? row.section : null,
-    position_x: null,
-    position_y: null,
-    is_active: Number(row.is_active ?? 1) === 1,
-  };
 }
 
 export default function TabletPosPage() {
