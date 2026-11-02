@@ -21,4 +21,27 @@ if (!fs.existsSync(qrPage)) {
   process.exit(1);
 }
 
-console.log(`Cloud web export includes ${path.relative(repositoryRoot, qrPage)}`);
+const html = fs.readFileSync(qrPage, 'utf8');
+if (!html.includes('<html') || !html.includes('__next')) {
+  console.error(`Cloud web export contains an invalid customer QR document: ${qrPage}`);
+  process.exit(1);
+}
+
+const outputDirectory = path.join(frontendDirectory, 'out');
+const assetReferences = [...html.matchAll(/(?:src|href)="([^"]*?_next\/static\/[^"]+)"/g)]
+  .map((match) => match[1]);
+if (assetReferences.length === 0) {
+  console.error(`Cloud web export has no Next.js assets for the customer QR route: ${qrPage}`);
+  process.exit(1);
+}
+
+for (const reference of assetReferences) {
+  const assetPath = new URL(reference, 'https://static-export.invalid');
+  const localAsset = path.resolve(outputDirectory, `.${decodeURIComponent(assetPath.pathname)}`);
+  if (!localAsset.startsWith(`${outputDirectory}${path.sep}`) || !fs.existsSync(localAsset)) {
+    console.error(`Cloud web export is missing QR page asset ${reference}: ${localAsset}`);
+    process.exit(1);
+  }
+}
+
+console.log(`Cloud web export includes ${path.relative(repositoryRoot, qrPage)} and ${assetReferences.length} local assets`);

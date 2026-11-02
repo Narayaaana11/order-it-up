@@ -310,7 +310,7 @@ export function withDatabaseMaintenanceLock<T>(operation: (signal: AbortSignal) 
   });
 }
 
-const DEFAULT_CLOUD_SERVER_URL = process.env.OIU_CLOUD_API_URL || 'https://api.orderitup.in';
+const DEFAULT_CLOUD_SERVER_URL = process.env.OIU_CLOUD_API_URL || 'https://orderitup-cloud-api.narayaaana11.workers.dev';
 
 function randomSecret(): string {
   return crypto.randomBytes(32).toString('base64')
@@ -4288,6 +4288,52 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
         CREATE INDEX IF NOT EXISTS idx_qr_table_tokens_active
           ON qr_table_tokens(table_id, revoked_at);
       `);
+    },
+  },
+  {
+    version: 87,
+    name: 'add_cloud_qr_order_import_receipts',
+    up: () => db.exec(`
+      CREATE TABLE IF NOT EXISTS cloud_qr_order_receipts (
+        remote_order_id TEXT PRIMARY KEY,
+        local_order_id INTEGER NOT NULL,
+        remote_order_number TEXT NOT NULL,
+        item_map_json TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+      CREATE INDEX IF NOT EXISTS idx_cloud_qr_receipts_local_order
+        ON cloud_qr_order_receipts(local_order_id);
+    `),
+  },
+  {
+    version: 88,
+    name: 'add_cloud_catalog_identity_mappings',
+    up: () => db.exec(`
+      CREATE TABLE IF NOT EXISTS cloud_catalog_identity_mappings (
+        entity_type TEXT NOT NULL CHECK (entity_type IN ('category', 'product', 'addon_group', 'addon')),
+        remote_id TEXT NOT NULL,
+        local_id TEXT NOT NULL,
+        created_at TEXT NOT NULL,
+        updated_at TEXT NOT NULL,
+        PRIMARY KEY(entity_type, remote_id),
+        UNIQUE(entity_type, local_id)
+      );
+      CREATE INDEX IF NOT EXISTS idx_cloud_catalog_identity_local
+        ON cloud_catalog_identity_mappings(entity_type, local_id);
+    `),
+  },
+  {
+    version: 89,
+    name: 'update_default_cloud_api_endpoint',
+    up: () => {
+      db.prepare(`
+        UPDATE settings SET value = ?
+        WHERE key = 'cloud_server_url' AND value IN (?, ?)
+      `).run(
+        DEFAULT_CLOUD_SERVER_URL,
+        'https://api.orderitup.in',
+        'https://api.orderitup.in/',
+      );
     },
   },
 ];

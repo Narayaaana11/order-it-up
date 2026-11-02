@@ -4,7 +4,7 @@
 
 import assert from 'node:assert/strict';
 import cloudWorker from '../apps/cloud-api/src/index';
-import { verifyJWT } from '../apps/cloud-api/src/auth';
+import { hashString, verifyJWT } from '../apps/cloud-api/src/auth';
 
 const TEST_JWT_SECRET = 'cloud-registration-test-secret-256bits-key-32chars!';
 
@@ -17,6 +17,8 @@ class MockD1RegistrationDB {
   public rateLimits = new Map<string, { count: number; reset_at: number; updated_at: string }>();
   public subscriptions = new Map<string, any>();
   public subscriptionEvents = new Map<string, any>();
+  public pilotRequests = new Map<string, any>();
+  public pilotInvitations = new Map<string, any>();
 
   prepare(sql: string) {
     const db = this;
@@ -35,6 +37,24 @@ class MockD1RegistrationDB {
                 }
               }
               return null;
+            }
+
+            if (normalized.includes('FROM pilot_access_invitations i') && normalized.includes('JOIN pilot_access_requests')) {
+              const invitation = Array.from(db.pilotInvitations.values()).find((item) =>
+                item.token_hash === params[0] && item.expires_at > params[1] && !item.redeemed_at && !item.revoked_at);
+              const pilotRequest = invitation && db.pilotRequests.get(invitation.request_id);
+              if (!invitation || !pilotRequest || pilotRequest.status !== 'approved') return null;
+              return {
+                id: invitation.id,
+                request_id: invitation.request_id,
+                token_hash: invitation.token_hash,
+                contact_name: pilotRequest.contact_name,
+                restaurant_name: pilotRequest.restaurant_name,
+                email: pilotRequest.email,
+                phone: pilotRequest.phone,
+                country: pilotRequest.country,
+                restaurant_type: pilotRequest.restaurant_type,
+              } as T;
             }
 
             // Rate limit check / upsert with RETURNING
@@ -72,35 +92,65 @@ class MockD1RegistrationDB {
               } else {
                 db.rateLimits.set(key, { count: count || 1, reset_at: resetAt, updated_at: updatedAt });
               }
-              return { success: true };
+              return { success: true, meta: { changes: 1 } } as any;
+            }
+
+            if (normalized.startsWith('UPDATE pilot_access_invitations SET redeemed_at')) {
+              const [redeemedAt, claimId, id, requestId, tokenHash, now, approvedRequestId] = params;
+              const invitation = db.pilotInvitations.get(id);
+              const pilotRequest = db.pilotRequests.get(requestId);
+              if (invitation && invitation.request_id === requestId && invitation.token_hash === tokenHash &&
+                  !invitation.redeemed_at && !invitation.revoked_at && invitation.expires_at > now &&
+                  approvedRequestId === requestId && pilotRequest?.status === 'approved') {
+                invitation.redeemed_at = redeemedAt;
+                invitation.redemption_claim_id = claimId;
+                return { success: true, meta: { changes: 1 } } as any;
+              }
+              return { success: true, meta: { changes: 0 } } as any;
+            }
+
+            if (normalized.startsWith('UPDATE pilot_access_invitations SET organization_id')) {
+              const [organizationId, id, claimId, tokenHash] = params;
+              const invitation = db.pilotInvitations.get(id);
+              if (invitation?.redemption_claim_id === claimId && invitation.token_hash === tokenHash) {
+                invitation.organization_id = organizationId;
+                return { success: true, meta: { changes: 1 } } as any;
+              }
+              return { success: true, meta: { changes: 0 } } as any;
             }
 
             // Organization insert
             if (normalized.includes('INSERT INTO organizations')) {
               const [id, name, legalName, taxNum, currency, country, timezone, created, updated] = params;
+              if (normalized.includes('WHERE EXISTS (SELECT 1 FROM pilot_access_invitations')) {
+                const invitation = db.pilotInvitations.get(params[9]);
+                if (!invitation || invitation.redemption_claim_id !== params[10] || invitation.token_hash !== params[11]) {
+                  return { success: true, meta: { changes: 0 } } as any;
+                }
+              }
               db.organizations.set(id, { id, name, legalName, taxNum, currency, country, timezone, created, updated });
-              return { success: true };
+              return { success: true, meta: { changes: 1 } } as any;
             }
 
             // Branch insert
             if (normalized.includes('INSERT INTO branches')) {
               const [id, orgId, code, name, isMain, address, phone, email, status, created, updated] = params;
               db.branches.set(id, { id, orgId, code, name, isMain, address, phone, email, status, created, updated });
-              return { success: true };
+              return { success: true, meta: { changes: 1 } } as any;
             }
 
             // User insert
             if (normalized.includes('INSERT INTO cloud_users')) {
               const [id, orgId, email, passwordHash, name, role, branchId, status, lastLogin, created, updated] = params;
               db.users.set(id, { id, orgId, email, passwordHash, name, role, branchId, status, lastLogin, created, updated });
-              return { success: true };
+              return { success: true, meta: { changes: 1 } } as any;
             }
 
             // Category insert
             if (normalized.includes('INSERT INTO master_categories')) {
               const [id, orgId, name, sortOrder, isActive, created, updated] = params;
               db.categories.set(id, { id, orgId, name, sortOrder, isActive, created, updated });
-              return { success: true };
+              return { success: true, meta: { changes: 1 } } as any;
             }
 
             // Initial organization subscription snapshot (14-day Starter trial).
@@ -111,7 +161,7 @@ class MockD1RegistrationDB {
                 billing_cycle: 'monthly', currency: 'INR', amount_minor: 49900,
                 trial_ends_at: trialEndsAt, created_at: createdAt, updated_at: updatedAt,
               });
-              return { success: true };
+              return { success: true, meta: { changes: 1 } } as any;
             }
 
             if (normalized.includes('INSERT INTO subscription_events')) {
@@ -120,17 +170,20 @@ class MockD1RegistrationDB {
                 id, organization_id: organizationId, subscription_id: subscriptionId,
                 event_type: 'trial_started', source: 'self_service_registration', created_at: createdAt,
               });
-              return { success: true };
+              return { success: true, meta: { changes: 1 } } as any;
             }
 
             // Product insert
             if (normalized.includes('INSERT INTO master_products')) {
               const [id, orgId, categoryId, name, sku, basePrice, taxRate, isActive, version, created, updated] = params;
               db.products.set(id, { id, orgId, categoryId, name, sku, basePrice, taxRate, isActive, version, created, updated });
-              return { success: true };
+              return { success: true, meta: { changes: 1 } } as any;
             }
 
-            return { success: true };
+            if (normalized.includes('INSERT INTO platform_admin_audit_log')) {
+              return { success: true, meta: { changes: 1 } } as any;
+            }
+            return { success: true, meta: { changes: 1 } } as any;
           },
         };
       },
@@ -138,20 +191,35 @@ class MockD1RegistrationDB {
   }
 
   async batch(statements: any[]): Promise<any[]> {
+    const results = [];
     for (const stmt of statements) {
-      await stmt.run();
+      results.push(await stmt.run());
     }
-    return statements.map(() => ({ success: true }));
+    return results;
   }
 }
 
 async function runRegistrationTests() {
   console.log('Running SaaS Tenant Registration Test Suite...\n');
 
+  // Public signup stays closed by default; pilot-approved invitations are the controlled path.
+  {
+    const db = new MockD1RegistrationDB();
+    const req = new Request('https://api.orderitup.in/api/auth/register', {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ restaurant_name: 'Unapproved Cafe', owner_name: 'Test Owner', email: 'unapproved@example.test', password: 'password123' }),
+    });
+    const response = await cloudWorker.fetch(req, { DB: db as any, JWT_SECRET: TEST_JWT_SECRET, ENVIRONMENT: 'staging' });
+    assert.equal(response.status, 403, 'Unauthenticated direct registration is closed by default');
+    assert.equal((await response.json() as any).code, 'PILOT_ACCESS_REQUIRED');
+    assert.equal(db.organizations.size, 0);
+    console.log('✓ Pilot approval is required for public account creation');
+  }
+
   // Test 1: Successful Registration & Starter Menu Seeding (QSR)
   {
     const db = new MockD1RegistrationDB();
-    const env = { DB: db as any, JWT_SECRET: TEST_JWT_SECRET, ENVIRONMENT: 'staging' };
+    const env = { DB: db as any, JWT_SECRET: TEST_JWT_SECRET, ENVIRONMENT: 'staging', ALLOW_SELF_SERVICE_REGISTRATION: 'true' };
 
     const req = new Request('https://api.orderitup.in/api/auth/register', {
       method: 'POST',
@@ -201,7 +269,7 @@ async function runRegistrationTests() {
   // Test 2: Reject Duplicate Email Registration
   {
     const db = new MockD1RegistrationDB();
-    const env = { DB: db as any, JWT_SECRET: TEST_JWT_SECRET, ENVIRONMENT: 'staging' };
+    const env = { DB: db as any, JWT_SECRET: TEST_JWT_SECRET, ENVIRONMENT: 'staging', ALLOW_SELF_SERVICE_REGISTRATION: 'true' };
 
     // Register first user
     db.users.set('u1', { id: 'u1', email: 'owner@existing.com', status: 'active' });
@@ -228,7 +296,7 @@ async function runRegistrationTests() {
   // Test 3: Reject Invalid Inputs (short password, bad email, empty name)
   {
     const db = new MockD1RegistrationDB();
-    const env = { DB: db as any, JWT_SECRET: TEST_JWT_SECRET, ENVIRONMENT: 'staging' };
+    const env = { DB: db as any, JWT_SECRET: TEST_JWT_SECRET, ENVIRONMENT: 'staging', ALLOW_SELF_SERVICE_REGISTRATION: 'true' };
 
     // Short password (< 8 chars)
     const req1 = new Request('https://api.orderitup.in/api/auth/register', {
@@ -264,7 +332,7 @@ async function runRegistrationTests() {
   // Test 4: Rate Limiting Registration per IP
   {
     const db = new MockD1RegistrationDB();
-    const env = { DB: db as any, JWT_SECRET: TEST_JWT_SECRET, ENVIRONMENT: 'staging' };
+    const env = { DB: db as any, JWT_SECRET: TEST_JWT_SECRET, ENVIRONMENT: 'staging', ALLOW_SELF_SERVICE_REGISTRATION: 'true' };
 
     // Simulate 10 registrations already done in the current hour from this IP
     db.rateLimits.set('register_ip:192.168.1.100', {
@@ -289,6 +357,56 @@ async function runRegistrationTests() {
     assert.ok(res.headers.get('Retry-After'));
 
     console.log('✓ Test 4 Passed: IP Rate Limiting Enforced on Registration');
+  }
+
+  // Test 5: Approved pilot invitation creates a real tenant account once.
+  {
+    const db = new MockD1RegistrationDB();
+    const env = { DB: db as any, JWT_SECRET: TEST_JWT_SECRET, ENVIRONMENT: 'staging', ALLOW_SELF_SERVICE_REGISTRATION: 'true' };
+    const token = 'ab'.repeat(32);
+    const tokenHash = await hashString(token);
+    const requestId = 'pilot-request-approved';
+    const invitationId = 'pilot-invitation-one-time';
+    db.pilotRequests.set(requestId, {
+      id: requestId,
+      contact_name: 'Asha Rao',
+      restaurant_name: 'Asha Cafe',
+      email: 'asha@example.com',
+      phone: '+919876543210',
+      country: 'IN',
+      restaurant_type: 'cafe',
+      status: 'approved',
+    });
+    db.pilotInvitations.set(invitationId, {
+      id: invitationId,
+      request_id: requestId,
+      token_hash: tokenHash,
+      expires_at: new Date(Date.now() + 60_000).toISOString(),
+      redeemed_at: null,
+      revoked_at: null,
+    });
+
+    const request = () => new Request('https://api.orderitup.in/api/pilot-invitations/redeem', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'CF-Connecting-IP': '10.0.0.55' },
+      body: JSON.stringify({ token, password: 'pilot-password-123' }),
+    });
+    const response = await cloudWorker.fetch(request(), env);
+    assert.equal(response.status, 201, 'Approved invitation creates the restaurant account');
+    const account = await response.json() as any;
+    assert.equal(account.user.email, 'asha@example.com', 'Account email is bound to the approved request');
+    assert.equal(account.user.name, 'Asha Rao');
+    assert.equal(account.user.organization_name, 'Asha Cafe');
+    assert.equal(db.pilotInvitations.get(invitationId).redeemed_at !== null, true);
+    assert.equal(db.pilotInvitations.get(invitationId).organization_id, account.user.organization_id);
+    assert.equal(db.users.size, 1);
+    assert.equal(db.subscriptions.size, 1);
+    assert.equal(db.categories.size >= 2, true);
+
+    const replay = await cloudWorker.fetch(request(), env);
+    assert.equal(replay.status, 410, 'A redeemed setup link cannot provision a second account');
+    assert.equal(db.organizations.size, 1, 'Replay does not create a duplicate organization');
+    console.log('✓ Test 5 Passed: Approved Pilot Invitation Provisioning & Single-Use Redemption');
   }
 
   console.log('\nAll SaaS Tenant Registration Tests Passed Successfully!\n');

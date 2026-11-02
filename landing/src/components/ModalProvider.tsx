@@ -24,7 +24,9 @@ export default function ModalProvider() {
     const handleOpenCredentials = () => setCredentialsOpen(true);
     const handleOpenAuth = (event: Event) => {
       const custom = event as CustomEvent<{ mode?: AuthMode; downloadPendingPlatform?: DownloadPlatform }>;
-      setAuthMode(custom.detail?.mode ?? "login");
+      // Public registration is invitation-only during the pilot. Keep the modal
+      // on sign-in; new restaurants use the reviewed access request flow.
+      setAuthMode("login");
       setDownloadPendingPlatform(custom.detail?.downloadPendingPlatform ?? null);
       setAuthOpen(true);
     };

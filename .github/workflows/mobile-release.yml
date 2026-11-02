@@ -2,10 +2,6 @@ name: Build & Release Mobile APK
 
 on:
   push:
-    branches: [main]
-    paths:
-      - 'mobile/**'
-      - '.github/workflows/mobile-release.yml'
     tags:
       - 'v*'
   workflow_dispatch:
@@ -42,13 +38,35 @@ jobs:
         working-directory: mobile
         run: flutter pub get
 
+      - name: Configure dedicated Android release signing
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.MOBILE_ANDROID_KEYSTORE_BASE64 }}
+          ANDROID_STORE_PASSWORD: ${{ secrets.MOBILE_ANDROID_STORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.MOBILE_ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.MOBILE_ANDROID_KEY_PASSWORD }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -n "$ANDROID_KEYSTORE_BASE64" || { echo "Missing MOBILE_ANDROID_KEYSTORE_BASE64 secret" >&2; exit 1; }
+          test -n "$ANDROID_STORE_PASSWORD" || { echo "Missing MOBILE_ANDROID_STORE_PASSWORD secret" >&2; exit 1; }
+          test -n "$ANDROID_KEY_ALIAS" || { echo "Missing MOBILE_ANDROID_KEY_ALIAS secret" >&2; exit 1; }
+          test -n "$ANDROID_KEY_PASSWORD" || { echo "Missing MOBILE_ANDROID_KEY_PASSWORD secret" >&2; exit 1; }
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 --decode > mobile/android/app/release-keystore.jks
+          cat > mobile/android/key.properties <<EOF
+          storeFile=app/release-keystore.jks
+          storePassword=$ANDROID_STORE_PASSWORD
+          keyAlias=$ANDROID_KEY_ALIAS
+          keyPassword=$ANDROID_KEY_PASSWORD
+          EOF
+          keytool -list -keystore mobile/android/app/release-keystore.jks -storepass "$ANDROID_STORE_PASSWORD" -alias "$ANDROID_KEY_ALIAS" >/dev/null
+
       - name: Run Mobile Test Suite
         working-directory: mobile
         run: flutter test
 
       - name: Build Release APK
         working-directory: mobile
-        run: flutter build apk --release --split-per-abi=false
+        run: flutter build apk --release
 
       - name: Copy to Release Directory
         run: |

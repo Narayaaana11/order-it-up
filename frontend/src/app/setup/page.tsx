@@ -48,7 +48,7 @@ const SELECTABLE_LANGUAGES: Language[] = (Object.keys(LANGUAGES) as Language[]).
   (lang) => LANGUAGES[lang].selectable,
 );
 
-const DEFAULT_CLOUD_SERVER_URL = process.env.NEXT_PUBLIC_OIU_CLOUD_API_URL || 'https://api.orderitup.in';
+const DEFAULT_CLOUD_SERVER_URL = process.env.NEXT_PUBLIC_OIU_CLOUD_API_URL || 'https://orderitup-cloud-api.narayaaana11.workers.dev';
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const SUSPECT_EMAIL_TLDS = new Set(['example', 'invalid', 'lcaol', 'local', 'localhost', 'test']);
 

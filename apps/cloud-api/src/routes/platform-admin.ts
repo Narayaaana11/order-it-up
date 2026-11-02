@@ -7,6 +7,7 @@
  */
 import { Env } from './pairing';
 import { handleAdminPilotRequests } from './pilot-requests';
+import { retryStoredRazorpaySubscriptionWebhook } from './subscription-payments';
 import { createJWT, isSecretValid, verifyJWT, verifyPassword } from '../auth';
 import {
   checkRateLimit,
@@ -366,6 +367,67 @@ function validReason(value: unknown): value is string {
   return typeof value === 'string' && value.trim().length >= 10 && value.trim().length <= 500;
 }
 
+async function handleListSaasPaymentWebhookEvents(url: URL, env: Env): Promise<Response> {
+  const rawLimit = Number(url.searchParams.get('limit') || 25);
+  const rawOffset = Number(url.searchParams.get('offset') || 0);
+  const status = url.searchParams.get('status') || '';
+  if (!Number.isInteger(rawLimit) || rawLimit < 1 || rawLimit > 100 ||
+      !Number.isInteger(rawOffset) || rawOffset < 0 || rawOffset > 1_000_000 ||
+      (status && !['received', 'processed', 'ignored', 'failed'].includes(status))) {
+    return Response.json({ error: 'Invalid webhook event filter or pagination' }, { status: 400 });
+  }
+  const where = status ? 'WHERE status = ?' : '';
+  const countStatement = env.DB.prepare(`SELECT COUNT(*) AS total FROM saas_payment_webhook_events ${where}`);
+  const listStatement = env.DB.prepare(`
+    SELECT id, provider_event_id, event_type, provider_order_id, provider_payment_id,
+           status, error_code, received_at, processed_at
+    FROM saas_payment_webhook_events ${where}
+    ORDER BY received_at DESC, id DESC LIMIT ? OFFSET ?
+  `);
+  const count = status ? await countStatement.bind(status).first<{ total: number }>() : await countStatement.first<{ total: number }>();
+  const result = status
+    ? await listStatement.bind(status, rawLimit, rawOffset).all()
+    : await listStatement.bind(rawLimit, rawOffset).all();
+  return Response.json({
+    events: result.results || [],
+    pagination: { total: Number(count?.total || 0), limit: rawLimit, offset: rawOffset },
+    data_source: 'cloudflare_d1',
+  });
+}
+
+async function handleRetrySaasPaymentWebhook(
+  request: Request,
+  env: Env,
+  actorEmail: string,
+  eventId: string,
+): Promise<Response> {
+  const body = await parseAdminJson(request);
+  const reason = typeof body?.reason === 'string' ? body.reason.trim() : '';
+  if (!validReason(reason)) return Response.json({ error: 'A retry reason between 10 and 500 characters is required' }, { status: 400 });
+  const event = await env.DB.prepare(`
+    SELECT id, status, provider_event_id, provider_order_id, provider_payment_id
+    FROM saas_payment_webhook_events WHERE id = ?
+  `).bind(eventId).first<any>();
+  if (!event) return Response.json({ error: 'Webhook event not found' }, { status: 404 });
+
+  const auditId = crypto.randomUUID();
+  const now = new Date().toISOString();
+  await env.DB.prepare(`
+    INSERT INTO platform_admin_audit_log
+      (id, actor_email, action, organization_id, reason, before_json, after_json, created_at)
+    VALUES (?, ?, 'billing.webhook.retry.requested', NULL, ?, ?, ?, ?)
+  `).bind(auditId, actorEmail, reason,
+    JSON.stringify({ event_id: event.provider_event_id, status: event.status, order_id: event.provider_order_id, payment_id: event.provider_payment_id }),
+    JSON.stringify({ status: 'retry_requested' }), now).run();
+
+  const response = await retryStoredRazorpaySubscriptionWebhook(env, eventId);
+  const result = await response.clone().json().catch(() => ({})) as { error?: string; ok?: boolean };
+  await env.DB.prepare(`
+    UPDATE platform_admin_audit_log SET after_json = ? WHERE id = ?
+  `).bind(JSON.stringify({ http_status: response.status, ok: result.ok === true, error: result.error || null }), auditId).run();
+  return response;
+}
+
 async function handleUpdateTenantAccountStatus(
   request: Request,
   env: Env,
@@ -566,6 +628,16 @@ export async function handlePlatformAdminRequest(
   }
   if (path === '/api/platform-admin/pilot-requests' || path.startsWith('/api/platform-admin/pilot-requests/')) {
     return handleAdminPilotRequests(request, env, path, method, admin.email);
+  }
+  if (path === '/api/platform-admin/billing/webhook-events' && method === 'GET') {
+    return handleListSaasPaymentWebhookEvents(new URL(request.url), env);
+  }
+  const webhookRetryMatch = path.match(/^\/api\/platform-admin\/billing\/webhook-events\/([^/]+)\/retry$/);
+  if (webhookRetryMatch && method === 'POST') {
+    let eventId: string;
+    try { eventId = decodeURIComponent(webhookRetryMatch[1]); }
+    catch { return Response.json({ error: 'Invalid webhook event ID' }, { status: 400 }); }
+    return handleRetrySaasPaymentWebhook(request, env, admin.email, eventId);
   }
   const accountStatusMatch = path.match(/^\/api\/platform-admin\/tenants\/([^/]+)\/account-status$/);
   if (accountStatusMatch && method === 'PATCH') {

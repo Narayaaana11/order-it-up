@@ -321,6 +321,10 @@ export async function handleCreatePublicQrOrder(env: Env, request: Request): Pro
       subtotal, taxTotal, Math.round((subtotal + taxTotal) * 100) / 100, table.table_id,
       String(table.table_number), now, now, now),
     env.DB.prepare(`
+      INSERT INTO qr_order_pos_deliveries (order_id, organization_id, branch_id, status, created_at)
+      VALUES (?, ?, ?, 'pending', ?)
+    `).bind(orderId, table.organization_id, table.branch_id, now),
+    env.DB.prepare(`
       INSERT INTO qr_order_idempotency (idempotency_key_hash, table_id, organization_id, request_hash, order_id, created_at)
       VALUES (?, ?, ?, ?, ?, ?)
     `).bind(idempotencyKeyHash, table.table_id, table.organization_id, requestHash, orderId, now),
@@ -339,12 +343,12 @@ export async function handleCreatePublicQrOrder(env: Env, request: Request): Pro
   for (const item of processedItems) {
     batch.push(env.DB.prepare(`
       INSERT INTO synced_order_items (
-        id, order_id, branch_id, restaurant_id, product_id, product_name,
+        id, order_id, branch_id, restaurant_id, product_id, product_name, product_sku,
         quantity, unit_price, subtotal, tax_amount, discount_amount,
         modifiers_json, special_instructions, kitchen_status, version, ordered_at, updated_at
-      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 'pending', 1, ?, ?)
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?, 'pending', 1, ?, ?)
     `).bind(item.id, orderId, table.branch_id, table.restaurant_id, item.product_id,
-      item.product_name, item.quantity, item.unit_price, item.subtotal, item.tax_amount,
+      item.product_name, item.product_sku, item.quantity, item.unit_price, item.subtotal, item.tax_amount,
       item.modifiers_json, item.special_instructions, now, now));
   }
   try {

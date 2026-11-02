@@ -3,7 +3,7 @@
  */
 
 import { Env, handleGeneratePairing, handleClaimPairing, handleDisconnectTerminal } from './routes/pairing';
-import { handleRegisterTenant } from './routes/registration';
+import { handleRegisterPilotInvitation, handleRegisterTenant } from './routes/registration';
 import { handleIngestSyncEvents } from './routes/sync';
 import { handleAnalyticsOverview } from './routes/analytics';
 import { handleAccountantClosures, handleAccountantTaxSummary, handleTallyExport } from './routes/accountant';
@@ -39,7 +39,8 @@ import { getUserMemberships, isOrgOwnerOrAdmin, isOrgAccountant } from './rbac';
 import { createJWT, verifyJWT, hashPassword, verifyPassword, hashString, isSecretValid } from './auth';
 import { checkRateLimit, createRateLimitResponse, getClientIp, DEFAULT_RATE_LIMITS, getEffectiveLimit } from './rate-limit';
 import { handlePlatformAdminRequest } from './routes/platform-admin';
-import { handleCreatePilotRequest } from './routes/pilot-requests';
+import { handleCreatePilotRequest, purgeExpiredPilotRequests } from './routes/pilot-requests';
+import { handleCreateSaasSubscriptionOrder, handleVerifySaasSubscriptionPayment, handleRazorpaySubscriptionWebhook } from './routes/subscription-payments';
 import { resolveOrganizationAccess, requiredPlanFeature } from './subscriptions';
 import {
   handleCreatePublicQrOrder,
@@ -47,6 +48,7 @@ import {
   handleGetPublicQrMenu,
   handleGetPublicQrOrder,
 } from './routes/public-qr';
+import { handleQrPosDelivery } from './routes/qr-pos-delivery';
 
 function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const requestOrigin = request?.headers.get('Origin');
@@ -57,7 +59,7 @@ function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const restrictedEnvironment = env?.ENVIRONMENT === 'production' || env?.ENVIRONMENT === 'staging';
   const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Idempotency-Key',
+    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Idempotency-Key, X-Razorpay-Signature, X-Razorpay-Event-Id',
     'Access-Control-Max-Age': '86400',
     'Vary': 'Origin',
   };
@@ -77,6 +79,59 @@ function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   return headers;
 }
 
+const REQUIRED_READINESS_TABLES = [
+  'organizations', 'branches', 'cloud_users', 'terminals', 'pairing_tokens', 'master_categories',
+  'master_products', 'branch_product_overrides', 'synced_orders', 'synced_order_items',
+  'synced_cash_closures', 'inventory_transfers', 'rate_limits', 'sync_events', 'restaurants',
+  'memberships', 'dining_tables', 'kitchen_tickets', 'customer_payments', 'saas_plans',
+  'organization_subscriptions', 'subscription_events', 'platform_admin_audit_log',
+  'cloud_token_revocations', 'qr_table_tokens', 'qr_order_tracking_tokens', 'master_addon_groups',
+  'master_addons', 'master_product_addon_groups', 'qr_order_idempotency', 'pilot_access_requests',
+  'saas_subscription_payment_orders', 'saas_payment_webhook_events', 'qr_order_pos_deliveries',
+  'pilot_access_invitations',
+] as const;
+
+function hasRequiredAuthenticationConfiguration(env: Env): boolean {
+  const adminEmail = typeof env.PLATFORM_ADMIN_EMAIL === 'string' ? env.PLATFORM_ADMIN_EMAIL.trim() : '';
+  const adminPasswordHash = typeof env.PLATFORM_ADMIN_PASSWORD_HASH === 'string' ? env.PLATFORM_ADMIN_PASSWORD_HASH.trim() : '';
+  return isSecretValid(env.JWT_SECRET) &&
+    /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail) &&
+    /^scrypt\$N=\d+,r=\d+,p=\d+\$[0-9a-f]{32}\$[0-9a-f]{64}$/i.test(adminPasswordHash) &&
+    isSecretValid(env.PLATFORM_ADMIN_JWT_SECRET) &&
+    env.PLATFORM_ADMIN_JWT_SECRET !== env.JWT_SECRET;
+}
+
+async function handleReadiness(env: Env): Promise<Response> {
+  if (!hasRequiredAuthenticationConfiguration(env)) {
+    return Response.json({
+      service: 'orderitup-cloud-api', status: 'not_ready', code: 'SERVICE_CONFIGURATION_INCOMPLETE',
+    }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
+
+  try {
+    const placeholders = REQUIRED_READINESS_TABLES.map(() => '?').join(', ');
+    const tables = await env.DB.prepare(`
+      SELECT name FROM sqlite_master WHERE type = 'table' AND name IN (${placeholders})
+    `).bind(...REQUIRED_READINESS_TABLES).all<{ name: string }>();
+    const present = new Set((tables.results || []).map((row) => row.name));
+    if (REQUIRED_READINESS_TABLES.some((name) => !present.has(name))) {
+      return Response.json({
+        service: 'orderitup-cloud-api', status: 'not_ready', code: 'DATABASE_SCHEMA_INCOMPLETE',
+      }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+    }
+    await env.DB.prepare('SELECT account_status FROM organizations LIMIT 0').all();
+    await env.DB.prepare('SELECT product_sku FROM synced_order_items LIMIT 0').all();
+    return Response.json({ service: 'orderitup-cloud-api', status: 'ready' }, { headers: { 'Cache-Control': 'no-store' } });
+  } catch (error) {
+    const errorText = String((error as Error)?.message || error);
+    const schemaIssue = /no such (table|column)|schema/i.test(errorText);
+    return Response.json({
+      service: 'orderitup-cloud-api', status: 'not_ready',
+      code: schemaIssue ? 'DATABASE_SCHEMA_INCOMPLETE' : 'DATABASE_UNAVAILABLE',
+    }, { status: 503, headers: { 'Cache-Control': 'no-store' } });
+  }
+}
+
 export default {
   async fetch(request: Request, env: Env): Promise<Response> {
     const url = new URL(request.url);
@@ -94,9 +149,13 @@ export default {
       for (const [key, val] of Object.entries(corsHeaders(request, env))) {
         headers.set(key, val);
       }
-      if (url.pathname === '/api/pilot-requests' || url.pathname.startsWith('/api/platform-admin/')) {
+      if (url.pathname === '/api/pilot-requests' ||
+          url.pathname.startsWith('/api/platform-admin/') ||
+          url.pathname.startsWith('/api/auth/') ||
+          url.pathname === '/api/pilot-invitations/redeem') {
         headers.set('Cache-Control', 'no-store');
       }
+      if (url.pathname === '/api/webhooks/razorpay') headers.set('Cache-Control', 'no-store');
       return new Response(response.body, {
         status: response.status,
         statusText: response.statusText,
@@ -109,6 +168,12 @@ export default {
         { status: 500, headers: corsHeaders(request, env) }
       );
     }
+  },
+  scheduled(_controller: ScheduledController, env: Env, context: ExecutionContext): void {
+    context.waitUntil(purgeExpiredPilotRequests(env).catch((error) => {
+      console.error('[PilotRequest] Scheduled retention purge failed:', error);
+      throw error;
+    }));
   },
 };
 
@@ -127,6 +192,10 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     });
   }
 
+  if ((rawPath === '/ready' || path === '/api/ready') && method === 'GET') {
+    return handleReadiness(env);
+  }
+
   // 1b. Setup status check (Cloud SaaS is always initialized; no desktop wizard needed)
   if (path === '/api/auth/setup/status' && method === 'GET') {
     return Response.json({
@@ -139,6 +208,15 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
 
   if (path === '/api/pilot-requests' && method === 'POST') {
     return handleCreatePilotRequest(request, env);
+  }
+
+  if (path === '/api/pilot-invitations/redeem' && method === 'POST') {
+    return handleRegisterPilotInvitation(request, env);
+  }
+
+  // Razorpay server-to-server delivery uses its own HMAC over the raw body.
+  if (path === '/api/webhooks/razorpay' && method === 'POST') {
+    return handleRazorpaySubscriptionWebhook(request, env);
   }
 
   // 2. Auth: Login
@@ -321,6 +399,11 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     const orderId = path.slice('/api/qr/order/'.length);
     if (!orderId || orderId.includes('/')) return Response.json({ error: 'Order not found' }, { status: 404 });
     return handleGetPublicQrOrder(env, request, orderId);
+  }
+
+  // Terminal-authenticated Cloud QR inbox, isolated from Cloud Portal user JWTs.
+  if (path === '/api/pos/qr-orders' || path === '/api/pos/catalog' || /^\/api\/pos\/qr-orders\/[^/]+\/ack$/.test(path)) {
+    return handleQrPosDelivery(request, env, path);
   }
 
   // 5a. Isolated platform-level admin API; this auth namespace never falls through to restaurant JWT auth.
@@ -513,11 +596,11 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     `).all<any>();
     return Response.json({ plans: plans.results || [] });
   }
-  if ((path === '/api/subscription/create-order' || path === '/api/subscription/verify-payment') && method === 'POST') {
-    return Response.json({
-      error: 'SaaS subscription payment processing is not configured yet. No payment or plan activation was performed.',
-      code: 'SAAS_BILLING_PROVIDER_NOT_CONFIGURED',
-    }, { status: 503 });
+  if (path === '/api/subscription/create-order' && method === 'POST') {
+    return handleCreateSaasSubscriptionOrder(request, env, orgId, memberships);
+  }
+  if (path === '/api/subscription/verify-payment' && method === 'POST') {
+    return handleVerifySaasSubscriptionPayment(request, env, orgId, memberships);
   }
 
   // 6. Restaurants & Concepts

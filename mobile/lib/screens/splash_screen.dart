@@ -30,6 +30,14 @@ class _SplashScreenState extends State<SplashScreen> {
         Provider.of<ServerConfigProvider>(context, listen: false);
     final authProv = Provider.of<AuthProvider>(context, listen: false);
 
+    if (!configProv.isDemoMode) {
+      await configProv.testConnection();
+    }
+    if (configProv.isConnected || configProv.isDemoMode) {
+      await authProv.restoreSession();
+    }
+    if (!mounted) return;
+
     if (authProv.isAuthenticated) {
       Navigator.pushReplacement(
         context,

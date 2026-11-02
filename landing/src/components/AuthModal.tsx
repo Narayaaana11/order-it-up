@@ -165,21 +165,17 @@ export default function AuthModal({
             <button
               type="button"
               onClick={() => {
-                setMode("signup");
-                setErrorMsg("");
+                onClose();
+                router.push("/request-access");
               }}
-              className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all ${
-                mode === "signup"
-                  ? "bg-white text-slate-900 shadow-xs"
-                  : "text-slate-500 hover:text-slate-800"
-              }`}
+              className="flex-1 py-2 text-xs font-bold rounded-lg text-slate-500 transition-all hover:bg-white hover:text-orange-700"
             >
-              Create Account (Free)
+              Request Pilot Access
             </button>
           </div>
 
           <div className="mb-5 rounded-xl border border-blue-100 bg-blue-50 p-3 text-xs text-blue-800">
-            Sign in and account creation use the Order It Up Cloud authentication service. Google sign-in is not enabled yet.
+            Approved pilot restaurants receive a one-time account setup link. New restaurants can request access here; public self-registration is closed during the pilot.
           </div>
 
           {errorMsg && (

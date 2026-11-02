@@ -26,6 +26,7 @@ function safeParseJson<T>(raw: string | null | undefined, fallback: T): T {
 export interface PriceValidationItem {
   id?: string;
   product_id?: string | null;
+  product_sku?: string | null;
   product_name?: string | null;
   name?: string | null;
   quantity?: number;
@@ -58,6 +59,7 @@ export async function validateAndPriceItem(
     id: string;
     product_id: string | null;
     product_name: string;
+    product_sku: string | null;
     quantity: number;
     unit_price: number;
     subtotal: number;
@@ -99,11 +101,12 @@ export async function validateAndPriceItem(
   let finalProductName = '';
   let finalTaxRate = 0;
   let productId: string | null = null;
+  let productSku: string | null = null;
 
   if (rawItem.product_id) {
     // 3. Server-side Catalog verification
     const product = await db.prepare(`
-      SELECT p.id, p.organization_id, p.name, p.base_price, p.tax_rate, p.is_active,
+      SELECT p.id, p.organization_id, p.name, p.sku, p.base_price, p.tax_rate, p.is_active,
              o.price_override, o.is_available
       FROM master_products p
       LEFT JOIN branch_product_overrides o ON (o.product_id = p.id AND o.branch_id = ?)
@@ -147,6 +150,7 @@ export async function validateAndPriceItem(
       finalProductName = product.name;
       finalTaxRate = Number(product.tax_rate || 0);
       productId = product.id;
+      productSku = typeof product.sku === 'string' ? product.sku : null;
     } else {
       // Unlisted item not found in master_products.
       // Security Invariant (Phase 2-A): Ordinary cloud order creation (Web/Mobile) MUST require valid catalog products.
@@ -167,6 +171,7 @@ export async function validateAndPriceItem(
       finalProductName = suppliedName;
       finalTaxRate = Number(rawItem.tax_rate || 0);
       productId = rawItem.product_id;
+      productSku = typeof rawItem.product_sku === 'string' ? rawItem.product_sku : null;
     }
   } else {
     // 4. Custom Open Item (requires cashier, manager, or owner)
@@ -238,6 +243,7 @@ export async function validateAndPriceItem(
       id: rawItem.id || crypto.randomUUID(),
       product_id: productId,
       product_name: finalProductName,
+      product_sku: productSku,
       quantity: qty,
       unit_price: finalUnitPrice,
       subtotal: rawSubtotal,

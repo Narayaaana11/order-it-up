@@ -45,10 +45,14 @@ const SENSITIVE_SETTING_KEYS = new Set([
   'cloud_terminal_token',
   'cloud_deletion_status_token',
   'cloud_last_error',
+  'cloud_catalog_last_error',
+  'cloud_qr_last_error',
 ]);
 
 function maskSetting(key: string, value: string): string {
   if (key === 'cloud_last_error') return value ? 'Cloud service request failed' : '';
+  if (key === 'cloud_catalog_last_error') return value ? 'Cloud catalog sync needs attention' : '';
+  if (key === 'cloud_qr_last_error') return value ? 'Cloud QR order delivery needs attention' : '';
   if (!SENSITIVE_SETTING_KEYS.has(key)) return value;
   return value ? `****${value.slice(-4)}` : '';
 }

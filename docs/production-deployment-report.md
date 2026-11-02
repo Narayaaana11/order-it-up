@@ -185,7 +185,7 @@ If a critical regression is detected:
 | **Target Custom API** | `https://api.orderitup.in` | Custom Domain | *Pending DNS Zone delegation* |
 | **Target Custom App** | `https://app.orderitup.in` | Custom Domain | *Pending DNS Zone delegation* |
 | **Target Main Website** | `https://orderitup.in` | Custom Domain | *Pending DNS Zone delegation* |
-| **Mobile Android APK** | GitHub Actions Workflow Artifacts (`.github/workflows/mobile-release.yml`) | Mobile Client | Build Pipeline Configured |
+| **Mobile Android APK** | GitHub Actions Workflow Artifacts (`.github/workflows/mobile-release.yml`) | Mobile Client | Release signing secrets required; signed build remains unverified |
 
 ---
 

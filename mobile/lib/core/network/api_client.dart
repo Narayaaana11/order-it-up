@@ -17,11 +17,14 @@ class ApiException implements Exception {
 class ApiClient {
   String baseUrl;
   String? authToken;
-  final http.Client _client = http.Client();
+  final http.Client _client;
   final Duration timeoutDuration = const Duration(seconds: 10);
   final Uuid _uuid = const Uuid();
 
-  ApiClient({required this.baseUrl, this.authToken});
+  ApiClient({required this.baseUrl, this.authToken, http.Client? client})
+      : _client = client ?? http.Client();
+
+  void close() => _client.close();
 
   void updateConfig({required String baseUrl, String? authToken}) {
     this.baseUrl = baseUrl;

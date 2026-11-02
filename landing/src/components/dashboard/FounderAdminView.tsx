@@ -3,6 +3,7 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { getCloudApiBase } from "@/lib/auth";
 import PilotRequestsPanel from "@/components/dashboard/PilotRequestsPanel";
+import BillingWebhookEventsPanel from "@/components/dashboard/BillingWebhookEventsPanel";
 
 type MoneyRow = { currency: string; amount: number; amount_minor?: number; orders?: number };
 type Overview = {
@@ -77,7 +78,7 @@ export function FounderAdminView() {
   const [nextBillingCycle, setNextBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [actionBusy, setActionBusy] = useState(false);
   const [actionMessage, setActionMessage] = useState("");
-  const [activeSection, setActiveSection] = useState<"overview" | "pilot_requests">("overview");
+  const [activeSection, setActiveSection] = useState<"overview" | "pilot_requests" | "billing_webhooks">("overview");
 
   const request = useCallback(async <T,>(path: string, init: RequestInit = {}): Promise<T> => {
     const headers = new Headers(init.headers);
@@ -241,9 +242,12 @@ export function FounderAdminView() {
     <nav aria-label="Platform admin sections" className="flex flex-wrap gap-2 rounded-2xl border border-slate-200 bg-white p-2">
       <button type="button" onClick={() => setActiveSection("overview")} aria-pressed={activeSection === "overview"} className={`min-h-10 rounded-xl px-4 py-2 text-sm font-bold transition ${activeSection === "overview" ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>Platform overview</button>
       <button type="button" onClick={() => setActiveSection("pilot_requests")} aria-pressed={activeSection === "pilot_requests"} className={`min-h-10 rounded-xl px-4 py-2 text-sm font-bold transition ${activeSection === "pilot_requests" ? "bg-orange-600 text-white" : "text-slate-600 hover:bg-orange-50 hover:text-orange-700"}`}>Pilot access requests</button>
+      <button type="button" onClick={() => setActiveSection("billing_webhooks")} aria-pressed={activeSection === "billing_webhooks"} className={`min-h-10 rounded-xl px-4 py-2 text-sm font-bold transition ${activeSection === "billing_webhooks" ? "bg-rose-700 text-white" : "text-slate-600 hover:bg-rose-50 hover:text-rose-700"}`}>Payment recovery</button>
     </nav>
     {activeSection === "pilot_requests" ? (
       <PilotRequestsPanel apiBase={apiBase} token={token} onSessionExpired={signOut} />
+    ) : activeSection === "billing_webhooks" ? (
+      <BillingWebhookEventsPanel apiBase={apiBase} token={token} onSessionExpired={signOut} />
     ) : <>
     {error && <p role="alert" className="rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800">{error}</p>}
     {!overview && busy && <p className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-slate-600">Loading verified platform records…</p>}

@@ -136,29 +136,29 @@ class _LoginScreenState extends State<LoginScreen> {
                       ActionChip(
                         avatar: const Icon(Icons.table_restaurant, size: 16),
                         label: const Text('Waiter / Server'),
-                        onPressed: () {
-                          if (auth.quickLoginDemoRole('server')) _onLoginSuccess();
+                        onPressed: () async {
+                          if (await auth.quickLoginDemoRole('server')) _onLoginSuccess();
                         },
                       ),
                       ActionChip(
                         avatar: const Icon(Icons.point_of_sale, size: 16),
                         label: const Text('Cashier'),
-                        onPressed: () {
-                          if (auth.quickLoginDemoRole('cashier')) _onLoginSuccess();
+                        onPressed: () async {
+                          if (await auth.quickLoginDemoRole('cashier')) _onLoginSuccess();
                         },
                       ),
                       ActionChip(
                         avatar: const Icon(Icons.kitchen, size: 16),
                         label: const Text('Kitchen (KDS)'),
-                        onPressed: () {
-                          if (auth.quickLoginDemoRole('chef')) _onLoginSuccess();
+                        onPressed: () async {
+                          if (await auth.quickLoginDemoRole('chef')) _onLoginSuccess();
                         },
                       ),
                       ActionChip(
                         avatar: const Icon(Icons.analytics, size: 16),
                         label: const Text('Manager'),
-                        onPressed: () {
-                          if (auth.quickLoginDemoRole('manager')) _onLoginSuccess();
+                        onPressed: () async {
+                          if (await auth.quickLoginDemoRole('manager')) _onLoginSuccess();
                         },
                       ),
                       ],

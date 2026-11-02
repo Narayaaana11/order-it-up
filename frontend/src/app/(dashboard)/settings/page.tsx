@@ -1384,6 +1384,7 @@ export default function SettingsPage() {
     cloud_sync_enabled: false,
     cloud_orders_enabled: false,
     cloud_last_sync: null as string | null,
+    cloud_catalog_last_sync: null as string | null,
   });
   const [savedCloudSettings, setSavedCloudSettings] = useState(cloudSettings);
   type CloudStatusView = {
@@ -1393,6 +1394,8 @@ export default function SettingsPage() {
     cloud_relay_mode: string;
     cloud_last_heartbeat: string | null;
     cloud_last_error: string | null;
+    cloud_catalog_sync_error: string | null;
+    cloud_qr_sync_error: string | null;
     cloud_deletion_status: string;
     cloud_terminal_connected?: boolean;
     cloud_terminal_branch_name?: string | null;
@@ -1404,6 +1407,8 @@ export default function SettingsPage() {
     cloud_relay_mode: 'disconnected',
     cloud_last_heartbeat: null as string | null,
     cloud_last_error: null as string | null,
+    cloud_catalog_sync_error: null as string | null,
+    cloud_qr_sync_error: null as string | null,
     cloud_deletion_status: '',
   });
    
@@ -1425,6 +1430,8 @@ export default function SettingsPage() {
         cloud_relay_mode: data.cloud_relay_mode || 'disconnected',
         cloud_last_heartbeat: data.cloud_last_heartbeat || null,
         cloud_last_error: data.cloud_last_error || null,
+        cloud_catalog_sync_error: data.cloud_catalog_sync_error || null,
+        cloud_qr_sync_error: data.cloud_qr_sync_error || null,
         cloud_deletion_status: data.cloud_deletion_status || '',
         cloud_terminal_connected: !!data.cloud_terminal_connected,
         cloud_terminal_branch_name: data.cloud_terminal_branch_name || null,
@@ -1434,12 +1441,14 @@ export default function SettingsPage() {
         cloud_sync_enabled: !!data.cloud_sync_enabled,
         cloud_orders_enabled: !!data.cloud_orders_enabled,
         cloud_last_sync: data.cloud_last_sync || null,
+        cloud_catalog_last_sync: data.cloud_catalog_last_sync || null,
       }));
       setSavedCloudSettings((previous) => ({
         ...previous,
         cloud_sync_enabled: !!data.cloud_sync_enabled,
         cloud_orders_enabled: !!data.cloud_orders_enabled,
         cloud_last_sync: data.cloud_last_sync || null,
+        cloud_catalog_last_sync: data.cloud_catalog_last_sync || null,
       }));
     } catch {
       // Keep the last known status if the local settings request fails.
@@ -1882,6 +1891,7 @@ export default function SettingsPage() {
         cloud_sync_enabled: !!res.data.cloud_sync_enabled,
         cloud_orders_enabled: !!res.data.cloud_orders_enabled,
         cloud_last_sync: res.data.cloud_last_sync || null,
+        cloud_catalog_last_sync: res.data.cloud_catalog_last_sync || null,
       };
       setCloudSettings(settings);
       setSavedCloudSettings(settings);
@@ -1892,6 +1902,8 @@ export default function SettingsPage() {
         cloud_relay_mode: res.data.cloud_relay_mode || 'disconnected',
         cloud_last_heartbeat: res.data.cloud_last_heartbeat || null,
         cloud_last_error: res.data.cloud_last_error || null,
+        cloud_catalog_sync_error: res.data.cloud_catalog_sync_error || null,
+        cloud_qr_sync_error: res.data.cloud_qr_sync_error || null,
         cloud_deletion_status: res.data.cloud_deletion_status || '',
         cloud_terminal_connected: !!res.data.cloud_terminal_connected,
         cloud_terminal_branch_name: res.data.cloud_terminal_branch_name || null,
@@ -1986,6 +1998,8 @@ export default function SettingsPage() {
         cloud_relay_mode: res.data.cloud_relay_mode || 'disconnected',
         cloud_last_heartbeat: res.data.cloud_last_heartbeat || null,
         cloud_last_error: res.data.cloud_last_error || null,
+        cloud_catalog_sync_error: res.data.cloud_catalog_sync_error || null,
+        cloud_qr_sync_error: res.data.cloud_qr_sync_error || null,
         cloud_deletion_status: res.data.cloud_deletion_status || '',
         cloud_terminal_connected: !!res.data.cloud_terminal_connected,
         cloud_terminal_branch_name: res.data.cloud_terminal_branch_name || null,
@@ -2016,6 +2030,8 @@ export default function SettingsPage() {
         cloud_relay_mode: res.data.cloud_relay_mode || 'disconnected',
         cloud_last_heartbeat: res.data.cloud_last_heartbeat || null,
         cloud_last_error: res.data.cloud_last_error || null,
+        cloud_catalog_sync_error: res.data.cloud_catalog_sync_error || null,
+        cloud_qr_sync_error: res.data.cloud_qr_sync_error || null,
         cloud_deletion_status: res.data.cloud_deletion_status || '',
       });
       setCloudSettings((prev) => ({
@@ -3818,12 +3834,14 @@ export default function SettingsPage() {
                         cloud_relay_mode: data.cloud_relay_mode || 'disconnected',
                         cloud_last_heartbeat: data.cloud_last_heartbeat || null,
                         cloud_last_error: data.cloud_last_error || null,
+                        cloud_catalog_sync_error: data.cloud_catalog_sync_error || null,
+                        cloud_qr_sync_error: data.cloud_qr_sync_error || null,
                         cloud_deletion_status: data.cloud_deletion_status || '',
                         cloud_terminal_connected: !!data.cloud_terminal_connected,
                         cloud_terminal_branch_name: data.cloud_terminal_branch_name || null,
                       });
-                      setCloudSettings((previous) => ({ ...previous, cloud_sync_enabled: !!data.cloud_sync_enabled, cloud_orders_enabled: !!data.cloud_orders_enabled, cloud_last_sync: data.cloud_last_sync || null }));
-                      setSavedCloudSettings((previous) => ({ ...previous, cloud_sync_enabled: !!data.cloud_sync_enabled, cloud_orders_enabled: !!data.cloud_orders_enabled, cloud_last_sync: data.cloud_last_sync || null }));
+                      setCloudSettings((previous) => ({ ...previous, cloud_sync_enabled: !!data.cloud_sync_enabled, cloud_orders_enabled: !!data.cloud_orders_enabled, cloud_last_sync: data.cloud_last_sync || null, cloud_catalog_last_sync: data.cloud_catalog_last_sync || null }));
+                      setSavedCloudSettings((previous) => ({ ...previous, cloud_sync_enabled: !!data.cloud_sync_enabled, cloud_orders_enabled: !!data.cloud_orders_enabled, cloud_last_sync: data.cloud_last_sync || null, cloud_catalog_last_sync: data.cloud_catalog_last_sync || null }));
                       setTelemetryEnabled(false);
                       setDiagnosticsConsent(false);
                       await fetchCloudAccount();
@@ -4937,6 +4955,11 @@ export default function SettingsPage() {
                     {cloudSettings.cloud_last_sync && (
                       <p className="text-xs text-gray-400">{t('lastSync', { time: formatDateTime(cloudSettings.cloud_last_sync) })}</p>
                     )}
+                    {cloudSettings.cloud_catalog_last_sync && (
+                      <p className="text-xs text-gray-400">Catalog synced {formatDateTime(cloudSettings.cloud_catalog_last_sync)}</p>
+                    )}
+                    {cloudStatus.cloud_catalog_sync_error && <p className="text-xs text-destructive" role="status">{cloudStatus.cloud_catalog_sync_error}</p>}
+                    {cloudStatus.cloud_qr_sync_error && <p className="text-xs text-destructive" role="status">{cloudStatus.cloud_qr_sync_error}</p>}
                   </div>
               )}
                 </>

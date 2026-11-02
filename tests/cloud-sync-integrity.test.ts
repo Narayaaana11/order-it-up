@@ -95,6 +95,15 @@ class MockD1SyncDatabase {
           return (ord || null) as T;
         }
 
+        // Stable payment ID/idempotency lookup for terminal payment retries.
+        if (normalized.includes('FROM customer_payments') && normalized.includes('idempotency_key = ?') && normalized.includes('WHERE id = ?')) {
+          const [paymentId, branchId, idempotencyKey] = params;
+          for (const payment of db.customerPayments.values()) {
+            if (payment.id === paymentId || (payment.branch_id === branchId && payment.idempotency_key === idempotencyKey)) return payment as T;
+          }
+          return null;
+        }
+
         // 5. Customer payment duplicate external reference lookup
         if (normalized.includes('FROM customer_payments') && normalized.includes('external_reference_id = ?')) {
           const [branchId, method, ref] = params;
@@ -118,6 +127,11 @@ class MockD1SyncDatabase {
 
       async all<T = any>(): Promise<{ results: T[] }> {
         const normalized = sql.replace(/\s+/g, ' ').trim();
+        if (normalized.includes('FROM customer_payments') && normalized.includes('idempotency_key = ?') && normalized.includes('WHERE id = ?')) {
+          const [paymentId, branchId, idempotencyKey] = params;
+          return { results: Array.from(db.customerPayments.values()).filter((payment) =>
+            payment.id === paymentId || (payment.branch_id === branchId && payment.idempotency_key === idempotencyKey)).slice(0, 2) as T[] };
+        }
         if (normalized.includes('FROM customer_payments WHERE order_id = ?')) {
           const [orderId] = params;
           const rows: any[] = [];
@@ -247,6 +261,7 @@ class MockD1SyncDatabase {
         // Insert customer_payments
         if (normalized.includes('INSERT INTO customer_payments')) {
           const [id, orgId, restId, branchId, orderId, method, amount, verification, extRef, userId, cashierName, termId, idemKey, isSplit, metaJson, createdAt, updatedAt] = params;
+          if (db.customerPayments.has(String(id))) throw new Error(`UNIQUE constraint failed: customer_payments.id (${id})`);
           db.customerPayments.set(id, {
             id,
             organization_id: orgId,
@@ -1040,6 +1055,28 @@ async function testOfflinePaymentLedgerIntegrity(): Promise<void> {
   assert.equal(ordAfter.payment_status, 'partially_paid');
   assert.equal(db.customerPayments.size, 1);
 
+  // A second event ID carrying the same payment ID/key is acknowledged as a
+  // replay without charging the order again.
+  const pay100Replay = makeSyncReq(termToken, [
+    {
+      id: 'evt-pay-100-new-event-replay',
+      type: 'payment.settled',
+      payload: {
+        order_id: orderId,
+        payment_id: 'pay_sync_evt-pay-100',
+        idempotency_key: 'sync_evt-pay-100',
+        amount: 100.0,
+        payment_method: 'upi',
+        external_reference_id: 'UTR-C123-MOCK-100',
+      },
+    },
+  ]);
+  const res100Replay = await cloudWorker.fetch(pay100Replay, env);
+  const replayJson = await res100Replay.json() as any;
+  assert.equal(replayJson.processed_count, 1, 'matching stable payment identity acknowledges a new event replay');
+  assert.equal(db.customerPayments.size, 1, 'payment replay never inserts a second ledger row');
+  assert.equal(ordAfter.payment_status, 'partially_paid', 'payment replay does not apply the amount twice');
+
   // 3. Second payment (₹110 on ₹210 order) -> paid
   const pay110Req = makeSyncReq(termToken, [
     {
@@ -1089,6 +1126,28 @@ async function testOfflinePaymentLedgerIntegrity(): Promise<void> {
     grand_total: 210.0,
     version: 1,
   });
+
+  // Reusing an existing payment ID for another order must roll back both the
+  // ledger insert and the order payment-status update.
+  const payIdCollisionReq = makeSyncReq(termToken, [
+    {
+      id: 'evt-pay-id-collision',
+      type: 'payment.settled',
+      payload: {
+        order_id: orderId2,
+        payment_id: 'pay_sync_evt-pay-100',
+        amount: 210.0,
+        payment_method: 'cash',
+      },
+    },
+  ]);
+  const resIdCollision = await cloudWorker.fetch(payIdCollisionReq, env);
+  assert.equal(resIdCollision.status, 200);
+  const collisionResult = await resIdCollision.json() as any;
+  assert.equal(collisionResult.processed_count, 0, 'payment ID collision is not acknowledged as settled');
+  assert.equal(collisionResult.failed_count, 1);
+  assert.equal(db.syncedOrders.get(orderId2).payment_status, 'unpaid', 'payment ID collision cannot mark another order paid');
+  assert.equal(db.customerPayments.size, 2, 'payment ID collision does not duplicate or omit an order ledger row');
 
   const payDupUtrReq = makeSyncReq(termToken, [
     {

@@ -95,9 +95,21 @@ export function createRefund(db: Database, req: RefundRequest): RefundResult {
   if (!bill) throw httpError('Bill not found', 404);
   const order = db.prepare('SELECT created_at FROM orders WHERE id = ?').get(bill.order_id) as { created_at: string } | undefined;
   if (!order) throw httpError('Order not found', 404);
-  const orderCreatedAt = parseDbTimestamp(order.created_at).getTime();
-  if (!Number.isFinite(orderCreatedAt) || Date.now() - orderCreatedAt > REFUND_WINDOW_MS) {
-    throw httpError('Refund window has expired. Refunds are allowed within 1 hour of order creation.', 409);
+  let lastPaymentAt = bill.paid_at ? parseDbTimestamp(bill.paid_at).getTime() : Number.NaN;
+  if (!Number.isFinite(lastPaymentAt) && bill.payment_details) {
+    try {
+      const paymentLines = JSON.parse(bill.payment_details);
+      if (Array.isArray(paymentLines)) {
+        const timestamps = paymentLines
+          .map((payment) => typeof payment?.timestamp === 'string' ? parseDbTimestamp(payment.timestamp).getTime() : Number.NaN)
+          .filter(Number.isFinite);
+        if (timestamps.length) lastPaymentAt = Math.max(...timestamps);
+      }
+    } catch { /* Old or malformed legacy payment metadata falls back to order time. */ }
+  }
+  if (!Number.isFinite(lastPaymentAt)) lastPaymentAt = parseDbTimestamp(order.created_at).getTime();
+  if (!Number.isFinite(lastPaymentAt) || Date.now() - lastPaymentAt > REFUND_WINDOW_MS || lastPaymentAt > Date.now() + 60_000) {
+    throw httpError('Refund window has expired. Refunds are allowed within 1 hour of the recorded payment.', 409);
   }
 
   const currency = getTenantCurrency(db);

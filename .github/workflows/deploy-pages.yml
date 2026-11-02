@@ -1,0 +1,60 @@
+name: Deploy Cloudflare Pages
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production_deploy:
+        description: Deploy the current main branch to the production Pages project
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloudflare-pages-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && inputs.confirm_production_deploy == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: |
+            frontend/package-lock.json
+            apps/cloud-api/package-lock.json
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: npm ci
+
+      - name: Install Cloudflare Wrangler
+        working-directory: apps/cloud-api
+        run: npm ci
+
+      - name: Build Cloudflare Pages static export
+        run: npm run build:web
+
+      - name: Require a ready Cloud API
+        run: node scripts/assert-cloud-ready.cjs
+
+      - name: Deploy the static export to Pages
+        working-directory: apps/cloud-api
+        run: npx wrangler pages deploy ../../frontend/out --project-name orderitup --branch main
+
+      - name: Verify the public QR route
+        run: node -e "fetch('https://orderitup.pages.dev/qr/').then(async r => { if (!r.ok) throw new Error('QR route returned HTTP ' + r.status); const html = await r.text(); if (!html.includes('<html')) throw new Error('QR route did not return an HTML document'); console.log('Public QR route returned HTTP ' + r.status); }).catch(e => { console.error(e.message); process.exitCode = 1; })"

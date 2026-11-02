@@ -9,6 +9,7 @@ class MockPlatformAdminD1 {
   organizationStatus = 'active';
   subscription: any = null;
   auditRecords: any[] = [];
+  webhookEvents: any[] = [];
 
   prepare(sql: string) {
     const normalized = sql.replace(/\s+/g, ' ').trim();
@@ -33,6 +34,22 @@ class MockPlatformAdminD1 {
         }
         if (normalized.includes('SELECT * FROM organization_subscriptions WHERE organization_id = ?')) return this.subscription as T || null;
         if (normalized.includes('SELECT COUNT(*) AS total FROM organizations o')) return { total: 2 } as T;
+        if (normalized.includes('SELECT COUNT(*) AS total FROM saas_payment_webhook_events')) return { total: this.webhookEvents.length } as T;
+        if (normalized.includes('FROM saas_payment_webhook_events WHERE id = ?')) {
+          return this.webhookEvents.find((event) => event.id === params[0]) as T || null;
+        }
+        if (normalized.includes('SELECT account_status FROM organizations WHERE id = ?')) return { account_status: this.organizationStatus } as T;
+        if (normalized.includes('FROM saas_subscription_payment_orders') && normalized.includes('WHERE provider_order_id = ? AND provider =')) {
+          return { organization_id: 'org-real-1' } as T;
+        }
+        if (normalized.includes('FROM saas_subscription_payment_orders') && normalized.includes('WHERE provider_order_id = ? AND organization_id = ?')) {
+          return { id: 'order-row-1', organization_id: 'org-real-1', plan_code: 'pro', billing_cycle: 'monthly', amount_minor: 129900,
+            currency: 'INR', provider_order_id: 'order_recovery123', provider_payment_id: 'pay_recovery123', status: 'captured',
+            expires_at: new Date(Date.now() + 60000).toISOString() } as T;
+        }
+        if (normalized.includes('FROM organization_subscriptions s LEFT JOIN saas_plans')) {
+          return this.subscription ? { ...this.subscription, plan_name: 'Professional', entitlements_json: '{}' } as T : null;
+        }
         return null;
       },
       all: async <T = any>(): Promise<{ results: T[] }> => {
@@ -56,6 +73,14 @@ class MockPlatformAdminD1 {
             terminal_count: 4, active_user_count: 5,
           }] as T[] };
         }
+        if (normalized.includes('FROM saas_payment_webhook_events')) {
+          const hasStatus = normalized.includes('WHERE status = ?');
+          const matching = hasStatus ? this.webhookEvents.filter((event) => event.status === params[0]) : this.webhookEvents;
+          const offset = hasStatus ? 2 : 1;
+          const limit = Number(params[offset - 1] ?? matching.length);
+          const skip = Number(params[offset] ?? 0);
+          return { results: matching.slice(skip, skip + limit) as T[] };
+        }
         return { results: [] as T[] };
       },
       run: async () => {
@@ -69,7 +94,19 @@ class MockPlatformAdminD1 {
           };
         }
         if (normalized.includes('INSERT INTO platform_admin_audit_log')) {
-          this.auditRecords.push({ action: params[2], organization_id: params[3], reason: params[4] });
+          const action = normalized.match(/VALUES\s*\(.*?'([^']+)'/i)?.[1] || '';
+          this.auditRecords.push({ action, organization_id: params[2], reason: params[3] });
+        }
+        if (normalized.includes('UPDATE saas_payment_webhook_events SET status')) {
+          const row = this.webhookEvents.find((event) => event.id === params[params.length - 1]);
+          if (row) {
+            row.status = normalized.match(/SET status = '([^']+)'/)?.[1] || row.status;
+            if (normalized.includes('processed_at = ?')) row.processed_at = params[0];
+          }
+        }
+        if (normalized.includes('UPDATE platform_admin_audit_log SET after_json')) {
+          const record = this.auditRecords.at(-1);
+          if (record) record.after_json = params[0];
         }
         return { success: true, meta: { changes: 1 }, params };
       },
@@ -105,6 +142,8 @@ async function run() {
     PLATFORM_ADMIN_EMAIL: 'platform-admin@orderitup.in',
     PLATFORM_ADMIN_PASSWORD_HASH: passwordHash,
     PLATFORM_ADMIN_JWT_SECRET: PLATFORM_SECRET,
+    RAZORPAY_KEY_ID: 'rzp_test_platformtest1',
+    RAZORPAY_KEY_SECRET: 'platform-admin-test-provider-secret',
     ENVIRONMENT: 'staging',
     FRONTEND_ORIGIN: 'https://app.orderitup.in',
   };
@@ -167,6 +206,29 @@ async function run() {
   const planData = await plans.json() as any;
   assert.equal(planData.plans[0].monthly_price, 499);
   assert.equal(planData.plans[0].entitlements.maxTerminals, 1);
+
+  env.DB.subscription = {
+    id: 'sub-real-1', organization_id: 'org-real-1', plan_code: 'pro', status: 'active',
+    billing_cycle: 'monthly', currency: 'INR', amount_minor: 129900,
+    current_period_start: new Date().toISOString(), current_period_end: new Date(Date.now() + 86400000).toISOString(),
+  };
+  env.DB.webhookEvents.push({
+    id: 'webhook-row-1', provider_event_id: 'evt_recovery_001', event_type: 'payment.captured',
+    payload_hash: 'trusted-payload-hash', provider_order_id: 'order_recovery123', provider_payment_id: 'pay_recovery123',
+    status: 'failed', error_code: 'payment_reconciliation_pending', received_at: new Date().toISOString(), processed_at: null,
+  });
+  const webhookInbox = await cloudWorker.fetch(request('/api/platform-admin/billing/webhook-events?status=failed', 'GET', undefined, loginData.token), env);
+  assert.equal(webhookInbox.status, 200, 'Platform admin can inspect the durable failed-payment inbox');
+  assert.equal((await webhookInbox.json() as any).events[0].provider_event_id, 'evt_recovery_001');
+  const retryMissingReason = await cloudWorker.fetch(request('/api/platform-admin/billing/webhook-events/webhook-row-1/retry', 'POST', { reason: 'too short' }, loginData.token), env);
+  assert.equal(retryMissingReason.status, 400, 'Manual payment reconciliation requires an audit reason');
+  const retryWebhook = await cloudWorker.fetch(request('/api/platform-admin/billing/webhook-events/webhook-row-1/retry', 'POST', {
+    reason: 'Retry after verifying the provider settlement record with support.',
+  }, loginData.token), env);
+  assert.equal(retryWebhook.status, 200, 'Platform admin can retry a previously verified webhook event');
+  assert.equal(env.DB.webhookEvents[0].status, 'processed');
+  assert.ok(env.DB.auditRecords.some((entry: any) => entry.action === 'billing.webhook.retry.requested'));
+  env.DB.subscription = null;
 
   const accountChange = await cloudWorker.fetch(request('/api/platform-admin/tenants/org-real-1/account-status', 'PATCH', {
     account_status: 'suspended',
