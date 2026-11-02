@@ -16,6 +16,36 @@ import { ROLE_ACCESS } from '../../shared/role-permissions';
 
 const router = Router();
 
+type AggregatorPlatform = 'swiggy' | 'zomato';
+
+function verifyAggregatorRequest(
+  req: Request,
+  res: Response,
+  platform: AggregatorPlatform,
+  signatureHeaders: string | string[],
+): boolean {
+  const db = getDatabase();
+  const config = db.prepare(
+    'SELECT webhook_secret, is_enabled FROM aggregator_configs WHERE platform = ?'
+  ).get(platform) as { webhook_secret?: string | null; is_enabled?: number } | undefined;
+
+  if (!config || config.is_enabled !== 1 || !config.webhook_secret) {
+    res.status(503).json({ error: `${platform} webhook is not configured with an active signing secret.` });
+    return false;
+  }
+
+  const signature = (Array.isArray(signatureHeaders) ? signatureHeaders : [signatureHeaders])
+    .map((header) => req.get(header))
+    .find((value) => Boolean(value));
+  const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
+  if (!rawBody || !verifyWebhookSignature(rawBody.toString('utf8'), signature, config.webhook_secret)) {
+    res.status(401).json({ error: 'Invalid webhook signature.' });
+    return false;
+  }
+
+  return true;
+}
+
 // ── 1. Webhook Endpoints (Called directly by Swiggy / Zomato) ────────────────
 
 /**
@@ -23,19 +53,7 @@ const router = Router();
  * Ingests incoming orders from Swiggy partner webhook.
  */
 router.post('/webhooks/swiggy/order', asyncHandler(async (req: Request, res: Response) => {
-  const db = getDatabase();
-  const config = db.prepare('SELECT webhook_secret, is_enabled FROM aggregator_configs WHERE platform = ?').get('swiggy') as any;
-
-  if (config && config.is_enabled === 0) {
-    return res.status(403).json({ error: 'Swiggy integration is currently paused.' });
-  }
-
-  // Optional signature verification if secret configured
-  const signature = req.get('x-swiggy-signature');
-  const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-  if (config?.webhook_secret && !verifyWebhookSignature(rawBody, signature, config.webhook_secret)) {
-    return res.status(401).json({ error: 'Invalid webhook signature.' });
-  }
+  if (!verifyAggregatorRequest(req, res, 'swiggy', 'x-swiggy-signature')) return;
 
   const normalized = normalizeSwiggyOrder(req.body);
   const result = ingestAggregatorOrder(normalized);
@@ -56,18 +74,7 @@ router.post('/webhooks/swiggy/order', asyncHandler(async (req: Request, res: Res
  * Ingests incoming orders from Zomato partner webhook.
  */
 router.post('/webhooks/zomato/order', asyncHandler(async (req: Request, res: Response) => {
-  const db = getDatabase();
-  const config = db.prepare('SELECT webhook_secret, is_enabled FROM aggregator_configs WHERE platform = ?').get('zomato') as any;
-
-  if (config && config.is_enabled === 0) {
-    return res.status(403).json({ error: 'Zomato integration is currently paused.' });
-  }
-
-  const signature = req.get('x-zomato-signature') || req.get('x-zomato-auth');
-  const rawBody = typeof req.body === 'string' ? req.body : JSON.stringify(req.body);
-  if (config?.webhook_secret && !verifyWebhookSignature(rawBody, signature, config.webhook_secret)) {
-    return res.status(401).json({ error: 'Invalid webhook signature.' });
-  }
+  if (!verifyAggregatorRequest(req, res, 'zomato', ['x-zomato-signature', 'x-zomato-auth'])) return;
 
   const normalized = normalizeZomatoOrder(req.body);
   const result = ingestAggregatorOrder(normalized);
@@ -89,6 +96,12 @@ router.post('/webhooks/zomato/order', asyncHandler(async (req: Request, res: Res
  */
 router.post('/webhooks/:platform/rider', asyncHandler(async (req: Request, res: Response) => {
   const { platform } = req.params;
+  const platformStr = Array.isArray(platform) ? platform[0] : (platform || '');
+  if (platformStr !== 'swiggy' && platformStr !== 'zomato') {
+    return res.status(404).json({ error: 'Unsupported aggregator platform.' });
+  }
+  const signatureHeader = platformStr === 'swiggy' ? 'x-swiggy-signature' : ['x-zomato-signature', 'x-zomato-auth'];
+  if (!verifyAggregatorRequest(req, res, platformStr, signatureHeader)) return;
   const { order_id, status, rider } = req.body || {};
   const riderStatus = (status || rider?.status || req.body?.delivery_status || 'assigned') as any;
   const riderInfo = rider || { name: req.body?.rider_name, phone: req.body?.rider_phone };
@@ -97,7 +110,6 @@ router.post('/webhooks/:platform/rider', asyncHandler(async (req: Request, res: 
     return res.status(400).json({ error: 'order_id is required' });
   }
 
-  const platformStr = Array.isArray(platform) ? platform[0] : (platform || '');
   const updated = updateRiderStatus(platformStr.toLowerCase(), String(order_id), riderStatus, riderInfo);
   if (!updated) {
     return res.status(404).json({ error: 'Order not found for rider update' });
@@ -112,13 +124,18 @@ router.post('/webhooks/:platform/rider', asyncHandler(async (req: Request, res: 
  */
 router.post('/webhooks/:platform/cancel', asyncHandler(async (req: Request, res: Response) => {
   const { platform } = req.params;
+  const platformStr = Array.isArray(platform) ? platform[0] : (platform || '');
+  if (platformStr !== 'swiggy' && platformStr !== 'zomato') {
+    return res.status(404).json({ error: 'Unsupported aggregator platform.' });
+  }
+  const signatureHeader = platformStr === 'swiggy' ? 'x-swiggy-signature' : 'x-zomato-signature';
+  if (!verifyAggregatorRequest(req, res, platformStr, signatureHeader)) return;
   const { order_id, reason } = req.body || {};
 
   if (!order_id) {
     return res.status(400).json({ error: 'order_id is required' });
   }
 
-  const platformStr = Array.isArray(platform) ? platform[0] : (platform || '');
   const cancelled = cancelAggregatorOrder(platformStr.toLowerCase(), String(order_id), reason);
   res.json({ ok: true, status: 'cancelled', cancelled });
 }));
