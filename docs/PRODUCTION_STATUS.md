@@ -21,6 +21,7 @@ The product surface is implemented and locally verified across desktop, Cloud, w
 | `npm run check:mobile-cloud` | 36 endpoints: 30 Cloud, 5 local-only, 1 partner-gated, 0 unclassified |
 | `npm run check:tablet-android` | 9/9 hardening checks |
 | `npm run check:cloud-release` | 41/41 |
+| `npm run check:d1-rehearsal` | 8/8 — synthetic legacy baseline: naive replay fails closed, ledger-baseline + 0008–0025 applies, membership repair and readiness pass |
 | `npm run check:cloud-worker` | bundles at ~511 KiB / ~99 KiB gzip |
 | React/web export, landing build, backend build, Electron runtime/artifact checks | pass |
 | Desktop `electron-builder --dir` packaging | pass (unpacked Windows app) |

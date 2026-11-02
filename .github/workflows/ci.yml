@@ -113,6 +113,9 @@ jobs:
       - name: Cloud Release Inputs (migrations, readiness tables, Wrangler safety)
         run: npm run check:cloud-release
 
+      - name: D1 Reconciliation Rehearsal (synthetic legacy baseline)
+        run: npm run check:d1-rehearsal
+
       - name: Cloud Sync Integrity & Concurrency Verification
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-sync-integrity.test.ts
 
