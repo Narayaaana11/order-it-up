@@ -60,6 +60,7 @@
                     "test:cloud-sync":  "ts-node --transpile-only -P tests/tsconfig.json tests/cloud-sync-integrity.test.ts",
                     "test:cloud-rate-limit":  "ts-node --transpile-only -P tests/tsconfig.json tests/cloud-rate-limiting.test.ts",
                     "test:cloud-auth":  "ts-node --transpile-only -P tests/tsconfig.json tests/cloud-auth-hardening.test.ts",
+                    "test:cloud-restaurant-ops":  "ts-node --transpile-only -P tests/tsconfig.json tests/cloud-restaurant-ops.test.ts",
                     "test:cloud-e2e":  "ts-node --transpile-only -P tests/tsconfig.json tests/comprehensive-e2e-audit.test.ts",
                     "test:payment-methods-split":  "node tests/run-electron-node-test.cjs tests/payment-methods-split-checks.test.ts",
                     "test:kds-integration":  "node tests/run-electron-node-test.cjs tests/kds-integration.test.ts",

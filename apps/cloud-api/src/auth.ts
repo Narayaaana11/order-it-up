@@ -221,7 +221,7 @@ export async function createJWT(payload: JWTPayload, secret: string): Promise<st
   if (typeof payload.email !== 'string' || payload.email.trim() === '') {
     throw new Error('JWT payload requires a valid email');
   }
-  const allowedRoles: CloudRole[] = ['owner', 'accountant', 'manager', 'cashier', 'kitchen', 'waiter', 'server', 'chef'];
+  const allowedRoles: CloudRole[] = ['owner', 'accountant', 'manager', 'cashier', 'kitchen', 'waiter', 'server', 'chef', 'delivery', 'host'];
   if (!allowedRoles.includes(payload.role)) {
     throw new Error(`JWT payload role must be one of: ${allowedRoles.join(', ')}`);
   }
@@ -354,7 +354,7 @@ export async function verifyJWT(token: string, secret: string): Promise<JWTPaylo
     }
 
     // Role claim
-    const validRoles: CloudRole[] = ['owner', 'accountant', 'manager', 'cashier', 'kitchen', 'waiter', 'server', 'chef'];
+    const validRoles: CloudRole[] = ['owner', 'accountant', 'manager', 'cashier', 'kitchen', 'waiter', 'server', 'chef', 'delivery', 'host'];
     if (!validRoles.includes(payload.role)) {
       return null;
     }

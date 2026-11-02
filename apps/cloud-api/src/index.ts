@@ -50,6 +50,7 @@ import {
   handleGetPublicQrOrder,
 } from './routes/public-qr';
 import { handleQrPosDelivery } from './routes/qr-pos-delivery';
+import { handleRestaurantOpsRequest } from './routes/restaurant-ops';
 
 function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const requestOrigin = request?.headers.get('Origin');
@@ -89,7 +90,8 @@ const REQUIRED_READINESS_TABLES = [
   'cloud_token_revocations', 'qr_table_tokens', 'qr_order_tracking_tokens', 'master_addon_groups',
   'master_addons', 'master_product_addon_groups', 'qr_order_idempotency', 'pilot_access_requests',
   'saas_subscription_payment_orders', 'saas_payment_webhook_events', 'qr_order_pos_deliveries',
-  'pilot_access_invitations',
+  'pilot_access_invitations', 'restaurant_vendors', 'expense_categories', 'expenses',
+  'reservations', 'ingredients', 'inventory_transactions', 'recipes', 'delivery_jobs',
 ] as const;
 
 function hasRequiredAuthenticationConfiguration(env: Env): boolean {
@@ -484,6 +486,11 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   if (memberships.length === 0) {
     return Response.json({ error: 'Forbidden: No active organization memberships' }, { status: 403 });
   }
+
+  // Cloud restaurant operations suite (expenses, reservations, inventory,
+  // shift closures, delivery dispatch). Branch authorization is enforced inside.
+  const restaurantOpsResponse = await handleRestaurantOpsRequest(request, env, path, method, claims, memberships);
+  if (restaurantOpsResponse) return restaurantOpsResponse;
 
   if (method === 'GET' && (path.startsWith('/reports/') || path.startsWith('/api/reports/'))) {
     return handleDashboardReport(request, env, orgId, memberships);

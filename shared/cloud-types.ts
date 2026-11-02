@@ -5,7 +5,7 @@
  * and the Desktop POS engine (main/services/cloud-sync.ts).
  */
 
-export type CloudRole = 'super_admin' | 'owner' | 'accountant' | 'branch_manager' | 'manager' | 'cashier' | 'kitchen' | 'waiter' | 'server' | 'chef';
+export type CloudRole = 'super_admin' | 'owner' | 'accountant' | 'branch_manager' | 'manager' | 'cashier' | 'kitchen' | 'waiter' | 'server' | 'chef' | 'delivery' | 'host';
 
 export interface CloudOrganization {
   id: string;

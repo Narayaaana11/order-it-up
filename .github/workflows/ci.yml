@@ -137,6 +137,9 @@ jobs:
       - name: Cloud Owner Dashboard Reporting & Branch Isolation
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-dashboard-reports.test.ts
 
+      - name: Cloud Restaurant Operations Suite (Expenses, Reservations, Inventory, Shifts, Delivery)
+        run: npx ts-node --transpile-only -P tests/tsconfig.json tests/cloud-restaurant-ops.test.ts
+
       - name: Comprehensive E2E Multi-Branch & Mobile Parity Audit
         run: npx ts-node --transpile-only -P tests/tsconfig.json tests/comprehensive-e2e-audit.test.ts
 
