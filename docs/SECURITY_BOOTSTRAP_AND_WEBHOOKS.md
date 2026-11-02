@@ -62,3 +62,8 @@ npm run build
 ```
 
 Also run the full CI workflow before merging. Tests in a local harness do not replace validation against the actual partner's signed webhook examples or a deployed staging environment.
+
+
+## Cloud API CORS
+
+Production and staging must set `FRONTEND_ORIGIN` to a comma-separated list of exact trusted browser origins, for example `https://app.orderitup.in,https://orderitup.pages.dev`. The Worker does not reflect arbitrary origins in production/staging and does not accept wildcard entries in those environments. An origin not on the allowlist receives no `Access-Control-Allow-Origin` header. Keep this list synchronized with the actual deployed frontend origins.
