@@ -58,7 +58,21 @@ class MockPlatformAdminD1 {
         }
         return { results: [] as T[] };
       },
-      run: async () => ({ success: true, meta: { changes: 1 }, params }),
+      run: async () => {
+        if (normalized.includes('UPDATE organizations SET account_status')) this.organizationStatus = params[0];
+        if (normalized.includes('INSERT INTO organization_subscriptions')) {
+          this.subscription = {
+            id: params[0], organization_id: params[1], plan_code: params[2], status: params[3],
+            billing_cycle: params[4], currency: params[5], amount_minor: params[6],
+            trial_ends_at: params[7], current_period_start: params[8], current_period_end: params[9],
+            created_at: params[10], updated_at: params[11],
+          };
+        }
+        if (normalized.includes('INSERT INTO platform_admin_audit_log')) {
+          this.auditRecords.push({ action: params[2], organization_id: params[3], reason: params[4] });
+        }
+        return { success: true, meta: { changes: 1 }, params };
+      },
     };
     return statement;
   }
