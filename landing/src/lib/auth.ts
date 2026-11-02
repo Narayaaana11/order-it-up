@@ -4,7 +4,7 @@ export interface AuthUser {
   id: string;
   name: string;
   email: string;
-  role: "SUPER_ADMIN" | "owner" | "manager" | "accountant" | "cashier" | "server" | "chef" | "delivery" | "customer";
+  role: "SUPER_ADMIN" | "owner" | "manager" | "branch_manager" | "accountant" | "cashier" | "server" | "chef" | "delivery" | "customer";
   organizationId?: string;
   organizationName?: string;
   token?: string;
