@@ -4,6 +4,7 @@ import QRCode from 'qrcode';
 import { getDatabase, now, getSettingValue, withTxn } from '../db';
 import { asyncHandler } from '../middleware/async-handler';
 import { calculateItemTax } from '../services/tax';
+import { notifyKdsUpdate } from '../services/kds';
 
 const router = Router();
 
