@@ -62,6 +62,7 @@
                     "test:cloud-auth":  "ts-node --transpile-only -P tests/tsconfig.json tests/cloud-auth-hardening.test.ts",
                     "test:cloud-restaurant-ops":  "ts-node --transpile-only -P tests/tsconfig.json tests/cloud-restaurant-ops.test.ts",
                     "test:cloud-catalog-admin":  "ts-node --transpile-only -P tests/tsconfig.json tests/cloud-catalog-admin.test.ts",
+                    "test:cloud-customers":  "ts-node --transpile-only -P tests/tsconfig.json tests/cloud-customers.test.ts",
                     "test:cloud-e2e":  "ts-node --transpile-only -P tests/tsconfig.json tests/comprehensive-e2e-audit.test.ts",
                     "test:payment-methods-split":  "node tests/run-electron-node-test.cjs tests/payment-methods-split-checks.test.ts",
                     "test:kds-integration":  "node tests/run-electron-node-test.cjs tests/kds-integration.test.ts",

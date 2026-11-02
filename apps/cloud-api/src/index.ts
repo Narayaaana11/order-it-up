@@ -54,6 +54,7 @@ import {
 import { handleQrPosDelivery } from './routes/qr-pos-delivery';
 import { handleRestaurantOpsRequest } from './routes/restaurant-ops';
 import { handleCatalogAdminRequest } from './routes/catalog-admin';
+import { handleCustomersRequest } from './routes/customers';
 
 function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const requestOrigin = request?.headers.get('Origin');
@@ -95,6 +96,7 @@ const REQUIRED_READINESS_TABLES = [
   'saas_subscription_payment_orders', 'saas_payment_webhook_events', 'qr_order_pos_deliveries',
   'pilot_access_invitations', 'restaurant_vendors', 'expense_categories', 'expenses',
   'reservations', 'ingredients', 'inventory_transactions', 'recipes', 'delivery_jobs',
+  'customers',
 ] as const;
 
 function hasRequiredAuthenticationConfiguration(env: Env): boolean {
@@ -489,6 +491,10 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   if (memberships.length === 0) {
     return Response.json({ error: 'Forbidden: No active organization memberships' }, { status: 403 });
   }
+
+  // Organization customer registry used by the CRM screen and waiter seating.
+  const customersResponse = await handleCustomersRequest(request, env, path, method, claims, memberships);
+  if (customersResponse) return customersResponse;
 
   // Desktop-compatible menu management (/products, /categories) backed by the
   // Cloud master catalog, so the web and tablet dashboards can edit the menu.
