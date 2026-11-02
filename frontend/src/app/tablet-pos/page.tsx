@@ -24,6 +24,22 @@ function messageFrom(error: unknown): string {
   return value?.response?.data?.error || value?.message || 'The request could not be completed.';
 }
 
+type PaymentCapabilities = { cash: boolean; card: boolean; upi: boolean; provider: string | null; configured: boolean; reason: string | null };
+type RazorpayInstance = { open: () => void };
+
+function loadRazorpayCheckout(): Promise<void> {
+  const scope = window as unknown as { Razorpay?: unknown };
+  if (scope.Razorpay) return Promise.resolve();
+  return new Promise((resolve, reject) => {
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.async = true;
+    script.onload = () => resolve();
+    script.onerror = () => reject(new Error('The payment provider checkout could not be loaded. No payment was recorded.'));
+    document.body.appendChild(script);
+  });
+}
+
 export default function TabletPosPage() {
   const { currentTenant, user } = useAuthStore();
   const cart = useCartStore();
@@ -43,6 +59,7 @@ export default function TabletPosPage() {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [outbox, setOutbox] = useState<OrderAttempt[]>([]);
   const [openOrders, setOpenOrders] = useState<CloudOrder[]>([]);
+  const [capabilities, setCapabilities] = useState<PaymentCapabilities | null>(null);
   const lastAutoSyncKey = useRef('');
 
   const namespace = useMemo(() => {
@@ -98,6 +115,13 @@ export default function TabletPosPage() {
         localStorage.setItem(`${namespace}:${forBranchId}:catalog`, JSON.stringify({ categories: master.categories, products: master.products, branchCatalog: branchCatalog.catalog, savedAt: new Date().toISOString() }));
       } catch { /* Cached catalog is optional; live requests remain authoritative. */ }
       await refreshOpenOrders(forBranchId);
+      try {
+        const capabilityResponse = await api.get('/payments/capabilities');
+        setCapabilities(capabilityResponse.data as PaymentCapabilities);
+      } catch {
+        // Capability discovery is optional; cash stays available when it fails.
+        setCapabilities(null);
+      }
     } catch (loadError) {
       const cache = localStorage.getItem(`${namespace}:${forBranchId}:catalog`);
       if (cache) {
@@ -304,6 +328,78 @@ export default function TabletPosPage() {
     }
   };
 
+  const collectProvider = async (order: CloudOrder) => {
+    setSubmitting(true);
+    setError('');
+    try {
+      if (!capabilities?.configured) {
+        throw new Error(capabilities?.reason || 'The payment provider is not configured for this environment.');
+      }
+      const summary = await api.get(`/orders/${encodeURIComponent(String(order.id))}/payments`);
+      const balance = Number(summary.data?.outstanding_balance);
+      if (!Number.isFinite(balance) || balance <= 0) {
+        await refreshOpenOrders(branchId);
+        return;
+      }
+
+      const keyName = `${namespace}:intent:${order.id}`;
+      let idempotencyKey = localStorage.getItem(keyName);
+      if (!idempotencyKey) {
+        idempotencyKey = crypto.randomUUID();
+        localStorage.setItem(keyName, idempotencyKey);
+      }
+      const created = await api.post(`/orders/${encodeURIComponent(String(order.id))}/payment-intent`, {
+        amount: balance,
+        idempotency_key: idempotencyKey,
+      });
+      const intent = created.data?.intent as { id: string; provider_order_id: string; amount: number; currency: string } | undefined;
+      const keyId = created.data?.provider?.key_id as string | undefined;
+      if (!intent?.id || !keyId) throw new Error('The payment provider did not create an intent. No payment was recorded.');
+
+      await loadRazorpayCheckout();
+      const scope = window as unknown as { Razorpay?: new (options: Record<string, unknown>) => RazorpayInstance };
+      if (!scope.Razorpay) throw new Error('The payment provider checkout is unavailable. No payment was recorded.');
+
+      const checkout = new scope.Razorpay({
+        key: keyId,
+        amount: Math.round(intent.amount * 100),
+        currency: intent.currency,
+        name: 'Order It Up',
+        description: `Bill ${order.order_number}`,
+        order_id: intent.provider_order_id,
+        handler: (response: { razorpay_payment_id: string; razorpay_signature: string }) => {
+          void (async () => {
+            try {
+              await api.post('/payments/verify', {
+                intent_id: intent.id,
+                provider_payment_id: response.razorpay_payment_id,
+                signature: response.razorpay_signature,
+              });
+              localStorage.removeItem(keyName);
+              toast.success(`Card/UPI payment verified for ${order.order_number}.`);
+              await refreshOpenOrders(branchId);
+              setError('');
+            } catch (verifyError) {
+              setError(messageFrom(verifyError));
+            } finally {
+              setSubmitting(false);
+            }
+          })();
+        },
+        modal: {
+          ondismiss: () => {
+            toast('Provider checkout dismissed. No non-cash payment was recorded.', { icon: 'ℹ️' });
+            setSubmitting(false);
+          },
+        },
+      });
+      checkout.open();
+    } catch (providerError) {
+      setError(messageFrom(providerError));
+      setSubmitting(false);
+    }
+  };
+
   const handleProductClick = (product: Product) => {
     if (product.addon_groups?.length) setAddonProduct(product);
     else cart.addItem(product, 1);
@@ -351,7 +447,23 @@ export default function TabletPosPage() {
       </Drawer>
       {addonProduct && <AddonModal product={addonProduct} currency={currency} onAdd={handleAddons} onClose={() => setAddonProduct(null)} />}
       {tablePickerOpen && <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/50 p-4" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setTablePickerOpen(false); }}><section role="dialog" aria-modal="true" aria-labelledby="tablet-table-picker-title" className="w-full max-w-xl rounded-2xl bg-card p-5 shadow-2xl"><div className="flex items-center justify-between gap-3"><div><p className="text-xs font-bold uppercase tracking-wider text-brand">Dine in</p><h2 id="tablet-table-picker-title" className="mt-1 text-lg font-bold">Choose an available table</h2></div><button type="button" aria-label="Close table picker" onClick={() => setTablePickerOpen(false)} className="rounded-lg p-2 hover:bg-muted"><X size={18} /></button></div><div className="mt-4 grid max-h-[55vh] grid-cols-2 gap-2 overflow-y-auto sm:grid-cols-3">{tables.map((table) => <button key={table.id} type="button" disabled={table.status !== 'available'} onClick={() => { cart.setTableId(table.id); cart.setOrderType('dine_in'); setTablePickerOpen(false); }} className={`min-h-20 rounded-xl border p-3 text-start ${table.status === 'available' ? 'border-emerald-200 bg-emerald-50 hover:border-emerald-400' : 'cursor-not-allowed border-border bg-muted/50 opacity-60'}`}><span className="block font-bold">{table.name}</span><span className="mt-1 block text-xs capitalize text-muted-foreground">{table.status} · {table.capacity} seats</span></button>)}</div>{tables.length === 0 && <p className="py-8 text-center text-sm text-muted-foreground">No active tables found.</p>}<button type="button" onClick={() => setTablePickerOpen(false)} className="mt-4 min-h-11 w-full rounded-xl border border-border text-sm font-semibold">Cancel</button></section></div>}
-      {openOrders.length > 0 && <div className="fixed bottom-4 start-4 z-30 hidden max-h-[40vh] w-80 overflow-auto rounded-xl border border-border bg-card p-3 shadow-lg xl:block"><p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Open Cloud orders</p>{openOrders.slice(0, 6).map((order) => <div key={String(order.id)} className="border-t border-border py-2"><div className="flex items-center justify-between gap-2 text-xs"><span className="truncate">{order.order_number} · {order.payment_status}</span><span className="shrink-0 font-semibold">{currency} {Number(order.grand_total ?? order.total ?? 0).toFixed(2)}</span></div>{order.payment_status === 'paid' ? <button type="button" disabled={submitting || !online} onClick={() => void finalizePaidOrder(order)} className="mt-1 min-h-8 rounded-md border border-border px-2.5 text-xs font-bold disabled:opacity-50">Close paid order</button> : <button type="button" disabled={submitting || !online} onClick={() => void collectCash(order)} className="mt-1 min-h-8 rounded-md bg-brand px-2.5 text-xs font-bold text-white disabled:opacity-50">Record cash payment</button>}</div>)}</div>}
+      {openOrders.length > 0 && <div className="fixed bottom-4 start-4 z-30 hidden max-h-[40vh] w-80 overflow-auto rounded-xl border border-border bg-card p-3 shadow-lg xl:block">
+        <p className="mb-2 text-xs font-bold uppercase tracking-wide text-muted-foreground">Open Cloud orders</p>
+        {capabilities && !capabilities.configured && <p className="mb-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1 text-[11px] text-amber-950">Card/UPI unavailable: {capabilities.reason}</p>}
+        {openOrders.slice(0, 6).map((order) => (
+          <div key={String(order.id)} className="border-t border-border py-2">
+            <div className="flex items-center justify-between gap-2 text-xs"><span className="truncate">{order.order_number} · {order.payment_status}</span><span className="shrink-0 font-semibold">{currency} {Number(order.grand_total ?? order.total ?? 0).toFixed(2)}</span></div>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              {order.payment_status === 'paid'
+                ? <button type="button" disabled={submitting || !online} onClick={() => void finalizePaidOrder(order)} className="min-h-8 rounded-md border border-border px-2.5 text-xs font-bold disabled:opacity-50">Close paid order</button>
+                : <>
+                    <button type="button" disabled={submitting || !online} onClick={() => void collectCash(order)} className="min-h-8 rounded-md bg-brand px-2.5 text-xs font-bold text-white disabled:opacity-50">Record cash payment</button>
+                    {capabilities?.configured && <button type="button" disabled={submitting || !online} onClick={() => void collectProvider(order)} className="min-h-8 rounded-md bg-slate-900 px-2.5 text-xs font-bold text-white disabled:opacity-50">Card / UPI</button>}
+                  </>}
+            </div>
+          </div>
+        ))}
+      </div>}
       {outbox.length === 0 && <div className="sr-only" role="status">{online ? 'Cloud is connected' : 'Cloud is offline'}</div>}
     </div>
   );
