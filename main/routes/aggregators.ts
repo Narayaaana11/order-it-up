@@ -22,7 +22,7 @@ function verifyAggregatorRequest(
   req: Request,
   res: Response,
   platform: AggregatorPlatform,
-  signatureHeader: string,
+  signatureHeaders: string | string[],
 ): boolean {
   const db = getDatabase();
   const config = db.prepare(
@@ -34,7 +34,9 @@ function verifyAggregatorRequest(
     return false;
   }
 
-  const signature = req.get(signatureHeader);
+  const signature = (Array.isArray(signatureHeaders) ? signatureHeaders : [signatureHeaders])
+    .map((header) => req.get(header))
+    .find((value) => Boolean(value));
   const rawBody = (req as Request & { rawBody?: Buffer }).rawBody;
   if (!rawBody || !verifyWebhookSignature(rawBody.toString('utf8'), signature, config.webhook_secret)) {
     res.status(401).json({ error: 'Invalid webhook signature.' });
@@ -72,7 +74,7 @@ router.post('/webhooks/swiggy/order', asyncHandler(async (req: Request, res: Res
  * Ingests incoming orders from Zomato partner webhook.
  */
 router.post('/webhooks/zomato/order', asyncHandler(async (req: Request, res: Response) => {
-  if (!verifyAggregatorRequest(req, res, 'zomato', 'x-zomato-signature')) return;
+  if (!verifyAggregatorRequest(req, res, 'zomato', ['x-zomato-signature', 'x-zomato-auth'])) return;
 
   const normalized = normalizeZomatoOrder(req.body);
   const result = ingestAggregatorOrder(normalized);
@@ -98,7 +100,7 @@ router.post('/webhooks/:platform/rider', asyncHandler(async (req: Request, res: 
   if (platformStr !== 'swiggy' && platformStr !== 'zomato') {
     return res.status(404).json({ error: 'Unsupported aggregator platform.' });
   }
-  const signatureHeader = platformStr === 'swiggy' ? 'x-swiggy-signature' : 'x-zomato-signature';
+  const signatureHeader = platformStr === 'swiggy' ? 'x-swiggy-signature' : ['x-zomato-signature', 'x-zomato-auth'];
   if (!verifyAggregatorRequest(req, res, platformStr, signatureHeader)) return;
   const { order_id, status, rider } = req.body || {};
   const riderStatus = (status || rider?.status || req.body?.delivery_status || 'assigned') as any;
