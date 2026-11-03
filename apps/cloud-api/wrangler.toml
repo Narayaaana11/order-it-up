@@ -1,7 +1,16 @@
+
+# =============================================================================
+# ORDER IT UP — CLOUDFLARE WORKER CONFIGURATION
+# =============================================================================
+
 name = "orderitup-cloud-api"
 main = "src/index.ts"
 compatibility_date = "2024-04-01"
 compatibility_flags = ["nodejs_compat"]
+
+# =============================================================================
+# PRODUCTION ENVIRONMENT
+# =============================================================================
 
 [triggers]
 crons = ["17 3 * * *"]
@@ -11,22 +20,32 @@ ENVIRONMENT = "production"
 ALLOW_SELF_SERVICE_REGISTRATION = "false"
 REQUIRE_PROVIDER_VERIFIED_NONCASH = "true"
 FRONTEND_ORIGIN = "https://app.orderitup.in, https://orderitup.in, https://orderitup.pages.dev"
-# Mandatory Security Requirement:
-# JWT_SECRET must be configured as an encrypted environment secret (minimum 32 characters / 256 bits):
-# - Production: Run `wrangler secret put JWT_SECRET`
-# - Local Development: Add `JWT_SECRET=<secret>` to apps/cloud-api/.dev.vars
-# Platform-admin secrets are also required for /ready:
-# PLATFORM_ADMIN_EMAIL, PLATFORM_ADMIN_PASSWORD_HASH (scrypt), and a dedicated
-# PLATFORM_ADMIN_JWT_SECRET that differs from JWT_SECRET.
+
+# Production secrets MUST be configured separately as encrypted Worker secrets:
+#
+# JWT_SECRET
+# PLATFORM_ADMIN_EMAIL
+# PLATFORM_ADMIN_PASSWORD_HASH
+# PLATFORM_ADMIN_JWT_SECRET
+#
+# Requirements:
+# - JWT_SECRET: minimum 32 characters.
+# - PLATFORM_ADMIN_EMAIL: valid platform administrator email.
+# - PLATFORM_ADMIN_PASSWORD_HASH: valid scrypt password hash.
+# - PLATFORM_ADMIN_JWT_SECRET: minimum 32 characters.
+# - PLATFORM_ADMIN_JWT_SECRET must differ from JWT_SECRET.
+#
+# Never store passwords, JWT secrets, or password hashes in this file.
 
 [[d1_databases]]
 binding = "DB"
 database_name = "orderitup-d1-prod"
 database_id = "145d0618-ed44-42ce-8209-658ad2bcc2fd"
 
-# -----------------------------------------------------------------------------
-# Staging Environment (Strictly Isolated from Production)
-# -----------------------------------------------------------------------------
+# =============================================================================
+# STAGING ENVIRONMENT — STRICTLY ISOLATED FROM PRODUCTION
+# =============================================================================
+
 [env.staging]
 name = "orderitup-cloud-api-staging"
 
@@ -39,16 +58,10 @@ ALLOW_SELF_SERVICE_REGISTRATION = "false"
 REQUIRE_PROVIDER_VERIFIED_NONCASH = "true"
 FRONTEND_ORIGIN = "https://staging.orderitup.in"
 
+# Staging secrets must be configured independently.
+# Do not reuse production JWT or platform-admin secrets.
+
 [[env.staging.d1_databases]]
 binding = "DB"
 database_name = "orderitup-d1-staging"
 database_id = "0135214b-4954-4953-9f37-074dc6dcffc2"
-
-# ...
-[vars]
-ENVIRONMENT = "production"
-FRONTEND_ORIGIN = "https://app.orderitup.in, https://orderitup.in, https://orderitup.pages.dev"
-PLATFORM_ADMIN_EMAIL = "admin@orderitup.com"
-PLATFORM_ADMIN_JWT_SECRET = "p8Z#mQ2$vK9!xB5&rL4*wN7_tJ1%cE6x"
-PLATFORM_ADMIN_PASSWORD_HASH = "Narayana@11"
-# ...
