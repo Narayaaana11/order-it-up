@@ -912,13 +912,16 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
 }
 
 async function handleSetupDemo(request: Request, env: Env): Promise<Response> {
-  // Prevent demo setup in production environments
-  if (env.ENVIRONMENT === 'production') {
-    return Response.json(
-      { error: 'Demo setup is disabled in production environment' },
-      { status: 403 }
-    );
-  }
+// Demo initialization is restricted to local development.
+if (
+  env.ENVIRONMENT === 'production' ||
+  env.ENVIRONMENT === 'staging'
+) {
+  return Response.json(
+    { error: 'Demo setup is disabled in this environment' },
+    { status: 403 }
+  );
+}
 
   // Rate limit demo initialization attempts per IP (3 per hour)
   const clientIp = getClientIp(request);
