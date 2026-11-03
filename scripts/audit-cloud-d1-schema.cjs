@@ -11,10 +11,20 @@ const repoRoot = path.resolve(__dirname, '..');
 const migrationsDir = path.join(repoRoot, 'apps', 'cloud-api', 'migrations');
 
 function runWrangler(sql) {
-  const executable = process.platform === 'win32' ? 'npx.cmd' : 'npx';
+  const localWrangler = path.join(
+    repoRoot,
+    'apps',
+    'cloud-api',
+    'node_modules',
+    '.bin',
+    process.platform === 'win32' ? 'wrangler.cmd' : 'wrangler',
+  );
+  const hasLocalWrangler = fs.existsSync(localWrangler);
+  const executable = hasLocalWrangler ? localWrangler : (process.platform === 'win32' ? 'npx.cmd' : 'npx');
   const normalizedSql = sql.replace(/\s+/g, ' ').trim();
   const commandArgument = process.platform === 'win32' ? `"${normalizedSql.replace(/"/g, '\\"')}"` : normalizedSql;
-  const args = ['wrangler', 'd1', 'execute', databaseName, '--remote', '--command', commandArgument, '--json'];
+  const command = ['d1', 'execute', databaseName, '--remote', '--command', commandArgument, '--json'];
+  const args = hasLocalWrangler ? command : ['wrangler', ...command];
   const result = spawnSync(executable, args, { cwd: repoRoot, encoding: 'utf8', shell: process.platform === 'win32' });
   if (result.error) throw result.error;
   if (result.status !== 0) throw new Error((result.stderr || result.stdout || `Wrangler exited ${result.status}`).trim());
