@@ -153,13 +153,18 @@ async function run() {
     headers: {
       Origin: 'https://orderitup.pages.dev',
       'Access-Control-Request-Method': 'POST',
-      'Access-Control-Request-Headers': 'content-type,idempotency-key',
+      'Access-Control-Request-Headers': 'content-type,idempotency-key,x-untrusted-header',
     },
   }), env);
   assert.equal(preflight.status, 200, 'Pilot request CORS preflight is accepted');
   assert.equal(preflight.headers.get('Access-Control-Allow-Origin'), 'https://orderitup.pages.dev');
-  assert.match(preflight.headers.get('Access-Control-Allow-Headers') || '', /Idempotency-Key/i,
+  const allowedPreflightHeaders = preflight.headers.get('Access-Control-Allow-Headers') || '';
+  assert.match(allowedPreflightHeaders, /Content-Type/i,
+    'CORS preflight permits the requested JSON content type');
+  assert.match(allowedPreflightHeaders, /Idempotency-Key/i,
     'CORS preflight explicitly permits the Idempotency-Key request header');
+  assert.doesNotMatch(allowedPreflightHeaders, /x-untrusted-header/i,
+    'CORS preflight does not reflect arbitrary unapproved request headers');
 
   const adminToken = await createJWT({
     sub: 'order-it-up-platform-admin', org: '__platform_admin__', email: ADMIN_EMAIL,
