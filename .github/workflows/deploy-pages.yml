@@ -1,10 +1,10 @@
-name: Deploy Cloudflare Worker and Pages
+name: Deploy Cloudflare Pages
 
 on:
   workflow_dispatch:
     inputs:
       confirm_production_deploy:
-        description: Deploy the current main branch to the production Cloud API Worker and Pages project
+        description: Deploy the current main branch to the production Pages project
         required: true
         type: boolean
         default: false
@@ -48,15 +48,6 @@ jobs:
 
       - name: Build Cloudflare Pages static export
         run: npm run build:web
-
-      # Pages and the public pilot-request form use the Cloud API Worker.
-      # Deploy the Worker from the same main commit before publishing the frontend.
-      - name: Deploy Cloud API Worker
-        working-directory: apps/cloud-api
-        run: npx wrangler deploy
-
-      - name: Verify production Cloud API CORS preflight
-        run: node scripts/assert-cloud-cors.cjs
 
       - name: Require a ready Cloud API
         run: node scripts/assert-cloud-ready.cjs
