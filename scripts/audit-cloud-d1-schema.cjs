@@ -88,8 +88,14 @@ for (const migration of migrations) localDb.exec(fs.readFileSync(path.join(migra
 const localObjects = localDb.prepare("SELECT type, name, sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND name NOT LIKE 'sqlite_%'").all();
 localDb.close();
 
+// Inspect schema metadata first. A newly-created D1 database has no migration ledger.
+// This audit is intentionally read-only: never create the ledger as part of inspection.
 const remoteObjects = firstResults(runWrangler("SELECT type, name, sql FROM sqlite_master WHERE type IN ('table','index','trigger') AND name NOT LIKE 'sqlite_%' ORDER BY type, name"));
-const remoteLedgerRows = firstResults(runWrangler('SELECT name, applied_at FROM d1_migrations ORDER BY id'));
+const remoteObjectTables = new Set(remoteObjects.filter((row) => row.type === 'table').map((row) => row.name));
+const hasMigrationLedger = remoteObjectTables.has('d1_migrations');
+const remoteLedgerRows = hasMigrationLedger
+  ? firstResults(runWrangler('SELECT name, applied_at FROM d1_migrations ORDER BY id'))
+  : [];
 const remoteLedger = remoteLedgerRows.map((row) => row.name);
 const backfillQuery = `SELECT
   (SELECT COUNT(*) FROM organizations o WHERE NOT EXISTS (SELECT 1 FROM restaurants r WHERE r.organization_id=o.id)) AS orgs_without_restaurant,
@@ -105,7 +111,15 @@ const backfillQuery = `SELECT
   (SELECT COUNT(*) FROM synced_orders o WHERE o.payment_status='paid' AND o.grand_total>0 AND NOT EXISTS (SELECT 1 FROM customer_payments p WHERE p.order_id=o.id) AND datetime(o.ordered_at) >= datetime((SELECT applied_at FROM d1_migrations WHERE name='0006_customer_payment_ledger.sql'))) AS paid_without_ledger_ordered_after_0006,
   (SELECT COUNT(*) FROM customer_payments WHERE id LIKE 'pay_legacy_%' AND verification_method='legacy_reconciled' AND order_id IN (SELECT id FROM synced_orders WHERE payment_status!='paid' OR payment_status IS NULL)) AS legacy_ledger_rows_0007_would_delete,
   (SELECT COUNT(*) FROM customer_payments WHERE id LIKE 'pay_legacy_%' AND external_reference_id='LEGACY_SETTLED') AS legacy_ledger_rows_0007_would_repair`;
-const remoteBackfillState = firstResults(runWrangler(backfillQuery))[0];
+const backfillDependencies = [
+  'organizations', 'restaurants', 'branches', 'cloud_users', 'memberships',
+  'synced_orders', 'synced_order_items', 'customer_payments', 'sync_events',
+];
+const missingBackfillDependencies = backfillDependencies.filter((name) => !remoteObjectTables.has(name));
+const remoteBackfillState = missingBackfillDependencies.length === 0
+  ? firstResults(runWrangler(backfillQuery))[0]
+  : null;
+const isEmptyDatabase = [...remoteObjectTables].every((name) => name === '_cf_KV' || name === 'd1_migrations');
 const localTables = new Map(localObjects.filter((row) => row.type === 'table').map((row) => [row.name, { sql: row.sql, columns: tableColumns(row.sql || '') }]));
 const remoteTables = new Map(remoteObjects.filter((row) => row.type === 'table' && row.name !== '_cf_KV' && row.name !== 'd1_migrations')
   .map((row) => [row.name, { sql: row.sql, columns: tableColumns(row.sql || '') }]));
@@ -144,11 +158,20 @@ console.log(`Columns missing from remote: ${missingColumns.length ? missingColum
 console.log(`Remote-only columns: ${extraColumns.length ? extraColumns.join(', ') : '(none)'}`);
 console.log(`Indexes missing from remote: ${missingIndexes.length ? missingIndexes.join(', ') : '(none)'}`);
 console.log(`Duplicate ADD COLUMN hazards if replayed without baseline reconciliation: ${migrationConflicts.length ? migrationConflicts.join('; ') : '(none detected)'}`);
-console.log(`Checked historical backfill preconditions: ${JSON.stringify(remoteBackfillState)}`);
+if (remoteBackfillState) {
+  console.log(`Checked historical backfill preconditions: ${JSON.stringify(remoteBackfillState)}`);
+} else {
+  console.log(`Historical backfill checks: SKIPPED — missing required tables: ${missingBackfillDependencies.join(', ')}`);
+}
 console.log('Only schema metadata and aggregate backfill-precondition counts were read; no row-level records were returned and no remote writes were issued.');
-const migrationBackfillGaps = Object.entries(remoteBackfillState)
-  .filter(([key, count]) => key !== 'completed_orders_still_unpaid_or_unserved' && Number(count) > 0);
+const migrationBackfillGaps = remoteBackfillState
+  ? Object.entries(remoteBackfillState).filter(([key, count]) => key !== 'completed_orders_still_unpaid_or_unserved' && Number(count) > 0)
+  : [];
 const hasDrift = missingLedgerEntries.length > 0 || unknownLedgerEntries.length > 0 || missingTables.length > 0 || extraTables.length > 0 ||
   missingColumns.length > 0 || extraColumns.length > 0 || missingIndexes.length > 0 || migrationConflicts.length > 0 || migrationBackfillGaps.length > 0;
-console.log(`Readiness: ${hasDrift ? 'BLOCKED — reconcile schema and data effects before migration' : 'MATCHES checked-in schema and sampled backfill invariants'}`);
-if (hasDrift) process.exitCode = 2;
+if (isEmptyDatabase && !hasMigrationLedger) {
+  console.log('Readiness: EMPTY — isolated database verified; migration planning required');
+} else {
+  console.log(`Readiness: ${hasDrift ? 'BLOCKED — reconcile schema and data effects before migration' : 'MATCHES checked-in schema and sampled backfill invariants'}`);
+  if (hasDrift) process.exitCode = 2;
+}
