@@ -67,11 +67,36 @@ function corsHeaders(request?: Request, env?: Env): Record<string, string> {
     .map((origin) => origin.trim())
     .filter(Boolean);
   const restrictedEnvironment = env?.ENVIRONMENT === 'production' || env?.ENVIRONMENT === 'staging';
+
+  // Keep the CORS policy explicit. Reflect only requested header names that are
+  // part of this API's allowlist, so browsers can use the same policy across
+  // Worker deployments without ever allowing arbitrary client-supplied headers.
+  const allowedRequestHeaders = new Set([
+    'content-type',
+    'authorization',
+    'x-requested-with',
+    'idempotency-key',
+    'x-razorpay-signature',
+    'x-razorpay-event-id',
+  ]);
+  const requestedHeaders = (request?.headers.get('Access-Control-Request-Headers') || '')
+    .split(',')
+    .map((header) => header.trim().toLowerCase())
+    .filter((header) => header && allowedRequestHeaders.has(header));
   const headers: Record<string, string> = {
     'Access-Control-Allow-Methods': 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-    'Access-Control-Allow-Headers': 'Content-Type, Authorization, X-Requested-With, Idempotency-Key, X-Razorpay-Signature, X-Razorpay-Event-Id',
+    'Access-Control-Allow-Headers': requestedHeaders.length
+      ? [...new Set(requestedHeaders)].map((header) => ({
+          'content-type': 'Content-Type',
+          authorization: 'Authorization',
+          'x-requested-with': 'X-Requested-With',
+          'idempotency-key': 'Idempotency-Key',
+          'x-razorpay-signature': 'X-Razorpay-Signature',
+          'x-razorpay-event-id': 'X-Razorpay-Event-Id',
+        }[header] || header)).join(', ')
+      : 'Content-Type, Authorization, X-Requested-With, Idempotency-Key, X-Razorpay-Signature, X-Razorpay-Event-Id',
     'Access-Control-Max-Age': '86400',
-    'Vary': 'Origin',
+    'Vary': 'Origin, Access-Control-Request-Headers',
   };
 
   if (restrictedEnvironment) {
