@@ -40,6 +40,15 @@ jobs:
         working-directory: apps/cloud-api
         run: npm ci
 
+      - name: Verify Cloud API Worker bundle
+        working-directory: apps/cloud-api
+        run: npm run check:bundle
+
+      # The current production D1 database must match the checked-in schema
+      # before deploying code that depends on it. This audit is read-only.
+      - name: Audit production D1 schema before deployment
+        run: node --experimental-sqlite scripts/audit-cloud-d1-schema.cjs
+
       - name: Deploy production Cloud API Worker
         working-directory: apps/cloud-api
         run: npx wrangler deploy
