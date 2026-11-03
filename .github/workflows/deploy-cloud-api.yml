@@ -1,0 +1,51 @@
+name: Deploy Cloudflare Cloud API Worker
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production_deploy:
+        description: Deploy the current main branch to the production Cloud API Worker
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: cloud-api-worker-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && inputs.confirm_production_deploy == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    env:
+      CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+      CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+          cache: npm
+          cache-dependency-path: apps/cloud-api/package-lock.json
+
+      - name: Install Cloud API dependencies
+        working-directory: apps/cloud-api
+        run: npm ci
+
+      - name: Deploy production Cloud API Worker
+        working-directory: apps/cloud-api
+        run: npx wrangler deploy
+
+      - name: Verify production CORS preflight
+        run: node scripts/assert-cloud-cors.cjs
+
+      - name: Verify production Cloud API readiness
+        run: node scripts/assert-cloud-ready.cjs
