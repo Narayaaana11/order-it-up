@@ -56,7 +56,7 @@ crons = ["17 3 * * *"]
 ENVIRONMENT = "staging"
 ALLOW_SELF_SERVICE_REGISTRATION = "false"
 REQUIRE_PROVIDER_VERIFIED_NONCASH = "true"
-FRONTEND_ORIGIN = "https://staging.orderitup.in"
+FRONTEND_ORIGIN = "https://staging.orderitup.in, https://orderitup.pages.dev"
 
 # Staging secrets must be configured independently.
 # Do not reuse production JWT or platform-admin secrets.
