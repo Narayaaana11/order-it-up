@@ -357,15 +357,19 @@ export function getDbHealth(): { ok: boolean; error?: string } {
 }
 
 export function getDbPath(): string {
-  if (process.env.FLO_E2E_DB_PATH) return path.resolve(process.env.FLO_E2E_DB_PATH);
   if (process.env.OIU_E2E_DB_PATH) return path.resolve(process.env.OIU_E2E_DB_PATH);
+  if (process.env.FLO_E2E_DB_PATH) return path.resolve(process.env.FLO_E2E_DB_PATH);
   const projectRoot = path.basename(path.dirname(__dirname)) === 'dist'
     ? path.resolve(__dirname, '../..')
     : path.resolve(__dirname, '..');
   const userDataPath = app.isPackaged ? app.getPath('userData') : projectRoot;
   const oiuDbPath = path.join(userDataPath, 'order-it-up.db');
   if (fs.existsSync(oiuDbPath)) return oiuDbPath;
-  return path.join(userDataPath, 'flo.db');
+  const oiuShortDbPath = path.join(userDataPath, 'oiu.db');
+  if (fs.existsSync(oiuShortDbPath)) return oiuShortDbPath;
+  const legacyFloPath = path.join(userDataPath, 'flo.db');
+  if (fs.existsSync(legacyFloPath)) return legacyFloPath;
+  return oiuShortDbPath;
 }
 
 function getBackupDir(): string {
@@ -376,7 +380,9 @@ function getBackupDir(): string {
 // Marker written on first startup to distinguish empty fresh install from missing db file.
 function getDbInitializedMarkerPath(): string {
   const userDataPath = app.getPath('userData');
-  return path.join(userDataPath, '.flo-db-initialized');
+  const legacyMarker = path.join(userDataPath, '.flo-db-initialized');
+  if (fs.existsSync(legacyMarker)) return legacyMarker;
+  return path.join(userDataPath, '.oiu-db-initialized');
 }
 
 type ReplacementJournal = {
@@ -539,7 +545,7 @@ function recoverInterruptedDatabaseReplacement(dbPath: string, backupDir: string
   let journals: string[] = [];
   try {
     journals = fs.readdirSync(backupDir)
-      .filter((name) => /^(?:flo-restore|flo-reset)-recovery-.+\.json$/.test(name))
+      .filter((name) => /^(?:oiu-restore|oiu-reset|flo-restore|flo-reset)-recovery-.+\.json$/.test(name))
       .map((name) => path.join(backupDir, name))
       .sort((a, b) => fs.lstatSync(b).mtimeMs - fs.lstatSync(a).mtimeMs);
   } catch (error) {
@@ -648,10 +654,14 @@ export function initDatabase(recoverInterruptedReplacement = true, allowDuringSh
   autoRepairPaymentDetails();
   autoRepairDefaultPrinter();
 
-  if (app.isPackaged && !process.env.FLO_E2E_DB_PATH) {
+  if (app.isPackaged && !process.env.FLO_E2E_DB_PATH && !process.env.OIU_E2E_DB_PATH) {
     const markerPath = getDbInitializedMarkerPath();
     try {
       fs.writeFileSync(markerPath, now());
+      const legacyMarker = path.join(app.getPath('userData'), '.flo-db-initialized');
+      if (markerPath !== legacyMarker) {
+        try { fs.writeFileSync(legacyMarker, now()); } catch {}
+      }
     } catch (err) {
       // Retry writing marker once on transient filesystem errors.
       try {
@@ -659,7 +669,7 @@ export function initDatabase(recoverInterruptedReplacement = true, allowDuringSh
       } catch (retryErr) {
         console.error('[DB] Failed to write init marker after retry:', retryErr);
         log.error(
-          '[DB] Failed to write .flo-db-initialized marker after retry — the #278 ' +
+          '[DB] Failed to write init marker after retry — the #278 ' +
           'missing-database guard will not protect this install until a future boot succeeds:',
           retryErr,
         );
@@ -950,7 +960,7 @@ export async function createBackupUnlocked(targetPath?: string, signal?: AbortSi
   }
 
   // Write to userData temp path first to support sandbox constraints, then copy to targetPath.
-  const tempPath = path.join(backupDir, `flo-backup-${timestamp}-${uniqueSuffix}.db`);
+  const tempPath = path.join(backupDir, `oiu-backup-${timestamp}-${uniqueSuffix}.db`);
   const finalPath = targetPath ? path.resolve(targetPath) : tempPath;
   const stagedTargetPath = finalPath !== tempPath
     ? path.join(path.dirname(finalPath), `.${path.basename(finalPath)}.tmp-${uniqueSuffix}`)
@@ -1074,7 +1084,7 @@ export async function resetDatabaseWithBackup(signal?: AbortSignal): Promise<{ b
     throwIfDatabaseMaintenanceAborted(maintenanceSignal);
     const dbPath = getDbPath();
     const baselineForeignKeyViolations = getForeignKeyViolationKeys(getDatabase());
-    const recoveryPath = path.join(getBackupDir(), `flo-reset-recovery-${crypto.randomBytes(8).toString('hex')}.db`);
+    const recoveryPath = path.join(getBackupDir(), `oiu-reset-recovery-${crypto.randomBytes(8).toString('hex')}.db`);
     const journalPath = recoveryPath.replace(/\.db$/, '.json');
     let replacementCompleted = false;
     let recoveryCompleted = false;
@@ -1809,7 +1819,7 @@ export function restoreBackup(backupPath: string, forceDirect: boolean = false, 
 
     console.log('[DB] restoreBackup: Direct restore (same schema version)');
     const dbPath = getDbPath();
-    const recoveryPath = path.join(getBackupDir(), `flo-restore-recovery-${crypto.randomBytes(8).toString('hex')}.db`);
+    const recoveryPath = path.join(getBackupDir(), `oiu-restore-recovery-${crypto.randomBytes(8).toString('hex')}.db`);
     const journalPath = recoveryPath.replace(/\.db$/, '.json');
 
     let recoveryCopyReady = false;
@@ -4349,7 +4359,7 @@ function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void
       fs.mkdirSync(backupDir, { recursive: true });
     }
     const timestamp = new Date().toISOString().replace(/[:.]/g, '-');
-    targetPath = path.join(backupDir, `flo-backup-${timestamp}-pre-v${fromVersion}-to-v${toVersion}.db`);
+    targetPath = path.join(backupDir, `oiu-backup-${timestamp}-pre-v${fromVersion}-to-v${toVersion}.db`);
 
     if (fs.existsSync(dbPath)) {
       db.pragma('wal_checkpoint(TRUNCATE)');

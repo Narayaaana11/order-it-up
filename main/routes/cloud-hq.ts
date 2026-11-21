@@ -1,6 +1,6 @@
 /**
  * Express routes for Order It Up Multi-Branch Cloud HQ local operations & simulation.
- * Connects directly to local SQLite database flo.db and provides live multi-branch endpoints.
+ * Connects directly to local SQLite database oiu.db (with legacy flo.db fallback) and provides live multi-branch endpoints.
  */
 
 import { Router, Request, Response } from 'express';

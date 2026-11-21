@@ -16,12 +16,16 @@ export default function DesktopDragSurface() {
 
   useEffect(() => {
     if (isElectron) {
+      document.documentElement.dataset.oiuDesktopTitlebar = 'true';
       document.documentElement.dataset.floDesktopTitlebar = 'true';
       if (window.electronAPI?.platform) {
+        document.documentElement.dataset.oiuPlatform = window.electronAPI.platform;
         document.documentElement.dataset.floPlatform = window.electronAPI.platform;
       }
     } else {
+      delete document.documentElement.dataset.oiuDesktopTitlebar;
       delete document.documentElement.dataset.floDesktopTitlebar;
+      delete document.documentElement.dataset.oiuPlatform;
       delete document.documentElement.dataset.floPlatform;
     }
   }, [isElectron]);
@@ -33,7 +37,7 @@ export default function DesktopDragSurface() {
       <div
         aria-hidden="true"
         data-testid="desktop-drag-surface"
-        className="flo-title-bar flo-title-bar--root-drag flex shrink-0"
+        className="oiu-title-bar flo-title-bar oiu-title-bar--root-drag flo-title-bar--root-drag flex shrink-0"
       />
       <WindowControls />
     </>

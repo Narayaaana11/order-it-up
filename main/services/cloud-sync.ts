@@ -622,6 +622,7 @@ export class CloudSyncService {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'X-OIU-POS-Hash': posHash,
           'X-Flo-POS-Hash': posHash,
         },
         body: JSON.stringify(body),
@@ -1959,10 +1960,15 @@ export class CloudSyncService {
     const signature = hmacHex(apiKey, signatureBase);
     return {
       'Authorization': `Bearer ${apiKey}`,
+      'X-OIU-POS-Hash': posHash,
       'X-Flo-POS-Hash': posHash,
+      'X-OIU-Timestamp': timestamp,
       'X-Flo-Timestamp': timestamp,
+      'X-OIU-Nonce': nonce,
       'X-Flo-Nonce': nonce,
+      'X-OIU-Body-SHA256': bodyHash,
       'X-Flo-Body-SHA256': bodyHash,
+      'X-OIU-Signature': `sha256=${signature}`,
       'X-Flo-Signature': `sha256=${signature}`,
     };
   }

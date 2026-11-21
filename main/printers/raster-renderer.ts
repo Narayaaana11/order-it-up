@@ -240,7 +240,9 @@ export class ChromiumRasterRenderer {
         sandbox: true,
       },
     });
+    this.ipc.on('oiu:raster-ready', this.onReady);
     this.ipc.on('flo:raster-ready', this.onReady);
+    this.ipc.on('oiu:raster-result', this.onResult);
     this.ipc.on('flo:raster-result', this.onResult);
     this.surface.on('closed', this.onSurfaceClosed);
     this.surface.webContents.on('did-fail-load', this.onLoadFailure);
@@ -269,7 +271,9 @@ export class ChromiumRasterRenderer {
       entry.resolve({ version: 1, requestId, ok: false, code: 'render-failed', detail });
     }
     this.pending.clear();
+    this.ipc.removeListener('oiu:raster-ready', this.onReady);
     this.ipc.removeListener('flo:raster-ready', this.onReady);
+    this.ipc.removeListener('oiu:raster-result', this.onResult);
     this.ipc.removeListener('flo:raster-result', this.onResult);
     this.surface.removeListener('closed', this.onSurfaceClosed);
     this.surface.webContents.removeListener('did-fail-load', this.onLoadFailure);
@@ -311,6 +315,7 @@ export class ChromiumRasterRenderer {
       }, this.timeoutMs);
       this.pending.set(request.requestId, { resolve, timer });
       try {
+        this.surface.webContents.send('oiu:raster-request', { version: 1, request });
         this.surface.webContents.send('flo:raster-request', { version: 1, request });
       } catch (error) {
         clearTimeout(timer);

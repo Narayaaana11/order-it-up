@@ -673,9 +673,9 @@ function createWindow(): void {
     if (localWindowResponse) return localWindowResponse;
 
     if (isSafeExternalUrl(url)) {
-      shell.openExternal(url).catch((err) => console.warn('[OTU] Failed to open external URL:', err?.message || err));
+      shell.openExternal(url).catch((err) => console.warn('[OIU] Failed to open external URL:', err?.message || err));
     } else {
-      console.warn('[OTU] Blocked unsafe external URL scheme:', url);
+      console.warn('[OIU] Blocked unsafe external URL scheme:', url);
     }
     return { action: 'deny' };
   });
@@ -986,13 +986,13 @@ function startMdns(): void {
       name: 'Order It Up',
       type: 'http',
       port: getServerPort(),
-      host: 'flo',   // resolves as flo.local on the LAN
+      host: 'oiu',   // resolves as oiu.local on the LAN
       txt: { version: app.getVersion(), kds: `/kds`, kds_port: String(getKdsPort()), server_app: '/server-standalone', server_app_port: String(getServerAppPort()) },
     });
     const ip = getLocalIP();
-    console.log(`[mDNS] Advertising flo.local:${getServerPort()}  (IP fallback: http://${ip}:${getServerPort()})`);
-    console.log(`[mDNS] KDS available at http://flo.local:${getKdsPort()}  (IP fallback: http://${ip}:${getKdsPort()})`);
-    console.log(`[mDNS] Server App available at http://flo.local:${getServerAppPort()}  (IP fallback: http://${ip}:${getServerAppPort()})`);
+    console.log(`[mDNS] Advertising oiu.local:${getServerPort()}  (IP fallback: http://${ip}:${getServerPort()})`);
+    console.log(`[mDNS] KDS available at http://oiu.local:${getKdsPort()}  (IP fallback: http://${ip}:${getKdsPort()})`);
+    console.log(`[mDNS] Server App available at http://oiu.local:${getServerAppPort()}  (IP fallback: http://${ip}:${getServerAppPort()})`);
   } catch (err) {
     console.warn('[mDNS] Could not start Bonjour:', err);
   }
@@ -1173,13 +1173,13 @@ async function initialize(): Promise<void> {
   log.info('[Lifecycle] Runtime is starting');
   try {
     if (isShutdownRequested()) return;
-    console.log('[OTU] Initializing...');
+    console.log('[OIU] Initializing...');
 
-    console.log('[OTU] Initializing database...');
+    console.log('[OIU] Initializing database...');
     initDatabase();
     if (isShutdownRequested()) return;
 
-    console.log('[OTU] Starting local server...');
+    console.log('[OIU] Starting local server...');
     await startServer();
     if (isShutdownRequested()) return;
 
@@ -1189,29 +1189,29 @@ async function initialize(): Promise<void> {
     void mongoSyncService.initFromSettings();
     amazonS3Service.initFromSettings();
 
-    console.log('[OTU] Starting KDS server on port 3002...');
+    console.log('[OIU] Starting KDS server on port 3002...');
     await startKdsServer();
     if (isShutdownRequested()) return;
 
-    console.log('[OTU] Starting Server App on port 3003...');
+    console.log('[OIU] Starting Server App on port 3003...');
     await startServerApp();
     if (isShutdownRequested()) return;
 
-    console.log('[OTU] Initializing WhatsApp service...');
+    console.log('[OIU] Initializing WhatsApp service...');
     initWhatsAppFromDb();
 
     // Native E2E owns an offline fixture; optional LAN discovery must not
     // contend with a developer session or keep the test process alive.
     if (process.env.FLO_E2E_SKIP_OPTIONAL_NETWORK !== '1') {
-      console.log('[OTU] Starting mDNS advertisement...');
+      console.log('[OIU] Starting mDNS advertisement...');
       startMdns();
     }
 
-    console.log('[OTU] Initializing printer...');
+    console.log('[OIU] Initializing printer...');
     await initPrinter();
     if (isShutdownRequested()) return;
 
-    console.log('[OTU] Registering IPC handlers...');
+    console.log('[OIU] Registering IPC handlers...');
     registerIpcHandlers(shutdownSignal, () => mainWindow, showMainWindow, () => currentEffectiveIsDark);
 
     ipcMain.handle('get-update-status', () =>
@@ -1307,7 +1307,7 @@ async function initialize(): Promise<void> {
       }
       return { success: true };
     });
-    console.log('[OTU] Creating window...');
+    console.log('[OIU] Creating window...');
     createWindow();
     registerPowerMonitorRecovery();
     registerChildProcessCrashTelemetry();
@@ -1327,11 +1327,11 @@ async function initialize(): Promise<void> {
       setTimeout(() => { void checkTaxPackUpdatesOnStartup(); }, 5000);
     }
 
-    console.log('[OTU] Ready!');
+    console.log('[OIU] Ready!');
   } catch (error) {
     runtimeState = 'failed';
     log.error('[Lifecycle] Runtime initialization failed:', error);
-    console.error('[OTU] Initialization error:', error);
+    console.error('[OIU] Initialization error:', error);
     const errorDetails = error as { code?: unknown; name?: unknown } | null;
     const expectedShutdownCancellation = errorDetails?.code === 'ERR_SHUTDOWN_ABORTED'
       || errorDetails?.code === 'ABORT_ERR'
@@ -1341,7 +1341,7 @@ async function initialize(): Promise<void> {
       try {
         await runCleanup();
       } catch (cleanupError) {
-        console.error('[OTU] Cleanup after interrupted initialization failed:', cleanupError);
+        console.error('[OIU] Cleanup after interrupted initialization failed:', cleanupError);
       }
       return;
     }
@@ -1358,14 +1358,14 @@ async function initialize(): Promise<void> {
       }
       await sendTelemetryEvent('startup_failed', payload);
     } catch (telemetryError) {
-      console.error('[OTU] Failed to report startup error via telemetry:', telemetryError);
+      console.error('[OIU] Failed to report startup error via telemetry:', telemetryError);
     }
 
     isQuitting = true;
     try {
       await runCleanup();
     } catch (cleanupError) {
-      console.error('[OTU] Cleanup after initialization failure failed:', cleanupError);
+      console.error('[OIU] Cleanup after initialization failure failed:', cleanupError);
     }
     // Cleanup has settled (or reported its bounded failure) before exiting.
     app.exit(1);
@@ -1450,14 +1450,14 @@ const { runCleanup, isShutdownRequested, shutdownSignal } = createShutdownEntryp
   process: process as unknown as ShutdownEntrypointProcess,
   cleanup: async () => {
     log.info('[Lifecycle] Cleanup started');
-    console.log('[OTU] Running cleanup...');
+    console.log('[OIU] Running cleanup...');
     try {
       await cleanupCoordinator();
       log.info('[Lifecycle] Cleanup completed');
-      console.log('[OTU] Goodbye!');
+      console.log('[OIU] Goodbye!');
     } catch (error) {
       log.error('[Lifecycle] Cleanup failed:', error);
-      console.error('[OTU] Cleanup failed:', error);
+      console.error('[OIU] Cleanup failed:', error);
       throw error;
     }
   },
@@ -1471,15 +1471,15 @@ const { runCleanup, isShutdownRequested, shutdownSignal } = createShutdownEntryp
   },
   isInstallingUpdate: () => isInstallingUpdate,
   reportFailure: (context, error) => {
-    console.error(`[OTU] Cleanup failed before ${context}:`, error);
+    console.error(`[OIU] Cleanup failed before ${context}:`, error);
   },
   getSignalExitCode: () => startupFailure ? 1 : 0,
   getQuitExitCode: () => startupFailure ? 1 : 0,
 });
 
 process.on('uncaughtException', (error) => {
-  log.error('[OTU] Uncaught exception:', error);
-  console.error('[OTU] Uncaught exception:', error);
+  log.error('[OIU] Uncaught exception:', error);
+  console.error('[OIU] Uncaught exception:', error);
   void sendTelemetryEvent('main_uncaught_exception', {
     message: error?.message?.slice(0, 500),
     stack: error?.stack?.slice(0, 4000),
@@ -1487,8 +1487,8 @@ process.on('uncaughtException', (error) => {
 });
 
 process.on('unhandledRejection', (reason) => {
-  log.error('[OTU] Unhandled rejection:', reason);
-  console.error('[OTU] Unhandled rejection:', reason);
+  log.error('[OIU] Unhandled rejection:', reason);
+  console.error('[OIU] Unhandled rejection:', reason);
   const message = reason instanceof Error ? reason.message : String(reason);
   const stack = reason instanceof Error ? reason.stack : undefined;
   void sendTelemetryEvent('main_unhandled_rejection', {

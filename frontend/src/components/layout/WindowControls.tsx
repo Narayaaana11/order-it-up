@@ -72,10 +72,10 @@ export default function WindowControls() {
   if (!isElectron || resolved?.mode !== 'html-fallback' || window.electronAPI?.platform === 'darwin') return null;
 
   return (
-    <div className="flo-title-bar__fallback-controls" role="group" aria-label={tCommon('windowControls')}>
+    <div className="oiu-title-bar__fallback-controls flo-title-bar__fallback-controls" role="group" aria-label={tCommon('windowControls')}>
       <button
         type="button"
-        className="flo-title-bar__fallback-button"
+        className="oiu-title-bar__fallback-button flo-title-bar__fallback-button"
         aria-label={tCommon('minimize')}
         onClick={() => runWindowAction('minimize')}
       >
@@ -83,7 +83,7 @@ export default function WindowControls() {
       </button>
       <button
         type="button"
-        className="flo-title-bar__fallback-button"
+        className="oiu-title-bar__fallback-button flo-title-bar__fallback-button"
         aria-label={tCommon('maximize')}
         onClick={() => runWindowAction('toggle-maximize')}
       >
@@ -91,7 +91,7 @@ export default function WindowControls() {
       </button>
       <button
         type="button"
-        className="flo-title-bar__fallback-button flo-title-bar__fallback-button--close"
+        className="oiu-title-bar__fallback-button flo-title-bar__fallback-button oiu-title-bar__fallback-button--close flo-title-bar__fallback-button--close"
         aria-label={tCommon('close')}
         onClick={() => runWindowAction('close')}
       >

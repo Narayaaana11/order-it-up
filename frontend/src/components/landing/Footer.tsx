@@ -95,7 +95,7 @@ export default function Footer() {
             <ul className="space-y-2.5">
               <li>
                 <a href="#architecture" className="hover:text-orange-600 transition-colors">
-                  SQLite WAL (`flo.db`)
+                  SQLite WAL (`oiu.db`)
                 </a>
               </li>
               <li>

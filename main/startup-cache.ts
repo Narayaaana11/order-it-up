@@ -46,7 +46,7 @@ export function clearStaleRenderCachesOnVersionChange(
         fsOps.rmSync(path.join(userDataPath, dir), { recursive: true, force: true });
       } catch (err) {
         allCleared = false;
-        logger.warn(`[OTU] Failed to clear stale cache dir "${dir}":`, (err as Error).message);
+        logger.warn(`[OIU] Failed to clear stale cache dir "${dir}":`, (err as Error).message);
       }
     }
 
@@ -57,7 +57,7 @@ export function clearStaleRenderCachesOnVersionChange(
     }
 
     logger.debug(
-      `[OTU] Electron version marker ${previousVersion ?? '(none)'} -> ${currentElectronVersion}; cleared render caches to avoid a stale-cache crash loop.`,
+      `[OIU] Electron version marker ${previousVersion ?? '(none)'} -> ${currentElectronVersion}; cleared render caches to avoid a stale-cache crash loop.`,
     );
   }
 
@@ -65,6 +65,6 @@ export function clearStaleRenderCachesOnVersionChange(
     fsOps.mkdirSync(userDataPath, { recursive: true });
     fsOps.writeFileSync(versionFile, currentElectronVersion, 'utf8');
   } catch (err) {
-    logger.warn('[OTU] Failed to write Electron version marker:', (err as Error).message);
+    logger.warn('[OIU] Failed to write Electron version marker:', (err as Error).message);
   }
 }

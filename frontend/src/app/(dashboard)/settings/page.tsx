@@ -48,7 +48,7 @@ const SELECTABLE_LANGUAGES: Language[] = (Object.keys(LANGUAGES) as Language[]).
   (lang) => LANGUAGES[lang].selectable,
 );
 
-const CLOUD_ACCOUNT_STATUS_CHANGED_EVENT = 'flo:cloud-account-status-changed';
+const CLOUD_ACCOUNT_STATUS_CHANGED_EVENT = 'oiu:cloud-account-status-changed';
 
 function notifyCloudAccountStatusChanged(): void {
   if (typeof window !== 'undefined') window.dispatchEvent(new Event(CLOUD_ACCOUNT_STATUS_CHANGED_EVENT));

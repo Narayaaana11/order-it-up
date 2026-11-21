@@ -256,8 +256,8 @@ function Sidebar({
         style={{
           // Under Electron, sidebar starts below custom title bar;
           // browsers and LAN clients resolve to viewport top.
-          insetBlockStart: 'var(--flo-sidebar-block-start, 0px)',
-          blockSize: 'calc(100svh - var(--flo-sidebar-block-start, 0px))',
+          insetBlockStart: 'var(--oiu-sidebar-block-start, var(--flo-sidebar-block-start, 0px))',
+          blockSize: 'calc(100svh - var(--oiu-sidebar-block-start, var(--flo-sidebar-block-start, 0px)))',
         }}
         className={cn(
           "fixed bottom-0 z-10 hidden w-(--sidebar-width) transition-[inset-inline-start,inset-inline-end,width] duration-200 ease-linear group-data-[resizing=true]/sidebar-wrapper:transition-none md:flex",

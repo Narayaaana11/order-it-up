@@ -176,9 +176,11 @@ export default function AppSidebar() {
       }
     };
     void refreshCloudAttention();
+    window.addEventListener('oiu:cloud-account-status-changed', refreshCloudAttention);
     window.addEventListener('flo:cloud-account-status-changed', refreshCloudAttention);
     return () => {
       active = false;
+      window.removeEventListener('oiu:cloud-account-status-changed', refreshCloudAttention);
       window.removeEventListener('flo:cloud-account-status-changed', refreshCloudAttention);
     };
   }, [role]);

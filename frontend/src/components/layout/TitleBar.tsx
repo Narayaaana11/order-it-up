@@ -26,29 +26,38 @@ export default function TitleBar() {
 
   useEffect(() => {
     if (isElectron) {
+      document.documentElement.dataset.oiuDesktopTitlebar = 'true';
       document.documentElement.dataset.floDesktopTitlebar = 'true';
       if (window.electronAPI?.platform) {
+        document.documentElement.dataset.oiuPlatform = window.electronAPI.platform;
         document.documentElement.dataset.floPlatform = window.electronAPI.platform;
       }
     } else {
+      delete document.documentElement.dataset.oiuDesktopTitlebar;
       delete document.documentElement.dataset.floDesktopTitlebar;
+      delete document.documentElement.dataset.oiuPlatform;
       delete document.documentElement.dataset.floPlatform;
     }
   }, [isElectron]);
 
   useEffect(() => {
     const handleFocus = () => {
+      document.documentElement.dataset.oiuWindowFocused = 'true';
       document.documentElement.dataset.floWindowFocused = 'true';
     };
     const handleBlur = () => {
+      document.documentElement.dataset.oiuWindowFocused = 'false';
       document.documentElement.dataset.floWindowFocused = 'false';
     };
-    document.documentElement.dataset.floWindowFocused = typeof document !== 'undefined' && document.hasFocus() ? 'true' : 'false';
+    const focused = typeof document !== 'undefined' && document.hasFocus() ? 'true' : 'false';
+    document.documentElement.dataset.oiuWindowFocused = focused;
+    document.documentElement.dataset.floWindowFocused = focused;
     window.addEventListener('focus', handleFocus);
     window.addEventListener('blur', handleBlur);
     return () => {
       window.removeEventListener('focus', handleFocus);
       window.removeEventListener('blur', handleBlur);
+      delete document.documentElement.dataset.oiuWindowFocused;
       delete document.documentElement.dataset.floWindowFocused;
     };
   }, []);
@@ -77,12 +86,12 @@ export default function TitleBar() {
   return (
     <header
       data-testid="desktop-title-bar"
-      className="flo-title-bar shrink-0 flex z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
+      className="oiu-title-bar flo-title-bar shrink-0 flex z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60"
       aria-label={businessName}
     >
-      <div className="flo-title-bar__safe-area pointer-events-none flex w-full items-center justify-between">
+      <div className="oiu-title-bar__safe-area flo-title-bar__safe-area pointer-events-none flex w-full items-center justify-between">
         {/* Leading edge: Sidebar toggle button (placed after traffic lights on macOS, top-left on Windows/Linux) */}
-        <div className="flo-title-bar__interactive pointer-events-auto flex items-center translate-y-[1.5px]">
+        <div className="oiu-title-bar__interactive flo-title-bar__interactive pointer-events-auto flex items-center translate-y-[1.5px]">
           <SidebarTrigger
             aria-label={tNav('toggleSidebar')}
             className="size-7 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent/60 transition-colors hidden md:flex"
@@ -90,7 +99,7 @@ export default function TitleBar() {
         </div>
 
         {/* Trailing edge: Sync Indicator & Update badge */}
-        <div className="flo-title-bar__interactive pointer-events-auto ms-auto flex items-center gap-2">
+        <div className="oiu-title-bar__interactive flo-title-bar__interactive pointer-events-auto ms-auto flex items-center gap-2">
           <SyncIndicator />
           <UpdateBadge />
         </div>

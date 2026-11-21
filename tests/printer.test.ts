@@ -269,7 +269,7 @@ const fixtureBill = {
 };
 
 const fixtureBusiness = {
-  name: 'OTU Test Cafe',
+  name: 'OIU Test Cafe',
   address: '42 MG Road, Bengaluru 560001',
   phone: '+91 98765 43210',
   taxRegistrationNumber: 'TAXID-0001',
@@ -714,7 +714,7 @@ console.log('\n✅ Test 2: Compact receipt (80mm, 48 cols)');
   const buf = formatReceipt(fixtureOrder, fixtureBill, fixtureBusiness, 'compact', 48, true);
   const text = buf.toString('utf8');
 
-  assert('renders business name', text.includes('OTU Test Cafe'));
+  assert('renders business name', text.includes('OIU Test Cafe'));
   assert('renders bill number', text.includes('INV-20260421-0001'));
   assert('renders Cheeseburger row', text.includes('Cheeseburger'));
   assert('renders addon "Extra Cheese"', text.includes('Extra Cheese'));
@@ -748,7 +748,7 @@ console.log('\n✅ Test 3: Compact receipt on 58mm paper (32 cols)');
   const buf = formatReceipt(fixtureOrder, fixtureBill, fixtureBusiness, 'compact', 32, true);
   const text = buf.toString('utf8');
 
-  assert('still renders business name', text.includes('OTU Test Cafe'));
+  assert('still renders business name', text.includes('OIU Test Cafe'));
   assert('still renders TOTAL', text.includes('TOTAL'));
 
   const textLines = visiblePreview(buf, 32).split('\n').slice(1, -1);
@@ -811,7 +811,7 @@ console.log('\n✅ Test 4: Classic receipt template');
   const buf = formatReceipt(fixtureOrder, fixtureBill, fixtureBusiness, 'classic', 48, true);
   const text = buf.toString('utf8');
 
-  assert('renders business name', text.includes('OTU Test Cafe'));
+  assert('renders business name', text.includes('OIU Test Cafe'));
   assert('renders item and total', text.includes('Cheeseburger') && text.includes('₹950.00'));
   assert('renders non-configurable Order It Up footer', text.includes('Powered by Order It Up'));
   assert('ends with cut', bytesContain(buf, [GS, 0x56, 0x00]));
@@ -918,7 +918,7 @@ console.log('\n✅ Test 5d: Bill content toggles are optional and never block pr
     const hidden = formatReceipt(fixtureOrder, fixtureBill, hiddenBusiness, template, 48, true);
     const text = hidden.toString('utf8');
     assert(`${template}: hidden optional fields stay hidden`,
-      !text.includes('OTU Test Cafe')
+      !text.includes('OIU Test Cafe')
       && !text.includes('42 MG Road')
       && !text.includes('+91 98765')
       && !text.includes('TAXID-0001')
@@ -1030,7 +1030,7 @@ console.log('\n✅ Test 11: IR country thermal receipt financial-line preservati
   assert('real production IR setup produces ریال currency symbol', realIrCurrencySymbol === 'ریال');
 
   const irBusiness = {
-    name: 'OTU Cafe Tehran',
+    name: 'OIU Cafe Tehran',
     country: 'IR',
     currency: 'IRR',
     currency_symbol: realIrCurrencySymbol,
@@ -1152,7 +1152,7 @@ console.log('\n✅ Test 11: IR country thermal receipt financial-line preservati
   const { generateBillHtml } = frontendModules.webPrint;
 
   const frontendTenant = {
-    business_name: 'OTU Cafe Tehran',
+    business_name: 'OIU Cafe Tehran',
     country: 'IR',
     currency: 'IRR',
   };

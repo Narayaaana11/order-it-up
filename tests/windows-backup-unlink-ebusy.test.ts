@@ -96,7 +96,7 @@ async function runTests() {
 
       fs.unlinkSync = function (targetFile: fs.PathLike) {
         const filePath = String(targetFile);
-        if (filePath.includes('flo-backup-') && !filePath.includes('custom-backup-ebusy.db') && !filePath.endsWith('.tmp')) {
+        if ((filePath.includes('flo-backup-') || filePath.includes('oiu-backup-')) && !filePath.includes('custom-backup-ebusy.db') && !filePath.endsWith('.tmp')) {
           unlinkAttempted = true;
           const err: any = new Error('resource busy or locked');
           err.code = 'EBUSY';
@@ -136,7 +136,7 @@ async function runTests() {
 
       fs.unlinkSync = function (targetFile: fs.PathLike) {
         const filePath = String(targetFile);
-        if (filePath.includes('flo-backup-') && !filePath.includes('custom-backup-eperm.db') && !filePath.endsWith('.tmp')) {
+        if ((filePath.includes('flo-backup-') || filePath.includes('oiu-backup-')) && !filePath.includes('custom-backup-eperm.db') && !filePath.endsWith('.tmp')) {
           unlinkAttempted = true;
           const err: any = new Error('operation not permitted');
           err.code = 'EPERM';
@@ -162,10 +162,12 @@ async function runTests() {
     {
       setPlatform('darwin');
       const customTarget = path.join(testDir, 'custom-backup-darwin-ebusy.db');
+      const originalFsyncSync = fs.fsyncSync;
+      fs.fsyncSync = () => {};
 
       fs.unlinkSync = function (targetFile: fs.PathLike) {
         const filePath = String(targetFile);
-        if (filePath.includes('flo-backup-') && !filePath.includes('custom-backup-darwin-ebusy.db') && !filePath.endsWith('.tmp')) {
+        if ((filePath.includes('flo-backup-') || filePath.includes('oiu-backup-')) && !filePath.includes('custom-backup-darwin-ebusy.db') && !filePath.endsWith('.tmp')) {
           const err: any = new Error('resource busy or locked');
           err.code = 'EBUSY';
           throw err;
@@ -179,6 +181,8 @@ async function runTests() {
       } catch (err: any) {
         threw = true;
         check(err?.code === 'EBUSY', `re-threw EBUSY on non-Windows platform (got code: ${err?.code})`);
+      } finally {
+        fs.fsyncSync = originalFsyncSync;
       }
       check(threw, 'createBackup threw on non-Windows platform when tempPath unlink failed');
     }
@@ -191,7 +195,7 @@ async function runTests() {
 
       fs.unlinkSync = function (targetFile: fs.PathLike) {
         const filePath = String(targetFile);
-        if (filePath.includes('flo-backup-') && !filePath.includes('custom-backup-win-eio.db') && !filePath.endsWith('.tmp')) {
+        if ((filePath.includes('flo-backup-') || filePath.includes('oiu-backup-')) && !filePath.includes('custom-backup-win-eio.db') && !filePath.endsWith('.tmp')) {
           const err: any = new Error('I/O error');
           err.code = 'EIO';
           throw err;
@@ -215,7 +219,7 @@ async function runTests() {
       setPlatform('win32');
       fs.unlinkSync = function (targetFile: fs.PathLike) {
         const filePath = String(targetFile);
-        if (filePath.includes('flo-backup-') && !filePath.endsWith('.tmp')) {
+        if ((filePath.includes('flo-backup-') || filePath.includes('oiu-backup-')) && !filePath.endsWith('.tmp')) {
           const err: any = new Error('resource busy or locked');
           err.code = 'EBUSY';
           throw err;

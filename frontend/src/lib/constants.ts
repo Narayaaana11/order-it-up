@@ -100,7 +100,7 @@ export const ARCHITECTURE_LAYERS = [
   {
     level: "Local Counter Hardware",
     port: "Port 3001 (Internal)",
-    tech: "Electron 34 + Node.js 22 + SQLite WAL (`flo.db`)",
+    tech: "Electron 34 + Node.js 22 + SQLite WAL (`oiu.db`)",
     description: "Sub-10ms transactional engine running completely offline on your counter terminal.",
     status: "Active Authority",
   },

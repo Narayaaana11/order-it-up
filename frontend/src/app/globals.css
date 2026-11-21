@@ -41,10 +41,13 @@
   --sidebar-ring: #F07928;
 
   /* Hoisted to :root so fixed app chrome can offset below the title bar;
-   * consumed by both .flo-title-bar and the sidebar inset rules below. */
-  --flo-titlebar-height: 40px;
-  --flo-titlebar-fallback-controls-width: 132px;
-  --flo-sidebar-block-start: 0px;
+   * consumed by both .oiu-title-bar/.flo-title-bar and the sidebar inset rules below. */
+  --oiu-titlebar-height: 40px;
+  --flo-titlebar-height: var(--oiu-titlebar-height);
+  --oiu-titlebar-fallback-controls-width: 132px;
+  --flo-titlebar-fallback-controls-width: var(--oiu-titlebar-fallback-controls-width);
+  --oiu-sidebar-block-start: 0px;
+  --flo-sidebar-block-start: var(--oiu-sidebar-block-start);
 }
 
 body {
@@ -65,10 +68,11 @@ body {
  * The safe-area env values exclude native buttons and update on geometrychange;
  * physical positioning is intentional for WCO's physical x/width values while
  * content spacing and flow use logical properties for RTL locales. */
+.oiu-title-bar,
 .flo-title-bar {
   position: relative;
-  block-size: var(--flo-titlebar-height);
-  min-block-size: var(--flo-titlebar-height);
+  block-size: var(--oiu-titlebar-height);
+  min-block-size: var(--oiu-titlebar-height);
   align-items: center;
   overflow: hidden;
   border-block-end: 1px solid var(--border);
@@ -79,16 +83,18 @@ body {
   transition: opacity 150ms ease;
 }
 
+html[data-oiu-window-focused='false'] .oiu-title-bar,
 html[data-flo-window-focused='false'] .flo-title-bar {
   opacity: 0.6;
 }
 
+.oiu-title-bar__safe-area,
 .flo-title-bar__safe-area {
   position: absolute;
   inset-block-start: env(titlebar-area-y, 0px);
   left: env(titlebar-area-x, 0px);
   inline-size: env(titlebar-area-width, 100%);
-  block-size: env(titlebar-area-height, var(--flo-titlebar-height));
+  block-size: env(titlebar-area-height, var(--oiu-titlebar-height));
   max-inline-size: 100%;
   box-sizing: border-box;
   display: flex;
@@ -100,6 +106,7 @@ html[data-flo-window-focused='false'] .flo-title-bar {
 /* macOS uses native traffic lights on the top-left (occupying ~68px).
  * Traffic lights stay physically on the left even in RTL locales.
  * Safe area spans full width with 96px left padding (leaving 28px gap after green light) and 0.75rem right padding. */
+html[data-oiu-platform='darwin'] .oiu-title-bar__safe-area,
 html[data-flo-platform='darwin'] .flo-title-bar__safe-area {
   left: 0;
   right: 0;
@@ -108,14 +115,21 @@ html[data-flo-platform='darwin'] .flo-title-bar__safe-area {
   padding-right: 0.75rem;
 }
 
+body:has(.oiu-title-bar__fallback-controls) .oiu-title-bar__safe-area,
 body:has(.flo-title-bar__fallback-controls) .flo-title-bar__safe-area {
   left: auto;
   right: auto;
   inset-inline-start: 0;
-  inset-inline-end: var(--flo-titlebar-fallback-controls-width);
+  inset-inline-end: var(--oiu-titlebar-fallback-controls-width);
   inline-size: auto;
 }
 
+.oiu-title-bar__interactive,
+.oiu-title-bar button,
+.oiu-title-bar a,
+.oiu-title-bar [role='button'],
+.oiu-title-bar__fallback-controls,
+.oiu-title-bar__fallback-controls button,
 .flo-title-bar__interactive,
 .flo-title-bar button,
 .flo-title-bar a,
@@ -130,16 +144,18 @@ body:has(.flo-title-bar__fallback-controls) .flo-title-bar__safe-area {
  * overlay is unavailable ('html-fallback'). Logical properties keep them on
  * the trailing edge for RTL locales; sizes echo standard caption-button hit
  * targets while staying consistent with the 40px bar height. */
+.oiu-title-bar__fallback-controls,
 .flo-title-bar__fallback-controls {
   position: fixed;
   inset-block-start: 0;
   inset-inline-end: 0;
-  block-size: var(--flo-titlebar-height);
+  block-size: var(--oiu-titlebar-height);
   display: flex;
   align-items: stretch;
   z-index: 30;
 }
 
+.oiu-title-bar__fallback-button,
 .flo-title-bar__fallback-button {
   display: flex;
   align-items: center;
@@ -151,16 +167,19 @@ body:has(.flo-title-bar__fallback-controls) .flo-title-bar__safe-area {
   color: var(--muted-foreground);
 }
 
+.oiu-title-bar__fallback-button:hover,
 .flo-title-bar__fallback-button:hover {
   background: var(--accent);
   color: var(--accent-foreground);
 }
 
+.oiu-title-bar__fallback-button--close:hover,
 .flo-title-bar__fallback-button--close:hover {
   background: #e81123;
   color: #ffffff;
 }
 
+.oiu-title-bar--root-drag,
 .flo-title-bar--root-drag {
   position: fixed;
   inset-block-start: 0;
@@ -175,15 +194,18 @@ body:has(.flo-title-bar__fallback-controls) .flo-title-bar__safe-area {
 }
 
 /* Under Electron the fixed app sidebar must start below the custom title bar
- * instead of sliding beneath it. data-flo-desktop-titlebar is set on <html>
+ * instead of sliding beneath it. data-oiu-desktop-titlebar / data-flo-desktop-titlebar is set on <html>
  * only when window.electronAPI exists (TitleBar.tsx), so browser/LAN keeps
- * the viewport-top geometry (--flo-sidebar-block-start stays 0px). Block-axis
+ * the viewport-top geometry (--oiu-sidebar-block-start stays 0px). Block-axis
  * logical properties are direction-independent, keeping RTL correct. */
+html[data-oiu-desktop-titlebar='true'],
 html[data-flo-desktop-titlebar='true'] {
-  --flo-sidebar-block-start: var(--flo-titlebar-height);
+  --oiu-sidebar-block-start: var(--oiu-titlebar-height);
+  --flo-sidebar-block-start: var(--oiu-titlebar-height);
 }
 
 /* Modern minimalist toast styling (Linear / Sonner aesthetic) */
+.oiu-toast-card,
 .flo-toast-card {
   position: relative !important;
   overflow: hidden !important;
@@ -205,6 +227,7 @@ html[data-flo-desktop-titlebar='true'] {
   max-width: 380px !important;
 }
 
+.dark .oiu-toast-card,
 .dark .flo-toast-card {
   background: rgba(24, 24, 27, 0.94) !important;
   border-color: rgba(255, 255, 255, 0.12) !important;
@@ -213,6 +236,15 @@ html[data-flo-desktop-titlebar='true'] {
 
 /* Toast time-drain progress bar: visual indicator running out linearly from 100% to 0%.
  * Pauses on hover in sync with react-hot-toast's dismiss timer. */
+@keyframes oiu-toast-drain {
+  from {
+    transform: scaleX(1);
+  }
+  to {
+    transform: scaleX(0);
+  }
+}
+
 @keyframes flo-toast-drain {
   from {
     transform: scaleX(1);
@@ -222,6 +254,7 @@ html[data-flo-desktop-titlebar='true'] {
   }
 }
 
+.oiu-toast-drain,
 .flo-toast-drain {
   position: absolute;
   inset-block-end: 0;
@@ -230,30 +263,37 @@ html[data-flo-desktop-titlebar='true'] {
   block-size: 2.5px;
   background-color: var(--sidebar-primary, #F07928);
   transform-origin: left center;
-  animation-name: flo-toast-drain;
+  animation-name: oiu-toast-drain;
   animation-timing-function: linear;
   animation-fill-mode: forwards;
   pointer-events: none;
 }
 
+html[dir='rtl'] .oiu-toast-drain,
 html[dir='rtl'] .flo-toast-drain {
   transform-origin: right center;
 }
 
+.oiu-toast-card:hover .oiu-toast-drain,
 .flo-toast-card:hover .flo-toast-drain,
+div:hover > .oiu-toast-drain,
 div:hover > .flo-toast-drain,
+[data-rht-toaster]:hover .oiu-toast-drain,
 [data-rht-toaster]:hover .flo-toast-drain {
   animation-play-state: paused;
 }
 
+.oiu-toast-drain--success,
 .flo-toast-drain--success {
   background-color: #10b981;
 }
 
+.oiu-toast-drain--error,
 .flo-toast-drain--error {
   background-color: #f43f5e;
 }
 
+.oiu-toast-drain--blank,
 .flo-toast-drain--blank {
   background-color: var(--sidebar-primary, #F07928);
 }

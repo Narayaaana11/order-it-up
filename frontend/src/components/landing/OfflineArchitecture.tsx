@@ -106,7 +106,7 @@ export default function OfflineArchitecture() {
 
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200">
                   <span className="text-slate-500 font-medium">Database Engine</span>
-                  <span className="text-slate-800 font-semibold">SQLite WAL (flo.db)</span>
+                  <span className="text-slate-800 font-semibold">SQLite WAL (oiu.db)</span>
                 </div>
 
                 <div className="flex items-center justify-between p-2.5 rounded-lg bg-slate-50 border border-slate-200">

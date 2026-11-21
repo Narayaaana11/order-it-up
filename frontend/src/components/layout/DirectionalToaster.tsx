@@ -16,10 +16,10 @@ export function DirectionalToaster() {
       key={rtl ? 'rtl' : 'ltr'}
       position={rtl ? 'top-left' : 'top-right'}
       containerStyle={{
-        top: 'calc(var(--flo-sidebar-block-start, 0px) + 16px)',
+        top: 'calc(var(--oiu-sidebar-block-start, var(--flo-sidebar-block-start, 0px)) + 16px)',
       }}
       toastOptions={{
-        className: 'flo-toast-card',
+        className: 'oiu-toast-card flo-toast-card',
         duration: 4000,
         success: {
           duration: 2500,
@@ -41,7 +41,7 @@ export function DirectionalToaster() {
               {t.type !== 'loading' && t.duration !== Infinity && (
                 <span
                   aria-hidden="true"
-                  className={`flo-toast-drain flo-toast-drain--${t.type}`}
+                  className={`oiu-toast-drain flo-toast-drain oiu-toast-drain--${t.type} flo-toast-drain--${t.type}`}
                   style={{
                     animationDuration: `${t.duration || (t.type === 'success' ? 2000 : 4000)}ms`,
                   }}

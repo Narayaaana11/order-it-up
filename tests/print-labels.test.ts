@@ -201,7 +201,7 @@ function run(): void {
     assert('en test page title unchanged', text80.includes('Order It Up Printer Test'));
     assert('en test page reports columns', text80.includes('Columns: 48'));
     const esText = buildTestPage('80mm', 'full', 'es').toString('utf8');
-    assert('es test page title translated', esText.includes('Prueba de impresora OTU'));
+    assert('es test page title translated', esText.includes('Prueba de impresora OIU'));
     assert('es test page columns label translated', esText.includes('Columnas: 48'));
     assert('technical ruler literal stays verbatim', /[1234567890]/.test(esText));
   }

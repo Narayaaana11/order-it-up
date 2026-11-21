@@ -160,7 +160,7 @@ export default function Hero() {
                 <div className="w-3 h-3 rounded-full bg-[#f59e0b]" />
                 <div className="w-3 h-3 rounded-full bg-[#10b981]" />
                 <span className="ml-3 text-xs font-mono text-slate-600 hidden sm:inline">
-                  Order It Up POS Desktop — v1.2.0 • SQLite Connected (flo.db)
+                  Order It Up POS Desktop — v1.2.0 • SQLite Connected (oiu.db)
                 </span>
               </div>
               <div className="flex items-center gap-2 text-xs font-mono">
