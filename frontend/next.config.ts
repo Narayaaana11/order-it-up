@@ -8,6 +8,10 @@ import path from "node:path";
 const isExport = process.env.NEXT_BUILD_MODE === "desktop" || process.env.NEXT_BUILD_MODE === "web" || process.env.NEXT_BUILD_MODE === "export";
 
 const nextConfig: NextConfig = {
+  experimental: {
+    agentUpgrade: "security",
+  },
+
   // Static export: required for Electron and Cloudflare Pages static hosting
   output: isExport ? "export" : undefined,
 
