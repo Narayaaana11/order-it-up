@@ -6,6 +6,7 @@ import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { checkPinRateLimit } from './orders';
 import { createRefund, getTenantCurrency, RefundRequest } from '../services/refund';
 import { getCurrencyFractionDigits, getCurrencyMinorUnitFactor } from '../countries';
+import { cloudSync } from '../services/cloud-sync';
 
 const router = Router();
 const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
@@ -97,6 +98,10 @@ router.post('/', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: R
     };
 
     const result = withTxn(() => createRefund(db, refundRequest));
+    const bill = db.prepare('SELECT order_id FROM bills WHERE id = ?').get(billId) as { order_id?: number } | undefined;
+    if (bill?.order_id) {
+      cloudSync.recordOrderChanged(bill.order_id, 'order.refunded');
+    }
     res.status(201).json(result);
   } catch (error: any) {
     res.status(error.statusCode || 500).json({ error: error.message || 'Unable to process refund' });

@@ -262,6 +262,7 @@ async function stop(exitCode = 0) {
     prepare: () => {
       seedUser('e2e-owner', 'owner@flo.local', 'owner');
       seedUser('e2e-manager', 'manager@flo.local', 'manager');
+      seedUser('e2e-cashier', 'cashier@flo.local', 'cashier');
       seedUser('e2e-server', 'server@flo.local', 'server');
       seedPosFixture();
     },

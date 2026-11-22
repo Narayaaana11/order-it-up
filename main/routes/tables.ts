@@ -477,6 +477,164 @@ router.post('/:id/move-order', requireRole(...ROLE_ACCESS.sales), (req: Request,
   }
 });
 
+router.post('/:id/merge', requireRole(...ROLE_ACCESS.sales), (req: Request, res: Response) => {
+  try {
+    const sourceTableId = req.params.id as string;
+    const { target_table_id } = req.body;
+
+    if (!target_table_id) {
+      return res.status(400).json({ error: 'target_table_id is required' });
+    }
+    if (target_table_id === sourceTableId) {
+      return res.status(400).json({ error: 'Cannot merge a table with itself' });
+    }
+
+    const db = getDatabase();
+    const result = withTxn(() => {
+      const sourceTable = db.prepare('SELECT * FROM tables WHERE id = ?').get(sourceTableId) as any;
+      if (!sourceTable) {
+        throw Object.assign(new Error('Source table not found'), { status: 404 });
+      }
+
+      const targetTable = db.prepare('SELECT * FROM tables WHERE id = ?').get(target_table_id) as any;
+      if (!targetTable) {
+        throw Object.assign(new Error('Target table not found'), { status: 404 });
+      }
+
+      const sourceOrder = activeOrderForTable(db, sourceTableId) as any;
+      if (!sourceOrder) {
+        throw Object.assign(new Error('Source table has no active order to merge'), { status: 404 });
+      }
+
+      // Check for partial payments on source order
+      const sourcePaidCount = Number((db.prepare(`
+        SELECT COUNT(*) as count FROM bills WHERE order_id = ? AND paid_amount > 0
+      `).get(sourceOrder.id) as any)?.count || 0);
+      if (sourcePaidCount > 0) {
+        throw Object.assign(new Error('Cannot merge an order with recorded payments'), { status: 409 });
+      }
+
+      const targetOrder = activeOrderForTable(db, target_table_id) as any;
+      const nowStr = now();
+
+      if (targetOrder) {
+        // Check for partial payments on target order
+        const targetPaidCount = Number((db.prepare(`
+          SELECT COUNT(*) as count FROM bills WHERE order_id = ? AND paid_amount > 0
+        `).get(targetOrder.id) as any)?.count || 0);
+        if (targetPaidCount > 0) {
+          throw Object.assign(new Error('Cannot merge into an order with recorded payments'), { status: 409 });
+        }
+
+        // Transfer all active order_items from source to target order
+        db.prepare(`
+          UPDATE order_items
+          SET order_id = ?, updated_at = ?
+          WHERE order_id = ? AND status NOT IN ('cancelled', 'voided')
+        `).run(targetOrder.id, nowStr, sourceOrder.id);
+
+        // Cancel unpaid bills on source order
+        db.prepare(`
+          UPDATE bills
+          SET payment_status = 'cancelled', updated_at = ?
+          WHERE order_id = ? AND payment_status = 'unpaid'
+        `).run(nowStr, sourceOrder.id);
+
+        // Mark source order as cancelled / merged
+        const mergeNote = ` [Merged into Table ${targetTable.number} / Order #${targetOrder.order_number}]`;
+        db.prepare(`
+          UPDATE orders
+          SET status = 'cancelled',
+              special_instructions = COALESCE(special_instructions, '') || ?,
+              updated_at = ?
+          WHERE id = ?
+        `).run(mergeNote, nowStr, sourceOrder.id);
+
+        // Recalculate target order totals from all active items
+        const targetItems = db.prepare(`
+          SELECT * FROM order_items
+          WHERE order_id = ? AND status NOT IN ('cancelled', 'voided')
+        `).all(targetOrder.id) as any[];
+
+        const newSubtotal = targetItems.reduce((acc, it) => acc + (Number(it.subtotal) || 0), 0);
+        const newTaxAmount = targetItems.reduce((acc, it) => acc + (Number(it.tax_amount) || 0), 0);
+        const newExclusiveTax = targetItems.reduce((acc, it) => it.tax_type !== 'inclusive' ? acc + (Number(it.tax_amount) || 0) : acc, 0);
+        const newTotal = newSubtotal + newExclusiveTax;
+
+        const targetMergeNote = ` [Merged with Table ${sourceTable.number}]`;
+        db.prepare(`
+          UPDATE orders
+          SET subtotal = ?,
+              tax_amount = ?,
+              total = ?,
+              special_instructions = COALESCE(special_instructions, '') || ?,
+              updated_at = ?
+          WHERE id = ?
+        `).run(newSubtotal, newTaxAmount, newTotal, targetMergeNote, nowStr, targetOrder.id);
+
+        // Free source table, target table stays occupied
+        db.prepare("UPDATE tables SET status = 'available', updated_at = ? WHERE id = ?").run(nowStr, sourceTableId);
+
+        const updatedTargetOrder = parseRowJson(db.prepare('SELECT * FROM orders WHERE id = ?').get(targetOrder.id) as any);
+        const updatedTargetItems = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(targetOrder.id);
+        const updatedSource = db.prepare('SELECT * FROM tables WHERE id = ?').get(sourceTableId) as any;
+        const updatedTarget = db.prepare('SELECT * FROM tables WHERE id = ?').get(target_table_id) as any;
+
+        return {
+          merged: true,
+          type: 'orders_combined',
+          targetOrder: {
+            ...updatedTargetOrder,
+            items: updatedTargetItems,
+            table: { ...updatedTarget, name: updatedTarget.number },
+          },
+          cancelledSourceOrderId: sourceOrder.id,
+          sourceTable: tableShape(updatedSource, activeOrderForTable(db, sourceTableId)),
+          targetTable: tableShape(updatedTarget, activeOrderForTable(db, target_table_id)),
+        };
+      } else {
+        // Target table is free: join tables by moving order to target table
+        db.prepare('UPDATE orders SET table_id = ?, updated_at = ? WHERE id = ?')
+          .run(target_table_id, nowStr, sourceOrder.id);
+        db.prepare("UPDATE tables SET status = 'available', updated_at = ? WHERE id = ?").run(nowStr, sourceTableId);
+        db.prepare("UPDATE tables SET status = 'occupied', updated_at = ? WHERE id = ?").run(nowStr, target_table_id);
+
+        const updatedOrder = parseRowJson(db.prepare('SELECT * FROM orders WHERE id = ?').get(sourceOrder.id) as any);
+        const items = db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(sourceOrder.id);
+        const updatedSource = db.prepare('SELECT * FROM tables WHERE id = ?').get(sourceTableId) as any;
+        const updatedTarget = db.prepare('SELECT * FROM tables WHERE id = ?').get(target_table_id) as any;
+
+        return {
+          merged: true,
+          type: 'table_joined',
+          targetOrder: {
+            ...updatedOrder,
+            items,
+            table: { ...updatedTarget, name: updatedTarget.number },
+          },
+          cancelledSourceOrderId: null,
+          sourceTable: tableShape(updatedSource, activeOrderForTable(db, sourceTableId)),
+          targetTable: tableShape(updatedTarget, activeOrderForTable(db, target_table_id)),
+        };
+      }
+    });
+
+    if (result.targetOrder?.id) {
+      cloudSync.recordOrderChanged(result.targetOrder.id, 'order.updated');
+    }
+    if (result.cancelledSourceOrderId) {
+      cloudSync.recordOrderChanged(result.cancelledSourceOrderId, 'order.cancelled');
+    }
+    notifyKdsUpdate();
+
+    res.json(result);
+  } catch (error: any) {
+    const statusCode = error.status || 500;
+    console.error('[API] Table merge failed:', error);
+    res.status(statusCode).json({ error: statusCode >= 500 ? 'Table merge failed' : error.message });
+  }
+});
+
 router.patch('/:id/status', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
   try {
     const { status } = req.body;

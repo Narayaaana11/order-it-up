@@ -60,30 +60,44 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
     }
 
     setState(() => _isSendingTest = true);
-    await Future.delayed(const Duration(milliseconds: 600));
+    final success = await _apiService.sendWhatsAppMessage(
+      phone: phone,
+      body: 'Order It Up - Test Receipt. Thank you for dining with us!',
+    );
 
     if (mounted) {
       setState(() {
         _isSendingTest = false;
-        final logs = (_statusData['recentLogs'] as List? ?? []).toList();
-        logs.insert(0, {
-          'phone': phone,
-          'bill': '#TEST-${DateTime.now().millisecondsSinceEpoch % 1000}',
-          'amount': '₹350.00',
-          'time': 'Just now',
-          'status': 'Sent',
-        });
-        _statusData['recentLogs'] = logs;
-        _statusData['billsSentToday'] =
-            (_statusData['billsSentToday'] as int? ?? 142) + 1;
+        if (success) {
+          final logs = (_statusData['recentLogs'] as List? ?? []).toList();
+          logs.insert(0, {
+            'phone': phone,
+            'bill': '#TEST-${DateTime.now().millisecondsSinceEpoch % 1000}',
+            'amount': '₹350.00',
+            'time': 'Just now',
+            'status': 'Sent',
+          });
+          _statusData['recentLogs'] = logs;
+          _statusData['billsSentToday'] =
+              (_statusData['billsSentToday'] as int? ?? 142) + 1;
+        }
       });
       _testPhoneController.clear();
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Sample WhatsApp e-bill sent successfully to $phone!'),
-          backgroundColor: Colors.green.shade700,
-        ),
-      );
+      if (success) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Sample WhatsApp e-bill sent successfully to $phone!'),
+            backgroundColor: Colors.green.shade700,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Failed to send WhatsApp message. Please check server connection.'),
+            backgroundColor: Colors.red.shade700,
+          ),
+        );
+      }
     }
   }
 

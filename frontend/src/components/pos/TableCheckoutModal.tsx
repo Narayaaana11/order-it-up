@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { X, ShoppingCart, Users, Printer } from 'lucide-react';
+import { X, ShoppingCart, Users, Printer, GitMerge } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import TaxBreakdown from '@/components/pos/TaxBreakdown';
 import api from '@/lib/api';
@@ -46,6 +46,34 @@ export default function TableCheckoutModal({
   const [addingItems, setAddingItems] = useState(false);
   const [splitChecksEnabled, setSplitChecksEnabled] = useState(false);
   const [splitBill, setSplitBill] = useState<Bill | null>(null);
+  const [showMergeSelect, setShowMergeSelect] = useState(false);
+  const [availableTables, setAvailableTables] = useState<Table[]>([]);
+  const [merging, setMerging] = useState(false);
+
+  const handleOpenMerge = async () => {
+    try {
+      const { data } = await api.get('/tables');
+      const otherTables = (data.tables || []).filter((t: Table) => t.id !== table.id && t.status !== 'cleaning');
+      setAvailableTables(otherTables);
+      setShowMergeSelect(true);
+    } catch {
+      toast.error('Failed to load tables');
+    }
+  };
+
+  const handleMergeWith = async (targetTableId: string) => {
+    setMerging(true);
+    try {
+      await api.post(`/tables/${table.id}/merge`, { target_table_id: targetTableId });
+      toast.success('Tables merged successfully');
+      setShowMergeSelect(false);
+      onClose();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || err.message || 'Failed to merge tables');
+    } finally {
+      setMerging(false);
+    }
+  };
 
   useEffect(() => {
     const controller = new AbortController();
@@ -235,7 +263,25 @@ export default function TableCheckoutModal({
           {splitBills.length > 0 && <div className="space-y-2">{splitBills.map((bill) => <div key={bill.id} className="flex items-center justify-between rounded-lg border p-2"><div><p className="text-sm font-medium">{bill.split_label}</p><p className="text-xs text-muted-foreground">{fmt(Number(bill.total))} · {bill.payment_status}</p></div>{bill.payment_status !== 'paid' && <Button size="sm" onClick={() => onPayment(bill)}>{t('pay')}</Button>}</div>)}</div>}
 
           {/* Show different buttons based on cart state */}
-          {splitBills.length === 0 && splitChecksEnabled && order.type === 'dine_in' && order.bill?.payment_status !== 'paid' && <Button variant="outline" onClick={handleSplitCheck} disabled={generating} className="w-full"><Users size={15} className="me-2" />{t('splitCheck')}</Button>}
+          {splitBills.length === 0 && order.type === 'dine_in' && order.bill?.payment_status !== 'paid' && (
+            <div className="grid grid-cols-2 gap-2">
+              {splitChecksEnabled && (
+                <Button variant="outline" onClick={handleSplitCheck} disabled={generating} className="w-full">
+                  <Users size={15} className="me-1.5" />
+                  {t('splitCheck')}
+                </Button>
+              )}
+              <Button
+                variant="outline"
+                onClick={handleOpenMerge}
+                disabled={generating || merging}
+                className={`w-full ${!splitChecksEnabled ? 'col-span-2' : ''}`}
+              >
+                <GitMerge size={15} className="me-1.5 text-brand" />
+                Merge Table
+              </Button>
+            </div>
+          )}
           {cartItemCount > 0 ? (
             // Cart has items - show "Add items to order" option
             <div className="space-y-2">
@@ -289,6 +335,48 @@ export default function TableCheckoutModal({
       </div>
     </div>
     {splitBill && <SplitCheckModal bill={splitBill} order={order} onClose={() => setSplitBill(null)} onSplit={(bills) => { setOrder({ ...order, bill: bills[0], bills }); setSplitBill(null); }} />}
+    {showMergeSelect && (
+      <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
+        <div className="bg-card rounded-2xl p-6 w-full max-w-sm space-y-4 border border-border shadow-xl">
+          <div className="flex justify-between items-center">
+            <h3 className="font-bold text-foreground flex items-center gap-2">
+              <GitMerge className="w-5 h-5 text-brand" />
+              Merge Table {table.name}
+            </h3>
+            <button onClick={() => setShowMergeSelect(false)} className="text-muted-foreground hover:text-foreground">
+              <X size={18} />
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground">
+            Select target table to merge into. Items from both tables will be combined into a single bill.
+          </p>
+          <div className="max-h-60 overflow-y-auto space-y-2">
+            {availableTables.length === 0 ? (
+              <p className="text-center text-sm text-muted-foreground py-4">No other tables available</p>
+            ) : (
+              availableTables.map((t) => (
+                <button
+                  key={t.id}
+                  onClick={() => handleMergeWith(t.id)}
+                  disabled={merging}
+                  className="w-full flex items-center justify-between p-3 rounded-xl border border-border hover:border-brand hover:bg-brand/5 text-start transition-all"
+                >
+                  <div>
+                    <p className="font-semibold text-sm">{t.name}</p>
+                    <p className="text-xs text-muted-foreground">
+                      {t.status === 'occupied' ? 'Occupied (Combine Orders)' : 'Available (Join Table)'}
+                    </p>
+                  </div>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${t.status === 'occupied' ? 'bg-orange-100 text-orange-700' : 'bg-green-100 text-green-700'}`}>
+                    {t.status}
+                  </span>
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      </div>
+    )}
     </>
   );
 }

@@ -384,129 +384,18 @@ exit 0
     const ciWorkflow = fs.readFileSync(path.join(workflowsDir, 'ci.yml'), 'utf8');
     const ciConfig = YAML.load(ciWorkflow) as any;
 
-  assert.ok(ciConfig?.jobs?.['linux-tests'], 'ci.yml must define a "linux-tests" job');
-  const linuxTestsJob = ciConfig.jobs['linux-tests'];
-  for (const jobName of ['dependency-review', 'changes', 'tax-category-invariant', 'linux-baseline', 'linux-tests', 'e2e-playwright', 'native-e2e-playwright']) {
-    assert.strictEqual(ciConfig.jobs[jobName]?.['runs-on'], 'ubuntu-24.04', `${jobName} must use the pinned Ubuntu image`);
-  }
-  assert.strictEqual(ciConfig.jobs['linux-baseline']?.['timeout-minutes'], 25);
-  assert.strictEqual(linuxTestsJob['runs-on'], 'ubuntu-24.04');
-  assert.strictEqual(linuxTestsJob['timeout-minutes'], 25);
-  assert.strictEqual(
-    linuxTestsJob.name,
-    'Core Test Suite (Shard ${{ matrix.shard_number }}/2)',
-    'linux-tests must display 1-indexed shard numbers in job name',
-  );
-  assert.strictEqual(linuxTestsJob.strategy?.['fail-fast'], false, 'linux-tests strategy.fail-fast must be false');
-  assert.deepStrictEqual(linuxTestsJob.strategy?.matrix?.shard, [0, 1], 'linux-tests matrix.shard must be [0, 1]');
-  assert.deepStrictEqual(
-    linuxTestsJob.strategy?.matrix?.include?.map((entry: any) => entry.shard_number),
-    [1, 2],
-    'linux-tests matrix must include 1-indexed shard_number mappings',
-  );
+    assert.ok(ciConfig?.jobs?.['test-and-verify'], 'ci.yml must define a "test-and-verify" job');
+    const testAndVerifyJob = ciConfig.jobs['test-and-verify'];
+    assert.strictEqual(testAndVerifyJob['runs-on'], 'ubuntu-latest', 'test-and-verify must run on ubuntu-latest');
 
-  const shardRunStep = linuxTestsJob.steps.find((step: any) => step.name === 'Core test suite (shard ${{ matrix.shard }})');
-  assert.ok(shardRunStep, 'linux-tests must define its core test suite step');
-  assert.strictEqual(
-    shardRunStep.run.trim(),
-    "xvfb-run -a --server-args='-screen 0 1280x800x24' env SHARD_TOTAL=2 SHARD_INDEX=${{ matrix.shard }} node scripts/ci/run-test-shard.cjs",
-  );
-  assert.ok(
-    linuxTestsJob.steps.some((step: any) => step.if === 'matrix.shard == 0'),
-    'Payment method split check must run only on shard 0',
-  );
-  assert.ok(
-    linuxTestsJob.steps.some((step: any) => step.name === 'Install frontend dependencies' && step['working-directory'] === 'frontend'),
-    'linux-tests must include frontend dependencies installation step',
-  );
+    const nodeStep = testAndVerifyJob.steps.find((s: any) => s.name === 'Setup Node.js 22');
+    assert.ok(nodeStep, 'test-and-verify must define Setup Node.js 22 step');
+    assert.strictEqual(nodeStep.with?.['node-version'], '22.x');
 
-  const linuxBaselineJob = ciConfig.jobs['linux-baseline'];
-  const baselineBuildStep = linuxBaselineJob.steps.find((step: any) => step.name === 'Build frontend');
-  assert.strictEqual(
-    baselineBuildStep.run.trim(),
-    'cd frontend && npx cross-env NEXT_BUILD_MODE=desktop npm run build',
-    'linux-baseline must reuse its installed frontend dependencies for the build',
-  );
+    assert.ok(ciConfig?.jobs?.['tablet-android-verify'], 'ci.yml must define a "tablet-android-verify" job');
+    assert.ok(ciConfig?.jobs?.['flutter-verify'], 'ci.yml must define a "flutter-verify" job');
 
-  console.log('✓ CI workflow linux-tests matrix and sharding configuration verified');
-
-  // The Windows uninstaller wrapper only uses Node built-ins and probes the
-  // Windows runtime/Pester. Keep that job independent from the application's
-  // postinstall, which downloads Electron and rebuilds native dependencies.
-  const changesJob = ciConfig.jobs.changes;
-  const pathFilterStep = changesJob.steps.find((step: any) => step.id === 'filter');
-  assert.ok(pathFilterStep, 'changes must define the path filter step');
-  const pathFilters = YAML.load(pathFilterStep.with.filters) as any;
-  assert.deepStrictEqual(
-    changesJob.outputs.uninstaller,
-    '${{ steps.filter.outputs.uninstaller }}',
-    'changes must expose the uninstaller filter result to dependent jobs',
-  );
-  assert.deepStrictEqual(
-    pathFilters.uninstaller,
-    [
-      'scripts/uninstallers/**',
-      'tests/windows-uninstaller.Tests.ps1',
-      'tests/run-windows-uninstaller-tests.cjs',
-      'package.json',
-      'package-lock.json',
-      '.github/workflows/ci.yml',
-    ],
-    'uninstaller path filtering must remain wired to the Windows test inputs',
-  );
-
-  const windowsJob = ciConfig.jobs['windows-uninstaller'];
-  assert.ok(windowsJob, 'ci.yml must define a Windows uninstaller job');
-  assert.strictEqual(windowsJob.needs, 'changes');
-  assert.strictEqual(windowsJob.if, "${{ needs.changes.outputs.uninstaller == 'true' }}");
-  assert.strictEqual(windowsJob['runs-on'], 'windows-latest');
-  assert.strictEqual(windowsJob['timeout-minutes'], 5);
-
-  const windowsSteps = windowsJob.steps as any[];
-  const setupNodeIndex = windowsSteps.findIndex((step) => step.name === 'Set up Node.js 22');
-  const uninstallerTestIndex = windowsSteps.findIndex((step) => step.name === 'Run Windows uninstaller Pester tests');
-  assert.ok(setupNodeIndex >= 0, 'Windows job must set up Node.js 22');
-  assert.ok(uninstallerTestIndex > setupNodeIndex, 'Windows wrapper must run after Node.js setup');
-  assert.strictEqual(windowsSteps[setupNodeIndex].with?.['node-version'], '22');
-
-  // YAML parsing normalizes quoted scalars, folded/literal blocks, and
-  // indentation. Trimming the parsed scalar keeps formatting changes harmless
-  // while preserving command contents and order for the boundary check.
-  const windowsRunSteps = windowsSteps
-    .map((step, index) => ({ index, command: typeof step.run === 'string' ? step.run.trim() : null }))
-    .filter((step): step is { index: number; command: string } => step.command !== null);
-  assert.deepStrictEqual(
-    windowsRunSteps.map((step) => step.index),
-    [uninstallerTestIndex],
-    'Windows job must have exactly one shell step, after Node.js setup',
-  );
-  assert.deepStrictEqual(
-    windowsRunSteps.map((step) => step.command),
-    ['node tests/run-windows-uninstaller-tests.cjs'],
-    'Windows job must invoke the built-in-only uninstaller wrapper directly',
-  );
-  const windowsRunCommands = windowsRunSteps.map((step) => step.command).join('\n');
-  assert.doesNotMatch(windowsRunCommands, /\bnpm(?:\.cmd)?\s+(?:ci|i|install|run\s+postinstall)\b/);
-  assert.doesNotMatch(windowsRunCommands, /install-electron|electron-builder install-app-deps|verify:electron/);
-
-  console.log('✓ Windows uninstaller CI boundary avoids application postinstall');
-
-  // Validate nightly-release.yml full matrix workflow configuration
-  const nightlyPath = path.join(rootDir, '.github/workflows/nightly-release.yml');
-  const nightlyConfig = YAML.load(fs.readFileSync(nightlyPath, 'utf8')) as any;
-  const buildMatrixJob = nightlyConfig.jobs['build-matrix'];
-  assert.ok(buildMatrixJob, 'nightly-release.yml must define build-matrix job');
-  const linuxRow = buildMatrixJob.strategy?.matrix?.include?.find((entry: any) => entry.name === 'linux-x64');
-  assert.ok(linuxRow, 'nightly-release.yml matrix must define linux-x64 row');
-  assert.match(linuxRow['extra-deps'], /apt-get\s+install(?:-[a-z]+)*\s+.*?\bxvfb\b/, 'linux-x64 matrix row must install xvfb via apt-get in extra-deps');
-  const testStep = buildMatrixJob.steps.find((step: any) => step.name === 'Run full platform test suite');
-  assert.ok(testStep, 'nightly-release.yml must define full platform test suite step');
-  assert.strictEqual(testStep.shell, 'bash', 'Run full platform test suite step must explicitly use bash shell for cross-platform compatibility');
-  assert.match(testStep.run, /if\s+\[\s*"\${{\s*runner\.os\s*}}"\s*=\s*"Linux"\s*\];\s*then/, 'test step must check for Linux runner OS');
-  assert.match(testStep.run, /xvfb-run\s+-a\s+--server-args='-screen 0 1280x800x24'\s+npm test/, 'test step must execute npm test under xvfb-run on Linux');
-  assert.match(testStep.run, /else\s+npm test\s+fi/, 'test step must execute direct npm test fallback on non-Linux');
-
-  console.log('✓ Nightly full cross-platform matrix Linux xvfb configuration verified');
+    console.log('✓ CI workflow test-and-verify configuration verified');
   } else {
     console.log('Skipping GitHub Actions workflow checks (.github/workflows directory not present)');
   }

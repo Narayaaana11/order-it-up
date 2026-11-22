@@ -68,7 +68,9 @@ function offlineResponse(request) {
   if (isPageRequest(request)) {
     return new Response('Offline', { status: 503, statusText: 'Offline' });
   }
-  return new Response('', { status: 503, statusText: 'Offline' });
+  return typeof Response.error === 'function'
+    ? Response.error()
+    : new Response('', { status: 503, statusText: 'Offline' });
 }
 
 self.addEventListener('fetch', (event) => {
@@ -78,7 +80,7 @@ self.addEventListener('fetch', (event) => {
 
   // Never cache API/setup/auth calls — these must reflect current DB state.
   if (
-    url.hostname === 'localhost' || url.hostname === '127.0.0.1' || url.pathname.startsWith('/_next/') || url.hostname !== self.location.hostname ||
+    url.hostname !== self.location.hostname ||
     url.pathname.startsWith('/api') ||
     url.pathname.startsWith('/auth') ||
     url.pathname.startsWith('/setup')

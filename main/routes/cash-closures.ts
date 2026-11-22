@@ -40,6 +40,7 @@ import { getTenantCurrency } from '../services/refund';
 import { getCurrencyMinorUnitFactor } from '../countries';
 import { getOrdersWithItemsForBills } from './bills';
 import { getHttpRequestSignal } from '../shutdown';
+import { cloudSync } from '../services/cloud-sync';
 import {
   DisplayTaxComponent,
   aggregateTaxComponents,
@@ -497,6 +498,8 @@ router.post('/', requireRole(...ROLE_ACCESS.owner), (req: Request, res: Response
         created_at: createdAt,
       };
     });
+
+    cloudSync.recordClosure(result);
 
     res.status(201).json({ zReport: result });
   } catch (error: any) {

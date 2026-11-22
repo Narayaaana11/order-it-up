@@ -47,12 +47,16 @@ const englishIdenticalSeeds = new Set<string>(ENGLISH_IDENTICAL_SEED_LANGUAGES);
 
 function resetDatabase(): void {
   try { closeDatabase(); } catch { /* first iteration */ }
-  for (const suffix of ['', '-wal', '-shm']) {
-    const file = path.join(testDir, `flo.db${suffix}`);
-    if (fs.existsSync(file)) fs.unlinkSync(file);
+  for (const base of ['flo.db', 'oiu.db', 'order-it-up.db']) {
+    for (const suffix of ['', '-wal', '-shm']) {
+      const file = path.join(testDir, `${base}${suffix}`);
+      if (fs.existsSync(file)) fs.unlinkSync(file);
+    }
   }
-  const marker = path.join(testDir, '.flo-db-initialized');
-  if (fs.existsSync(marker)) fs.unlinkSync(marker);
+  for (const markerName of ['.flo-db-initialized', '.oiu-db-initialized']) {
+    const marker = path.join(testDir, markerName);
+    if (fs.existsSync(marker)) fs.unlinkSync(marker);
+  }
   initDatabase();
 }
 

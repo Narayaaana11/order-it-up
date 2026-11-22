@@ -29,8 +29,8 @@ Kitchen status aliases are accepted: `waiting` → `pending`, `served` → `comp
 |---|---|
 | `/api/kds`, `/api/kds/:id/status` | Legacy desktop KDS; Cloud uses `/api/kitchen/tickets` |
 | `/api/server-app/info` | LAN server discovery |
-| `/api/whatsapp/status` | WhatsApp is configured on the restaurant server |
-| `/api/ai/prep-recommendations` | Desktop/local AI assistant; no Cloud model service |
+| `/api/whatsapp/status`, `/api/whatsapp/send` | WhatsApp is configured on the restaurant server |
+| `/api/ai/insights` | Desktop/local AI assistant; no Cloud model service |
 
 ## Partner-gated
 

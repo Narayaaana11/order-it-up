@@ -261,6 +261,41 @@ async function main() {
     });
     assertEqual(occupiedMove.status, 200, 'order can be moved again to a free table');
 
+    // Test Table Merge: merge tableId order into tbl-move-target with a new order
+    console.log('\n─── Scenario D.1: Merge Tables (Combine Checks) ───');
+    const orderRes2 = await api(baseUrl, '/api/orders', {
+      method: 'POST',
+      headers: authHeader,
+      body: {
+        table_id: 'tbl-move-target',
+        type: 'dine_in',
+        items: [{ product_id: 'prod-table-move', quantity: 2 }],
+      },
+    });
+    assertEqual(orderRes2.status, 201, 'second order created on target table');
+    const targetOrderId = orderRes2.data.order.id;
+
+    const mergeRes = await api(baseUrl, `/api/tables/${tableId}/merge`, {
+      method: 'POST',
+      headers: authHeader,
+      body: { target_table_id: 'tbl-move-target' },
+    });
+    assertEqual(mergeRes.status, 200, 'table merge returns 200');
+    assertEqual(mergeRes.data.merged, true, 'merge response indicates merged: true');
+    assertEqual(mergeRes.data.type, 'orders_combined', 'merge combines orders when target has active order');
+    assertEqual(mergeRes.data.sourceTable.status, 'available', 'source table is freed after merge');
+    assertEqual(mergeRes.data.targetTable.status, 'occupied', 'target table remains occupied');
+    assertEqual(mergeRes.data.targetOrder.id, targetOrderId, 'target order retains target order id');
+    assertEqual(mergeRes.data.cancelledSourceOrderId, orderId, 'source order cancelled as merged');
+
+    // Self-merge rejection
+    const selfMerge = await api(baseUrl, '/api/tables/tbl-move-target/merge', {
+      method: 'POST',
+      headers: authHeader,
+      body: { target_table_id: 'tbl-move-target' },
+    });
+    assertEqual(selfMerge.status, 400, 'merging table with itself is rejected');
+
     // ═══════════════════════════════════════════════════════════════════
     // Scenario E: Migration handles NULL IDs
     // ═══════════════════════════════════════════════════════════════════

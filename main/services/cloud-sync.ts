@@ -1138,6 +1138,45 @@ export class CloudSyncService {
     }
   }
 
+  recordPaymentSettled(payment: {
+    order_id: string | number;
+    amount: number;
+    payment_method: string;
+    payment_id?: string;
+    idempotency_key?: string;
+    transaction_id?: string;
+    reference_number?: string;
+    cashier_user_id?: string;
+    cashier_name?: string;
+    settled_at?: string;
+    metadata?: Record<string, unknown>;
+  }) {
+    try {
+      if (!this.loadSettings()?.orders_enabled) return;
+      const paymentId = payment.payment_id || `pay_${crypto.randomUUID()}`;
+      this.enqueueEvent('payment.settled', 'payment', paymentId, {
+        ...payment,
+        order_id: String(payment.order_id),
+        id: paymentId,
+      });
+    } catch (err) {
+      log.warn('[CloudSync] payment snapshot failed', (err as Error).message);
+    }
+  }
+
+  recordClosure(closure: any) {
+    try {
+      if (!this.loadSettings()?.sync_enabled) return;
+      const closureId = String(closure.id ?? `closure_${crypto.randomUUID()}`);
+      this.enqueueEvent('closure.recorded', 'closure', closureId, {
+        ...closure,
+        id: closureId,
+      });
+    } catch (err) {
+      log.warn('[CloudSync] closure snapshot failed', (err as Error).message);
+    }
+  }
+
   sendOrderStatus(orderflowOrderId: string, status: string, note?: string) {
     this.enqueueEvent('order.status', 'order', orderflowOrderId, { orderflow_order_id: orderflowOrderId, status, note });
   }

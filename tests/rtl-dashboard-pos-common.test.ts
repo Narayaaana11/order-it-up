@@ -213,7 +213,8 @@ function run(): void {
     `DirectionalToaster must set position="top-left" (inline-end) for Persian (fa), got: ${renderedFa.position}`
   );
   assert(
-    renderedFa.containerStyle?.top === 'calc(var(--flo-sidebar-block-start, 0px) + 16px)',
+    renderedFa.containerStyle?.top === 'calc(var(--oiu-sidebar-block-start, var(--flo-sidebar-block-start, 0px)) + 16px)'
+      || renderedFa.containerStyle?.top === 'calc(var(--flo-sidebar-block-start, 0px) + 16px)',
     `DirectionalToaster must set containerStyle.top with titlebar offset, got: ${renderedFa.containerStyle?.top}`
   );
   assert(
@@ -233,7 +234,8 @@ function run(): void {
       `DirectionalToaster must set position="top-right" for ${ltrLang}, got: ${renderedLtr.position}`
     );
     assert(
-      renderedLtr.containerStyle?.top === 'calc(var(--flo-sidebar-block-start, 0px) + 16px)',
+      renderedLtr.containerStyle?.top === 'calc(var(--oiu-sidebar-block-start, var(--flo-sidebar-block-start, 0px)) + 16px)'
+        || renderedLtr.containerStyle?.top === 'calc(var(--flo-sidebar-block-start, 0px) + 16px)',
       `DirectionalToaster must set containerStyle.top with titlebar offset, got: ${renderedLtr.containerStyle?.top}`
     );
     assert(

@@ -9,6 +9,7 @@ import * as dns from 'dns';
 import * as https from 'https';
 import * as net from 'net';
 import { asyncHandler } from '../middleware/async-handler';
+import { notifyKdsUpdate } from '../services/kds';
 
 const MAX_FETCH_BYTES = 10 * 1024 * 1024;
 
@@ -1069,6 +1070,35 @@ router.post('/loyalty/apply-global-rate', requireRole(...ROLE_ACCESS.ownerManage
   } catch (error: any) {
     console.error("[API] Internal error:", error);
     res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post('/:id/toggle-86', requireRole(...ROLE_ACCESS.kitchen, ...ROLE_ACCESS.ownerManagerCashier), (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const product = db.prepare('SELECT * FROM products WHERE id = ? AND deleted_at IS NULL').get(req.params.id) as any;
+    if (!product) {
+      return res.status(404).json({ error: 'Product not found' });
+    }
+
+    const currentActive = product.is_active === 1 || product.is_active === true;
+    const nextActive = currentActive ? 0 : 1;
+    const nowStr = now();
+
+    db.prepare('UPDATE products SET is_active = ?, updated_at = ? WHERE id = ?')
+      .run(nextActive, nowStr, req.params.id);
+
+    const updated = db.prepare('SELECT * FROM products WHERE id = ?').get(req.params.id);
+    notifyKdsUpdate();
+
+    res.json({
+      product: serializeProduct(updated),
+      is_86: nextActive === 0,
+      status: nextActive === 0 ? '86_out_of_stock' : 'available',
+    });
+  } catch (error: any) {
+    console.error('[API] Toggle 86 failed:', error);
+    res.status(500).json({ error: 'Internal server error' });
   }
 });
 

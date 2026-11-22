@@ -28,12 +28,16 @@ const candidatePaths = [
   process.env.OIU_DB,
   process.env.FLO_DB,
   path.join(os.homedir(), 'Sites/order-it-up.db'),
+  path.join(os.homedir(), 'Sites/oiu.db'),
   path.join(os.homedir(), 'Sites/flo.db'),
   path.join(os.homedir(), 'Library/Application Support/Order It Up/order-it-up.db'),
+  path.join(os.homedir(), 'Library/Application Support/Order It Up/oiu.db'),
   path.join(os.homedir(), 'Library/Application Support/Flo/flo.db'),
   path.join(process.cwd(), 'order-it-up.db'),
+  path.join(process.cwd(), 'oiu.db'),
   path.join(process.cwd(), 'flo.db'),
   path.join(process.cwd(), '..', 'order-it-up.db'),
+  path.join(process.cwd(), '..', 'oiu.db'),
   path.join(process.cwd(), '..', 'flo.db'),
 ].filter(Boolean) as string[];
 

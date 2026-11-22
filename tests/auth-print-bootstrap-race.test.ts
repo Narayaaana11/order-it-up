@@ -35,7 +35,10 @@ const api = {
     assert.equal(url, '/auth/tenants/select');
     return selection.promise;
   },
+  isElectronEnvironment: () => true,
+  default: null as any,
 };
+api.default = api;
 
 Module._load = function (request: string, parent: unknown, isMain: boolean) {
   if (request === '@/lib/api') return api;

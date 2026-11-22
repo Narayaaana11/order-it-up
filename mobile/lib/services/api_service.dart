@@ -1206,8 +1206,34 @@ class ApiService {
       };
     }
     try {
-      final res = await apiClient.get('/api/ai/prep-recommendations');
-      if (res is Map<String, dynamic>) return res;
+      final res = await apiClient.get('/api/ai/insights');
+      if (res is Map<String, dynamic>) {
+        final insights = res['insights'] is Map<String, dynamic>
+            ? res['insights'] as Map<String, dynamic>
+            : res;
+        final bcg = insights['bcgMatrix'] is Map<String, dynamic>
+            ? insights['bcgMatrix'] as Map<String, dynamic>
+            : <String, dynamic>{};
+        final matrixItems = <Map<String, dynamic>>[];
+        for (final entry in bcg.entries) {
+          if (entry.value is List) {
+            for (final itm in entry.value as List) {
+              if (itm is Map<String, dynamic>) {
+                matrixItems.add({
+                  'name': itm['name'] ?? '',
+                  'category': itm['category'] ?? entry.key,
+                  'advice': itm['advice'] ?? itm['strategy'] ?? '',
+                });
+              }
+            }
+          }
+        }
+        return {
+          'prepItems': insights['prepRecommendations'] ?? insights['prepItems'] ?? [],
+          'menuMatrix': matrixItems.isNotEmpty ? matrixItems : (insights['menuMatrix'] ?? []),
+          'peakRushHour': insights['peakHour'] ?? insights['peakRushHour'] ?? '08:30 PM - 10:15 PM',
+        };
+      }
       return {};
     } catch (_) {
       return {};
@@ -1300,6 +1326,33 @@ class ApiService {
       return {};
     } catch (_) {
       return {};
+    }
+  }
+
+  Future<bool> sendWhatsAppMessage({
+    required String phone,
+    required String body,
+    int? billId,
+  }) async {
+    if (isDemoMode) {
+      await Future.delayed(const Duration(milliseconds: 600));
+      return true;
+    }
+    try {
+      final res = await apiClient.post(
+        '/api/whatsapp/send',
+        body: {
+          'phone': phone,
+          'body': body,
+          if (billId != null) 'bill_id': billId,
+        },
+      );
+      if (res is Map<String, dynamic> && res['ok'] == true) {
+        return true;
+      }
+      return false;
+    } catch (_) {
+      return false;
     }
   }
 }

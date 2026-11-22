@@ -1288,7 +1288,7 @@ console.log('\n✅ Test 11: IR country thermal receipt financial-line preservati
     const nameLine = centeredLines.find((l) => l.includes('کافه فلو تهران'));
     // Double-width store name at 48 columns leaves a 24-column budget; the
     // 14-code-point name should get floor((24-14)/2) = 5 leading spaces.
-    const leadMatch = nameLine?.match(/^(.*?)کافه/);
+    const leadMatch = nameLine?.match(/^(.*?)کافه/s);
     const prefix = leadMatch?.[1] ?? '';
     const leadSpaces = prefix.length - prefix.replace(/ +$/, '').length;
     assert('frontend shaping centers the Persian business name', leadSpaces >= 3 && leadSpaces <= 7, `${leadSpaces} :: ${JSON.stringify(nameLine)}`);

@@ -3,12 +3,25 @@ import jwt from 'jsonwebtoken';
 import Database from 'better-sqlite3';
 import path from 'path';
 
-const DB_PATH = path.resolve(__dirname, '../order-it-up.db');
-const db = new Database(DB_PATH);
+import fs from 'fs';
 
-// Helper to get JWT secret from database
-const secretRow = db.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").get() as { value: string } | undefined;
-const JWT_SECRET = secretRow?.value || 'fallback-secret-for-test';
+const oiuDbPath = path.resolve(__dirname, '../oiu.db');
+const fallbackDbPath = path.resolve(__dirname, '../order-it-up.db');
+const DB_PATH = fs.existsSync(oiuDbPath) ? oiuDbPath : fallbackDbPath;
+let JWT_SECRET = process.env.JWT_SECRET || 'e2e-test-secret';
+
+try {
+  if (fs.existsSync(DB_PATH)) {
+    const db = new Database(DB_PATH);
+    const secretRow = db.prepare("SELECT value FROM settings WHERE key = 'jwt_secret'").get() as { value: string } | undefined;
+    if (secretRow?.value && !process.env.JWT_SECRET) {
+      JWT_SECRET = secretRow.value;
+    }
+    db.close();
+  }
+} catch {
+  // Use fallback secret
+}
 
 // Helper to generate valid tokens using exact userId and iat
 function makeToken(userId: string, role: string, name: string) {
@@ -19,8 +32,8 @@ function makeToken(userId: string, role: string, name: string) {
   );
 }
 
-const OWNER_TOKEN = makeToken('126b8577-549b-4e39-8282-93d2a55698c3', 'owner', 'Narayana');
-const CASHIER_TOKEN = makeToken('user-demo-cashier', 'cashier', 'Demo Cashier');
+let OWNER_TOKEN = makeToken('e2e-owner', 'owner', 'E2E Owner');
+let CASHIER_TOKEN = makeToken('e2e-cashier', 'cashier', 'E2E Cashier');
 
 interface TestResult {
   category: string;
@@ -75,6 +88,27 @@ async function runAudit() {
   console.log('=================================================================');
   console.log('🚀 ORDER IT UP — 100% COMPREHENSIVE END-TO-END FEATURE AUDIT');
   console.log('=================================================================\n');
+
+  try {
+    const ownerLogin = await request({
+      method: 'POST',
+      path: '/api/auth/login',
+      body: { email: 'owner@flo.local', password: 'E2ePass123!' },
+    });
+    if (ownerLogin.data?.access_token) {
+      OWNER_TOKEN = ownerLogin.data.access_token;
+    }
+    const cashierLogin = await request({
+      method: 'POST',
+      path: '/api/auth/login',
+      body: { email: 'cashier@flo.local', password: 'E2ePass123!' },
+    });
+    if (cashierLogin.data?.access_token) {
+      CASHIER_TOKEN = cashierLogin.data.access_token;
+    }
+  } catch (err: any) {
+    console.error('Login initialization error:', err);
+  }
 
   // 1. AUTHENTICATION & ACCESS CONTROL
   try {
@@ -163,9 +197,22 @@ async function runAudit() {
   let testTableId = '';
   let testTableNumber = 'T1';
   try {
-    const tblRes = await request({ method: 'GET', path: '/api/tables', token: OWNER_TOKEN });
-    const tables = tblRes.data?.tables || tblRes.data;
-    if (Array.isArray(tables) && tables.length > 0) {
+    let tblRes = await request({ method: 'GET', path: '/api/tables', token: OWNER_TOKEN });
+    let tables = tblRes.data?.tables || tblRes.data;
+    if (!Array.isArray(tables) || tables.length === 0) {
+      const createTbl = await request({
+        method: 'POST',
+        path: '/api/tables',
+        token: OWNER_TOKEN,
+        body: { name: 'Table 1', capacity: 4, section: 'Main Hall' },
+      });
+      if (createTbl.data?.table) {
+        testTableId = createTbl.data.table.id;
+        testTableNumber = createTbl.data.table.number || 'Table 1';
+      }
+      tblRes = await request({ method: 'GET', path: '/api/tables', token: OWNER_TOKEN });
+      tables = tblRes.data?.tables || tblRes.data;
+    } else {
       testTableId = tables[0].id;
       testTableNumber = tables[0].number;
     }
@@ -297,13 +344,24 @@ async function runAudit() {
       status: qrMenu.status === 200 && Array.isArray(qrMenu.data?.categories) ? 'PASSED' : 'FAILED',
     });
 
+    let tableToken: string | undefined = undefined;
+    if (testTableId) {
+      const qrCodeRes = await request({
+        method: 'GET',
+        path: `/api/qr/tables/${testTableId}/code`,
+        token: OWNER_TOKEN,
+      });
+      tableToken = qrCodeRes.data?.table_token;
+    }
+
     const qrOrder = await request({
       method: 'POST',
       path: '/api/qr/order',
+      token: tableToken,
       body: {
         table_id: testTableId,
         customer_name: 'Audit VIP Guest',
-        customer_phone: '9876543210',
+        customer_phone: '+66812345678',
         items: [{ product_id: testProductId || 1, quantity: 1, notes: 'Crispy bun' }],
       },
     });
@@ -357,7 +415,7 @@ async function runAudit() {
 
   // 7. CUSTOMERS & CRM
   try {
-    const custPhone = `98${Math.floor(10000000 + Math.random() * 90000000)}`;
+    const custPhone = `+6681${Math.floor(1000000 + Math.random() * 9000000)}`;
     const newCust = await request({
       method: 'POST',
       path: '/api/customers',
@@ -750,8 +808,6 @@ async function runAudit() {
   console.log(`FAILED: ${failedCount}`);
   console.log(`SYSTEM PASS RATE: ${Math.round((passedCount / results.length) * 100)}%`);
   console.log('=================================================================\n');
-
-  db.close();
 }
 
 runAudit().catch(console.error);

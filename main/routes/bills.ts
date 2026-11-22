@@ -32,6 +32,7 @@ import {
   getCurrencyMinorUnitFactor,
   resolveTenantCurrency,
 } from '../countries';
+import { cloudSync } from '../services/cloud-sync';
 
 const router = Router();
 const OWNER_MANAGER_ROLE_PLACEHOLDERS = ROLE_ACCESS.ownerManager.map(() => '?').join(', ');
@@ -2032,6 +2033,10 @@ router.post('/:id/payment', requireRole(...ROLE_ACCESS.ownerManagerCashier), (re
     if (billStatus === 'paid') notifyKdsUpdate();
     else notifyOrderUpdated();
 
+    if ((result.bill as any)?.order_id) {
+      cloudSync.recordOrderChanged((result.bill as any).order_id, billStatus === 'paid' ? 'order.completed' : 'order.payment_recorded');
+    }
+
     res.json(result);
   } catch (error: any) {
     const statusCode = error.statusCode || 500;
@@ -2062,6 +2067,10 @@ router.post('/:id/payments', requireRole(...ROLE_ACCESS.ownerManagerCashier), (r
     const billStatus = (result.bill as any)?.payment_status;
     if (billStatus === 'paid') notifyKdsUpdate();
     else notifyOrderUpdated();
+
+    if ((result.bill as any)?.order_id) {
+      cloudSync.recordOrderChanged((result.bill as any).order_id, billStatus === 'paid' ? 'order.completed' : 'order.payment_recorded');
+    }
 
     res.json(result);
   } catch (error: any) {

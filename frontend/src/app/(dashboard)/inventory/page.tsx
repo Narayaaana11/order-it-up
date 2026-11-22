@@ -19,7 +19,12 @@ import {
   Scale, 
   DollarSign, 
   ArrowUpDown,
-  RefreshCw
+  RefreshCw,
+  Truck,
+  Building2,
+  FileText,
+  Phone,
+  Mail
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import toast from 'react-hot-toast';
@@ -66,20 +71,50 @@ interface InventoryTx {
   created_at: string;
 }
 
+interface Vendor {
+  id: string;
+  name: string;
+  contact_person?: string;
+  phone?: string;
+  email?: string;
+  gstin?: string;
+  address?: string;
+  balance: number;
+}
+
+interface PurchaseOrder {
+  id: string;
+  po_number: string;
+  vendor_id: string;
+  vendor_name: string;
+  invoice_number?: string;
+  invoice_date: string;
+  total_amount: number;
+  paid_amount: number;
+  payment_status: string;
+  payment_method?: string;
+  notes?: string;
+  created_at: string;
+}
+
 export default function InventoryPage() {
   const formatCurrency = useFormatCurrency();
-  const formatDate = useFormatDate();
+  const { formatDate } = useFormatDate();
 
-  const [activeTab, setActiveTab] = useState<'ingredients' | 'recipes' | 'audit'>('ingredients');
+  const [activeTab, setActiveTab] = useState<'ingredients' | 'recipes' | 'audit' | 'purchases' | 'vendors'>('ingredients');
   const [ingredients, setIngredients] = useState<RawIngredient[]>([]);
   const [lowStockList, setLowStockList] = useState<RawIngredient[]>([]);
   const [products, setProducts] = useState<ProductItem[]>([]);
   const [transactions, setTransactions] = useState<InventoryTx[]>([]);
+  const [vendors, setVendors] = useState<Vendor[]>([]);
+  const [purchases, setPurchases] = useState<PurchaseOrder[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
 
   // Modals
   const [showAddModal, setShowAddModal] = useState(false);
+  const [showAddVendorModal, setShowAddVendorModal] = useState(false);
+  const [showNewPoModal, setShowNewPoModal] = useState(false);
   const [editingIngredient, setEditingIngredient] = useState<RawIngredient | null>(null);
   const [adjustingIngredient, setAdjustingIngredient] = useState<RawIngredient | null>(null);
 
@@ -90,6 +125,25 @@ export default function InventoryPage() {
     current_stock: 0,
     minimum_stock: 5,
     cost_per_unit: 0,
+  });
+
+  const [vendorForm, setVendorForm] = useState({
+    name: '',
+    contact_person: '',
+    phone: '',
+    email: '',
+    gstin: '',
+    address: '',
+  });
+
+  const [poForm, setPoForm] = useState({
+    vendor_id: '',
+    invoice_number: '',
+    invoice_date: new Date().toISOString().substring(0, 10),
+    items: [] as Array<{ ingredient_id: string; quantity: number; unit_price: number; tax_rate: number }>,
+    paid_amount: 0,
+    payment_method: 'cash',
+    notes: '',
   });
 
   const [adjustForm, setAdjustForm] = useState({
@@ -157,13 +211,38 @@ export default function InventoryPage() {
     }
   };
 
+  const loadVendors = async () => {
+    try {
+      const res = await api.get('/api/vendors');
+      if (res.data?.vendors) setVendors(res.data.vendors);
+    } catch {
+      console.error('Failed to load vendors');
+    }
+  };
+
+  const loadPurchases = async () => {
+    try {
+      const res = await api.get('/api/vendors/purchases');
+      if (res.data?.purchases) setPurchases(res.data.purchases);
+    } catch {
+      console.error('Failed to load purchases');
+    }
+  };
+
   useEffect(() => {
     loadData();
+    loadVendors();
+    loadPurchases();
   }, []);
 
   useEffect(() => {
     if (activeTab === 'audit') {
       loadAudit();
+    } else if (activeTab === 'purchases') {
+      loadPurchases();
+      loadVendors();
+    } else if (activeTab === 'vendors') {
+      loadVendors();
     }
   }, [activeTab]);
 
@@ -280,6 +359,88 @@ export default function InventoryPage() {
     setRecipeItems(recipeItems.filter((_, i) => i !== index));
   };
 
+  // Vendor handlers
+  const handleSaveVendor = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!vendorForm.name.trim()) {
+      toast.error('Vendor name is required');
+      return;
+    }
+    try {
+      await api.post('/api/vendors', vendorForm);
+      toast.success('Vendor added successfully');
+      setShowAddVendorModal(false);
+      setVendorForm({ name: '', contact_person: '', phone: '', email: '', gstin: '', address: '' });
+      loadVendors();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to add vendor');
+    }
+  };
+
+  // Purchase Order handlers
+  const handleSavePo = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!poForm.vendor_id) {
+      toast.error('Please select a vendor');
+      return;
+    }
+    if (poForm.items.length === 0) {
+      toast.error('Please add at least one line item');
+      return;
+    }
+    try {
+      await api.post('/api/vendors/purchases', poForm);
+      toast.success('Purchase order created & stock received');
+      setShowNewPoModal(false);
+      setPoForm({
+        vendor_id: '',
+        invoice_number: '',
+        invoice_date: new Date().toISOString().substring(0, 10),
+        items: [],
+        paid_amount: 0,
+        payment_method: 'cash',
+        notes: '',
+      });
+      loadPurchases();
+      loadData();
+    } catch (err: any) {
+      toast.error(err.response?.data?.error || 'Failed to create purchase order');
+    }
+  };
+
+  const addPoItem = () => {
+    if (ingredients.length === 0) {
+      toast.error('Add raw ingredients first!');
+      return;
+    }
+    const defaultIng = ingredients[0];
+    setPoForm({
+      ...poForm,
+      items: [
+        ...poForm.items,
+        {
+          ingredient_id: defaultIng.id,
+          quantity: 1,
+          unit_price: defaultIng.cost_per_unit || 0,
+          tax_rate: 0,
+        },
+      ],
+    });
+  };
+
+  const removePoItem = (idx: number) => {
+    setPoForm({
+      ...poForm,
+      items: poForm.items.filter((_, i) => i !== idx),
+    });
+  };
+
+  const updatePoItem = (idx: number, patch: Partial<{ ingredient_id: string; quantity: number; unit_price: number; tax_rate: number }>) => {
+    const updated = [...poForm.items];
+    updated[idx] = { ...updated[idx], ...patch };
+    setPoForm({ ...poForm, items: updated });
+  };
+
   const filteredIngredients = ingredients.filter(i => 
     i.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -318,6 +479,40 @@ export default function InventoryPage() {
             >
               <Plus className="w-4 h-4" />
               Add Ingredient
+            </Button>
+          )}
+          {activeTab === 'purchases' && (
+            <Button
+              onClick={() => {
+                setPoForm({
+                  vendor_id: vendors[0]?.id || '',
+                  invoice_number: '',
+                  invoice_date: new Date().toISOString().substring(0, 10),
+                  items: ingredients[0] ? [{ ingredient_id: ingredients[0].id, quantity: 1, unit_price: ingredients[0].cost_per_unit || 0, tax_rate: 0 }] : [],
+                  paid_amount: 0,
+                  payment_method: 'cash',
+                  notes: '',
+                });
+                setShowNewPoModal(true);
+              }}
+              size="sm"
+              className="gap-2 bg-brand hover:bg-brand-hover text-white shadow-xs"
+            >
+              <Plus className="w-4 h-4" />
+              New Purchase Order (GRN)
+            </Button>
+          )}
+          {activeTab === 'vendors' && (
+            <Button
+              onClick={() => {
+                setVendorForm({ name: '', contact_person: '', phone: '', email: '', gstin: '', address: '' });
+                setShowAddVendorModal(true);
+              }}
+              size="sm"
+              className="gap-2 bg-brand hover:bg-brand-hover text-white shadow-xs"
+            >
+              <Plus className="w-4 h-4" />
+              Add Vendor
             </Button>
           )}
           <Button
@@ -360,10 +555,10 @@ export default function InventoryPage() {
       )}
 
       {/* Navigation Tabs */}
-      <div className="flex border-b border-border/40 gap-4 text-sm font-medium">
+      <div className="flex border-b border-border/40 gap-4 text-sm font-medium overflow-x-auto pb-px">
         <button
           onClick={() => setActiveTab('ingredients')}
-          className={`pb-3 border-b-2 flex items-center gap-2 transition-all ${
+          className={`pb-3 border-b-2 flex items-center gap-2 whitespace-nowrap transition-all ${
             activeTab === 'ingredients'
               ? 'border-brand text-brand font-semibold'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -375,7 +570,7 @@ export default function InventoryPage() {
 
         <button
           onClick={() => setActiveTab('recipes')}
-          className={`pb-3 border-b-2 flex items-center gap-2 transition-all ${
+          className={`pb-3 border-b-2 flex items-center gap-2 whitespace-nowrap transition-all ${
             activeTab === 'recipes'
               ? 'border-brand text-brand font-semibold'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -386,8 +581,32 @@ export default function InventoryPage() {
         </button>
 
         <button
+          onClick={() => setActiveTab('purchases')}
+          className={`pb-3 border-b-2 flex items-center gap-2 whitespace-nowrap transition-all ${
+            activeTab === 'purchases'
+              ? 'border-brand text-brand font-semibold'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          Purchase Orders & GRN ({purchases.length})
+        </button>
+
+        <button
+          onClick={() => setActiveTab('vendors')}
+          className={`pb-3 border-b-2 flex items-center gap-2 whitespace-nowrap transition-all ${
+            activeTab === 'vendors'
+              ? 'border-brand text-brand font-semibold'
+              : 'border-transparent text-muted-foreground hover:text-foreground'
+          }`}
+        >
+          <Building2 className="w-4 h-4" />
+          Vendors ({vendors.length})
+        </button>
+
+        <button
           onClick={() => setActiveTab('audit')}
-          className={`pb-3 border-b-2 flex items-center gap-2 transition-all ${
+          className={`pb-3 border-b-2 flex items-center gap-2 whitespace-nowrap transition-all ${
             activeTab === 'audit'
               ? 'border-brand text-brand font-semibold'
               : 'border-transparent text-muted-foreground hover:text-foreground'
@@ -758,6 +977,147 @@ export default function InventoryPage() {
         </div>
       )}
 
+      {/* TAB 4: PURCHASE ORDERS & INWARD GOODS (GRN) */}
+      {activeTab === 'purchases' && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-border/50 bg-card overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-border/40 bg-muted/20 text-muted-foreground">
+                    <th className="py-3 px-4 font-medium">PO Number</th>
+                    <th className="py-3 px-4 font-medium">Vendor</th>
+                    <th className="py-3 px-4 font-medium">Invoice No.</th>
+                    <th className="py-3 px-4 font-medium">Invoice Date</th>
+                    <th className="py-3 px-4 font-medium text-right">Total Amount</th>
+                    <th className="py-3 px-4 font-medium text-right">Paid</th>
+                    <th className="py-3 px-4 font-medium text-right">Balance Due</th>
+                    <th className="py-3 px-4 font-medium text-center">Status</th>
+                    <th className="py-3 px-4 font-medium">Created</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/20">
+                  {purchases.length > 0 ? (
+                    purchases.map(po => {
+                      const balance = (po.total_amount || 0) - (po.paid_amount || 0);
+                      return (
+                        <tr key={po.id} className="hover:bg-muted/10 transition-colors">
+                          <td className="py-3 px-4 font-mono font-bold text-foreground">
+                            {po.po_number}
+                          </td>
+                          <td className="py-3 px-4 font-medium">
+                            {po.vendor_name || 'N/A'}
+                          </td>
+                          <td className="py-3 px-4 text-muted-foreground font-mono">
+                            {po.invoice_number || '—'}
+                          </td>
+                          <td className="py-3 px-4 font-mono">
+                            {po.invoice_date || '—'}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-semibold">
+                            {formatCurrency(po.total_amount)}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono text-emerald-500 font-medium">
+                            {formatCurrency(po.paid_amount)}
+                          </td>
+                          <td className="py-3 px-4 text-right font-mono font-medium text-red-500">
+                            {formatCurrency(Math.max(0, balance))}
+                          </td>
+                          <td className="py-3 px-4 text-center">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
+                              po.payment_status === 'paid'
+                                ? 'bg-emerald-500/10 text-emerald-500 border border-emerald-500/20'
+                                : po.payment_status === 'partial'
+                                ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20'
+                                : 'bg-red-500/10 text-red-500 border border-red-500/20'
+                            }`}>
+                              {po.payment_status}
+                            </span>
+                          </td>
+                          <td className="py-3 px-4 text-muted-foreground font-mono">
+                            {formatDate(po.created_at)}
+                          </td>
+                        </tr>
+                      );
+                    })
+                  ) : (
+                    <tr>
+                      <td colSpan={9} className="py-12 text-center text-muted-foreground">
+                        No purchase orders recorded yet. Click "New Purchase Order (GRN)" to log vendor delivery.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* TAB 5: VENDORS DIRECTORY */}
+      {activeTab === 'vendors' && (
+        <div className="space-y-4">
+          <div className="rounded-2xl border border-border/50 bg-card overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead>
+                  <tr className="border-b border-border/40 bg-muted/20 text-muted-foreground">
+                    <th className="py-3 px-4 font-medium">Vendor Name</th>
+                    <th className="py-3 px-4 font-medium">Contact Person</th>
+                    <th className="py-3 px-4 font-medium">Contact Info</th>
+                    <th className="py-3 px-4 font-medium">GSTIN</th>
+                    <th className="py-3 px-4 font-medium text-right">Outstanding Balance</th>
+                    <th className="py-3 px-4 font-medium">Address</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border/20">
+                  {vendors.length > 0 ? (
+                    vendors.map(ven => (
+                      <tr key={ven.id} className="hover:bg-muted/10 transition-colors">
+                        <td className="py-3 px-4 font-semibold text-foreground">
+                          {ven.name}
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground">
+                          {ven.contact_person || '—'}
+                        </td>
+                        <td className="py-3 px-4 space-y-0.5">
+                          {ven.phone && (
+                            <div className="flex items-center gap-1 font-mono text-muted-foreground">
+                              <Phone className="w-3 h-3" /> {ven.phone}
+                            </div>
+                          )}
+                          {ven.email && (
+                            <div className="flex items-center gap-1 text-muted-foreground">
+                              <Mail className="w-3 h-3" /> {ven.email}
+                            </div>
+                          )}
+                          {!ven.phone && !ven.email && <span className="text-muted-foreground">—</span>}
+                        </td>
+                        <td className="py-3 px-4 font-mono text-muted-foreground">
+                          {ven.gstin || '—'}
+                        </td>
+                        <td className={`py-3 px-4 text-right font-mono font-bold ${ven.balance > 0 ? 'text-red-500' : 'text-foreground'}`}>
+                          {formatCurrency(ven.balance || 0)}
+                        </td>
+                        <td className="py-3 px-4 text-muted-foreground max-w-xs truncate">
+                          {ven.address || '—'}
+                        </td>
+                      </tr>
+                    ))
+                  ) : (
+                    <tr>
+                      <td colSpan={6} className="py-12 text-center text-muted-foreground">
+                        No active vendors configured yet. Click "Add Vendor" to create supplier profiles.
+                      </td>
+                    </tr>
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Add / Edit Ingredient Modal */}
       {showAddModal && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
@@ -934,6 +1294,316 @@ export default function InventoryPage() {
                 </Button>
                 <Button type="submit">
                   Confirm Adjustment
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Add Vendor Modal */}
+      {showAddVendorModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-md p-6 shadow-xl space-y-4">
+            <div className="flex items-center justify-between pb-3 border-b border-border/40">
+              <h3 className="font-bold text-base">Add New Supplier / Vendor</h3>
+              <button onClick={() => setShowAddVendorModal(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveVendor} className="space-y-4 text-xs">
+              <div className="space-y-1">
+                <label className="font-medium text-foreground">Vendor Name *</label>
+                <input
+                  type="text"
+                  required
+                  value={vendorForm.name}
+                  onChange={e => setVendorForm({ ...vendorForm, name: e.target.value })}
+                  placeholder="e.g. Metro Cash & Carry, Farm Fresh Dairy"
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2 text-sm focus:outline-none"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-medium text-foreground">Contact Person</label>
+                  <input
+                    type="text"
+                    value={vendorForm.contact_person}
+                    onChange={e => setVendorForm({ ...vendorForm, contact_person: e.target.value })}
+                    placeholder="e.g. Ramesh Kumar"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-medium text-foreground">Phone Number</label>
+                  <input
+                    type="text"
+                    value={vendorForm.phone}
+                    onChange={e => setVendorForm({ ...vendorForm, phone: e.target.value })}
+                    placeholder="e.g. +91 9876543210"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 font-mono focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1">
+                  <label className="font-medium text-foreground">Email</label>
+                  <input
+                    type="email"
+                    value={vendorForm.email}
+                    onChange={e => setVendorForm({ ...vendorForm, email: e.target.value })}
+                    placeholder="vendor@example.com"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 focus:outline-none"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <label className="font-medium text-foreground">GSTIN / Tax ID</label>
+                  <input
+                    type="text"
+                    value={vendorForm.gstin}
+                    onChange={e => setVendorForm({ ...vendorForm, gstin: e.target.value })}
+                    placeholder="29AAAAA0000A1Z5"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 font-mono uppercase focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-medium text-foreground">Address / Notes</label>
+                <textarea
+                  rows={2}
+                  value={vendorForm.address}
+                  onChange={e => setVendorForm({ ...vendorForm, address: e.target.value })}
+                  placeholder="Street, City, Warehouse details..."
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2 focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2">
+                <Button type="button" variant="ghost" onClick={() => setShowAddVendorModal(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit">
+                  Save Vendor
+                </Button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* New Purchase Order (GRN) Modal */}
+      {showNewPoModal && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+          <div className="bg-card border border-border rounded-2xl w-full max-w-2xl p-6 shadow-xl space-y-4 max-h-[90vh] flex flex-col">
+            <div className="flex items-center justify-between pb-3 border-b border-border/40 shrink-0">
+              <div>
+                <h3 className="font-bold text-base">New Purchase Order & Goods Receipt (GRN)</h3>
+                <p className="text-xs text-muted-foreground">Inward inventory stock will automatically update upon saving</p>
+              </div>
+              <button onClick={() => setShowNewPoModal(false)} className="text-muted-foreground hover:text-foreground">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSavePo} className="space-y-4 text-xs overflow-y-auto pr-1 flex-1">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div className="space-y-1">
+                  <label className="font-medium text-foreground">Vendor *</label>
+                  <select
+                    required
+                    value={poForm.vendor_id}
+                    onChange={e => setPoForm({ ...poForm, vendor_id: e.target.value })}
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 focus:outline-none"
+                  >
+                    <option value="">Select Vendor...</option>
+                    {vendors.map(v => (
+                      <option key={v.id} value={v.id}>{v.name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-medium text-foreground">Supplier Invoice #</label>
+                  <input
+                    type="text"
+                    value={poForm.invoice_number}
+                    onChange={e => setPoForm({ ...poForm, invoice_number: e.target.value })}
+                    placeholder="e.g. INV-2026-904"
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 focus:outline-none font-mono"
+                  />
+                </div>
+
+                <div className="space-y-1">
+                  <label className="font-medium text-foreground">Invoice Date</label>
+                  <input
+                    type="date"
+                    required
+                    value={poForm.invoice_date}
+                    onChange={e => setPoForm({ ...poForm, invoice_date: e.target.value })}
+                    className="w-full bg-background border border-border rounded-xl px-3 py-2 focus:outline-none font-mono"
+                  />
+                </div>
+              </div>
+
+              {/* Items Section */}
+              <div className="space-y-2 pt-2 border-t border-border/40">
+                <div className="flex items-center justify-between">
+                  <label className="font-bold text-foreground">Received Goods / Ingredients</label>
+                  <Button type="button" size="sm" variant="outline" onClick={addPoItem} className="h-7 text-xs gap-1">
+                    <Plus className="w-3.5 h-3.5" /> Add Line
+                  </Button>
+                </div>
+
+                {poForm.items.length === 0 ? (
+                  <p className="text-center py-4 text-muted-foreground border border-dashed border-border rounded-xl">
+                    No items added. Click "Add Line" to include received ingredients.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {poForm.items.map((item, idx) => {
+                      const itemSubtotal = (Number(item.quantity) || 0) * (Number(item.unit_price) || 0);
+                      const itemTotal = itemSubtotal * (1 + (Number(item.tax_rate) || 0) / 100);
+                      return (
+                        <div key={idx} className="flex flex-wrap items-center gap-2 p-2 rounded-xl bg-muted/20 border border-border/40">
+                          <select
+                            value={item.ingredient_id}
+                            onChange={e => updatePoItem(idx, { ingredient_id: e.target.value })}
+                            className="flex-1 min-w-[140px] bg-background border border-border rounded-lg px-2.5 py-1.5 focus:outline-none"
+                          >
+                            {ingredients.map(ing => (
+                              <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>
+                            ))}
+                          </select>
+                          <div className="w-20">
+                            <input
+                              type="number"
+                              step="any"
+                              value={item.quantity}
+                              onChange={e => updatePoItem(idx, { quantity: Number(e.target.value) })}
+                              placeholder="Qty"
+                              className="w-full bg-background border border-border rounded-lg px-2 py-1.5 font-mono text-right focus:outline-none"
+                            />
+                          </div>
+                          <div className="w-24">
+                            <input
+                              type="number"
+                              step="any"
+                              value={item.unit_price}
+                              onChange={e => updatePoItem(idx, { unit_price: Number(e.target.value) })}
+                              placeholder="Price"
+                              className="w-full bg-background border border-border rounded-lg px-2 py-1.5 font-mono text-right focus:outline-none"
+                            />
+                          </div>
+                          <div className="w-20">
+                            <input
+                              type="number"
+                              value={item.tax_rate}
+                              onChange={e => updatePoItem(idx, { tax_rate: Number(e.target.value) })}
+                              placeholder="Tax %"
+                              className="w-full bg-background border border-border rounded-lg px-2 py-1.5 font-mono text-right focus:outline-none"
+                            />
+                          </div>
+                          <div className="w-20 text-right font-mono font-bold text-foreground">
+                            {formatCurrency(itemTotal)}
+                          </div>
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => removePoItem(idx)}
+                            className="h-7 w-7 p-0 text-red-500 hover:text-red-600"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </Button>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              {/* Payment & Totals */}
+              <div className="p-3 rounded-xl bg-muted/30 border border-border/40 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="space-y-2">
+                  <div className="space-y-1">
+                    <label className="font-medium text-foreground">Paid Amount Now</label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={poForm.paid_amount}
+                      onChange={e => setPoForm({ ...poForm, paid_amount: Number(e.target.value) })}
+                      placeholder="0"
+                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 font-mono focus:outline-none"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <label className="font-medium text-foreground">Payment Method</label>
+                    <select
+                      value={poForm.payment_method}
+                      onChange={e => setPoForm({ ...poForm, payment_method: e.target.value })}
+                      className="w-full bg-background border border-border rounded-xl px-3 py-1.5 focus:outline-none"
+                    >
+                      <option value="cash">Cash</option>
+                      <option value="bank_transfer">Bank Transfer / NEFT</option>
+                      <option value="upi">UPI</option>
+                      <option value="card">Card</option>
+                      <option value="cheque">Cheque</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="space-y-1.5 text-right flex flex-col justify-end">
+                  {(() => {
+                    const subtotal = poForm.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unit_price) || 0), 0);
+                    const tax = poForm.items.reduce((sum, item) => sum + (Number(item.quantity) || 0) * (Number(item.unit_price) || 0) * ((Number(item.tax_rate) || 0) / 100), 0);
+                    const grandTotal = subtotal + tax;
+                    const balance = grandTotal - (Number(poForm.paid_amount) || 0);
+
+                    return (
+                      <>
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Subtotal:</span>
+                          <span className="font-mono">{formatCurrency(subtotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-muted-foreground">
+                          <span>Taxes:</span>
+                          <span className="font-mono">{formatCurrency(tax)}</span>
+                        </div>
+                        <div className="flex justify-between text-sm font-bold border-t border-border/40 pt-1">
+                          <span>Grand Total:</span>
+                          <span className="font-mono text-foreground">{formatCurrency(grandTotal)}</span>
+                        </div>
+                        <div className="flex justify-between text-xs text-amber-500 font-medium">
+                          <span>Remaining Balance:</span>
+                          <span className="font-mono">{formatCurrency(Math.max(0, balance))}</span>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+
+              <div className="space-y-1">
+                <label className="font-medium text-foreground">Notes / Memo</label>
+                <input
+                  type="text"
+                  value={poForm.notes}
+                  onChange={e => setPoForm({ ...poForm, notes: e.target.value })}
+                  placeholder="e.g. Received batch #402, delivered via truck"
+                  className="w-full bg-background border border-border rounded-xl px-3 py-2 focus:outline-none"
+                />
+              </div>
+
+              <div className="pt-2 flex justify-end gap-2 border-t border-border/40 shrink-0">
+                <Button type="button" variant="ghost" onClick={() => setShowNewPoModal(false)}>
+                  Cancel
+                </Button>
+                <Button type="submit" className="gap-2 bg-brand hover:bg-brand-hover text-white shadow-xs">
+                  <CheckCircle2 className="w-4 h-4" /> Receive & Post GRN
                 </Button>
               </div>
             </form>

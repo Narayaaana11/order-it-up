@@ -74,8 +74,9 @@ const SUPPORTED = [
 
 // Endpoints intentionally not served by Cloud, with the reason shown to users.
 const LOCAL_ONLY = {
-  '/api/ai/prep-recommendations': 'Desktop/local AI assistant; Cloud has no model service.',
+  '/api/ai/insights': 'Desktop/local AI assistant; Cloud has no model service.',
   '/api/whatsapp/status': 'WhatsApp integration is configured on the local restaurant server.',
+  '/api/whatsapp/send': 'WhatsApp messaging is executed on the local restaurant server.',
   '/api/server-app/info': 'LAN server discovery/info is desktop-only.',
   '/api/kds': 'Legacy LAN KDS endpoint; Cloud uses /api/kitchen/tickets.',
 };

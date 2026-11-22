@@ -12,7 +12,7 @@ export default defineConfig({
     trace: 'on-first-retry', // Upload traces for debugging CI flakes
   },
   webServer: {
-    command: 'node tests/e2e-server.cjs',
+    command: 'node tests/run-electron-node-test.cjs tests/e2e-server.cjs',
     // The server app starts last, so its health endpoint is the browser
     // harness's all-services-ready barrier.
     url: `${E2E_SERVER_APP_BASE_URL}/api/health`,

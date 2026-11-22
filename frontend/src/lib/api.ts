@@ -36,7 +36,12 @@ export function isCapacitorEnvironment(): boolean {
  */
 export function getApiBaseUrl(): string {
   if (typeof window === 'undefined') return '/api';
-  if (isElectronEnvironment()) {
+  if (
+    isElectronEnvironment() ||
+    window.location.hostname === 'localhost' ||
+    window.location.hostname === '127.0.0.1' ||
+    window.location.hostname.endsWith('.local')
+  ) {
     return `${window.location.origin}/api`;
   }
   return CLOUD_API_BASE;
