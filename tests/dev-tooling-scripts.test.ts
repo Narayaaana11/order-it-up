@@ -343,7 +343,7 @@ exit 0
     );
   }
 
-  const suitePattern = /(?:bash\s+tests\/run-test\.sh\s+)?npm\s+run\s+(test:[\w-]+)/g;
+  const suitePattern = /(?:(?:bash|node)\s+tests\/run-test\.(?:sh|cjs)\s+)?npm\s+run\s+(test:[\w-]+)/g;
   const allSuites: string[] = [];
   let match: RegExpExecArray | null;
   while ((match = suitePattern.exec(testScript)) !== null) {

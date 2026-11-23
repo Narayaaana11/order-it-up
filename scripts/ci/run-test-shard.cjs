@@ -38,6 +38,14 @@ if (index >= total) {
   process.exit(2);
 }
 
+const bashExecutable = (() => {
+  if (process.platform === 'win32') {
+    const gitBash = 'C:\\Program Files\\Git\\bin\\bash.exe';
+    if (fs.existsSync(gitBash)) return gitBash;
+  }
+  return 'bash';
+})();
+
 const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
 const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
 const testScript = pkg.scripts && pkg.scripts.test;
@@ -46,7 +54,7 @@ if (typeof testScript !== 'string' || testScript.length === 0) {
   process.exit(2);
 }
 
-const suitePattern = /(?:bash\s+tests\/run-test\.sh\s+)?npm\s+run\s+(test:[\w-]+)/g;
+const suitePattern = /(?:(?:bash|node)\s+tests\/run-test\.(?:sh|cjs)\s+)?npm\s+run\s+(test:[\w-]+)/g;
 const suites = [];
 let match;
 while ((match = suitePattern.exec(testScript)) !== null) {
@@ -66,7 +74,10 @@ console.log(
 let failed = false;
 for (const suite of mine) {
   console.log(`\n=== [shard ${index}] ${suite} ===`);
-  const result = spawnSync('bash', ['tests/run-test.sh', 'npm', 'run', suite], {
+  const runner = fs.existsSync(path.resolve('tests/run-test.cjs'))
+    ? [process.execPath, 'tests/run-test.cjs']
+    : [bashExecutable, 'tests/run-test.sh'];
+  const result = spawnSync(runner[0], [...runner.slice(1), 'npm', 'run', suite], {
     stdio: 'inherit',
     env: process.env,
   });
