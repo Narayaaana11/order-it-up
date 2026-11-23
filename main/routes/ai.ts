@@ -1,8 +1,9 @@
 import { Request, Response, Router, NextFunction } from 'express';
-import { getDatabase, now } from '../db';
+import { getDatabase, now, dayBoundsInTimezone, localDateInTimezone, getSettingValue } from '../db';
 import { requireRole } from '../middleware/security';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { isValidTableToken, isValidAnyActiveQrToken } from './qr-order';
+import { AiToolsService } from '../services/ai-tools';
 import {
   getOpenRouterConfig,
   setOpenRouterConfig,
@@ -354,42 +355,55 @@ router.get('/ai/insights', requireRole(...ROLE_ACCESS.ownerManagerCashier), asyn
 // ── 2. "Ask OIU" Conversational Restaurant Copilot ──────────────────
 router.post('/ai/ask', requireRole(...ROLE_ACCESS.ownerManagerCashier), async (req: Request, res: Response) => {
   try {
-    const { question } = req.body;
+    const { question, tool, params } = req.body;
     if (!question || typeof question !== 'string') {
       return res.status(400).json({ ok: false, error: 'Question is required' });
     }
 
-    const db = getDatabase();
-    const tenantId = (req as any).user?.tenant_id || 'default';
+    const tz = getSettingValue('timezone') || 'Asia/Kolkata';
 
-    // Pull today's sales
-    const todayDate = new Date().toISOString().split('T')[0];
-    const todaySales = db.prepare(
-      `SELECT COUNT(*) as order_count, SUM(total) as revenue 
-       FROM orders 
-       WHERE created_at >= ? AND status != 'cancelled'`
-    ).get(todayDate) as any;
+    // If direct tool execution is requested or triggered
+    let toolResult: any = null;
+    if (tool && typeof tool === 'string') {
+      try {
+        toolResult = AiToolsService.execute(tool, params || {});
+      } catch (toolErr: any) {
+        return res.status(toolErr.statusCode || 400).json({ ok: false, error: toolErr.message });
+      }
+    }
 
-    // Pull top seller
-    const topSeller = db.prepare(
-      `SELECT oi.product_name, SUM(oi.quantity) as qty, SUM(oi.total) as rev
-       FROM order_items oi
-       JOIN orders o ON oi.order_id = o.id
-       WHERE o.status != 'cancelled'
-       GROUP BY oi.product_name
-       ORDER BY qty DESC LIMIT 1`
-    ).get() as any;
+    // Determine relevant tool to call automatically based on question intent if none provided
+    const qLower = question.toLowerCase();
+    if (!toolResult) {
+      if (qLower.includes('hour') || qLower.includes('peak') || qLower.includes('busy')) {
+        toolResult = AiToolsService.getHourlySales();
+      } else if (qLower.includes('stock') || qLower.includes('inventory') || qLower.includes('ingredient')) {
+        toolResult = AiToolsService.getLowStock();
+      } else if (qLower.includes('cost') || qLower.includes('recipe') || qLower.includes('margin')) {
+        toolResult = AiToolsService.getFoodCostByItem({ limit: 5 });
+      } else if (qLower.includes('payment') || qLower.includes('upi') || qLower.includes('cash') || qLower.includes('card')) {
+        toolResult = AiToolsService.getPaymentSplit();
+      } else if (qLower.includes('top') || qLower.includes('best') || qLower.includes('popular')) {
+        toolResult = AiToolsService.getTopItems({ limit: 5 });
+      } else {
+        toolResult = AiToolsService.getSalesSummary();
+      }
+    }
+
+    const salesSummary = AiToolsService.getSalesSummary().data;
+    const topItems = AiToolsService.getTopItems({ limit: 1 }).data;
+    const topSeller = topItems[0] ? {
+      product_name: topItems[0].product_name,
+      qty: topItems[0].quantity,
+      rev: topItems[0].revenue,
+    } : undefined;
 
     const analysis = await analyzeRestaurantCopilot(question, {
       todaySales: {
-        order_count: Number(todaySales?.order_count || 0),
-        revenue: Number(todaySales?.revenue || 0),
+        order_count: salesSummary.order_count,
+        revenue: salesSummary.revenue,
       },
-      topSeller: topSeller ? {
-        product_name: topSeller.product_name,
-        qty: Number(topSeller.qty || 0),
-        rev: Number(topSeller.rev || 0),
-      } : undefined,
+      topSeller,
     });
 
     res.json({
@@ -397,6 +411,9 @@ router.post('/ai/ask', requireRole(...ROLE_ACCESS.ownerManagerCashier), async (r
       answer: analysis.answer,
       action_item: analysis.action_item,
       powered_by: analysis.powered_by,
+      tool_used: toolResult?.tool || null,
+      tool_data: toolResult?.data || null,
+      timezone: tz,
       timestamp: now(),
     });
   } catch (err: any) {
