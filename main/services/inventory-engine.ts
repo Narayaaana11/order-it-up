@@ -1,4 +1,6 @@
 import { getDatabase, now } from '../db';
+import { recordAudit } from './audit';
+import log from 'electron-log';
 
 export interface RecipeItem {
   id: string;
@@ -41,6 +43,28 @@ export interface InventoryDeductionResult {
 }
 
 /**
+ * Converts a quantity from one unit to another using the unit_conversions table.
+ * Defaults to 1:1 if no conversion or identical units.
+ */
+export function convertUnit(quantity: number, fromUnit: string, toUnit: string): number {
+  if (!fromUnit || !toUnit || fromUnit.toLowerCase() === toUnit.toLowerCase()) {
+    return quantity;
+  }
+  const db = getDatabase();
+  try {
+    const row = db.prepare(`
+      SELECT conversion_factor FROM unit_conversions
+      WHERE LOWER(from_unit) = LOWER(?) AND LOWER(to_unit) = LOWER(?)
+    `).get(fromUnit, toUnit) as { conversion_factor: number } | undefined;
+
+    if (row && row.conversion_factor) {
+      return quantity * row.conversion_factor;
+    }
+  } catch {}
+  return quantity;
+}
+
+/**
  * Calculates recipe cost (COGS) for a product based on current raw ingredient costs.
  */
 export function calculateProductRecipeCost(productId: string): number {
@@ -65,7 +89,7 @@ export function calculateProductRecipeCost(productId: string): number {
  * Runs atomically inside the caller's transaction or creates one.
  */
 export function deductIngredientsForOrderItems(
-  items: { product_id: string; quantity: number }[],
+  items: { product_id: string; quantity: number; selected_addons?: { addon_id?: string; id?: string; quantity?: number }[] }[],
   orderNumber: string,
   allowNegativeStock = true,
 ): InventoryDeductionResult {
@@ -87,11 +111,19 @@ export function deductIngredientsForOrderItems(
   const insufficient: InventoryDeductionResult['insufficientIngredients'] = [];
 
   const stmtGetRecipe = db.prepare(`
-    SELECT r.ingredient_id, r.quantity_required, r.wastage_percentage, r.unit,
-           i.name as ingredient_name, i.current_stock, i.minimum_stock
+    SELECT r.ingredient_id, r.quantity_required, r.wastage_percentage, r.unit as recipe_unit,
+           i.name as ingredient_name, i.current_stock, i.minimum_stock, i.unit as ingredient_unit
     FROM product_recipes r
     JOIN raw_ingredients i ON i.id = r.ingredient_id
     WHERE r.product_id = ? AND i.is_active = 1
+  `);
+
+  const stmtGetAddonRecipe = db.prepare(`
+    SELECT ar.ingredient_id, ar.quantity_delta, ar.unit as addon_unit,
+           i.name as ingredient_name, i.current_stock, i.minimum_stock, i.unit as ingredient_unit
+    FROM addon_recipes ar
+    JOIN raw_ingredients i ON i.id = ar.ingredient_id
+    WHERE ar.addon_id = ? AND i.is_active = 1
   `);
 
   const stmtUpdateStock = db.prepare(`
@@ -116,7 +148,8 @@ export function deductIngredientsForOrderItems(
   for (const item of items) {
     const recipes = stmtGetRecipe.all(item.product_id) as any[];
     for (const rec of recipes) {
-      const perItemQty = rec.quantity_required * (1 + (rec.wastage_percentage || 0) / 100);
+      const convertedBase = convertUnit(rec.quantity_required, rec.recipe_unit || rec.ingredient_unit, rec.ingredient_unit);
+      const perItemQty = convertedBase * (1 + (rec.wastage_percentage || 0) / 100);
       const totalNeeded = perItemQty * item.quantity;
       const existing = aggregatedNeeded.get(rec.ingredient_id);
       if (existing) {
@@ -128,6 +161,33 @@ export function deductIngredientsForOrderItems(
           currentStock: rec.current_stock,
           minStock: rec.minimum_stock,
         });
+      }
+    }
+
+    // Check modifier add-on recipe deltas
+    if (item.selected_addons && item.selected_addons.length > 0) {
+      for (const addon of item.selected_addons) {
+        const addonId = addon.addon_id || addon.id;
+        if (!addonId) continue;
+        const addonQty = (addon.quantity || 1) * item.quantity;
+        try {
+          const addonRecipes = stmtGetAddonRecipe.all(addonId) as any[];
+          for (const ar of addonRecipes) {
+            const convertedDelta = convertUnit(ar.quantity_delta, ar.addon_unit || ar.ingredient_unit, ar.ingredient_unit);
+            const totalDelta = convertedDelta * addonQty;
+            const existing = aggregatedNeeded.get(ar.ingredient_id);
+            if (existing) {
+              existing.needed += totalDelta;
+            } else {
+              aggregatedNeeded.set(ar.ingredient_id, {
+                name: ar.ingredient_name,
+                needed: totalDelta,
+                currentStock: ar.current_stock,
+                minStock: ar.minimum_stock,
+              });
+            }
+          }
+        } catch {}
       }
     }
   }
@@ -155,13 +215,28 @@ export function deductIngredientsForOrderItems(
     }
   }
 
-  // Apply deductions
+  // Apply deductions and record audit log
   const currentTime = now();
   for (const [ingId, req] of aggregatedNeeded.entries()) {
     if (req.needed <= 0) continue;
     stmtUpdateStock.run(req.needed, currentTime, ingId);
     const newStock = req.currentStock - req.needed;
     stmtLogTx.run(ingId, -req.needed, newStock, `Order #${orderNumber}`, currentTime);
+
+    // Cryptographic audit chain logging for stock decrement
+    try {
+      recordAudit(db, {
+        action: 'product_stock_change',
+        entity_type: 'raw_ingredient',
+        entity_id: ingId,
+        before_json: { current_stock: req.currentStock },
+        after_json: { current_stock: newStock, quantity_deducted: req.needed },
+        reason: `Deduction for Order #${orderNumber}`,
+        severity: 'info',
+      });
+    } catch (e: any) {
+      log.warn('[Audit] Stock deduction audit record warning:', e?.message);
+    }
 
     deductions.push({
       ingredientId: ingId,
@@ -232,6 +307,21 @@ export function restoreIngredientsForOrderItems(
       stmtUpdateStock.run(totalRestore, currentTime, rec.ingredient_id);
       const newStock = rec.current_stock + totalRestore;
       stmtLogTx.run(rec.ingredient_id, totalRestore, newStock, `${reason} (#${orderNumber})`, currentTime);
+
+      // Record audit log entry for stock restoration
+      try {
+        recordAudit(db, {
+          action: 'product_stock_change',
+          entity_type: 'raw_ingredient',
+          entity_id: rec.ingredient_id,
+          before_json: { current_stock: rec.current_stock },
+          after_json: { current_stock: newStock, quantity_restored: totalRestore },
+          reason: `${reason} (#${orderNumber})`,
+          severity: 'info',
+        });
+      } catch (e: any) {
+        log.warn('[Audit] Stock restore audit record warning:', e?.message);
+      }
     }
   }
 }

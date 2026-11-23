@@ -4565,6 +4565,50 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       });
     },
   },
+  {
+    version: 94,
+    name: 'recipe_modifier_deltas_and_units',
+    up: () => {
+      // 1. Addon recipe mapping (modifiers that add/remove ingredient quantities)
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS addon_recipes (
+          addon_id TEXT NOT NULL REFERENCES addons(id) ON DELETE CASCADE,
+          ingredient_id TEXT NOT NULL REFERENCES raw_ingredients(id) ON DELETE CASCADE,
+          quantity_delta REAL NOT NULL,
+          unit TEXT NOT NULL DEFAULT 'g',
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          PRIMARY KEY (addon_id, ingredient_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_addon_recipes_ingredient ON addon_recipes(ingredient_id);
+      `);
+
+      // 2. Unit conversion definitions (g, kg, ml, l, pcs)
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS unit_conversions (
+          from_unit TEXT NOT NULL,
+          to_unit TEXT NOT NULL,
+          conversion_factor REAL NOT NULL,
+          PRIMARY KEY (from_unit, to_unit)
+        );
+      `);
+
+      // Seed standard unit conversions
+      const seedConversions = [
+        ['kg', 'g', 1000],
+        ['g', 'kg', 0.001],
+        ['l', 'ml', 1000],
+        ['ml', 'l', 0.001],
+        ['pcs', 'pcs', 1],
+      ];
+      const insertConv = db.prepare(`
+        INSERT OR IGNORE INTO unit_conversions (from_unit, to_unit, conversion_factor)
+        VALUES (?, ?, ?)
+      `);
+      for (const [fromU, toU, factor] of seedConversions) {
+        insertConv.run(fromU, toU, factor);
+      }
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {

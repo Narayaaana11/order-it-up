@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { getDatabase, now, getSettingValue } from '../db';
+import { recordAudit } from './audit';
 import log from 'electron-log';
 
 export interface SafTransactionParams {
@@ -122,6 +123,17 @@ export function queueOfflineCardPayment(params: SafTransactionParams): SafTransa
       timestamp,
       timestamp
     );
+
+    try {
+      recordAudit(db, {
+        action: 'payment_method_edit',
+        entity_type: 'saf_card_transaction',
+        entity_id: id,
+        after_json: { bill_id: billId, amount, status: 'queued', card_last4: cleanLast4 },
+        reason: `Offline SAF card queued for bill #${billId}`,
+        severity: 'info',
+      });
+    } catch {}
   })();
 
   log.info(`[SAF] Queued offline card transaction ${id} for bill #${billId} (Amount: ${amount} ${currency}, Auth: ${authCode})`);
@@ -187,6 +199,18 @@ export async function processPendingSafTransactions(): Promise<{
 
         settledCount++;
         log.info(`[SAF] Settled offline card transaction ${tx.id} for bill #${tx.bill_id}`);
+
+        try {
+          recordAudit(db, {
+            action: 'payment_method_edit',
+            entity_type: 'saf_card_transaction',
+            entity_id: tx.id,
+            before_json: { status: 'queued', bill_id: tx.bill_id },
+            after_json: { status: 'settled', bill_id: tx.bill_id, forwarded_at: timestamp },
+            reason: `SAF card transaction settled for bill #${tx.bill_id}`,
+            severity: 'info',
+          });
+        } catch {}
       } else {
         throw new Error('Settlement refused: invalid or rejected authorization code');
       }
