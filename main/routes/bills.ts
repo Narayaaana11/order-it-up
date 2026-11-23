@@ -2348,12 +2348,20 @@ router.get('/:id/upi-qr', requireRole(...ROLE_ACCESS.ownerManagerCashier), async
   const businessName = getSettingValue('business_name') || 'Order It Up';
   const rawVpa = getSettingValue('upi_id') || getSettingValue('upi_vpa') || 'orderitup@icici';
   const vpa = rawVpa.trim();
+  const isVpaValid = isValidVpa(vpa);
   const amount = Number(bill.total || 0).toFixed(2);
   const billNumber = bill.bill_number || `INV-${bill.id}`;
   const cleanMerchantName = businessName.replace(/[^a-zA-Z0-9 ]/g, '').trim() || 'Restaurant';
 
-  // Standard UPI URI format
-  const upiUri = `upi://pay?pa=${encodeURIComponent(vpa)}&pn=${encodeURIComponent(cleanMerchantName)}&am=${amount}&cu=INR&tn=${encodeURIComponent(`Bill ${billNumber}`)}&tr=${encodeURIComponent(billNumber)}`;
+  // Standard NPCI UPI URI
+  const upiUri = generateUpiUri({
+    vpa,
+    merchantName: cleanMerchantName,
+    amount,
+    billNumber,
+    note: `Bill ${billNumber}`,
+    tr: billNumber,
+  });
 
   // Generate crisp QR code
   const qrDataUrl = await QRCode.toDataURL(upiUri, {
@@ -2373,11 +2381,90 @@ router.get('/:id/upi-qr', requireRole(...ROLE_ACCESS.ownerManagerCashier), async
     amount: Number(amount),
     merchant_name: businessName,
     vpa,
+    vpa_valid: isVpaValid,
     upi_uri: upiUri,
     qr_data_url: qrDataUrl,
     table_number: bill.table_number,
     order_number: bill.order_number,
+    is_paid: bill.payment_status === 'paid',
   });
+}));
+
+// GET /api/bills/:id/upi-status - Check UPI payment status for bill
+router.get('/:id/upi-status', requireRole(...ROLE_ACCESS.ownerManagerCashier), asyncHandler(async (req: Request, res: Response) => {
+  const db = getDatabase();
+  const bill = db.prepare('SELECT id, bill_number, total, paid_amount, balance, payment_status, payment_details, paid_at FROM bills WHERE id = ?')
+    .get(req.params.id) as any;
+
+  if (!bill) {
+    return res.status(404).json({ error: 'Bill not found' });
+  }
+
+  let upiPayment = null;
+  try {
+    if (bill.payment_details) {
+      const parsed = JSON.parse(bill.payment_details);
+      const list = Array.isArray(parsed) ? parsed : [parsed];
+      upiPayment = list.find((p: any) => p.method === 'upi') || null;
+    }
+  } catch {
+    upiPayment = null;
+  }
+
+  res.json({
+    ok: true,
+    bill_id: bill.id,
+    bill_number: bill.bill_number,
+    total: bill.total,
+    paid_amount: bill.paid_amount,
+    balance: bill.balance,
+    payment_status: bill.payment_status,
+    is_paid: bill.payment_status === 'paid',
+    paid_at: bill.paid_at,
+    upi_details: upiPayment,
+  });
+}));
+
+// POST /api/bills/:id/upi-reconcile - Reconcile UPI payment for specific bill
+router.post('/:id/upi-reconcile', requireRole(...ROLE_ACCESS.ownerManagerCashier), asyncHandler(async (req: Request, res: Response) => {
+  const { utr, amount, payer_vpa, status = 'SUCCESS', soundbox_id } = req.body || {};
+  const billId = Array.isArray(req.params.id) ? req.params.id[0] : req.params.id;
+
+  const result = reconcileUpiPayment({
+    billId,
+    amount,
+    utr,
+    payerVpa: payer_vpa,
+    status,
+    soundboxId: soundbox_id,
+  });
+
+  if (!result.success) {
+    return res.status(400).json({ ok: false, error: result.error });
+  }
+
+  res.json({ ok: true, ...result });
+}));
+
+// POST /api/bills/upi-webhook - Webhook / Soundbox payment reconciliation
+router.post('/upi-webhook', asyncHandler(async (req: Request, res: Response) => {
+  const { bill_id, bill_number, tr, amount, utr, payer_vpa, status = 'SUCCESS', soundbox_id } = req.body || {};
+
+  const result = reconcileUpiPayment({
+    billId: bill_id,
+    billNumber: bill_number || tr,
+    amount,
+    utr,
+    payerVpa: payer_vpa,
+    status,
+    soundboxId: soundbox_id,
+  });
+
+  if (!result.success) {
+    return res.status(400).json({ ok: false, error: result.error });
+  }
+
+  res.json({ ok: true, ...result });
 }));
 
 // GET /api/bills/:id/einvoice - Export standard B2B IRP JSON schema
@@ -2391,5 +2478,6 @@ router.get('/:id/einvoice', requireRole(...ROLE_ACCESS.ownerManager), (req: Requ
 });
 
 import { generateB2BEinvoiceJson } from '../services/einvoice';
+import { isValidVpa, generateUpiUri, reconcileUpiPayment } from '../services/upi';
 
 export const billRoutes = router;

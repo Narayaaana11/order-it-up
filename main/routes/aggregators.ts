@@ -6,13 +6,16 @@ import {
   ingestAggregatorOrder, 
   updateRiderStatus, 
   cancelAggregatorOrder,
-  verifyWebhookSignature 
+  verifyWebhookSignature,
+  sendAggregatorOutboundAction,
+  processAggregatorOutbox
 } from '../services/aggregator-service';
 import { deductIngredientsForOrderItems } from '../services/inventory-engine';
 import { notifyKdsUpdate } from '../services/kds';
 import { asyncHandler } from '../middleware/async-handler';
 import { requireRole } from '../middleware/security';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
+import { reconcileUpiPayment } from '../services/upi';
 
 const router = Router();
 
@@ -140,6 +143,30 @@ router.post('/webhooks/:platform/cancel', asyncHandler(async (req: Request, res:
   res.json({ ok: true, status: 'cancelled', cancelled });
 }));
 
+/**
+ * POST /api/webhooks/upi
+ * Incoming payment confirmation webhook from UPI soundbox or payment gateway.
+ */
+router.post('/webhooks/upi', asyncHandler(async (req: Request, res: Response) => {
+  const { bill_id, bill_number, tr, amount, utr, payer_vpa, status = 'SUCCESS', soundbox_id } = req.body || {};
+
+  const result = reconcileUpiPayment({
+    billId: bill_id,
+    billNumber: bill_number || tr,
+    amount,
+    utr,
+    payerVpa: payer_vpa,
+    status,
+    soundboxId: soundbox_id,
+  });
+
+  if (!result.success) {
+    return res.status(400).json({ ok: false, error: result.error });
+  }
+
+  res.json({ ok: true, ...result });
+}));
+
 // ── 2. Aggregator Restaurant Kitchen Actions ────────────────────────────────
 
 /**
@@ -230,7 +257,21 @@ router.post('/aggregators/orders/:id/accept', requireRole(...ROLE_ACCESS.allStaf
 
   notifyKdsUpdate();
 
-  res.json({ ok: true, status: 'preparing', prep_time_minutes: prepTime });
+  let outboundResult = null;
+  if (order.online_platform && order.external_order_id) {
+    try {
+      outboundResult = await sendAggregatorOutboundAction(
+        order.online_platform,
+        order.external_order_id,
+        'accept',
+        { prep_time_minutes: prepTime },
+      );
+    } catch (err: any) {
+      console.warn(`[Aggregator] Outbound accept failed: ${err.message}`);
+    }
+  }
+
+  res.json({ ok: true, status: 'preparing', prep_time_minutes: prepTime, outbound: outboundResult });
 }));
 
 /**
@@ -264,7 +305,21 @@ router.post('/aggregators/orders/:id/ready', requireRole(...ROLE_ACCESS.allStaff
 
   notifyKdsUpdate();
 
-  res.json({ ok: true, status: 'ready', message: 'Delivery partner notified for pickup.' });
+  let outboundResult = null;
+  if (order.online_platform && order.external_order_id) {
+    try {
+      outboundResult = await sendAggregatorOutboundAction(
+        order.online_platform,
+        order.external_order_id,
+        'ready',
+        {},
+      );
+    } catch (err: any) {
+      console.warn(`[Aggregator] Outbound ready failed: ${err.message}`);
+    }
+  }
+
+  res.json({ ok: true, status: 'ready', outbound: outboundResult, message: 'Delivery partner notified for pickup.' });
 }));
 
 /**
@@ -299,7 +354,21 @@ router.post('/aggregators/orders/:id/reject', requireRole(...ROLE_ACCESS.ownerMa
 
   notifyKdsUpdate();
 
-  res.json({ ok: true, status: 'cancelled', reason: reason || 'Kitchen capacity full' });
+  let outboundResult = null;
+  if (order.online_platform && order.external_order_id) {
+    try {
+      outboundResult = await sendAggregatorOutboundAction(
+        order.online_platform,
+        order.external_order_id,
+        'reject',
+        { reason: reason || 'Kitchen capacity full' },
+      );
+    } catch (err: any) {
+      console.warn(`[Aggregator] Outbound reject failed: ${err.message}`);
+    }
+  }
+
+  res.json({ ok: true, status: 'cancelled', outbound: outboundResult, reason: reason || 'Kitchen capacity full' });
 }));
 
 // ── 3. Aggregator Settings ──────────────────────────────────────────────────
@@ -582,7 +651,59 @@ router.post('/aggregators/orders/:id/dispatch', requireRole(...ROLE_ACCESS.allSt
 
   notifyKdsUpdate();
 
-  res.json({ ok: true, status: 'completed', rider_status: 'dispatched', message: 'Order dispatched with delivery partner.' });
+  let outboundResult = null;
+  if (order.online_platform && order.external_order_id) {
+    try {
+      outboundResult = await sendAggregatorOutboundAction(
+        order.online_platform,
+        order.external_order_id,
+        'dispatch',
+        {},
+      );
+    } catch (err: any) {
+      console.warn(`[Aggregator] Outbound dispatch failed: ${err.message}`);
+    }
+  }
+
+  res.json({ ok: true, status: 'completed', rider_status: 'dispatched', outbound: outboundResult, message: 'Order dispatched with delivery partner.' });
+}));
+
+// ── 5. Outbound Outbox Management ───────────────────────────────────────────
+
+/**
+ * GET /api/aggregators/outbox
+ * Lists pending, sent, and failed outbound delivery partner messages.
+ */
+router.get('/aggregators/outbox', requireRole(...ROLE_ACCESS.ownerManager), asyncHandler(async (req: Request, res: Response) => {
+  const db = getDatabase();
+  const { status, platform, limit = '50' } = req.query;
+
+  let query = 'SELECT * FROM aggregator_outbox WHERE 1=1';
+  const params: any[] = [];
+
+  if (status && typeof status === 'string') {
+    query += ' AND status = ?';
+    params.push(status);
+  }
+  if (platform && typeof platform === 'string') {
+    query += ' AND platform = ?';
+    params.push(platform);
+  }
+
+  query += ' ORDER BY created_at DESC LIMIT ?';
+  params.push(Math.min(Number(limit) || 50, 200));
+
+  const items = db.prepare(query).all(...params);
+  res.json({ ok: true, outbox: items });
+}));
+
+/**
+ * POST /api/aggregators/outbox/retry
+ * Retries failed or pending aggregator outbox messages immediately.
+ */
+router.post('/aggregators/outbox/retry', requireRole(...ROLE_ACCESS.ownerManager), asyncHandler(async (_req: Request, res: Response) => {
+  const result = await processAggregatorOutbox();
+  res.json({ ok: true, ...result });
 }));
 
 export const aggregatorRoutes = router;

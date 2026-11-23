@@ -4433,6 +4433,29 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       });
     },
   },
+  {
+    version: 92,
+    name: 'add_aggregator_outbox',
+    up: () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS aggregator_outbox (
+          id TEXT PRIMARY KEY,
+          platform TEXT NOT NULL,
+          external_order_id TEXT NOT NULL,
+          action TEXT NOT NULL,
+          payload_json TEXT NOT NULL,
+          status TEXT NOT NULL DEFAULT 'pending',
+          attempts INTEGER NOT NULL DEFAULT 0,
+          last_error TEXT DEFAULT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_aggregator_outbox_status_created ON aggregator_outbox(status, created_at);
+        CREATE INDEX IF NOT EXISTS idx_aggregator_outbox_platform_order ON aggregator_outbox(platform, external_order_id);
+      `);
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {

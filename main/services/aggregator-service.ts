@@ -1,7 +1,12 @@
 import { getDatabase, generateOrderNumber, now } from '../db';
 import { deductIngredientsForOrderItems, restoreIngredientsForOrderItems } from './inventory-engine';
 import { notifyKdsUpdate } from './kds';
+import { getAggregatorAdapter, AggregatorActionResult } from './aggregator-adapter';
+import { initAggregatorSimulators } from './aggregator-simulator';
 import crypto from 'crypto';
+
+// Initialize default mock simulators for testing & offline usage
+initAggregatorSimulators();
 
 export interface NormalizedOrderItem {
   product_id?: string;
@@ -381,6 +386,12 @@ export function ingestAggregatorOrder(order: NormalizedAggregatorOrder): {
   // 6. Notify Kitchen Display System (KDS) immediately
   notifyKdsUpdate();
 
+  // 7. Auto-accept outbound sync to aggregator partner if order was accepted
+  if (finalStatus === 'preparing' && order.external_order_id) {
+    sendAggregatorOutboundAction(order.platform, order.external_order_id, 'accept', { prep_time_minutes: prepTime })
+      .catch((err) => console.warn(`[Aggregator] Auto-accept dispatch failed: ${err.message}`));
+  }
+
   return {
     ok: true,
     order_id: createdOrderId,
@@ -480,4 +491,165 @@ export function cancelAggregatorOrder(
 
   notifyKdsUpdate();
   return true;
+}
+
+// ── Outbound Aggregator Outbox & Status Sync (D7) ──────────────────────────
+
+/**
+ * Enqueues an outbound aggregator action to the persistent outbox table.
+ */
+export function enqueueAggregatorOutbox(
+  platform: string,
+  externalOrderId: string,
+  action: 'accept' | 'ready' | 'reject' | 'dispatch',
+  payload: any = {},
+): string {
+  const db = getDatabase();
+  const id = `aout_${Date.now()}_${crypto.randomBytes(4).toString('hex')}`;
+  const payloadJson = JSON.stringify(payload || {});
+  const timestamp = now();
+
+  db.prepare(`
+    INSERT INTO aggregator_outbox (id, platform, external_order_id, action, payload_json, status, attempts, last_error, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, 'pending', 0, NULL, ?, ?)
+  `).run(id, platform.toLowerCase(), externalOrderId, action, payloadJson, timestamp, timestamp);
+
+  return id;
+}
+
+/**
+ * Processes pending items from the aggregator outbox table.
+ */
+export async function processAggregatorOutbox(options?: { maxAttempts?: number; limit?: number }): Promise<{
+  processed: number;
+  succeeded: number;
+  failed: number;
+}> {
+  const db = getDatabase();
+  const maxAttempts = options?.maxAttempts || 5;
+  const limit = options?.limit || 50;
+
+  const items = db.prepare(`
+    SELECT id, platform, external_order_id, action, payload_json, attempts
+    FROM aggregator_outbox
+    WHERE status = 'pending' AND attempts < ?
+    ORDER BY created_at ASC
+    LIMIT ?
+  `).all(maxAttempts, limit) as Array<{
+    id: string;
+    platform: string;
+    external_order_id: string;
+    action: 'accept' | 'ready' | 'reject' | 'dispatch';
+    payload_json: string;
+    attempts: number;
+  }>;
+
+  let succeeded = 0;
+  let failed = 0;
+
+  for (const item of items) {
+    const adapter = getAggregatorAdapter(item.platform);
+    const timestamp = now();
+
+    if (!adapter) {
+      db.prepare(`
+        UPDATE aggregator_outbox
+        SET attempts = attempts + 1,
+            status = CASE WHEN attempts + 1 >= ? THEN 'failed' ELSE 'pending' END,
+            last_error = ?,
+            updated_at = ?
+        WHERE id = ?
+      `).run(maxAttempts, `No adapter registered for platform: ${item.platform}`, timestamp, item.id);
+      failed++;
+      continue;
+    }
+
+    let payload: any = {};
+    try {
+      payload = JSON.parse(item.payload_json);
+    } catch {
+      payload = {};
+    }
+
+    try {
+      let result: AggregatorActionResult;
+      switch (item.action) {
+        case 'accept':
+          result = await adapter.acceptOrder(item.external_order_id, Number(payload.prep_time_minutes) || 20);
+          break;
+        case 'ready':
+          result = await adapter.markFoodReady(item.external_order_id);
+          break;
+        case 'reject':
+          result = await adapter.rejectOrder(item.external_order_id, String(payload.reason || 'Cancelled by restaurant'));
+          break;
+        case 'dispatch':
+          result = await adapter.dispatchOrder(item.external_order_id);
+          break;
+        default:
+          result = { success: false, error: `Unknown aggregator action: ${item.action}` };
+      }
+
+      if (result.success) {
+        db.prepare(`
+          UPDATE aggregator_outbox
+          SET status = 'sent',
+              last_error = NULL,
+              updated_at = ?
+          WHERE id = ?
+        `).run(timestamp, item.id);
+        succeeded++;
+      } else {
+        db.prepare(`
+          UPDATE aggregator_outbox
+          SET attempts = attempts + 1,
+              status = CASE WHEN attempts + 1 >= ? THEN 'failed' ELSE 'pending' END,
+              last_error = ?,
+              updated_at = ?
+          WHERE id = ?
+        `).run(maxAttempts, result.error || 'Outbound dispatch failed', timestamp, item.id);
+        failed++;
+      }
+    } catch (err: any) {
+      db.prepare(`
+        UPDATE aggregator_outbox
+        SET attempts = attempts + 1,
+            status = CASE WHEN attempts + 1 >= ? THEN 'failed' ELSE 'pending' END,
+            last_error = ?,
+            updated_at = ?
+        WHERE id = ?
+      `).run(maxAttempts, err.message || 'Unexpected error during dispatch', timestamp, item.id);
+      failed++;
+    }
+  }
+
+  return { processed: items.length, succeeded, failed };
+}
+
+/**
+ * Enqueues an action to the outbox and attempts an immediate dispatch flush.
+ */
+export async function sendAggregatorOutboundAction(
+  platform: string,
+  externalOrderId: string,
+  action: 'accept' | 'ready' | 'reject' | 'dispatch',
+  payload: any = {},
+): Promise<{ outbox_id: string; dispatched: boolean; status: string; error?: string }> {
+  const outboxId = enqueueAggregatorOutbox(platform, externalOrderId, action, payload);
+
+  try {
+    await processAggregatorOutbox({ limit: 10 });
+  } catch (err: any) {
+    console.warn(`[Aggregator] Immediate outbox drain warning: ${err.message}`);
+  }
+
+  const db = getDatabase();
+  const row = db.prepare('SELECT status, last_error FROM aggregator_outbox WHERE id = ?').get(outboxId) as any;
+
+  return {
+    outbox_id: outboxId,
+    dispatched: row?.status === 'sent',
+    status: row?.status || 'pending',
+    error: row?.last_error || undefined,
+  };
 }
