@@ -1,5 +1,5 @@
 /* GENERATED FILE — edit messages, then run `npm run generate:print-labels`. */
-// Derived view of frontend/src/lib/i18n/messages/*.json for backend thermal
+// Derived view of desktop-ui/src/lib/i18n/messages/*.json for backend thermal
 // printing (#440). Do not edit by hand: regeneration must be byte-identical.
 
 import type { PrintConceptId } from '../../shared/print/concepts';

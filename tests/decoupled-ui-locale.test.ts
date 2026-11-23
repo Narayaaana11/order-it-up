@@ -31,7 +31,7 @@ if (!fs.existsSync(EVIDENCE_DIR)) {
 
 // Module resolution setup for frontend imports
 const Module = require('module');
-const frontendRequire = Module.createRequire(path.join(ROOT, 'frontend/package.json'));
+const frontendRequire = Module.createRequire(path.join(ROOT, 'desktop-ui/package.json'));
 
 const moduleApi = require('module') as {
   _resolveFilename: (...args: any[]) => string;
@@ -40,7 +40,7 @@ const originalResolveFilename = moduleApi._resolveFilename;
 moduleApi._resolveFilename = function (request: string, parent: any, isMain: boolean, options?: any) {
   let resolvedRequest = request;
   if (request.startsWith('@/')) {
-    resolvedRequest = path.resolve(ROOT, 'frontend/src', request.slice(2));
+    resolvedRequest = path.resolve(ROOT, 'desktop-ui/src', request.slice(2));
   } else if (request.startsWith('@print/')) {
     resolvedRequest = path.resolve(ROOT, 'shared/print', request.slice('@print/'.length));
   } else if (request === '@countries') {
@@ -59,12 +59,12 @@ React.useSyncExternalStore = function (subscribe: any, getSnapshot: any, getServ
 
 const { IntlProvider, useLocale } = frontendRequire('use-intl');
 const { formatDateForTenant, getCountryByCode } = require('../main/countries');
-const { generateBillHtml } = require('../frontend/src/lib/printer/web-print');
-const { getWhatsAppMessage, getWhatsAppShareUrl, sendBillViaOTU } = require('../frontend/src/lib/whatsapp-share');
+const { generateBillHtml } = require('../desktop-ui/src/lib/printer/web-print');
+const { getWhatsAppMessage, getWhatsAppShareUrl, sendBillViaOTU } = require('../desktop-ui/src/lib/whatsapp-share');
 const whatsappApi = frontendRequire('./src/lib/api').default;
-const { LANGUAGES } = require('../frontend/src/lib/i18n/languages');
-const { useFormatDate } = require('../frontend/src/hooks/useFormatDate');
-const { useAuthStore } = require('../frontend/src/store/auth');
+const { LANGUAGES } = require('../desktop-ui/src/lib/i18n/languages');
+const { useFormatDate } = require('../desktop-ui/src/hooks/useFormatDate');
+const { useAuthStore } = require('../desktop-ui/src/store/auth');
 
 async function captureScreenshot(html: string, outputPath: string, width = 800, height = 900): Promise<void> {
   try {

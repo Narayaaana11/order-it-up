@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import * as os from 'node:os';
 import path from 'node:path';
-import type { Bill, Order, Tenant, OrderItem, Customer, Table } from '../frontend/src/lib/types';
+import type { Bill, Order, Tenant, OrderItem, Customer, Table } from '../desktop-ui/src/lib/types';
 
 const EVIDENCE_DIR =
   process.env.EVIDENCE_DIR ||
@@ -25,7 +25,7 @@ function loadFrontendModules() {
     if (request === '@countries') {
       resolvedRequest = path.resolve(__dirname, '../main/countries.ts');
     } else if (request.startsWith('@/')) {
-      resolvedRequest = path.resolve(__dirname, '../frontend/src', request.slice(2));
+      resolvedRequest = path.resolve(__dirname, '../desktop-ui/src', request.slice(2));
     } else if (request.startsWith('@print/')) {
       resolvedRequest = path.resolve(__dirname, '../shared/print', request.slice('@print/'.length));
     }
@@ -34,9 +34,9 @@ function loadFrontendModules() {
 
   try {
     return {
-      webPrint: require('../frontend/src/lib/printer/web-print'),
-      i18n: require('../frontend/src/lib/i18n'),
-      countries: require('../frontend/src/lib/countries'),
+      webPrint: require('../desktop-ui/src/lib/printer/web-print'),
+      i18n: require('../desktop-ui/src/lib/i18n'),
+      countries: require('../desktop-ui/src/lib/countries'),
     };
   } finally {
     moduleApi._resolveFilename = originalResolveFilename;
@@ -605,7 +605,7 @@ async function run() {
   // Use Playwright to capture screenshots of each receipt
   let browser: any;
   try {
-    const playwright = require(path.resolve(__dirname, '../frontend/node_modules/@playwright/test'));
+    const playwright = require(path.resolve(__dirname, '../desktop-ui/node_modules/@playwright/test'));
     browser = await playwright.chromium.launch({ headless: true });
     const context = await browser.newContext({
       viewport: { width: 480, height: 900 },

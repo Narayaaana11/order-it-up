@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 /*
  * Generates main/print/print-labels.generated.ts — a derived view (#440) of
- * the canonical locale messages (frontend/src/lib/i18n/messages/*.json) for
+ * the canonical locale messages (desktop-ui/src/lib/i18n/messages/*.json) for
  * backend thermal printing.
  *
  * The Electron main process cannot import the frontend i18n loaders, and the
@@ -30,8 +30,8 @@ const path = require('path');
 const ts = require('typescript');
 
 const ROOT = path.join(__dirname, '..');
-const MESSAGES_DIR = path.join(ROOT, 'frontend/src/lib/i18n/messages');
-const LANGUAGE_REGISTRY_FILE = path.join(ROOT, 'frontend/src/lib/i18n/languages.ts');
+const MESSAGES_DIR = path.join(ROOT, 'desktop-ui/src/lib/i18n/messages');
+const LANGUAGE_REGISTRY_FILE = path.join(ROOT, 'desktop-ui/src/lib/i18n/languages.ts');
 const SHARED_CONCEPTS_FILE = path.join(ROOT, 'shared/print/concepts.ts');
 const OUT_FILE = path.join(ROOT, 'main/print/print-labels.generated.ts');
 
@@ -238,7 +238,7 @@ function buildTable() {
 function generateTypeScript(tables) {
   const lines = [];
   lines.push('/* GENERATED FILE — edit messages, then run `npm run generate:print-labels`. */');
-  lines.push('// Derived view of frontend/src/lib/i18n/messages/*.json for backend thermal');
+  lines.push('// Derived view of desktop-ui/src/lib/i18n/messages/*.json for backend thermal');
   lines.push('// printing (#440). Do not edit by hand: regeneration must be byte-identical.');
   lines.push('');
   lines.push("import type { PrintConceptId } from '../../shared/print/concepts';");

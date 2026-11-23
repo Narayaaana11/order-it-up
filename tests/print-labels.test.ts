@@ -28,7 +28,7 @@ import {
   printLabel,
   PRINT_LABEL_LANGUAGES,
 } from '../main/print/print-labels.generated';
-import { LANGUAGES } from '../frontend/src/lib/i18n/languages';
+import { LANGUAGES } from '../desktop-ui/src/lib/i18n/languages';
 import { renderCompactReceiptViaDocument } from '../main/printers/document-compact';
 import { renderClassicReceiptViaDocument } from '../main/printers/document-classic';
 

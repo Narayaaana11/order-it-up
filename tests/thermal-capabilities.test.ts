@@ -11,19 +11,19 @@ import {
   type ThermalPrinterCapabilities,
 } from '../shared/print/thermal-capabilities';
 
-function loadFrontendKotEncoder(): typeof import('../frontend/src/lib/printer/kot-encoder') {
+function loadFrontendKotEncoder(): typeof import('../desktop-ui/src/lib/printer/kot-encoder') {
   const path = require('node:path') as typeof import('node:path');
   const moduleApi = require('node:module') as { _resolveFilename: (...args: any[]) => string };
   const originalResolveFilename = moduleApi._resolveFilename;
   moduleApi._resolveFilename = function (request: string, parent: any, isMain: boolean, options?: any) {
     let resolvedRequest = request;
     if (request === '@countries') resolvedRequest = path.resolve(__dirname, '../main/countries.ts');
-    else if (request.startsWith('@/')) resolvedRequest = path.resolve(__dirname, '../frontend/src', request.slice(2));
+    else if (request.startsWith('@/')) resolvedRequest = path.resolve(__dirname, '../desktop-ui/src', request.slice(2));
     else if (request.startsWith('@print/')) resolvedRequest = path.resolve(__dirname, '../shared/print', request.slice('@print/'.length));
     return originalResolveFilename.call(this, resolvedRequest, parent, isMain, options);
   };
   try {
-    return require('../frontend/src/lib/printer/kot-encoder');
+    return require('../desktop-ui/src/lib/printer/kot-encoder');
   } finally {
     moduleApi._resolveFilename = originalResolveFilename;
   }

@@ -5,8 +5,8 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 const auth = read('landing/src/lib/auth.ts');
 const modal = read('landing/src/components/AuthModal.tsx');
 const previews = read('landing/src/components/CredentialsModal.tsx');
-const login = read('frontend/src/app/auth/login/page.tsx');
-const register = read('frontend/src/app/auth/register/page.tsx');
+const login = read('desktop-ui/src/app/auth/login/page.tsx');
+const register = read('desktop-ui/src/app/auth/register/page.tsx');
 
 function assert(condition, message) {
   if (!condition) throw new Error(`FAIL: ${message}`);

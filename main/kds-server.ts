@@ -478,6 +478,29 @@ export function startKdsServer(): Promise<void> {
       }
     });
 
+    app.patch('/api/items/:id/fire', requireAuth, (req: Request, res: Response) => {
+      if (!isKdsEnabled()) {
+        return res.status(403).json({ error: 'KDS is disabled for this business' });
+      }
+      try {
+        const db = getDatabase();
+        const updated = db.prepare(`
+          UPDATE order_items
+          SET firing_status = 'fired', fired_at = datetime('now'), updated_at = datetime('now')
+          WHERE id = ?
+        `).run(req.params.id);
+
+        if (updated.changes === 0) {
+          return res.status(404).json({ error: 'Order item not found' });
+        }
+        notifyKdsUpdate();
+        res.json({ success: true, itemId: req.params.id, firing_status: 'fired' });
+      } catch (error: any) {
+        console.error('[KDS Server] PATCH item fire error:', error);
+        res.status(500).json({ error: 'Internal server error' });
+      }
+    });
+
     // Get categories for filtering
     app.get('/api/categories', requireAuth, (req: Request, res: Response) => {
       if (!isKdsEnabled()) {

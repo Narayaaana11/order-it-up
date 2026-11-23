@@ -295,6 +295,14 @@ export async function handleCreatePublicQrOrder(env: Env, request: Request): Pro
     processedItems.push(validation.item);
   }
 
+  const rawCustomerName = typeof body.customer_name === 'string' ? body.customer_name.trim().slice(0, 100) : '';
+  const rawCustomerPhone = typeof body.customer_phone === 'string' ? body.customer_phone.trim().slice(0, 30) : '';
+  const rawCustomerEmail = typeof body.customer_email === 'string' ? body.customer_email.trim().slice(0, 100) : '';
+
+  const customerName = rawCustomerName || null;
+  const customerPhone = rawCustomerPhone || null;
+  const customerEmail = rawCustomerEmail || null;
+
   const now = new Date().toISOString();
   const orderId = crypto.randomUUID();
   const orderNumber = `QR-${Date.now().toString(36).toUpperCase()}-${orderId.slice(0, 6).toUpperCase()}`;
@@ -316,10 +324,10 @@ export async function handleCreatePublicQrOrder(env: Env, request: Request): Pro
         payment_method, table_id, table_number, customer_name, customer_phone,
         created_by_user_id, created_by_name, notes, version, ordered_at, synced_at, updated_at
       ) VALUES (?, ?, ?, ?, NULL, ?, 'dine_in', 'active', 'pending', 'unpaid', ?, ?, 0, ?,
-        'cash', ?, ?, NULL, NULL, NULL, 'QR Guest', 'Public QR order awaiting staff acceptance', 1, ?, ?, ?)
+        'cash', ?, ?, ?, ?, NULL, ?, 'Public QR order awaiting staff acceptance', 1, ?, ?, ?)
     `).bind(orderId, table.organization_id, table.restaurant_id, table.branch_id, orderNumber,
       subtotal, taxTotal, Math.round((subtotal + taxTotal) * 100) / 100, table.table_id,
-      String(table.table_number), now, now, now),
+      String(table.table_number), customerName, customerPhone, customerName || 'QR Guest', now, now, now),
     env.DB.prepare(`
       INSERT INTO qr_order_pos_deliveries (order_id, organization_id, branch_id, status, created_at)
       VALUES (?, ?, ?, 'pending', ?)
@@ -340,6 +348,33 @@ export async function handleCreatePublicQrOrder(env: Env, request: Request): Pro
     `).bind(ticketId, table.organization_id, table.restaurant_id, table.branch_id, orderId,
       `KOT-${orderNumber}`, JSON.stringify(ticketItems), now, now),
   ];
+
+  if (customerPhone) {
+    const phoneDigits = customerPhone.replace(/\D/g, '').slice(-10);
+    const existingCust = await env.DB.prepare(`
+      SELECT id FROM customers WHERE organization_id = ? AND phone = ?
+    `).bind(table.organization_id, customerPhone).first<{ id: string }>();
+
+    if (existingCust) {
+      batch.push(
+        env.DB.prepare(`
+          UPDATE customers SET
+            name = COALESCE(?, name),
+            email = COALESCE(?, email),
+            updated_at = ?
+          WHERE id = ?
+        `).bind(customerName || null, customerEmail, now, existingCust.id)
+      );
+    } else {
+      const customerId = crypto.randomUUID();
+      batch.push(
+        env.DB.prepare(`
+          INSERT INTO customers (id, organization_id, name, phone, phone_digits, email, is_active, created_at, updated_at)
+          VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
+        `).bind(customerId, table.organization_id, customerName || 'QR Guest', customerPhone, phoneDigits, customerEmail, now, now)
+      );
+    }
+  }
   for (const item of processedItems) {
     batch.push(env.DB.prepare(`
       INSERT INTO synced_order_items (

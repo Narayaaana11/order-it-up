@@ -2,7 +2,7 @@
  * EMPIRICAL ADVERSARIAL CHALLENGER VERIFICATION HARNESS (M5)
  * 
  * Verifies Requirements R1 through R5:
- * 1. Production Static Export Integrity (landing/out/ and frontend/out/)
+ * 1. Production Static Export Integrity (landing/out/ and desktop-ui/out/)
  *    - All 34 frontend routes exist, size > 1KB, valid DOCTYPE and HTML structure.
  *    - landing/out/index.html exists, size > 1KB, valid DOCTYPE.
  *    - Asset references (scripts, css) exist on disk with zero broken links.
@@ -86,7 +86,7 @@ describe('Suite 1: Adversarial Build & Static Export Validation', () => {
   ];
 
   test('1.2: All frontend static HTML routes exist with valid DOCTYPE and markup', () => {
-    assert(fs.existsSync(FRONTEND_OUT), 'frontend/out directory must exist');
+    assert(fs.existsSync(FRONTEND_OUT), 'desktop-ui/out directory must exist');
     let verifiedCount = 0;
 
     for (const item of EXPECTED_FRONTEND_ROUTES) {
@@ -114,7 +114,7 @@ describe('Suite 1: Adversarial Build & Static Export Validation', () => {
     assert(verifiedCount >= 33, `Must verify at least 33 distinct routes (verified ${verifiedCount})`);
   });
 
-  test('1.3: Static asset references in landing/out/ and frontend/out/ exist on disk', () => {
+  test('1.3: Static asset references in landing/out/ and desktop-ui/out/ exist on disk', () => {
     function auditHtmlAssets(outDir, htmlFile) {
       const fullPath = path.join(outDir, htmlFile);
       const content = fs.readFileSync(fullPath, 'utf8');
@@ -168,12 +168,12 @@ describe('Suite 2: Adversarial Auth & Download Flow Verification', () => {
     assert(landingCtaContent.includes('!user'), 'Landing CtaSection must check !user');
     assert(landingCtaContent.includes('triggerOpenAuthModal("signup", "windows")'), 'Landing CtaSection must gate unauthenticated to signup');
 
-    // 3. frontend/src/components/landing/Navbar.tsx
+    // 3. desktop-ui/src/components/landing/Navbar.tsx
     const frontendNavContent = fs.readFileSync(path.join(ROOT, 'frontend', 'src', 'components', 'landing', 'Navbar.tsx'), 'utf8');
     assert(frontendNavContent.includes('!isAuthenticated'), 'Frontend Navbar must check !isAuthenticated');
     assert(frontendNavContent.includes("/auth/login?redirect=download"), 'Frontend Navbar must direct unauthenticated to /auth/login?redirect=download');
 
-    // 4. frontend/src/components/landing/CtaSection.tsx
+    // 4. desktop-ui/src/components/landing/CtaSection.tsx
     const frontendCtaContent = fs.readFileSync(path.join(ROOT, 'frontend', 'src', 'components', 'landing', 'CtaSection.tsx'), 'utf8');
     assert(frontendCtaContent.includes('!isAuthenticated'), 'Frontend CtaSection must check !isAuthenticated');
     assert(frontendCtaContent.includes("/auth/login?redirect=download"), 'Frontend CtaSection must redirect unauthenticated to /auth/login?redirect=download');

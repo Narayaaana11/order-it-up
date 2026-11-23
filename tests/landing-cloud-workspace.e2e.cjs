@@ -3,7 +3,7 @@ const http = require('node:http');
 const net = require('node:net');
 const path = require('node:path');
 const fs = require('node:fs');
-const { chromium } = require('../frontend/node_modules/playwright');
+const { chromium } = require('../desktop-ui/node_modules/playwright');
 
 const repoRoot = path.resolve(__dirname, '..');
 const landingRoot = path.join(repoRoot, 'landing');

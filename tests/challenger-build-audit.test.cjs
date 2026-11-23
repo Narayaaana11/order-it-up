@@ -37,7 +37,7 @@ console.log(`Landing index.html size: ${(landingIndexSize / 1024).toFixed(2)} KB
 assert(landingIndexSize > 1000, 'landing/out/index.html is unexpectedly small / empty');
 
 // Frontend 34 routes
-assert(fs.existsSync(FRONTEND_OUT), 'frontend/out does not exist!');
+assert(fs.existsSync(FRONTEND_OUT), 'desktop-ui/out does not exist!');
 const expectedFrontendRoutes = [
   '/',
   '/404',
@@ -93,7 +93,7 @@ for (const r of expectedFrontendRoutes) {
   }
 }
 console.log(`Frontend routes verified: ${validRouteCount}/${expectedFrontendRoutes.length}`);
-assert.equal(validRouteCount, expectedFrontendRoutes.length, 'Not all expected frontend routes were found in frontend/out');
+assert.equal(validRouteCount, expectedFrontendRoutes.length, 'Not all expected frontend routes were found in desktop-ui/out');
 
 // -------------------------------------------------------------
 // Test 2: Asset Integrity (Scripts, CSS, Images, Fonts)

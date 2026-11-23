@@ -35,11 +35,11 @@ jobs:
           node-version: 22.x
           cache: npm
           cache-dependency-path: |
-            frontend/package-lock.json
+            landing/package-lock.json
             apps/cloud-api/package-lock.json
 
-      - name: Install frontend dependencies
-        working-directory: frontend
+      - name: Install landing dependencies
+        working-directory: landing
         run: npm ci
 
       - name: Install Cloudflare Wrangler
@@ -47,14 +47,15 @@ jobs:
         run: npm ci
 
       - name: Build Cloudflare Pages static export
-        run: npm run build:web
+        working-directory: landing
+        run: npm run build
 
       - name: Require a ready Cloud API
         run: node scripts/assert-cloud-ready.cjs
 
       - name: Deploy the static export to Pages
         working-directory: apps/cloud-api
-        run: npx wrangler pages deploy ../../frontend/out --project-name orderitup --branch main
+        run: npx wrangler pages deploy ../../landing/out --project-name orderitup --branch main
 
       - name: Verify the public QR route
         run: node -e "fetch('https://orderitup.pages.dev/qr/').then(async r => { if (!r.ok) throw new Error('QR route returned HTTP ' + r.status); const html = await r.text(); if (!html.includes('<html')) throw new Error('QR route did not return an HTML document'); console.log('Public QR route returned HTTP ' + r.status); }).catch(e => { console.error(e.message); process.exitCode = 1; })"

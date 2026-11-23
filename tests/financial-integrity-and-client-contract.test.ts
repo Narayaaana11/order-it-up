@@ -1563,7 +1563,7 @@ async function runC121TestSuite(): Promise<void> {
   // TEST 17: FRONTEND ORDER COMPONENT SAFETY (ELECTRON GUARD)
   // =========================================================================
   console.log('🧪 [Test 17/17] Frontend Orders Component Browser/Web Environment Safety...');
-  const ordersPageTsx = fs.readFileSync(path.resolve(__dirname, '../frontend/src/app/(dashboard)/orders/page.tsx'), 'utf-8');
+  const ordersPageTsx = fs.readFileSync(path.resolve(__dirname, '../desktop-ui/src/app/(dashboard)/orders/page.tsx'), 'utf-8');
   assert.ok(ordersPageTsx.includes('isElectronEnvironment'), 'orders/page.tsx must guard desktop-only features with isElectronEnvironment');
   assert.ok(ordersPageTsx.includes('activeBranchId'), 'orders/page.tsx must track activeBranchId for multi-branch cloud scoping');
   assert.ok(ordersPageTsx.includes('params.branch_id = branchToUse') || ordersPageTsx.includes('branch_id: activeBranchId'), 'orders/page.tsx must pass branch_id in fetchOrders');

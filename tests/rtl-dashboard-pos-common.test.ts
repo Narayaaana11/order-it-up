@@ -48,31 +48,31 @@ import * as path from 'path';
 
 const ROOT = path.join(__dirname, '..');
 const Module = require('module');
-const frontendRequire = Module.createRequire(path.join(ROOT, 'frontend/package.json'));
+const frontendRequire = Module.createRequire(path.join(ROOT, 'desktop-ui/package.json'));
 
 /** Batch E screen files that must use logical direction utilities. */
 const SCREEN_FILES = [
-  'frontend/src/app/(dashboard)/pos/page.tsx',
-  'frontend/src/app/(dashboard)/dashboard/page.tsx',
-  'frontend/src/app/(dashboard)/orders/page.tsx',
-  'frontend/src/app/(dashboard)/products/page.tsx',
-  'frontend/src/app/(dashboard)/customers/page.tsx',
-  'frontend/src/app/(dashboard)/tables/page.tsx',
-  'frontend/src/components/pos/CartPanel.tsx',
-  'frontend/src/components/pos/ProductGrid.tsx',
-  'frontend/src/components/pos/PosTopbar.tsx',
-  'frontend/src/components/pos/TaxBreakdown.tsx',
-  'frontend/src/components/pos/PaymentModal.tsx',
-  'frontend/src/components/pos/PrepaidCheckoutModal.tsx',
-  'frontend/src/components/pos/TablePickerModal.tsx',
-  'frontend/src/components/pos/TableCheckoutModal.tsx',
-  'frontend/src/components/pos/AddonModal.tsx',
-  'frontend/src/components/pos/CustomerSearch.tsx',
-  'frontend/src/components/pos/EditCustomerModal.tsx',
-  'frontend/src/components/pos/PrinterStatus.tsx',
-  'frontend/src/components/pos/SplitCheckModal.tsx',
-  'frontend/src/components/orders/OrderHistoryGrid.tsx',
-  'frontend/src/components/products/ImageUploader.tsx',
+  'desktop-ui/src/app/(dashboard)/pos/page.tsx',
+  'desktop-ui/src/app/(dashboard)/dashboard/page.tsx',
+  'desktop-ui/src/app/(dashboard)/orders/page.tsx',
+  'desktop-ui/src/app/(dashboard)/products/page.tsx',
+  'desktop-ui/src/app/(dashboard)/customers/page.tsx',
+  'desktop-ui/src/app/(dashboard)/tables/page.tsx',
+  'desktop-ui/src/components/pos/CartPanel.tsx',
+  'desktop-ui/src/components/pos/ProductGrid.tsx',
+  'desktop-ui/src/components/pos/PosTopbar.tsx',
+  'desktop-ui/src/components/pos/TaxBreakdown.tsx',
+  'desktop-ui/src/components/pos/PaymentModal.tsx',
+  'desktop-ui/src/components/pos/PrepaidCheckoutModal.tsx',
+  'desktop-ui/src/components/pos/TablePickerModal.tsx',
+  'desktop-ui/src/components/pos/TableCheckoutModal.tsx',
+  'desktop-ui/src/components/pos/AddonModal.tsx',
+  'desktop-ui/src/components/pos/CustomerSearch.tsx',
+  'desktop-ui/src/components/pos/EditCustomerModal.tsx',
+  'desktop-ui/src/components/pos/PrinterStatus.tsx',
+  'desktop-ui/src/components/pos/SplitCheckModal.tsx',
+  'desktop-ui/src/components/orders/OrderHistoryGrid.tsx',
+  'desktop-ui/src/components/products/ImageUploader.tsx',
 ];
 
 /**
@@ -108,7 +108,7 @@ function loadComponents(): {
   moduleApi._resolveFilename = function (request: string, parent: any, isMain: boolean, options?: any) {
     let resolvedRequest = request;
     if (request.startsWith('@/')) {
-      resolvedRequest = path.resolve(ROOT, 'frontend/src', request.slice(2));
+      resolvedRequest = path.resolve(ROOT, 'desktop-ui/src', request.slice(2));
     } else if (request.startsWith('@print/')) {
       resolvedRequest = path.resolve(ROOT, 'shared/print', request.slice('@print/'.length));
     }
@@ -118,11 +118,11 @@ function loadComponents(): {
   try {
     const React = frontendRequire('react');
     const ReactDOMServer = frontendRequire('react-dom/server');
-    const { DirectionalToaster } = require('../frontend/src/components/layout/DirectionalToaster');
-    const { usePosSettingsStore } = require('../frontend/src/store/pos-settings');
-    const { Ltr } = require('../frontend/src/components/layout/Ltr');
+    const { DirectionalToaster } = require('../desktop-ui/src/components/layout/DirectionalToaster');
+    const { usePosSettingsStore } = require('../desktop-ui/src/store/pos-settings');
+    const { Ltr } = require('../desktop-ui/src/components/layout/Ltr');
     const { IntlProvider } = frontendRequire('use-intl');
-    const { getLanguageLocale } = require('../frontend/src/lib/i18n');
+    const { getLanguageLocale } = require('../desktop-ui/src/lib/i18n');
     return { DirectionalToaster, usePosSettingsStore, Ltr, IntlProvider, getLanguageLocale, React, ReactDOMServer };
   } finally {
     moduleApi._resolveFilename = originalResolveFilename;
@@ -301,7 +301,7 @@ function run(): void {
   console.log('  ✓ Ltr component isolates POS operational values (order #, phone, IP, VID, table, JSON)');
 
   // 6. Shared language-direction metadata (single source of truth).
-  const { getLanguageDirection } = require('../frontend/src/lib/i18n');
+  const { getLanguageDirection } = require('../desktop-ui/src/lib/i18n');
   assert(getLanguageDirection('fa') === 'rtl', 'Persian (fa) must resolve to rtl');
   for (const ltrLang of ['en', 'es', 'fr', 'pt'] as const) {
     assert(getLanguageDirection(ltrLang) === 'ltr', `${ltrLang} must resolve to ltr`);

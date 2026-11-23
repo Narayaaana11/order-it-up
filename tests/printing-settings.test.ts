@@ -94,7 +94,7 @@ async function main() {
     assertEqual(invalidMethodsResponse.status, 400, 'invalid cash drawer methods are rejected');
     assertPersisted(db, 'cash_drawer_pulse_methods', beforeInvalid.cash_drawer_pulse_methods as string, 'invalid cash drawer methods do not partially persist');
 
-    const settingsSource = fs.readFileSync(path.resolve(__dirname, '../frontend/src/app/(dashboard)/settings/page.tsx'), 'utf8');
+    const settingsSource = fs.readFileSync(path.resolve(__dirname, '../desktop-ui/src/app/(dashboard)/settings/page.tsx'), 'utf8');
     const savePrintingBlock = settingsSource.match(/const savePrinting = async[\s\S]*?\n\s{2}\};/)?.[0] ?? '';
     assert(savePrintingBlock.includes("api.put('/settings/printing'"), 'settings page uses the atomic printing endpoint');
     assertEqual((savePrintingBlock.match(/api\.put\(/g) || []).length, 1, 'settings page emits one printing-settings request per save');

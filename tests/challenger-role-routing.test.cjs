@@ -1,7 +1,7 @@
 /**
  * Challenger 2 (teamwork_challenger) Adversarial Role Matrix Test Harness
  * 
- * Target: `frontend/src/lib/role-routing.ts` and `AuthGuard.tsx`
+ * Target: `desktop-ui/src/lib/role-routing.ts` and `AuthGuard.tsx`
  * 
  * Verifies:
  * 1. 100+ role permutations, casing variations (oWnEr, MANAGER, SuPeR_AdMiN, KITCHEN),
@@ -559,7 +559,7 @@ describe('Challenger 2: Adversarial Role Routing & Platform Invariants Test Harn
   // SUITE 7: AuthGuard getLandingPage Simulation & LocalStorage Parsing
   // ==========================================================================
   describe('Suite 7: AuthGuard getLandingPage Simulation & LocalStorage Resilience', () => {
-    // Exact logic from frontend/src/components/layout/AuthGuard.tsx:
+    // Exact logic from desktop-ui/src/components/layout/AuthGuard.tsx:
     // export function getLandingPage(): string {
     //   const isElectron = isElectronEnvironment();
     //   if (typeof window !== 'undefined') {

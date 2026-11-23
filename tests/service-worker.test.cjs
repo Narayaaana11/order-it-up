@@ -3,7 +3,7 @@ const fs = require('node:fs');
 const vm = require('node:vm');
 
 const serviceWorkerSource = fs.readFileSync(
-  require('node:path').join(__dirname, '../frontend/public/sw.js'),
+  require('node:path').join(__dirname, '../desktop-ui/public/sw.js'),
   'utf8',
 );
 

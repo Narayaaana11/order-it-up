@@ -5,7 +5,7 @@
  * 1. AnimatedCounter: Easing math, zero duration, NaN/negatives/floats, rapid re-renders, viewport intersection triggers.
  * 2. AmbientBackground: 10,000 synthetic mouse bursts, touch device compatibility, reduced-motion enforcement.
  * 3. RolePersonas: Rapid tab toggles (1,000 iterations), concurrent simulator mutations, SLA timer stress.
- * 4. Static Export: Exhaustive integrity and payload verification across all 34 routes in frontend/out/.
+ * 4. Static Export: Exhaustive integrity and payload verification across all 34 routes in desktop-ui/out/.
  * 
  * Run with: `node tests/challenger-ui-stress.test.cjs`
  */
@@ -511,7 +511,7 @@ describe('Suite 3: RolePersonas Simulator State Mutations & SLA Stress', () => {
 // ============================================================================
 describe('Suite 4: Cloudflare Pages Static Export 34-Route Verification', () => {
 
-  // Authoritative catalog of all 34 statically exported HTML routes in frontend/out/
+  // Authoritative catalog of all 34 statically exported HTML routes in desktop-ui/out/
   const EXPECTED_34_ROUTES = [
     { route: '/', filePath: path.join(OUT_DIR, 'index.html'), desc: 'Root Landing Page' },
     { route: '/404', filePath: path.join(OUT_DIR, '404', 'index.html'), desc: '404 Standalone' },
@@ -549,7 +549,7 @@ describe('Suite 4: Cloudflare Pages Static Export 34-Route Verification', () => 
     { route: '/whatsapp', filePath: path.join(OUT_DIR, 'whatsapp', 'index.html'), desc: 'WhatsApp Digital Bill & Marketing' },
   ];
 
-  test('4.1: Verify existence of all 34 statically generated route HTML files in frontend/out/', () => {
+  test('4.1: Verify existence of all 34 statically generated route HTML files in desktop-ui/out/', () => {
     assert.equal(EXPECTED_34_ROUTES.length, 34, 'Expected catalog must contain exactly 34 routes');
 
     for (const item of EXPECTED_34_ROUTES) {
@@ -633,7 +633,7 @@ describe('Suite 4: Cloudflare Pages Static Export 34-Route Verification', () => 
     const internalRoutes = [...new Set(links.filter((h) => h.startsWith('/') && !h.startsWith('//')))];
     const inPageAnchors = [...new Set(links.filter((h) => h.startsWith('#')))];
 
-    // 1. Verify every internal route exists in frontend/out/
+    // 1. Verify every internal route exists in desktop-ui/out/
     for (const route of internalRoutes) {
       // Clean query params / hashes
       const clean = route.split('?')[0].split('#')[0].replace(/^\//, '');

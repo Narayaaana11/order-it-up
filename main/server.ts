@@ -105,9 +105,9 @@ export function getServerPort(): number {
 function getFrontendDir(): string | null {
   const candidates = [
     // Development / unpackaged: relative to dist/main/
-    path.join(__dirname, '../../frontend/out'),
-    path.resolve(process.cwd(), 'frontend/out'),
-    path.join(__dirname, '../frontend/out'),
+    path.join(__dirname, '../../desktop-ui/out'),
+    path.resolve(process.cwd(), 'desktop-ui/out'),
+    path.join(__dirname, '../desktop-ui/out'),
     // Packaged: electron-builder copies it to resources/frontend-out
     path.join(process.resourcesPath || '', 'frontend-out'),
   ];

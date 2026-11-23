@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const {
   generateCartItemId,
   normalizeCartItems,
-} = require('../frontend/src/lib/cart-identity');
+} = require('../desktop-ui/src/lib/cart-identity');
 const {
   APPEND_ATTEMPT_MAX_AGE_MS,
   APPEND_ATTEMPT_STORAGE_KEY,
@@ -16,7 +16,7 @@ const {
   migrateLegacyAppendAttempt,
   readAppendAttempt,
   clearAppendAttempt,
-} = require('../frontend/src/lib/append-attempt');
+} = require('../desktop-ui/src/lib/append-attempt');
 
 class MemoryStorage {
   values = new Map();

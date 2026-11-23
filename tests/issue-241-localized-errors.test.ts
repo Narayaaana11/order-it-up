@@ -25,9 +25,9 @@ const EVIDENCE_DIR =
   path.join(os.tmpdir(), 'no-mistakes-evidence', '01M08VG78CNJN3CHGY6B42Q05W');
 
 const Module = require('module');
-const frontendRequire = Module.createRequire(path.join(ROOT, 'frontend/package.json'));
+const frontendRequire = Module.createRequire(path.join(ROOT, 'desktop-ui/package.json'));
 
-const nextNavPath = path.resolve(ROOT, 'frontend/node_modules/next/navigation.js');
+const nextNavPath = path.resolve(ROOT, 'desktop-ui/node_modules/next/navigation.js');
 try {
   const nextNavResolved = require.resolve('next/navigation', { paths: [path.join(ROOT, 'frontend')] });
   require.cache[nextNavResolved] = {
@@ -55,7 +55,7 @@ moduleApi._resolveFilename = function (request: string, parent: any, isMain: boo
   } else if (request === '@countries') {
     resolvedRequest = path.resolve(ROOT, 'main/countries.ts');
   } else if (request.startsWith('@/')) {
-    resolvedRequest = path.resolve(ROOT, 'frontend/src', request.slice(2));
+    resolvedRequest = path.resolve(ROOT, 'desktop-ui/src', request.slice(2));
   } else if (request.startsWith('@print/')) {
     resolvedRequest = path.resolve(ROOT, 'shared/print', request.slice('@print/'.length));
   }
@@ -107,7 +107,7 @@ const t = (key: string, lang: Lang, params?: Record<string, string | number>): s
 
 // Read compiled CSS if available for full styling in screenshots
 function getStyles(): string {
-  const cssDir = path.join(ROOT, 'frontend/.next/static/chunks');
+  const cssDir = path.join(ROOT, 'desktop-ui/.next/static/chunks');
   let builtCss = '';
   if (fs.existsSync(cssDir)) {
     const files = fs.readdirSync(cssDir).filter((f) => f.endsWith('.css'));

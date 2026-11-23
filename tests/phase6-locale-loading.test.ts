@@ -14,18 +14,18 @@ moduleApi._resolveFilename = function (request: string, parent: any, isMain: boo
   if (request === '@countries') {
     resolvedRequest = path.resolve(__dirname, '../main/countries.ts');
   } else if (request.startsWith('@/')) {
-    resolvedRequest = path.resolve(__dirname, '../frontend/src', request.slice(2));
+    resolvedRequest = path.resolve(__dirname, '../desktop-ui/src', request.slice(2));
   } else if (request.startsWith('@print/')) {
     resolvedRequest = path.resolve(__dirname, '../shared/print', request.slice('@print/'.length));
   }
   return originalResolveFilename.call(this, resolvedRequest, parent, isMain, options);
 };
 
-const { LANGUAGES } = require('../frontend/src/lib/i18n/languages') as typeof import('../frontend/src/lib/i18n/languages');
-const { loadLocaleMessages, isLocaleLoaded } = require('../frontend/src/lib/i18n/loader') as typeof import('../frontend/src/lib/i18n/loader');
-const { syncPrintPoliciesAtBootstrap } = require('../frontend/src/lib/print-policy-bootstrap') as typeof import('../frontend/src/lib/print-policy-bootstrap');
-const { generateBillHtml } = require('../frontend/src/lib/printer/web-print') as typeof import('../frontend/src/lib/printer/web-print');
-const { buildClassicReceiptBytes } = require('../frontend/src/lib/printer/receipt-encoder') as typeof import('../frontend/src/lib/printer/receipt-encoder');
+const { LANGUAGES } = require('../desktop-ui/src/lib/i18n/languages') as typeof import('../desktop-ui/src/lib/i18n/languages');
+const { loadLocaleMessages, isLocaleLoaded } = require('../desktop-ui/src/lib/i18n/loader') as typeof import('../desktop-ui/src/lib/i18n/loader');
+const { syncPrintPoliciesAtBootstrap } = require('../desktop-ui/src/lib/print-policy-bootstrap') as typeof import('../desktop-ui/src/lib/print-policy-bootstrap');
+const { generateBillHtml } = require('../desktop-ui/src/lib/printer/web-print') as typeof import('../desktop-ui/src/lib/printer/web-print');
+const { buildClassicReceiptBytes } = require('../desktop-ui/src/lib/printer/receipt-encoder') as typeof import('../desktop-ui/src/lib/printer/receipt-encoder');
 
 const languages = Object.keys(LANGUAGES) as Array<keyof typeof LANGUAGES>;
 const bill = {

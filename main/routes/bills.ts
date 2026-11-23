@@ -578,13 +578,17 @@ router.post('/generate', requireRole(...ROLE_ACCESS.ownerManagerCashier), (req: 
       const pack = getActiveCountryPack(getSettingValue('country') || 'IN');
       const { total, adjustment: roundOff } = applyPayableRounding(order.total || 0, pack, currency);
 
+      const customerGstin = req.body.customer_gstin || order.customer_gstin || null;
+      const customerLegalName = req.body.customer_legal_name || (order as any).customer_legal_name || null;
+
       const runResult = db.prepare(`
-        INSERT INTO bills (bill_number, order_id, customer_id, subtotal, tax_amount, tax_breakdown, tax_snapshot,
+        INSERT INTO bills (bill_number, order_id, customer_id, customer_gstin, customer_legal_name, subtotal, tax_amount, tax_breakdown, tax_snapshot,
           discount_amount, discount_type, discount_value, discount_reason,
           delivery_charge, packaging_charge, service_charge, round_off, total, paid_amount, balance, payment_status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpaid', ?, ?)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpaid', ?, ?)
       `).run(
-        billNumber, order_id, order.customer_id, subtotal, taxAmount, order.tax_breakdown, order.tax_snapshot,
+        billNumber, order_id, order.customer_id, customerGstin, customerLegalName,
+        subtotal, taxAmount, order.tax_breakdown, order.tax_snapshot,
         discountAmount, order.discount_type, order.discount_value, order.discount_reason,
         deliveryCharge, packagingCharge, serviceCharge, roundOff, total, 0, total, now(), now()
       );
@@ -2033,6 +2037,16 @@ router.post('/:id/payment', requireRole(...ROLE_ACCESS.ownerManagerCashier), (re
     if (billStatus === 'paid') notifyKdsUpdate();
     else notifyOrderUpdated();
 
+    const tip = Number(req.body?.tip_amount || payment?.tip_amount) || 0;
+    if (tip > 0) {
+      db.prepare(`
+        UPDATE bills
+        SET tip_amount = tip_amount + ?,
+            tip_payment_method = COALESCE(?, tip_payment_method)
+        WHERE id = ?
+      `).run(tip, payment?.method || 'cash', req.params.id);
+    }
+
     if ((result.bill as any)?.order_id) {
       cloudSync.recordOrderChanged((result.bill as any).order_id, billStatus === 'paid' ? 'order.completed' : 'order.payment_recorded');
     }
@@ -2067,6 +2081,16 @@ router.post('/:id/payments', requireRole(...ROLE_ACCESS.ownerManagerCashier), (r
     const billStatus = (result.bill as any)?.payment_status;
     if (billStatus === 'paid') notifyKdsUpdate();
     else notifyOrderUpdated();
+
+    const tip = Number(req.body?.tip_amount || payments[0]?.tip_amount) || 0;
+    if (tip > 0) {
+      db.prepare(`
+        UPDATE bills
+        SET tip_amount = tip_amount + ?,
+            tip_payment_method = COALESCE(?, tip_payment_method)
+        WHERE id = ?
+      `).run(tip, payments[0]?.method || 'cash', req.params.id);
+    }
 
     if ((result.bill as any)?.order_id) {
       cloudSync.recordOrderChanged((result.bill as any).order_id, billStatus === 'paid' ? 'order.completed' : 'order.payment_recorded');
@@ -2467,6 +2491,33 @@ router.post('/upi-webhook', asyncHandler(async (req: Request, res: Response) => 
   res.json({ ok: true, ...result });
 }));
 
+// ── Tip Distribution & Pooling ──────────────────────────────────────────
+
+router.post('/tips/distribute', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+  try {
+    const { date, shift_id, distribution_rule, staff_ids } = req.body || {};
+    const result = distributeTips({
+      date: typeof date === 'string' ? date : undefined,
+      shiftId: typeof shift_id === 'string' ? shift_id : undefined,
+      distributionRule: distribution_rule,
+      staffIds: Array.isArray(staff_ids) ? staff_ids : undefined,
+    });
+    res.status(201).json({ ok: true, distribution: result });
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({ error: error.message || 'Failed to distribute tips' });
+  }
+});
+
+router.get('/tips/summary', requireRole(...ROLE_ACCESS.ownerManagerCashier), (req: Request, res: Response) => {
+  try {
+    const { date } = req.query;
+    const summary = getTipSummary(typeof date === 'string' ? date : undefined);
+    res.json({ ok: true, summary });
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({ error: error.message || 'Failed to get tip summary' });
+  }
+});
+
 // GET /api/bills/:id/einvoice - Export standard B2B IRP JSON schema
 router.get('/:id/einvoice', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
   try {
@@ -2477,7 +2528,28 @@ router.get('/:id/einvoice', requireRole(...ROLE_ACCESS.ownerManager), (req: Requ
   }
 });
 
-import { generateB2BEinvoiceJson } from '../services/einvoice';
+router.get('/:id/einvoice/json', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+  try {
+    const payload = generateB2BEinvoiceJson(Number(req.params.id));
+    res.setHeader('Content-Type', 'application/json');
+    res.setHeader('Content-Disposition', `attachment; filename="IRP-INV-${req.params.id}.json"`);
+    res.json(payload);
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({ error: error.message || 'Failed to export IRP JSON' });
+  }
+});
+
+router.post('/:id/einvoice/register', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+  try {
+    const result = registerIrn(Number(req.params.id));
+    res.json(result);
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({ error: error.message || 'Failed to register IRN' });
+  }
+});
+
+import { generateB2BEinvoiceJson, registerIrn } from '../services/einvoice';
+import { distributeTips, getTipSummary } from '../services/tip-engine';
 import { isValidVpa, generateUpiUri, reconcileUpiPayment } from '../services/upi';
 
 export const billRoutes = router;

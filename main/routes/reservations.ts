@@ -123,4 +123,85 @@ router.patch('/:id/status', requireRole(...ROLE_ACCESS.ownerManagerCashier), asy
   res.json({ ok: true, reservation: updated });
 }));
 
+// ── Walk-in Waitlist Management ─────────────────────────────────────────────
+
+router.get('/waitlist', requireRole(...ROLE_ACCESS.ownerManagerCashier), asyncHandler(async (_req: Request, res: Response) => {
+  const db = getDatabase();
+  const waitlist = db.prepare(`
+    SELECT w.*, t.number as seated_table_number
+    FROM table_waitlist w
+    LEFT JOIN tables t ON t.id = w.seated_table_id
+    WHERE w.status IN ('waiting', 'notified')
+    ORDER BY w.estimated_wait_minutes ASC, w.created_at ASC
+  `).all();
+
+  res.json({ ok: true, waitlist });
+}));
+
+router.post('/waitlist', requireRole(...ROLE_ACCESS.ownerManagerCashier), asyncHandler(async (req: Request, res: Response) => {
+  const { customer_name, customer_phone, party_size, estimated_wait_minutes, notes } = req.body || {};
+  if (!customer_name || !customer_phone) {
+    return res.status(400).json({ error: 'customer_name and customer_phone are required' });
+  }
+
+  const db = getDatabase();
+  const id = `wl_${randomUUID()}`;
+  const timestamp = now();
+  const size = Math.max(1, Number(party_size) || 2);
+  const waitMinutes = Math.max(0, Number(estimated_wait_minutes) || 15);
+
+  db.prepare(`
+    INSERT INTO table_waitlist (id, customer_name, customer_phone, party_size, estimated_wait_minutes, status, notes, created_at, updated_at)
+    VALUES (?, ?, ?, ?, ?, 'waiting', ?, ?, ?)
+  `).run(id, customer_name.trim(), customer_phone.trim(), size, waitMinutes, notes || null, timestamp, timestamp);
+
+  const entry = db.prepare('SELECT * FROM table_waitlist WHERE id = ?').get(id);
+  res.status(201).json({ ok: true, entry });
+}));
+
+router.patch('/waitlist/:id/status', requireRole(...ROLE_ACCESS.ownerManagerCashier), asyncHandler(async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const { status, table_id } = req.body || {};
+  const validStatuses = ['waiting', 'notified', 'seated', 'cancelled', 'no_show'];
+
+  if (!status || !validStatuses.includes(status)) {
+    return res.status(400).json({ error: `status must be one of: ${validStatuses.join(', ')}` });
+  }
+
+  const db = getDatabase();
+  const existing = db.prepare('SELECT * FROM table_waitlist WHERE id = ?').get(id) as any;
+  if (!existing) return res.status(404).json({ error: 'Waitlist entry not found' });
+
+  const timestamp = now();
+  db.transaction(() => {
+    let notifiedAt = existing.notified_at;
+    let seatedAt = existing.seated_at;
+    let seatedTableId = existing.seated_table_id;
+
+    if (status === 'notified' && !notifiedAt) notifiedAt = timestamp;
+    if (status === 'seated') {
+      seatedAt = timestamp;
+      if (table_id) {
+        seatedTableId = table_id;
+        db.prepare("UPDATE tables SET status = 'occupied', updated_at = ? WHERE id = ?").run(timestamp, table_id);
+      }
+    }
+
+    db.prepare(`
+      UPDATE table_waitlist
+      SET status = ?, notified_at = ?, seated_at = ?, seated_table_id = ?, updated_at = ?
+      WHERE id = ?
+    `).run(status, notifiedAt, seatedAt, seatedTableId, timestamp, id);
+  })();
+
+  const updated = db.prepare(`
+    SELECT w.*, t.number as seated_table_number
+    FROM table_waitlist w
+    LEFT JOIN tables t ON t.id = w.seated_table_id
+    WHERE w.id = ?
+  `).get(id);
+
+  res.json({ ok: true, entry: updated });
+}));
+
 export const reservationRoutes = router;

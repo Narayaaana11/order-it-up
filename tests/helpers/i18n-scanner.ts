@@ -27,7 +27,7 @@ export function walkTypeScriptFiles(dir: string): string[] {
  * 2. Unscoped / global translation calls (e.g. `const t = useTranslations(); t('pos.title')` -> `pos.title`,
  *    inline `useTranslations('pos')('title')` -> `pos.title`, or standalone `t('foo.bar')`)
  */
-const DEFAULT_FRONTEND_SRC = path.resolve(__dirname, '../../frontend/src');
+const DEFAULT_FRONTEND_SRC = path.resolve(__dirname, '../../desktop-ui/src');
 
 export function collectCalledKeys(dir: string = DEFAULT_FRONTEND_SRC): Set<string> {
   const out = new Set<string>();

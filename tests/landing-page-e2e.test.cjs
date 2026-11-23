@@ -502,7 +502,7 @@ describe('Tier 4: Real-World Scenarios', () => {
         continue;
       }
 
-      // Check whether static page directory exists under frontend/src/app/
+      // Check whether static page directory exists under desktop-ui/src/app/
       const cleanPath = route.startsWith('/') ? route.slice(1) : route;
       const directPage = path.join(FRONTEND_DIR, 'src', 'app', cleanPath, 'page.tsx');
       const dashboardPage = path.join(FRONTEND_DIR, 'src', 'app', '(dashboard)', cleanPath, 'page.tsx');
@@ -510,7 +510,7 @@ describe('Tier 4: Real-World Scenarios', () => {
       const exists = fs.existsSync(directPage) || fs.existsSync(dashboardPage);
       assert(
         exists,
-        `Referenced route "${route}" must exist in frontend/src/app/ (checked ${directPage} and ${dashboardPage})`
+        `Referenced route "${route}" must exist in desktop-ui/src/app/ (checked ${directPage} and ${dashboardPage})`
       );
     }
   });

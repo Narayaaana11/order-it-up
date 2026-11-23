@@ -7,7 +7,7 @@ import {
 import {
   preferChildScopedBill,
   resolveTaxComponents as resolveFrontendTaxComponents,
-} from '../frontend/src/lib/printer/tax-components';
+} from '../desktop-ui/src/lib/printer/tax-components';
 
 const taxSnapshot = {
   lines: [{

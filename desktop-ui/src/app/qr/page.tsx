@@ -231,13 +231,35 @@ function QROrderContent() {
     });
   };
 
+  const [customerName, setCustomerName] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try { return localStorage.getItem('qr_guest_name') || ''; } catch {}
+    }
+    return '';
+  });
+  const [customerPhone, setCustomerPhone] = useState(() => {
+    if (typeof window !== 'undefined') {
+      try { return localStorage.getItem('qr_guest_phone') || ''; } catch {}
+    }
+    return '';
+  });
+
   const handlePlaceOrder = async () => {
     if (cart.length === 0) return;
     try {
       setIsSubmitting(true);
+      if (typeof window !== 'undefined') {
+        try {
+          if (customerName) localStorage.setItem('qr_guest_name', customerName);
+          if (customerPhone) localStorage.setItem('qr_guest_phone', customerPhone);
+        } catch {}
+      }
+
       const payload = {
         table_id: tableId || null,
         notes: 'Placed via Mobile QR',
+        customer_name: customerName.trim() || undefined,
+        customer_phone: customerPhone.trim() || undefined,
         items: cart.map((ci) => ({
           product_id: ci.product.id,
           quantity: ci.quantity,
@@ -670,6 +692,27 @@ function QROrderContent() {
                     </div>
                   );
                 })}
+              </div>
+            </div>
+
+            {/* Customer Details for CRM & Order Updates */}
+            <div className="p-3 bg-slate-900/80 rounded-xl border border-slate-800 space-y-2 mt-4">
+              <span className="text-xs font-semibold text-amber-400 uppercase tracking-wider block">Your Details</span>
+              <div className="grid grid-cols-2 gap-2">
+                <input
+                  type="text"
+                  placeholder="Your Name (Optional)"
+                  value={customerName}
+                  onChange={(e) => setCustomerName(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-amber-500"
+                />
+                <input
+                  type="tel"
+                  placeholder="Mobile (for CRM & Alerts)"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  className="w-full px-3 py-2 text-xs bg-slate-950 border border-slate-700 rounded-lg text-slate-100 placeholder:text-slate-500 focus:outline-none focus:border-amber-500"
+                />
               </div>
             </div>
 

@@ -1,7 +1,7 @@
 /**
  * FOUC script precedence matrix + ThemeSync fix guards (gh-513 review F3).
  *
- * The inline `<head>` script in `frontend/src/app/layout.tsx` is a load-bearing
+ * The inline `<head>` script in `desktop-ui/src/app/layout.tsx` is a load-bearing
  * string that runs before first paint; an accidental edit that breaks its
  * precedence chain causes a visible theme flash on every window load. This
  * suite:
@@ -30,8 +30,8 @@ import * as path from 'node:path';
 import * as vm from 'node:vm';
 
 const ROOT = path.join(__dirname, '..');
-const LAYOUT_PATH = path.join(ROOT, 'frontend/src/app/layout.tsx');
-const THEME_SYNC_PATH = path.join(ROOT, 'frontend/src/components/layout/ThemeSync.tsx');
+const LAYOUT_PATH = path.join(ROOT, 'desktop-ui/src/app/layout.tsx');
+const THEME_SYNC_PATH = path.join(ROOT, 'desktop-ui/src/components/layout/ThemeSync.tsx');
 
 const readSource = (filePath: string): string => fs.readFileSync(filePath, 'utf8').replace(/\r\n?/g, '\n');
 
@@ -351,7 +351,7 @@ console.log(`\nFOUC matrix: ${passed} passed, ${failed} failed`);
 // ---------------------------------------------------------------------------
 // ---------------------------------------------------------------------------
 
-const STORE_PATH = path.join(ROOT, 'frontend/src/store/theme.ts');
+const STORE_PATH = path.join(ROOT, 'desktop-ui/src/store/theme.ts');
 const storeSrc = readSource(STORE_PATH);
 assert.ok(
   /userSelected/.test(storeSrc),
@@ -389,7 +389,7 @@ console.log('ok   ThemeSync gates every boot setMode on userHasChosen() (PR revi
 
 // Settings saveThemeMode must call markUserSelected BEFORE the optimistic
 // setThemeMode — a one-line placement that's the whole point of the guard.
-const settingsSrc = readSource(path.join(ROOT, 'frontend/src/app/(dashboard)/settings/page.tsx'));
+const settingsSrc = readSource(path.join(ROOT, 'desktop-ui/src/app/(dashboard)/settings/page.tsx'));
 const saveBody = (settingsSrc.match(/saveThemeMode = async[\s\S]*?\n\s{2}\};/) ?? [''])[0];
 assert.ok(
   saveBody.includes('markUserSelectedTheme()') || saveBody.includes('markUserSelected()'),
@@ -661,7 +661,7 @@ assert.ok(
 
 // --- auth-changed dispatch + listener ---
 
-const authSrc = readSource(path.join(ROOT, 'frontend/src/store/auth.ts'));
+const authSrc = readSource(path.join(ROOT, 'desktop-ui/src/store/auth.ts'));
 // 2a. The persistSession helper must dispatch the event after the
 // token is persisted.
 assert.ok(

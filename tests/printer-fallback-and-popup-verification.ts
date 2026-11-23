@@ -62,7 +62,7 @@ function loadFrontendModules() {
     if (req === '@countries') {
       resolved = path.resolve(__dirname, '../main/countries.ts');
     } else if (req.startsWith('@/')) {
-      resolved = path.resolve(__dirname, '../frontend/src', req.slice(2));
+      resolved = path.resolve(__dirname, '../desktop-ui/src', req.slice(2));
     } else if (req.startsWith('@print/')) {
       resolved = path.resolve(__dirname, '../shared/print', req.slice('@print/'.length));
     }
@@ -71,8 +71,8 @@ function loadFrontendModules() {
 
   try {
     return {
-      webPrint: require('../frontend/src/lib/printer/web-print'),
-      i18n: require('../frontend/src/lib/i18n'),
+      webPrint: require('../desktop-ui/src/lib/printer/web-print'),
+      i18n: require('../desktop-ui/src/lib/i18n'),
     };
   } finally {
     moduleApi._resolveFilename = originalResolveFilename;
@@ -541,7 +541,7 @@ async function run() {
   // 4. Capture PNG Screenshots using Playwright
   let browser: any;
   try {
-    const playwright = require(path.resolve(__dirname, '../frontend/node_modules/@playwright/test'));
+    const playwright = require(path.resolve(__dirname, '../desktop-ui/node_modules/@playwright/test'));
     browser = await playwright.chromium.launch({ headless: true });
 
     // Render Popup Window Simulation (800x600)

@@ -31,7 +31,7 @@ import {
   renderUnsupportedRasterLines,
 } from '../main/printers/raster-renderer';
 
-function loadFrontendRasterEncoder(): typeof import('../frontend/src/lib/printer/raster-encoder') {
+function loadFrontendRasterEncoder(): typeof import('../desktop-ui/src/lib/printer/raster-encoder') {
   const path = require('node:path') as typeof import('node:path');
   const moduleApi = require('node:module') as { _resolveFilename: (...args: any[]) => string };
   const originalResolveFilename = moduleApi._resolveFilename;
@@ -44,13 +44,13 @@ function loadFrontendRasterEncoder(): typeof import('../frontend/src/lib/printer
     return originalResolveFilename.call(this, resolvedRequest, parent, isMain, options);
   };
   try {
-    return require('../frontend/src/lib/printer/raster-encoder');
+    return require('../desktop-ui/src/lib/printer/raster-encoder');
   } finally {
     moduleApi._resolveFilename = originalResolveFilename;
   }
 }
 
-function loadFrontendPrintDocument(): typeof import('../frontend/src/lib/printer/print-document') {
+function loadFrontendPrintDocument(): typeof import('../desktop-ui/src/lib/printer/print-document') {
   const path = require('node:path') as typeof import('node:path');
   const moduleApi = require('node:module') as { _resolveFilename: (...args: any[]) => string };
   const originalResolveFilename = moduleApi._resolveFilename;
@@ -59,14 +59,14 @@ function loadFrontendPrintDocument(): typeof import('../frontend/src/lib/printer
     if (request === '@countries') {
       resolvedRequest = path.resolve(__dirname, '../main/countries.ts');
     } else if (request.startsWith('@/')) {
-      resolvedRequest = path.resolve(__dirname, '../frontend/src', request.slice(2));
+      resolvedRequest = path.resolve(__dirname, '../desktop-ui/src', request.slice(2));
     } else if (request.startsWith('@print/')) {
       resolvedRequest = path.resolve(__dirname, '../shared/print', request.slice('@print/'.length));
     }
     return originalResolveFilename.call(this, resolvedRequest, parent, isMain, options);
   };
   try {
-    return require('../frontend/src/lib/printer/print-document');
+    return require('../desktop-ui/src/lib/printer/print-document');
   } finally {
     moduleApi._resolveFilename = originalResolveFilename;
   }

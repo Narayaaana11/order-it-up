@@ -32,20 +32,20 @@ import * as path from 'path';
 
 const ROOT = path.join(__dirname, '..');
 const Module = require('module');
-const frontendRequire = Module.createRequire(path.join(ROOT, 'frontend/package.json'));
+const frontendRequire = Module.createRequire(path.join(ROOT, 'desktop-ui/package.json'));
 
 /** Batch D screen files that must use logical direction utilities. */
 const SCREEN_FILES = [
-  'frontend/src/app/setup/page.tsx',
-  'frontend/src/app/auth/login/page.tsx',
-  'frontend/src/app/auth/recover/page.tsx',
-  'frontend/src/app/(dashboard)/settings/page.tsx',
-  'frontend/src/components/settings/TaxConfigurationPanel.tsx',
-  'frontend/src/components/settings/PaymentMethodsSettings.tsx',
-  'frontend/src/components/settings/InitializeDatabaseDialog.tsx',
-  'frontend/src/components/settings/HealthCheckDialog.tsx',
-  'frontend/src/components/settings/MasterPinPrompt.tsx',
-  'frontend/src/components/settings/WhatsAppEnableCard.tsx',
+  'desktop-ui/src/app/setup/page.tsx',
+  'desktop-ui/src/app/auth/login/page.tsx',
+  'desktop-ui/src/app/auth/recover/page.tsx',
+  'desktop-ui/src/app/(dashboard)/settings/page.tsx',
+  'desktop-ui/src/components/settings/TaxConfigurationPanel.tsx',
+  'desktop-ui/src/components/settings/PaymentMethodsSettings.tsx',
+  'desktop-ui/src/components/settings/InitializeDatabaseDialog.tsx',
+  'desktop-ui/src/components/settings/HealthCheckDialog.tsx',
+  'desktop-ui/src/components/settings/MasterPinPrompt.tsx',
+  'desktop-ui/src/components/settings/WhatsAppEnableCard.tsx',
 ];
 
 /**
@@ -81,7 +81,7 @@ function loadLtrComponent(): {
   moduleApi._resolveFilename = function (request: string, parent: any, isMain: boolean, options?: any) {
     let resolvedRequest = request;
     if (request.startsWith('@/')) {
-      resolvedRequest = path.resolve(ROOT, 'frontend/src', request.slice(2));
+      resolvedRequest = path.resolve(ROOT, 'desktop-ui/src', request.slice(2));
     } else if (request.startsWith('@print/')) {
       resolvedRequest = path.resolve(ROOT, 'shared/print', request.slice('@print/'.length));
     }
@@ -91,7 +91,7 @@ function loadLtrComponent(): {
   try {
     const React = frontendRequire('react');
     const ReactDOMServer = frontendRequire('react-dom/server');
-    const { Ltr } = require('../frontend/src/components/layout/Ltr');
+    const { Ltr } = require('../desktop-ui/src/components/layout/Ltr');
     return { Ltr, React, ReactDOMServer };
   } finally {
     moduleApi._resolveFilename = originalResolveFilename;
@@ -174,14 +174,14 @@ async function run(): Promise<void> {
     moduleApi._resolveFilename = function (request: string, parent: any, isMain: boolean, options?: any) {
       let resolvedRequest = request;
       if (request.startsWith('@/')) {
-        resolvedRequest = path.resolve(ROOT, 'frontend/src', request.slice(2));
+        resolvedRequest = path.resolve(ROOT, 'desktop-ui/src', request.slice(2));
       } else if (request.startsWith('@print/')) {
         resolvedRequest = path.resolve(ROOT, 'shared/print', request.slice('@print/'.length));
       }
       return originalResolveFilename.call(this, resolvedRequest, parent, isMain, options);
     };
     try {
-      return require('../frontend/src/lib/i18n');
+      return require('../desktop-ui/src/lib/i18n');
     } finally {
       moduleApi._resolveFilename = originalResolveFilename;
     }

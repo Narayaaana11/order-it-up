@@ -23,7 +23,7 @@ const {
   getCountryByCode,
   getLocalizedCountryName,
   sortCountriesByLocalizedName,
-} = require('../frontend/src/lib/countries');
+} = require('../desktop-ui/src/lib/countries');
 
 moduleApi._resolveFilename = originalResolveFilename;
 

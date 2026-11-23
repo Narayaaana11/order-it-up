@@ -247,3 +247,121 @@ export function getLowStockIngredients(): RawIngredient[] {
     ORDER BY (current_stock - minimum_stock) ASC
   `).all() as RawIngredient[];
 }
+
+export interface WastageParams {
+  ingredientId: string;
+  quantity: number;
+  reason: 'spoilage' | 'prep_waste' | 'spill' | 'expired' | 'other';
+  notes?: string;
+  reportedByUserId?: string;
+}
+
+export interface WastageResult {
+  success: boolean;
+  ingredientId: string;
+  ingredientName: string;
+  quantityWasted: number;
+  costLoss: number;
+  remainingStock: number;
+}
+
+/**
+ * Records ingredient wastage (spoilage, prep loss, dropped food) and updates stock.
+ */
+export function recordWastage(params: WastageParams): WastageResult {
+  const { ingredientId, quantity, reason, notes } = params;
+  if (!ingredientId || quantity <= 0) {
+    throw Object.assign(new Error('Invalid wastage parameters: ingredientId and positive quantity required'), { statusCode: 400 });
+  }
+
+  const db = getDatabase();
+  const ingredient = db.prepare('SELECT * FROM raw_ingredients WHERE id = ? AND is_active = 1').get(ingredientId) as RawIngredient | undefined;
+  if (!ingredient) {
+    throw Object.assign(new Error('Ingredient not found'), { statusCode: 404 });
+  }
+
+  const timestamp = now();
+  const costLoss = Math.round((quantity * (ingredient.cost_per_unit || 0)) * 100) / 100;
+  const remainingStock = Math.max(0, ingredient.current_stock - quantity);
+  const ref = `Waste: ${reason}${notes ? ` - ${notes}` : ''}`;
+
+  db.transaction(() => {
+    db.prepare(`
+      UPDATE raw_ingredients
+      SET current_stock = ?, updated_at = ?
+      WHERE id = ?
+    `).run(remainingStock, timestamp, ingredientId);
+
+    db.prepare(`
+      INSERT INTO inventory_transactions (ingredient_id, type, quantity, balance_after, reference_id, created_at)
+      VALUES (?, 'wastage', ?, ?, ?, ?)
+    `).run(ingredientId, -quantity, remainingStock, ref, timestamp);
+  })();
+
+  return {
+    success: true,
+    ingredientId,
+    ingredientName: ingredient.name,
+    quantityWasted: quantity,
+    costLoss,
+    remainingStock,
+  };
+}
+
+/**
+ * Aggregates wastage metrics and costs across reasons and dates.
+ */
+export function getWastageSummary(startDate?: string, endDate?: string) {
+  const db = getDatabase();
+  let sql = `
+    SELECT t.reference_id, t.quantity, t.created_at, i.name as ingredient_name, i.unit, i.cost_per_unit
+    FROM inventory_transactions t
+    JOIN raw_ingredients i ON i.id = t.ingredient_id
+    WHERE t.type = 'wastage'
+  `;
+  const params: any[] = [];
+  if (startDate) {
+    sql += ' AND date(t.created_at) >= date(?)';
+    params.push(startDate);
+  }
+  if (endDate) {
+    sql += ' AND date(t.created_at) <= date(?)';
+    params.push(endDate);
+  }
+  sql += ' ORDER BY t.created_at DESC';
+
+  const rows = db.prepare(sql).all(...params) as any[];
+  let totalCost = 0;
+  let totalUnits = 0;
+  const byReason: Record<string, { count: number; totalCost: number; totalUnits: number }> = {};
+
+  for (const r of rows) {
+    const qty = Math.abs(r.quantity || 0);
+    const unitCost = r.cost_per_unit || 0;
+    const loss = qty * unitCost;
+    totalCost += loss;
+    totalUnits += qty;
+
+    const ref = String(r.reference_id || '');
+    let reason = 'other';
+    if (ref.includes('spoilage')) reason = 'spoilage';
+    else if (ref.includes('prep_waste')) reason = 'prep_waste';
+    else if (ref.includes('spill')) reason = 'spill';
+    else if (ref.includes('expired')) reason = 'expired';
+
+    if (!byReason[reason]) {
+      byReason[reason] = { count: 0, totalCost: 0, totalUnits: 0 };
+    }
+    byReason[reason].count += 1;
+    byReason[reason].totalCost = Math.round((byReason[reason].totalCost + loss) * 100) / 100;
+    byReason[reason].totalUnits = Math.round((byReason[reason].totalUnits + qty) * 100) / 100;
+  }
+
+  return {
+    totalTransactions: rows.length,
+    totalCost: Math.round(totalCost * 100) / 100,
+    totalUnits: Math.round(totalUnits * 100) / 100,
+    byReason,
+    recentEntries: rows.slice(0, 50),
+  };
+}

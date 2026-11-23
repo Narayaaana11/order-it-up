@@ -16,7 +16,7 @@ const { paymentMethodRoutes } = require('../main/routes/payment-methods');
 const { settingsRoutes } = require('../main/routes/settings');
 const { reportRoutes } = require('../main/routes/reports');
 const { resolveTaxComponents: resolveBackendTaxComponents } = require('../main/services/tax-components');
-const { resolveTaxComponents: resolveFrontendTaxComponents } = require('../frontend/src/lib/printer/tax-components');
+const { resolveTaxComponents: resolveFrontendTaxComponents } = require('../desktop-ui/src/lib/printer/tax-components');
 const { MIGRATIONS } = require('../main/db');
 const dualRatePackData = require('./fixtures/synthetic-dual-rate-pack.json');
 

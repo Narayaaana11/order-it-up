@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 
 const Module = require('module') as { _load: (...args: any[]) => unknown };
-const frontendRequire = Module.createRequire(path.join(process.cwd(), 'frontend/package.json'));
+const frontendRequire = Module.createRequire(path.join(process.cwd(), 'desktop-ui/package.json'));
 const originalLoad = Module._load;
 const deferred = <T>() => {
   let resolve!: (value: T) => void;
@@ -55,7 +55,7 @@ Module._load = function (request: string, parent: unknown, isMain: boolean) {
   removeItem(key: string) { this.values.delete(key); },
 };
 
-const { useAuthStore } = require('../frontend/src/store/auth') as typeof import('../frontend/src/store/auth');
+const { useAuthStore } = require('../desktop-ui/src/store/auth') as typeof import('../desktop-ui/src/store/auth');
 
 const tenantA = {
   id: 1, business_name: 'Tenant A', business_type: 'restaurant', country: 'IN', currency: 'INR', timezone: 'UTC',

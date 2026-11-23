@@ -26,7 +26,7 @@ import {
 
 const ROOT = path.join(__dirname, '..');
 const Module = require('module');
-const frontendRequire = Module.createRequire(path.join(ROOT, 'frontend/package.json'));
+const frontendRequire = Module.createRequire(path.join(ROOT, 'desktop-ui/package.json'));
 const moduleApi = require('module') as {
   _resolveFilename: (...args: any[]) => string;
   _load: (...args: any[]) => any;
@@ -40,14 +40,14 @@ moduleApi._resolveFilename = function (request: string, parent: any, isMain: boo
       : request.startsWith('@shared/')
         ? path.resolve(ROOT, 'shared', request.slice('@shared/'.length))
         : request.startsWith('@/')
-          ? path.resolve(ROOT, 'frontend/src', request.slice(2))
+          ? path.resolve(ROOT, 'desktop-ui/src', request.slice(2))
           : request;
   return originalResolveFilename.call(this, resolvedRequest, parent, isMain, options);
 };
 const React = frontendRequire('react');
 const ReactDOMServer = frontendRequire('react-dom/server');
-const CurrencyTouchNumberPad = require('../frontend/src/components/pos/TouchNumberPad').CurrencyTouchNumberPad;
-const { allowCurrencyDecimalKey, getDiscountInputStep, normalizeFixedDiscountValue, roundCurrencyValue } = require('../frontend/src/lib/currency-input');
+const CurrencyTouchNumberPad = require('../desktop-ui/src/components/pos/TouchNumberPad').CurrencyTouchNumberPad;
+const { allowCurrencyDecimalKey, getDiscountInputStep, normalizeFixedDiscountValue, roundCurrencyValue } = require('../desktop-ui/src/lib/currency-input');
 
 const EVIDENCE_DIR =
   process.env.EVIDENCE_DIR ||
@@ -313,8 +313,8 @@ async function runModalKeypadIntegrationTests() {
 
   try {
     let nullStateCount = 0;
-    const PaymentModal = require('../frontend/src/components/pos/PaymentModal').default;
-    const PrepaidCheckoutModal = require('../frontend/src/components/pos/PrepaidCheckoutModal').default;
+    const PaymentModal = require('../desktop-ui/src/components/pos/PaymentModal').default;
+    const PrepaidCheckoutModal = require('../desktop-ui/src/components/pos/PrepaidCheckoutModal').default;
     const bill = {
       id: 1,
       bill_number: 'B-1',
@@ -456,7 +456,7 @@ async function runCatalogSaveBoundaryTests() {
   React.useEffect = (() => undefined) as typeof React.useEffect;
 
   try {
-    const ProductsPage = require('../frontend/src/app/(dashboard)/products/page').default;
+    const ProductsPage = require('../desktop-ui/src/app/(dashboard)/products/page').default;
     const renderProductsPage = (activeTab: 'products' | 'addons') => {
       let stateCall = 0;
       React.useState = ((initial: unknown) => {
@@ -491,7 +491,7 @@ async function runCatalogSaveBoundaryTests() {
     const addonGroupSave = calls.find((call) => call.method === 'post' && call.path === '/addon-groups');
     assert.equal(addonGroupSave?.payload?.addons?.[0]?.price, 2, 'inline add-on price is rounded at the save handler');
 
-    const AddonGroupsPage = require('../frontend/src/app/(dashboard)/addon-groups/page').default;
+    const AddonGroupsPage = require('../desktop-ui/src/app/(dashboard)/addon-groups/page').default;
     const addon = { id: 'addon-1', name: 'Old Sauce', price: 1, is_active: true };
     const group = { id: 'group-1', name: 'Extras', description: null, is_required: false, allow_multiple_quantities: false, min_selection: 0, max_selection: 1, is_active: true, addons: [addon] };
     const renderAddonPage = (editing: boolean) => {
@@ -794,7 +794,7 @@ async function captureEvidenceArtifacts() {
   // Use Playwright to capture pixel screenshots when a browser is available.
   let browser: any;
   try {
-    const playwright = require(path.resolve(__dirname, '../frontend/node_modules/@playwright/test'));
+    const playwright = require(path.resolve(__dirname, '../desktop-ui/node_modules/@playwright/test'));
     browser = await playwright.chromium.launch({ headless: true });
     const page = await browser.newPage({
       viewport: { width: 600, height: 850 },

@@ -392,12 +392,28 @@ router.get('/tables/:id/code', requireRole(...ROLE_ACCESS.ownerManager), asyncHa
       revoked_at = NULL
   `).run(table.id, tokenHash, now());
 
-  const host = req.get('host') || 'localhost:3001';
-  const protocol = req.protocol || 'http';
+  const dbSettings = db.prepare(`SELECT key, value FROM settings WHERE key IN ('qr_base_url', 'business_name', 'restaurant_slug')`).all() as { key: string; value: string }[];
+  const settingsMap = new Map(dbSettings.map(s => [s.key, s.value]));
+
+  const rawBusinessName = settingsMap.get('restaurant_slug') || settingsMap.get('business_name') || 'orderitup';
+  const restaurantSlug = encodeURIComponent(
+    rawBusinessName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '') || 'restaurant'
+  );
+  const tableSlug = encodeURIComponent(String(table.number || table.id));
+
+  // Determine base URL: prioritize configured cloud landing url, fallback to request origin
+  const configuredBase = settingsMap.get('qr_base_url');
+  let baseUrl: string;
+  if (configuredBase && configuredBase.trim()) {
+    baseUrl = configuredBase.trim().replace(/\/+$/, '');
+  } else {
+    // Default to the Cloudflare Pages live landing domain for real customer dine-in QR ordering
+    baseUrl = 'https://orderitup.pages.dev';
+  }
+
   // Put the bearer capability in the URL fragment so it is not sent in HTTP
-  // requests, access logs, or Referer headers. The web client moves it to an
-  // Authorization header after loading the page.
-  const qrUrl = `${protocol}://${host}/qr/${encodeURIComponent(table.id)}#token=${encodeURIComponent(tableToken)}`;
+  // requests, access logs, or Referer headers: url/restaurantname/tablenum#token=...
+  const qrUrl = `${baseUrl}/${restaurantSlug}/${tableSlug}#token=${encodeURIComponent(tableToken)}`;
 
   const qrDataUrl = await QRCode.toDataURL(qrUrl, {
     width: 360,

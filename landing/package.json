@@ -5,7 +5,7 @@
   "description": "Marketing landing page for Order It Up - Offline-First Restaurant POS & Billing",
   "scripts": {
     "dev": "next dev -p 3004",
-    "build": "next build",
+    "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
     "start": "next start -p 3004",
     "export": "next build",
     "lint": "eslint ."

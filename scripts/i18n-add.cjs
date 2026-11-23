@@ -54,6 +54,6 @@ try {
 
 console.log(`Created ${path.relative(root, target)} from the English canonical schema.`);
 console.log('Next steps:');
-console.log(`  1. Add a "${code}" entry to frontend/src/lib/i18n/languages.ts (locale, nativeName, direction, selectable, and dynamic load()).`);
-console.log(`  2. Translate every leaf in frontend/src/lib/i18n/messages/${code}.json while preserving ICU arguments and tags.`);
+console.log(`  1. Add a "${code}" entry to desktop-ui/src/lib/i18n/languages.ts (locale, nativeName, direction, selectable, and dynamic load()).`);
+console.log(`  2. Translate every leaf in desktop-ui/src/lib/i18n/messages/${code}.json while preserving ICU arguments and tags.`);
 console.log('  3. Run npm run i18n:check before opening the PR.');

@@ -51,12 +51,12 @@ function assert(label: string, cond: boolean, detail?: string) {
  * runtime, so the hook is scoped to the require operation and then restored.
  */
 function loadFrontendPrinterModules(): {
-  receiptEncoder: typeof import('../frontend/src/lib/printer/receipt-encoder');
-  kotEncoder: typeof import('../frontend/src/lib/printer/kot-encoder');
-  taxBillEncoder: typeof import('../frontend/src/lib/printer/tax-bill-encoder');
-  unicode: typeof import('../frontend/src/lib/printer/unicode');
-  warnings: typeof import('../frontend/src/lib/printer/warnings');
-  webPrint: typeof import('../frontend/src/lib/printer/web-print');
+  receiptEncoder: typeof import('../desktop-ui/src/lib/printer/receipt-encoder');
+  kotEncoder: typeof import('../desktop-ui/src/lib/printer/kot-encoder');
+  taxBillEncoder: typeof import('../desktop-ui/src/lib/printer/tax-bill-encoder');
+  unicode: typeof import('../desktop-ui/src/lib/printer/unicode');
+  warnings: typeof import('../desktop-ui/src/lib/printer/warnings');
+  webPrint: typeof import('../desktop-ui/src/lib/printer/web-print');
 } {
   const path = require('path') as typeof import('path');
   const moduleApi = require('module') as {
@@ -69,7 +69,7 @@ function loadFrontendPrinterModules(): {
     if (request === '@countries') {
       resolvedRequest = path.resolve(__dirname, '../main/countries.ts');
     } else if (request.startsWith('@/')) {
-      resolvedRequest = path.resolve(__dirname, '../frontend/src', request.slice(2));
+      resolvedRequest = path.resolve(__dirname, '../desktop-ui/src', request.slice(2));
     } else if (request.startsWith('@print/')) {
       resolvedRequest = path.resolve(__dirname, '../shared/print', request.slice('@print/'.length));
     }
@@ -78,19 +78,19 @@ function loadFrontendPrinterModules(): {
 
   try {
     return {
-      receiptEncoder: require('../frontend/src/lib/printer/receipt-encoder'),
-      kotEncoder: require('../frontend/src/lib/printer/kot-encoder'),
-      taxBillEncoder: require('../frontend/src/lib/printer/tax-bill-encoder'),
-      unicode: require('../frontend/src/lib/printer/unicode'),
-      warnings: require('../frontend/src/lib/printer/warnings'),
-      webPrint: require('../frontend/src/lib/printer/web-print'),
+      receiptEncoder: require('../desktop-ui/src/lib/printer/receipt-encoder'),
+      kotEncoder: require('../desktop-ui/src/lib/printer/kot-encoder'),
+      taxBillEncoder: require('../desktop-ui/src/lib/printer/tax-bill-encoder'),
+      unicode: require('../desktop-ui/src/lib/printer/unicode'),
+      warnings: require('../desktop-ui/src/lib/printer/warnings'),
+      webPrint: require('../desktop-ui/src/lib/printer/web-print'),
     };
   } finally {
     moduleApi._resolveFilename = originalResolveFilename;
   }
 }
 
-function loadWarningsToastWithCapture(captured: string[]): typeof import('../frontend/src/lib/printer/warnings-toast') {
+function loadWarningsToastWithCapture(captured: string[]): typeof import('../desktop-ui/src/lib/printer/warnings-toast') {
   const path = require('path');
   const moduleApi = require('module') as {
     _resolveFilename: (...args: any[]) => string;
@@ -116,7 +116,7 @@ function loadWarningsToastWithCapture(captured: string[]): typeof import('../fro
     if (request === '@countries') {
       resolvedRequest = path.resolve(__dirname, '../main/countries.ts');
     } else if (request.startsWith('@/')) {
-      resolvedRequest = path.resolve(__dirname, '../frontend/src', request.slice(2));
+      resolvedRequest = path.resolve(__dirname, '../desktop-ui/src', request.slice(2));
     } else if (request.startsWith('@print/')) {
       resolvedRequest = path.resolve(__dirname, '../shared/print', request.slice('@print/'.length));
     }
@@ -124,7 +124,7 @@ function loadWarningsToastWithCapture(captured: string[]): typeof import('../fro
   };
 
   try {
-    return require('../frontend/src/lib/printer/warnings-toast');
+    return require('../desktop-ui/src/lib/printer/warnings-toast');
   } finally {
     moduleApi._resolveFilename = originalResolveFilename;
     if (previousToastModule) require.cache[toastPath] = previousToastModule;

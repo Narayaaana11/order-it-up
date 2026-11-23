@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { isDesktopOnlyRoute, shouldHideInCloud } from '../frontend/src/lib/cloud-surface';
+import { isDesktopOnlyRoute, shouldHideInCloud } from '../desktop-ui/src/lib/cloud-surface';
 
 assert.equal(isDesktopOnlyRoute('/settings'), true);
 assert.equal(isDesktopOnlyRoute('/settings?tab=kds'), true, 'query variants are desktop-only');

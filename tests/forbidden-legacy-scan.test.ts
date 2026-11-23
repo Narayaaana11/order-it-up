@@ -35,7 +35,7 @@ const SCAN_DIRS = [
 
 const SCAN_FILES = [
   'package.json',
-  'frontend/src/app/setup/page.tsx',
+  'desktop-ui/src/app/setup/page.tsx',
 ];
 
 function scanFile(filePath: string): { file: string; pattern: string; line: number }[] {

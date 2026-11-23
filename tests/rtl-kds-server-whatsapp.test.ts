@@ -55,29 +55,29 @@ const dummyStorage = {
 (global as any).window = { localStorage: dummyStorage };
 
 const Module = require('module');
-const frontendRequire = Module.createRequire(path.join(ROOT, 'frontend/package.json'));
+const frontendRequire = Module.createRequire(path.join(ROOT, 'desktop-ui/package.json'));
 
 /** Batch F screen files that must use logical direction utilities. */
 const SCREEN_FILES = [
   // Standalone KDS
-  'frontend/src/app/kds-standalone/page.tsx',
-  'frontend/src/app/kds-standalone/layout.tsx',
-  'frontend/src/components/kds/KdsHeader.tsx',
-  'frontend/src/components/kds/KdsKanbanBoard.tsx',
-  'frontend/src/components/kds/KdsTabsView.tsx',
-  'frontend/src/components/kds/KdsColumn.tsx',
-  'frontend/src/components/kds/KdsItemModal.tsx',
-  'frontend/src/components/kds/KdsLoginForm.tsx',
-  'frontend/src/components/kds/KdsWorkspace.tsx',
-  'frontend/src/components/kds/ElapsedTime.tsx',
-  'frontend/src/components/kds/KdsHtmlLang.tsx',
+  'desktop-ui/src/app/kds-standalone/page.tsx',
+  'desktop-ui/src/app/kds-standalone/layout.tsx',
+  'desktop-ui/src/components/kds/KdsHeader.tsx',
+  'desktop-ui/src/components/kds/KdsKanbanBoard.tsx',
+  'desktop-ui/src/components/kds/KdsTabsView.tsx',
+  'desktop-ui/src/components/kds/KdsColumn.tsx',
+  'desktop-ui/src/components/kds/KdsItemModal.tsx',
+  'desktop-ui/src/components/kds/KdsLoginForm.tsx',
+  'desktop-ui/src/components/kds/KdsWorkspace.tsx',
+  'desktop-ui/src/components/kds/ElapsedTime.tsx',
+  'desktop-ui/src/components/kds/KdsHtmlLang.tsx',
   // Dashboard-embedded KDS
-  'frontend/src/app/(dashboard)/kds/page.tsx',
+  'desktop-ui/src/app/(dashboard)/kds/page.tsx',
   // Server App / tableside ordering
-  'frontend/src/app/server-standalone/page.tsx',
-  'frontend/src/app/server-standalone/layout.tsx',
+  'desktop-ui/src/app/server-standalone/page.tsx',
+  'desktop-ui/src/app/server-standalone/layout.tsx',
   // WhatsApp
-  'frontend/src/app/(dashboard)/whatsapp/page.tsx',
+  'desktop-ui/src/app/(dashboard)/whatsapp/page.tsx',
 ];
 
 /**
@@ -117,7 +117,7 @@ function loadComponents(): {
   moduleApi._resolveFilename = function (request: string, parent: any, isMain: boolean, options?: any) {
     let resolvedRequest = request;
     if (request.startsWith('@/')) {
-      resolvedRequest = path.resolve(ROOT, 'frontend/src', request.slice(2));
+      resolvedRequest = path.resolve(ROOT, 'desktop-ui/src', request.slice(2));
     } else if (request.startsWith('@print/')) {
       resolvedRequest = path.resolve(ROOT, 'shared/print', request.slice('@print/'.length));
     }
@@ -127,11 +127,11 @@ function loadComponents(): {
   try {
     const React = frontendRequire('react');
     const ReactDOMServer = frontendRequire('react-dom/server');
-    const { Ltr } = require('../frontend/src/components/layout/Ltr');
-    const { KdsHtmlLang } = require('../frontend/src/components/kds/KdsHtmlLang');
-    const { HtmlLangSync } = require('../frontend/src/components/layout/HtmlLangSync');
-    const { usePosSettingsStore } = require('../frontend/src/store/pos-settings');
-    const { fetchServerInfo, getLanguageDirection, getLanguageLocale, loadLocaleMessages, getCachedMessages } = require('../frontend/src/lib/i18n');
+    const { Ltr } = require('../desktop-ui/src/components/layout/Ltr');
+    const { KdsHtmlLang } = require('../desktop-ui/src/components/kds/KdsHtmlLang');
+    const { HtmlLangSync } = require('../desktop-ui/src/components/layout/HtmlLangSync');
+    const { usePosSettingsStore } = require('../desktop-ui/src/store/pos-settings');
+    const { fetchServerInfo, getLanguageDirection, getLanguageLocale, loadLocaleMessages, getCachedMessages } = require('../desktop-ui/src/lib/i18n');
     const { IntlProvider } = frontendRequire('use-intl');
     return {
       Ltr,

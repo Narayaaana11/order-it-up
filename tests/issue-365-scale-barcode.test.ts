@@ -5,7 +5,7 @@
  */
 
 import assert from 'assert';
-import { parseScaleBarcode, resolveScannedProduct } from '../frontend/src/lib/scale-barcode';
+import { parseScaleBarcode, resolveScannedProduct } from '../desktop-ui/src/lib/scale-barcode';
 
 const parsed = parseScaleBarcode('2101234012507');
 assert.deepEqual(parsed, { plu: '01234', quantity: 1.25 }, 'default scale barcode parses prefix, PLU, and grams');

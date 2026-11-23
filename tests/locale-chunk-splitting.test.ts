@@ -13,7 +13,7 @@
  *    invariant: chunks are packaged local assets served by the embedded
  *    localhost server).
  *
- * Requires `npm run build:frontend` output (`frontend/out`). Skips with
+ * Requires `npm run build:frontend` output (`desktop-ui/out`). Skips with
  * exit 0 when the build output is absent (e.g. `npm test` on a fresh
  * checkout without a preceding frontend build).
  */
@@ -63,7 +63,7 @@ function decodeJavaScriptEscapes(value: string): string {
 function run(): void {
   const chunksDir = path.join(OUT, '_next', 'static', 'chunks');
   if (!fs.existsSync(chunksDir)) {
-    console.log('SKIP: frontend/out missing — run `npm run build:frontend` first (no locale chunk assertions).');
+    console.log('SKIP: desktop-ui/out missing — run `npm run build:frontend` first (no locale chunk assertions).');
     return;
   }
 
@@ -71,7 +71,7 @@ function run(): void {
   const nonEnglishLangs = Object.keys(MARKERS).filter((l) => l !== 'en');
 
   const chunks = walkFiles(chunksDir, (name) => name.endsWith('.js'));
-  assert(chunks.length > 0, 'no chunks found in frontend/out/_next/static/chunks');
+  assert(chunks.length > 0, 'no chunks found in desktop-ui/out/_next/static/chunks');
 
   const filesWith = (marker: string): string[] => chunks.filter((f) => {
     const content = fs.readFileSync(f, 'utf8');
@@ -101,7 +101,7 @@ function run(): void {
 
   // 1. No page eagerly references the lazy locale chunks.
   const pages = walkFiles(OUT, (name) => name === 'index.html');
-  assert(pages.length > 0, 'no index.html pages found in frontend/out');
+  assert(pages.length > 0, 'no index.html pages found in desktop-ui/out');
   const eagerRefs: Array<{ page: string; chunk: string }> = [];
   for (const page of pages) {
     const html = fs.readFileSync(page, 'utf8');

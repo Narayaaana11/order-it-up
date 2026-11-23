@@ -880,4 +880,74 @@ router.get('/tax-liability', requireRole(...ROLE_ACCESS.ownerManager), (req: Req
   }
 });
 
+router.get('/staff-performance', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const today = reportToday();
+    const startDate = reportDate(req.query.start_date, today);
+    const endDate = reportDate(req.query.end_date, today);
+    const [start] = reportDayBounds(startDate);
+    const [, end] = reportDayBounds(endDate);
+
+    // 1. Staff sales, orders served, and average check size
+    const staffRows = db.prepare(`
+      SELECT
+        u.id,
+        u.name,
+        u.role,
+        COALESCE(SUM(o.total), 0) as total_sales,
+        COUNT(o.id) as orders_served,
+        ROUND(COALESCE(AVG(o.total), 0), 2) as average_check_size
+      FROM orders o
+      JOIN users u ON u.id = o.user_id
+      WHERE o.created_at >= ? AND o.created_at < ? AND o.status != 'cancelled'
+      GROUP BY u.id
+      ORDER BY total_sales DESC
+    `).all(start, end) as any[];
+
+    // 2. Total restaurant revenue for the period
+    const totalRevRow = db.prepare(`
+      SELECT COALESCE(SUM(total), 0) as total_revenue
+      FROM orders
+      WHERE created_at >= ? AND created_at < ? AND status != 'cancelled'
+    `).get(start, end) as { total_revenue: number };
+    const totalRevenue = totalRevRow?.total_revenue || 0;
+
+    // 3. Labor cost from staff salaries / wages logged in expenses (under 'salaries' or 'payroll' category)
+    const laborCostRow = db.prepare(`
+      SELECT COALESCE(SUM(e.amount), 0) as total_labor_cost
+      FROM expenses e
+      LEFT JOIN expense_categories ec ON ec.id = e.category_id
+      WHERE e.expense_date >= ? AND e.expense_date <= ?
+        AND (LOWER(ec.name) LIKE '%salar%' OR LOWER(ec.name) LIKE '%labor%' OR LOWER(ec.name) LIKE '%payroll%')
+    `).get(startDate, endDate) as { total_labor_cost: number };
+    const totalLaborCost = laborCostRow?.total_labor_cost || 0;
+
+    // 4. Labor Cost % of Revenue
+    const laborCostPercentage = totalRevenue > 0
+      ? Math.round((totalLaborCost / totalRevenue) * 10000) / 100
+      : 0;
+
+    res.json({
+      ok: true,
+      start_date: startDate,
+      end_date: endDate,
+      total_revenue: totalRevenue,
+      total_labor_cost: totalLaborCost,
+      labor_cost_percentage: laborCostPercentage,
+      staff: staffRows.map((s) => ({
+        id: s.id,
+        name: s.name,
+        role: s.role,
+        total_sales: Number(s.total_sales),
+        orders_served: Number(s.orders_served),
+        average_check_size: Number(s.average_check_size),
+      })),
+    });
+  } catch (error: any) {
+    console.error('[API] /staff-performance report failed:', error);
+    res.status(500).json({ error: 'Internal server error' });
+  }
+});
+
 export const reportRoutes = router;

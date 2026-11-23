@@ -12,11 +12,11 @@
         "dev": "npm run clean && npm run build:frontend && npm run build && electron .",
         "dev:restart": "bash scripts/dev/restart.sh",
         "dev:reset": "bash scripts/dev/nuclear-reset.sh",
-        "dev:frontend": "cd frontend && npm run dev",
+        "dev:frontend": "cd desktop-ui && npm run dev",
         "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc && node scripts/copy-runtime-assets.cjs",
         "lint:backend": "eslint main/ shared/",
-        "lint": "npm run lint:backend && npm --prefix frontend run lint",
-        "build:frontend": "cd frontend && npx cross-env NEXT_BUILD_MODE=desktop npm run build",
+        "lint": "npm run lint:backend && npm --prefix desktop-ui run lint",
+        "build:frontend": "cd desktop-ui && npx cross-env NEXT_BUILD_MODE=desktop npm run build",
         "build:web": "node scripts/build-web-export.cjs",
         "check:cloud-ready": "node scripts/assert-cloud-ready.cjs",
         "build:all-platforms": "npm run build:frontend && npm run build && electron-builder --win --mac --linux",
@@ -100,8 +100,8 @@
         "test:runtime-recovery": "ts-node --transpile-only -P tests/tsconfig.json tests/runtime-recovery.test.ts",
         "test:backend-health": "ts-node --transpile-only -P tests/tsconfig.json tests/backend-health.test.ts",
         "test:e2e:server": "node tests/e2e-server.cjs",
-        "test:e2e:browser": "npm run build && npm run build:frontend && cd frontend && npx playwright install chromium && npx playwright test --config=playwright.config.ts --project=chromium",
-        "test:e2e:electron": "npm run build && npm run build:frontend && cd frontend && npx playwright test --config=playwright.electron.config.ts --project=electron-desktop",
+        "test:e2e:browser": "npm run build && npm run build:frontend && cd desktop-ui && npx playwright install chromium && npx playwright test --config=playwright.config.ts --project=chromium",
+        "test:e2e:electron": "npm run build && npm run build:frontend && cd desktop-ui && npx playwright test --config=playwright.electron.config.ts --project=electron-desktop",
         "test:e2e": "npm run test:e2e:browser",
         "test:release-config": "ts-node --transpile-only -P tests/tsconfig.json tests/desktop-release-workflow.test.ts && ts-node --transpile-only -P tests/tsconfig.json tests/verify-electron-runtime-xattr.test.ts && node tests/release-asset-verifier.test.cjs && node tests/release-gate.test.cjs",
         "test:windows-uninstaller": "node tests/run-windows-uninstaller-tests.cjs",
@@ -218,7 +218,7 @@
         "test:release-regressions": "npm run test:browser-receipts && npm run test:decoupled-ui-locale && npm run test:i18n-audit-remediations && npm run test:i18n-ssr-timezone && npm run test:issue-241-localized-errors && npm run test:payment-modal-currency-adapter && npm run test:printer-fallback-and-popup-verification && npm run test:kot-locale-cold-start && npm run test:phase6-locale-loading && npm run test:auth-print-bootstrap-race",
         "generate:print-labels": "node scripts/generate-print-labels.cjs",
         "i18n:add": "node scripts/i18n-add.cjs",
-        "i18n:check": "npm run test:translations && npm run generate:print-labels -- --check && tsc --noEmit -p frontend/tsconfig.json",
+        "i18n:check": "npm run test:translations && npm run generate:print-labels -- --check && tsc --noEmit -p desktop-ui/tsconfig.json",
         "test:rtl-foundation": "ts-node --transpile-only -P tests/tsconfig.json tests/rtl-foundation.test.ts",
         "test:rtl-setup-auth-settings": "ts-node --transpile-only -P tests/tsconfig.json tests/rtl-setup-auth-settings.test.ts",
         "test:rtl-dashboard-pos-common": "ts-node --transpile-only -P tests/tsconfig.json tests/rtl-dashboard-pos-common.test.ts",
@@ -338,7 +338,7 @@
                 "to": "assets"
             },
             {
-                "from": "frontend/out",
+                "from": "desktop-ui/out",
                 "to": "frontend-out"
             }
         ],

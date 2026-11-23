@@ -11,7 +11,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
-import type { Bill, Order, OrderItem, Table } from '../frontend/src/lib/types';
+import type { Bill, Order, OrderItem, Table } from '../desktop-ui/src/lib/types';
 
 const EVIDENCE_DIR = process.env.EVIDENCE_DIR || path.join(os.tmpdir(), 'flo-audit-evidence');
 
@@ -27,7 +27,7 @@ function setupModuleResolver() {
     if (request === '@countries') {
       resolvedRequest = path.resolve(__dirname, '../main/countries.ts');
     } else if (request.startsWith('@/')) {
-      resolvedRequest = path.resolve(__dirname, '../frontend/src', request.slice(2));
+      resolvedRequest = path.resolve(__dirname, '../desktop-ui/src', request.slice(2));
     } else if (request.startsWith('@print/')) {
       resolvedRequest = path.resolve(__dirname, '../shared/print', request.slice('@print/'.length));
     }
@@ -41,11 +41,11 @@ function setupModuleResolver() {
 
 const cleanupResolver = setupModuleResolver();
 
-const { webPrint } = require('../frontend/src/lib/printer/web-print') ? { webPrint: require('../frontend/src/lib/printer/web-print') } : {} as any;
+const { webPrint } = require('../desktop-ui/src/lib/printer/web-print') ? { webPrint: require('../desktop-ui/src/lib/printer/web-print') } : {} as any;
 const { ensureReceiptMessagesLoaded, printWebBill, generateBillHtml } = webPrint;
-const { getCachedMessages, loadLocaleMessages } = require('../frontend/src/lib/i18n/loader');
-const { LANGUAGES, getLanguageDirection } = require('../frontend/src/lib/i18n/languages');
-const { ITEM_STATUS_LABEL_KEYS } = require('../frontend/src/lib/i18n/enums');
+const { getCachedMessages, loadLocaleMessages } = require('../desktop-ui/src/lib/i18n/loader');
+const { LANGUAGES, getLanguageDirection } = require('../desktop-ui/src/lib/i18n/languages');
+const { ITEM_STATUS_LABEL_KEYS } = require('../desktop-ui/src/lib/i18n/enums');
 
 let passed = 0;
 let failed = 0;
@@ -336,7 +336,7 @@ async function run() {
   );
 
   // 2.2 Translation parity in all message files
-  const MESSAGES_DIR = path.resolve(__dirname, '../frontend/src/lib/i18n/messages');
+  const MESSAGES_DIR = path.resolve(__dirname, '../desktop-ui/src/lib/i18n/messages');
   for (const lang of ['en', 'es', 'fr', 'pt', 'fa']) {
     const filePath = path.join(MESSAGES_DIR, `${lang}.json`);
     const content = JSON.parse(fs.readFileSync(filePath, 'utf8'));
@@ -657,7 +657,7 @@ async function run() {
   // Use Playwright to capture screenshots
   let browser: any;
   try {
-    const playwright = require(path.resolve(__dirname, '../frontend/node_modules/@playwright/test'));
+    const playwright = require(path.resolve(__dirname, '../desktop-ui/node_modules/@playwright/test'));
     browser = await playwright.chromium.launch({ headless: true });
     const context = await browser.newContext({
       viewport: { width: 780, height: 800 },

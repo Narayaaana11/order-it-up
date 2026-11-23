@@ -208,7 +208,7 @@ async function runArgentinaTaxAndCustomers(baseUrl, db) {
 
 async function runArgentinaTranslations(db) {
   console.log('\n4. i18n has matching keys for both languages and every t() reference resolves');
-  const i18nDir = path.join(__dirname, '../frontend/src/lib/i18n/messages');
+  const i18nDir = path.join(__dirname, '../desktop-ui/src/lib/i18n/messages');
   const enSrc = fs.readFileSync(path.join(i18nDir, 'en.json'), 'utf8');
   const esSrc = fs.readFileSync(path.join(i18nDir, 'es.json'), 'utf8');
 
@@ -228,7 +228,7 @@ async function runArgentinaTranslations(db) {
   // Walk the entire frontend src tree and assert every `t('key')` reference
   // resolves to a known key. Catches wiring gaps: a developer adds
   // `t('foo.bar')` and forgets to define the key.
-  const referenced = collectCalledKeys(path.join(__dirname, '../frontend/src'));
+  const referenced = collectCalledKeys(path.join(__dirname, '../desktop-ui/src'));
   console.log(`    found ${referenced.size} unique t() keys referenced in frontend`);
   assert(referenced.size >= 20, `at least 20 translation keys should be wired in (found ${referenced.size})`);
   const unknownRefs = [...referenced].filter((k) => !enKeys.has(k));

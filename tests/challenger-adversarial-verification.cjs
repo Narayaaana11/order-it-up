@@ -94,15 +94,15 @@ describe('Suite 1: Adversarial UI, Anchors & Media Verification (R1, R2)', () =>
 
     // 3. Verify in frontend statically exported index.html
     const indexPath = path.join(FRONTEND_OUT, 'index.html');
-    assert(fs.existsSync(indexPath), 'frontend/out/index.html must exist');
+    assert(fs.existsSync(indexPath), 'desktop-ui/out/index.html must exist');
     const indexHtml = fs.readFileSync(indexPath, 'utf8');
-    assert(indexHtml.includes('id="download-windows"'), 'frontend/out/index.html must contain id="download-windows"');
-    assert(indexHtml.includes('href="#download-windows"'), 'frontend/out/index.html must contain href="#download-windows"');
-    assert(indexHtml.includes('Windows (x64 / ARM)'), 'frontend/out/index.html must display Windows platform badge');
+    assert(indexHtml.includes('id="download-windows"'), 'desktop-ui/out/index.html must contain id="download-windows"');
+    assert(indexHtml.includes('href="#download-windows"'), 'desktop-ui/out/index.html must contain href="#download-windows"');
+    assert(indexHtml.includes('Windows (x64 / ARM)'), 'desktop-ui/out/index.html must display Windows platform badge');
   });
 
   test('1.3: Zero un-Suspended useSearchParams or Dynamic Runtime Traps in Static Export', () => {
-    // Audit all 34 exported HTML files in frontend/out/
+    // Audit all 34 exported HTML files in desktop-ui/out/
     function getHtmlFiles(dir) {
       let results = [];
       const list = fs.readdirSync(dir);

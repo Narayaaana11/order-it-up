@@ -30,11 +30,11 @@ import * as fs from 'fs';
 import * as path from 'path';
 
 const ROOT = path.join(__dirname, '..');
-const UI_DIR = path.join(ROOT, 'frontend/src/components/ui');
-const LAYOUT_DIR = path.join(ROOT, 'frontend/src/components/layout');
-const GLOBALS_CSS = path.join(ROOT, 'frontend/src/app/globals.css');
+const UI_DIR = path.join(ROOT, 'desktop-ui/src/components/ui');
+const LAYOUT_DIR = path.join(ROOT, 'desktop-ui/src/components/layout');
+const GLOBALS_CSS = path.join(ROOT, 'desktop-ui/src/app/globals.css');
 const Module = require('module');
-const frontendRequire = Module.createRequire(path.join(ROOT, 'frontend/package.json'));
+const frontendRequire = Module.createRequire(path.join(ROOT, 'desktop-ui/package.json'));
 
 function loadLtrComponent(): {
   Ltr: any;
@@ -49,7 +49,7 @@ function loadLtrComponent(): {
   moduleApi._resolveFilename = function (request: string, parent: any, isMain: boolean, options?: any) {
     let resolvedRequest = request;
     if (request.startsWith('@/')) {
-      resolvedRequest = path.resolve(ROOT, 'frontend/src', request.slice(2));
+      resolvedRequest = path.resolve(ROOT, 'desktop-ui/src', request.slice(2));
     } else if (request.startsWith('@print/')) {
       resolvedRequest = path.resolve(ROOT, 'shared/print', request.slice('@print/'.length));
     }
@@ -59,7 +59,7 @@ function loadLtrComponent(): {
   try {
     const React = frontendRequire('react');
     const ReactDOMServer = frontendRequire('react-dom/server');
-    const { Ltr } = require('../frontend/src/components/layout/Ltr');
+    const { Ltr } = require('../desktop-ui/src/components/layout/Ltr');
     return { Ltr, React, ReactDOMServer };
   } finally {
     moduleApi._resolveFilename = originalResolveFilename;

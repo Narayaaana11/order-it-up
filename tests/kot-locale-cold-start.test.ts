@@ -26,7 +26,7 @@ moduleApi._resolveFilename = function (request: string, parent: any, isMain: boo
   if (request === '@countries') {
     resolvedRequest = path.resolve(__dirname, '../main/countries.ts');
   } else if (request.startsWith('@/')) {
-    resolvedRequest = path.resolve(__dirname, '../frontend/src', request.slice(2));
+    resolvedRequest = path.resolve(__dirname, '../desktop-ui/src', request.slice(2));
   } else if (request.startsWith('@print/')) {
     resolvedRequest = path.resolve(__dirname, '../shared/print', request.slice('@print/'.length));
   }
@@ -36,11 +36,11 @@ moduleApi._resolveFilename = function (request: string, parent: any, isMain: boo
 function loadFrontendModules() {
   try {
     return {
-      loader: require('../frontend/src/lib/i18n/loader'),
-      posSettings: require('../frontend/src/store/pos-settings'),
+      loader: require('../desktop-ui/src/lib/i18n/loader'),
+      posSettings: require('../desktop-ui/src/store/pos-settings'),
       policy: require('../shared/print/policy'),
-      usePrinter: require('../frontend/src/hooks/usePrinter'),
-      printerServiceModule: require('../frontend/src/lib/printer/PrinterService'),
+      usePrinter: require('../desktop-ui/src/hooks/usePrinter'),
+      printerServiceModule: require('../desktop-ui/src/lib/printer/PrinterService'),
     };
   } finally {
     // Hook stays installed until process exit (see note above).
@@ -128,7 +128,7 @@ async function run(): Promise<void> {
   // ------------------------------------------------------------------
   {
     settings.setKotLanguagePolicy({ primary: { mode: 'fixed', language: 'fa' }, additional: [] });
-    const loaderModule = require('../frontend/src/lib/i18n/loader');
+    const loaderModule = require('../desktop-ui/src/lib/i18n/loader');
     const originalLoad = loaderModule.loadLocaleMessages;
     loaderModule.loadLocaleMessages = async (lang: string) => {
       if (lang === 'fa') throw new Error('simulated offline bundle fetch failure');

@@ -42,6 +42,7 @@ import { vendorRoutes } from './vendors';
 import { expenseRoutes } from './expenses';
 import { reservationRoutes } from './reservations';
 import { qrOrderRoutes } from './qr-order';
+import { safRoutes } from './saf';
 import { aggregatorRoutes } from './aggregators';
 import { aiRoutes } from './ai';
 import { auditLogRoutes } from './audit-log';
@@ -129,6 +130,7 @@ export function registerRoutes(app: Express): void {
   app.use('/api/vendors', vendorRoutes);
   app.use('/api/expenses', expenseRoutes);
   app.use('/api/reservations', reservationRoutes);
+  app.use('/api/saf', safRoutes);
   app.use('/api/qr', qrOrderRoutes);
   app.use('/api', aggregatorRoutes);
   app.use('/api', aiRoutes);

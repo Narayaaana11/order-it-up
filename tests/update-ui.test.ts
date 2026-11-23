@@ -2,10 +2,10 @@
  * Unit tests for the in-app update UX guard logic (#463, child of epic #463).
  *
  * Covers the pure renderer modules:
- *  - frontend/src/lib/updates/restart-install.ts — normalization of the
+ *  - desktop-ui/src/lib/updates/restart-install.ts — normalization of the
  *    guarded `restart-and-install` IPC result and the renderer-side
  *    preconditions (valid PIN format, no accidental submit);
- *  - frontend/src/lib/updates/beta-channel.ts — feature detection of the
+ *  - desktop-ui/src/lib/updates/beta-channel.ts — feature detection of the
  *    `updates:get/set-beta-channel` contract, tri-state value normalization,
  *    and optimistic-update decisions for the Settings toggle.
  *
@@ -18,14 +18,14 @@ import {
   canSubmitRestartInstall,
   isValidManagerPinInput,
   normalizeRestartInstallResult,
-} from '../frontend/src/lib/updates/restart-install';
+} from '../desktop-ui/src/lib/updates/restart-install';
 import {
   betaChannelApiSupported,
   normalizeBetaChannelValue,
   normalizeBetaChannelWriteResult,
   readBetaChannelState,
   writeBetaChannelState,
-} from '../frontend/src/lib/updates/beta-channel';
+} from '../desktop-ui/src/lib/updates/beta-channel';
 
 // ── Restart-to-install result normalization ─────────────────────────────────
 

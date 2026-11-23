@@ -6,7 +6,7 @@
  * translation contribution. It verifies, on every run:
  *
  *   1. Registry ↔ file consistency: every language in
- *      `frontend/src/lib/i18n/languages.ts` has a message JSON file and vice
+ *      `desktop-ui/src/lib/i18n/languages.ts` has a message JSON file and vice
  *      versa; locale tags are valid BCP-47 and directions are ltr/rtl.
  *   2. Exact nested leaf key parity with `en.json` as the canonical schema:
  *      every leaf key path in en.json must exist in es/fr/pt/fa (zero missing)
@@ -60,13 +60,13 @@ import {
   isTagElement,
   type MessageFormatElement,
 } from '@formatjs/icu-messageformat-parser';
-import { LANGUAGES } from '../frontend/src/lib/i18n/languages';
+import { LANGUAGES } from '../desktop-ui/src/lib/i18n/languages';
 import { walkTypeScriptFiles, collectCalledKeys } from './helpers/i18n-scanner';
 
 const ROOT = path.join(__dirname, '..');
-const I18N_DIR = path.join(ROOT, 'frontend/src/lib/i18n/messages');
-const FRONTEND_SRC = path.join(ROOT, 'frontend/src');
-const MESSAGES_DTS = path.join(ROOT, 'frontend/src/lib/i18n/messages.d.ts');
+const I18N_DIR = path.join(ROOT, 'desktop-ui/src/lib/i18n/messages');
+const FRONTEND_SRC = path.join(ROOT, 'desktop-ui/src');
+const MESSAGES_DTS = path.join(ROOT, 'desktop-ui/src/lib/i18n/messages.d.ts');
 const FILES = (Object.keys(LANGUAGES) as Array<keyof typeof LANGUAGES>).map((lang) => ({
   lang,
   file: path.join(I18N_DIR, `${lang}.json`),
@@ -991,7 +991,7 @@ function legacyImportErrors(dir: string = FRONTEND_SRC): string[] {
 function messagesDtsErrors(): string[] {
   const errors: string[] = [];
   if (!fs.existsSync(MESSAGES_DTS)) {
-    errors.push('frontend/src/lib/i18n/messages.d.ts is missing (use-intl AppConfig augmentation)');
+    errors.push('desktop-ui/src/lib/i18n/messages.d.ts is missing (use-intl AppConfig augmentation)');
     return errors;
   }
   const content = fs.readFileSync(MESSAGES_DTS, 'utf8');

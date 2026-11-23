@@ -13,7 +13,7 @@
 
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { shouldApplyInitialUpdateStatus } from '../frontend/src/hooks/update-status-sync';
+import { shouldApplyInitialUpdateStatus } from '../desktop-ui/src/hooks/update-status-sync';
 import {
   UPDATE_STATES,
   classifyUpdateError,

@@ -4456,6 +4456,115 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       `);
     },
   },
+  {
+    version: 93,
+    name: 'enterprise_restaurant_features',
+    up: () => {
+      // 1. Course firing & table pacing for order_items
+      const orderItemCols = db.prepare('PRAGMA table_info(order_items)').all() as any[];
+      if (!orderItemCols.some((c) => c.name === 'course')) {
+        db.exec("ALTER TABLE order_items ADD COLUMN course TEXT DEFAULT 'main'");
+      }
+      if (!orderItemCols.some((c) => c.name === 'firing_status')) {
+        db.exec("ALTER TABLE order_items ADD COLUMN firing_status TEXT DEFAULT 'fired'");
+      }
+      if (!orderItemCols.some((c) => c.name === 'fired_at')) {
+        db.exec("ALTER TABLE order_items ADD COLUMN fired_at TEXT DEFAULT NULL");
+      }
+
+      // 2. Bills tip & e-invoice registration fields
+      const billCols = db.prepare('PRAGMA table_info(bills)').all() as any[];
+      if (!billCols.some((c) => c.name === 'tip_amount')) {
+        db.exec("ALTER TABLE bills ADD COLUMN tip_amount REAL DEFAULT 0");
+      }
+      if (!billCols.some((c) => c.name === 'tip_payment_method')) {
+        db.exec("ALTER TABLE bills ADD COLUMN tip_payment_method TEXT DEFAULT NULL");
+      }
+      if (!billCols.some((c) => c.name === 'einvoice_ack_no')) {
+        db.exec("ALTER TABLE bills ADD COLUMN einvoice_ack_no TEXT DEFAULT NULL");
+      }
+      if (!billCols.some((c) => c.name === 'einvoice_ack_date')) {
+        db.exec("ALTER TABLE bills ADD COLUMN einvoice_ack_date TEXT DEFAULT NULL");
+      }
+      if (!billCols.some((c) => c.name === 'einvoice_signed_qr')) {
+        db.exec("ALTER TABLE bills ADD COLUMN einvoice_signed_qr TEXT DEFAULT NULL");
+      }
+
+      // 3. Store-and-Forward (SAF) offline card transaction queue
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS saf_card_transactions (
+          id TEXT PRIMARY KEY,
+          order_id INTEGER NOT NULL REFERENCES orders(id),
+          bill_id INTEGER NOT NULL REFERENCES bills(id),
+          amount REAL NOT NULL,
+          currency TEXT NOT NULL DEFAULT 'INR',
+          card_last4 TEXT NOT NULL,
+          card_brand TEXT NOT NULL,
+          auth_code TEXT NOT NULL,
+          entry_mode TEXT NOT NULL DEFAULT 'offline_pin',
+          status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'forwarding', 'settled', 'failed', 'declined')),
+          retry_count INTEGER NOT NULL DEFAULT 0,
+          error_message TEXT,
+          offline_authorized_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          forwarded_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_saf_status ON saf_card_transactions(status);
+        CREATE INDEX IF NOT EXISTS idx_saf_bill_id ON saf_card_transactions(bill_id);
+      `);
+
+      // 4. Tip distributions and staff allocations
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS tip_distributions (
+          id TEXT PRIMARY KEY,
+          date TEXT NOT NULL,
+          shift_id TEXT,
+          total_tips REAL NOT NULL,
+          distribution_rule TEXT NOT NULL DEFAULT 'equal_split' CHECK (distribution_rule IN ('equal_split', 'hours_worked', 'points_percentage')),
+          status TEXT NOT NULL DEFAULT 'completed',
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE TABLE IF NOT EXISTS tip_allocations (
+          id TEXT PRIMARY KEY,
+          distribution_id TEXT NOT NULL REFERENCES tip_distributions(id) ON DELETE CASCADE,
+          user_id TEXT NOT NULL REFERENCES users(id),
+          staff_name TEXT NOT NULL,
+          role TEXT NOT NULL,
+          allocated_amount REAL NOT NULL,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_tip_alloc_user ON tip_allocations(user_id);
+        CREATE INDEX IF NOT EXISTS idx_tip_alloc_dist ON tip_allocations(distribution_id);
+      `);
+
+      // 5. Table Waitlist
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS table_waitlist (
+          id TEXT PRIMARY KEY,
+          customer_name TEXT NOT NULL,
+          customer_phone TEXT NOT NULL,
+          party_size INTEGER NOT NULL DEFAULT 2,
+          estimated_wait_minutes INTEGER NOT NULL DEFAULT 15,
+          status TEXT NOT NULL DEFAULT 'waiting' CHECK (status IN ('waiting', 'notified', 'seated', 'cancelled')),
+          notes TEXT,
+          notified_at TEXT,
+          seated_table_id TEXT REFERENCES tables(id),
+          seated_at TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_waitlist_status ON table_waitlist(status);
+      `);
+
+      // 6. Default SAF Risk Controls
+      upsertSettings({
+        saf_enabled: 'true',
+        saf_floor_limit: '5000',
+        saf_max_cumulative: '50000',
+      });
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {
@@ -4794,6 +4903,9 @@ function createSchema(): void {
       addons TEXT,
       special_instructions TEXT,
       status TEXT DEFAULT 'pending',
+      course TEXT DEFAULT 'main',
+      firing_status TEXT DEFAULT 'fired',
+      fired_at TEXT DEFAULT NULL,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP,
       FOREIGN KEY (order_id) REFERENCES orders(id)
@@ -4825,6 +4937,11 @@ function createSchema(): void {
       balance REAL DEFAULT 0,
       payment_status TEXT DEFAULT 'unpaid',
       payment_details TEXT,
+      tip_amount REAL DEFAULT 0,
+      tip_payment_method TEXT DEFAULT NULL,
+      einvoice_ack_no TEXT DEFAULT NULL,
+      einvoice_ack_date TEXT DEFAULT NULL,
+      einvoice_signed_qr TEXT DEFAULT NULL,
       paid_at TEXT,
       printed_at TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -5087,6 +5204,63 @@ function createSchema(): void {
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
     );
 
+    -- ── Store-and-Forward (SAF) Offline Card Transactions ────────────────
+    CREATE TABLE IF NOT EXISTS saf_card_transactions (
+      id TEXT PRIMARY KEY,
+      order_id INTEGER NOT NULL REFERENCES orders(id),
+      bill_id INTEGER NOT NULL REFERENCES bills(id),
+      amount REAL NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'INR',
+      card_last4 TEXT NOT NULL,
+      card_brand TEXT NOT NULL,
+      auth_code TEXT NOT NULL,
+      entry_mode TEXT NOT NULL DEFAULT 'offline_pin',
+      status TEXT NOT NULL DEFAULT 'queued' CHECK (status IN ('queued', 'forwarding', 'settled', 'failed', 'declined')),
+      retry_count INTEGER NOT NULL DEFAULT 0,
+      error_message TEXT,
+      offline_authorized_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      forwarded_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- ── Tip Distributions and Allocations ────────────────────────────────
+    CREATE TABLE IF NOT EXISTS tip_distributions (
+      id TEXT PRIMARY KEY,
+      date TEXT NOT NULL,
+      shift_id TEXT,
+      total_tips REAL NOT NULL,
+      distribution_rule TEXT NOT NULL DEFAULT 'equal_split' CHECK (distribution_rule IN ('equal_split', 'hours_worked', 'points_percentage')),
+      status TEXT NOT NULL DEFAULT 'completed',
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    CREATE TABLE IF NOT EXISTS tip_allocations (
+      id TEXT PRIMARY KEY,
+      distribution_id TEXT NOT NULL REFERENCES tip_distributions(id) ON DELETE CASCADE,
+      user_id TEXT NOT NULL REFERENCES users(id),
+      staff_name TEXT NOT NULL,
+      role TEXT NOT NULL,
+      allocated_amount REAL NOT NULL,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
+    -- ── Table Waitlist ───────────────────────────────────────────────────
+    CREATE TABLE IF NOT EXISTS table_waitlist (
+      id TEXT PRIMARY KEY,
+      customer_name TEXT NOT NULL,
+      customer_phone TEXT NOT NULL,
+      party_size INTEGER NOT NULL DEFAULT 2,
+      estimated_wait_minutes INTEGER NOT NULL DEFAULT 15,
+      status TEXT NOT NULL DEFAULT 'waiting' CHECK (status IN ('waiting', 'notified', 'seated', 'cancelled')),
+      notes TEXT,
+      notified_at TEXT,
+      seated_table_id TEXT REFERENCES tables(id),
+      seated_at TEXT,
+      created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+    );
+
     -- ── Indexes ──────────────────────────────────────────────────────────
     CREATE INDEX IF NOT EXISTS idx_recipes_product ON product_recipes(product_id);
     CREATE INDEX IF NOT EXISTS idx_recipes_ingredient ON product_recipes(ingredient_id);
@@ -5095,6 +5269,11 @@ function createSchema(): void {
     CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(expense_date);
     CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category_id);
     CREATE INDEX IF NOT EXISTS idx_reservations_date ON table_reservations(reservation_date);
+    CREATE INDEX IF NOT EXISTS idx_saf_status ON saf_card_transactions(status);
+    CREATE INDEX IF NOT EXISTS idx_saf_bill_id ON saf_card_transactions(bill_id);
+    CREATE INDEX IF NOT EXISTS idx_tip_alloc_user ON tip_allocations(user_id);
+    CREATE INDEX IF NOT EXISTS idx_tip_alloc_dist ON tip_allocations(distribution_id);
+    CREATE INDEX IF NOT EXISTS idx_waitlist_status ON table_waitlist(status);
 
     CREATE INDEX IF NOT EXISTS idx_products_category ON products(category_id);
     CREATE INDEX IF NOT EXISTS idx_products_active   ON products(is_active);

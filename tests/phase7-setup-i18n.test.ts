@@ -14,7 +14,7 @@ import assert from 'node:assert/strict';
 
 const testDir = fs.mkdtempSync(path.join(os.tmpdir(), 'flo-phase7-i18n-'));
 const Module = require('module');
-process.env.NODE_PATH = [path.join(__dirname, '../frontend/node_modules'), process.env.NODE_PATH]
+process.env.NODE_PATH = [path.join(__dirname, '../desktop-ui/node_modules'), process.env.NODE_PATH]
   .filter(Boolean)
   .join(path.delimiter);
 Module._initPaths();
@@ -37,8 +37,8 @@ const {
   seedSetupProfile,
   ENGLISH_IDENTICAL_SEED_LANGUAGES,
 } = require('../main/routes/auth') as typeof import('../main/routes/auth');
-const { LANGUAGES } = require('../frontend/src/lib/i18n/languages') as typeof import('../frontend/src/lib/i18n/languages');
-const { loadLocaleMessages } = require('../frontend/src/lib/i18n/loader') as typeof import('../frontend/src/lib/i18n/loader');
+const { LANGUAGES } = require('../desktop-ui/src/lib/i18n/languages') as typeof import('../desktop-ui/src/lib/i18n/languages');
+const { loadLocaleMessages } = require('../desktop-ui/src/lib/i18n/loader') as typeof import('../desktop-ui/src/lib/i18n/loader');
 const { createTranslator } = require('use-intl/core') as typeof import('use-intl/core');
 const { printLabel } = require('../main/print/print-labels.generated') as typeof import('../main/print/print-labels.generated');
 

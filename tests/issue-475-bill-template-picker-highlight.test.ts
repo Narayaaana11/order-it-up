@@ -9,7 +9,7 @@ import {
   isTemplateCardSelected,
   type BillTemplateSelection,
   type TemplateCardSelection,
-} from '../frontend/src/lib/bill-template-picker';
+} from '../desktop-ui/src/lib/bill-template-picker';
 
 const cardsFor = (id: string): TemplateCardSelection[] => [
   { id, selectionSource: 'core' },

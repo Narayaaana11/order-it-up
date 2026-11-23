@@ -2,19 +2,19 @@ import assert from "node:assert/strict";
 import path from "node:path";
 import moduleApi from "node:module";
 
-function loadFrontendWarnings(): typeof import("../frontend/src/lib/printer/warnings") {
+function loadFrontendWarnings(): typeof import("../desktop-ui/src/lib/printer/warnings") {
   const mod = moduleApi as unknown as { _resolveFilename: (...args: any[]) => string };
   const originalResolveFilename = mod._resolveFilename;
   mod._resolveFilename = function (request: string, parent: any, isMain: boolean, options?: any) {
     const resolvedRequest = request.startsWith("@print/")
       ? path.resolve(__dirname, "../shared/print", request.slice("@print/".length))
       : request.startsWith("@/")
-        ? path.resolve(__dirname, "../frontend/src", request.slice("@/".length))
+        ? path.resolve(__dirname, "../desktop-ui/src", request.slice("@/".length))
         : request;
     return originalResolveFilename.call(this, resolvedRequest, parent, isMain, options);
   };
   try {
-    return require("../frontend/src/lib/printer/warnings");
+    return require("../desktop-ui/src/lib/printer/warnings");
   } finally {
     mod._resolveFilename = originalResolveFilename;
   }

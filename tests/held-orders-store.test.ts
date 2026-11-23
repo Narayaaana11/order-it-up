@@ -6,7 +6,7 @@
 const assert = require('node:assert/strict');
 const Module = require('module');
 const path = require('node:path');
-const frontendRequire = Module.createRequire(path.join(process.cwd(), 'frontend/package.json'));
+const frontendRequire = Module.createRequire(path.join(process.cwd(), 'desktop-ui/package.json'));
 const originalLoad = Module._load;
 
 type HeldOrder = {
@@ -99,7 +99,7 @@ Module._load = function (request: string, parent: unknown, isMain: boolean) {
   return originalLoad.apply(this, arguments as any);
 };
 
-const { createHeldOrdersStore } = require('../frontend/src/store/held-orders');
+const { createHeldOrdersStore } = require('../desktop-ui/src/store/held-orders');
 
 function makeHeldOrder(tableId: string): HeldOrder {
   return {

@@ -525,11 +525,25 @@ router.post('/', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req: R
       const allTaxSnapshots: (string | null)[] = [];
       const customer = customer_id ? db.prepare('SELECT * FROM customers WHERE id = ?').get(customer_id) as any : null;
 
+function normalizeCourse(course: any): 'beverage' | 'appetizer' | 'main' | 'dessert' {
+  if (typeof course === 'string' && ['beverage', 'appetizer', 'main', 'dessert'].includes(course.toLowerCase())) {
+    return course.toLowerCase() as any;
+  }
+  return 'main';
+}
+
+function normalizeFiringStatus(status: any): 'held' | 'fired' {
+  if (typeof status === 'string' && status.toLowerCase() === 'held') {
+    return 'held';
+  }
+  return 'fired';
+}
+
       const insertItem = db.prepare(`
         INSERT INTO order_items (order_id, product_id, product_name, product_sku, unit_price, quantity, inventory_deducted_quantity,
           subtotal, tax_amount, tax_breakdown, tax_snapshot, tax_type, discount_amount, total, variant_selection,
-          modifier_selection, special_instructions, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+          modifier_selection, special_instructions, status, course, firing_status, fired_at, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)
       `);
 
       const trackedProductDemand = new Map<string, { name: string; quantity: number }>();
@@ -586,13 +600,19 @@ router.post('/', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req: R
         subtotal += itemSubtotal;
 
         const itemCreatedAt = now();
+        const itemCourse = normalizeCourse(item.course);
+        const itemFiringStatus = normalizeFiringStatus(item.firing_status);
+        const itemFiredAt = itemFiringStatus === 'fired' ? itemCreatedAt : null;
+
         const insertItemResult = insertItem.run(
           orderId, product.id, product.name, product.sku, unitPrice, quantity, product.track_inventory ? quantity : 0,
           itemSubtotal, taxResult.tax_amount, JSON.stringify(taxResult.tax_breakdown), itemTaxSnapshotJson,
           taxResult.tax_type, itemDiscount, itemTotal,
           JSON.stringify(item.variant_selection || null),
           JSON.stringify(item.modifier_selection || null),
-          item.special_instructions || null, itemCreatedAt, itemCreatedAt
+          item.special_instructions || null,
+          itemCourse, itemFiringStatus, itemFiredAt,
+          itemCreatedAt, itemCreatedAt
         );
         insertOrderItemAddons(db, insertItemResult.lastInsertRowid, item.addons, itemCreatedAt);
 
@@ -768,11 +788,25 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
       const deferInventoryUntilAcceptance = isQrOrder && currentOrder.status === 'pending';
       const trackedProductDemand = new Map<string, { name: string; quantity: number }>();
 
+function normalizeCourse(course: any): 'beverage' | 'appetizer' | 'main' | 'dessert' {
+  if (typeof course === 'string' && ['beverage', 'appetizer', 'main', 'dessert'].includes(course.toLowerCase())) {
+    return course.toLowerCase() as any;
+  }
+  return 'main';
+}
+
+function normalizeFiringStatus(status: any): 'held' | 'fired' {
+  if (typeof status === 'string' && status.toLowerCase() === 'held') {
+    return 'held';
+  }
+  return 'fired';
+}
+
       const insertItem = db.prepare(`
         INSERT INTO order_items (order_id, product_id, product_name, product_sku, unit_price, quantity, inventory_deducted_quantity,
           subtotal, tax_amount, tax_breakdown, tax_snapshot, tax_type, discount_amount, total, variant_selection,
-          modifier_selection, special_instructions, status, created_at, updated_at)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?)
+          modifier_selection, special_instructions, status, course, firing_status, fired_at, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending', ?, ?, ?, ?, ?)
       `);
 
       for (const item of items) {
@@ -817,6 +851,10 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
         const itemTaxSnapshotJson = taxResult.tax_snapshot ? JSON.stringify(taxResult.tax_snapshot) : null;
 
         const itemCreatedAt = now();
+        const itemCourse = normalizeCourse(item.course);
+        const itemFiringStatus = normalizeFiringStatus(item.firing_status);
+        const itemFiredAt = itemFiringStatus === 'fired' ? itemCreatedAt : null;
+
         const insertItemResult = insertItem.run(
           req.params.id, product.id, product.name, product.sku, unitPrice, quantity,
           product.track_inventory && !deferInventoryUntilAcceptance ? quantity : 0,
@@ -824,7 +862,9 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
           taxResult.tax_type, itemDiscount, itemTotal,
           JSON.stringify(item.variant_selection || null),
           JSON.stringify(item.modifier_selection || null),
-          item.special_instructions || null, itemCreatedAt, itemCreatedAt
+          item.special_instructions || null,
+          itemCourse, itemFiringStatus, itemFiredAt,
+          itemCreatedAt, itemCreatedAt
         );
         insertOrderItemAddons(db, insertItemResult.lastInsertRowid, item.addons, itemCreatedAt);
       }
@@ -1313,6 +1353,87 @@ router.patch('/:id/convert-to-takeaway', orderWriteRateLimit, requireRole(...ROL
   } catch (error: any) {
     console.error("[API] Internal error:", error);
     res.status(error.statusCode || 500).json({ error: error.statusCode ? error.message : "Internal server error" });
+  }
+});
+
+// ── Course Firing & Pacing ───────────────────────────────────────────────────
+
+router.post('/:id/fire-course', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req: Request, res: Response) => {
+  try {
+    const orderId = req.params.id;
+    const { course } = req.body || {};
+    const validCourses = ['beverage', 'appetizer', 'main', 'dessert'];
+    const db = getDatabase();
+
+    const order = db.prepare('SELECT id, order_number, table_id FROM orders WHERE id = ?').get(orderId) as any;
+    if (!order) {
+      return res.status(404).json({ error: 'Order not found' });
+    }
+
+    let sql = "SELECT id, product_name, course, firing_status FROM order_items WHERE order_id = ? AND firing_status = 'held'";
+    const params: any[] = [orderId];
+    if (course) {
+      if (!validCourses.includes(course)) {
+        return res.status(400).json({ error: `course must be one of: ${validCourses.join(', ')}` });
+      }
+      sql += ' AND course = ?';
+      params.push(course);
+    }
+
+    const heldItems = db.prepare(sql).all(...params) as any[];
+    if (heldItems.length === 0) {
+      return res.json({ ok: true, message: 'No held items found to fire', firedCount: 0, firedItems: [] });
+    }
+
+    const timestamp = now();
+    const itemIds = heldItems.map((i: any) => i.id);
+    const placeholders = itemIds.map(() => '?').join(',');
+
+    db.prepare(`
+      UPDATE order_items
+      SET firing_status = 'fired', fired_at = ?, updated_at = ?
+      WHERE id IN (${placeholders})
+    `).run(timestamp, timestamp, ...itemIds);
+
+    notifyKdsUpdate();
+
+    res.json({
+      ok: true,
+      orderId,
+      firedCourse: course || 'all_held',
+      firedCount: heldItems.length,
+      firedItems: heldItems.map((i: any) => ({ ...i, firing_status: 'fired', fired_at: timestamp })),
+    });
+  } catch (error: any) {
+    console.error("[API] Internal error:", error);
+    res.status(500).json({ error: "Internal server error" });
+  }
+});
+
+router.post('/:id/items/:itemId/fire', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req: Request, res: Response) => {
+  try {
+    const { id: orderId, itemId } = req.params;
+    const db = getDatabase();
+
+    const item = db.prepare('SELECT * FROM order_items WHERE id = ? AND order_id = ?').get(itemId, orderId) as any;
+    if (!item) {
+      return res.status(404).json({ error: 'Order item not found' });
+    }
+
+    const timestamp = now();
+    db.prepare(`
+      UPDATE order_items
+      SET firing_status = 'fired', fired_at = ?, updated_at = ?
+      WHERE id = ?
+    `).run(timestamp, timestamp, itemId);
+
+    notifyKdsUpdate();
+
+    const updated = db.prepare('SELECT * FROM order_items WHERE id = ?').get(itemId);
+    res.json({ ok: true, item: updated });
+  } catch (error: any) {
+    console.error("[API] Internal error:", error);
+    res.status(500).json({ error: "Internal server error" });
   }
 });
 

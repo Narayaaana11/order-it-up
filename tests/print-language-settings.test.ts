@@ -111,7 +111,7 @@ assert.ok('primary' in okStored && okStored.primary.mode === 'fixed');
 console.log('✓ lenient reader with safe fallback');
 
 console.log('Testing Z-report policy Settings wiring...');
-const settingsSource = readFileSync(resolve(__dirname, '../frontend/src/app/(dashboard)/settings/page.tsx'), 'utf8');
+const settingsSource = readFileSync(resolve(__dirname, '../desktop-ui/src/app/(dashboard)/settings/page.tsx'), 'utf8');
 for (const expected of [
   "api.get('/settings/z_report_language_policy')",
   'z_report_language_policy: zReportLanguagePolicy',

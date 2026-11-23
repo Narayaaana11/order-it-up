@@ -5,7 +5,7 @@ import { requireRole } from '../middleware/security';
 import { requireSubscriptionFeature } from '../middleware/subscription-gate';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { asyncHandler } from '../middleware/async-handler';
-import { calculateProductRecipeCost, getLowStockIngredients } from '../services/inventory-engine';
+import { calculateProductRecipeCost, getLowStockIngredients, recordWastage, getWastageSummary } from '../services/inventory-engine';
 
 const router = Router();
 
@@ -205,6 +205,36 @@ router.get('/transactions', requireRole(...ROLE_ACCESS.ownerManager), asyncHandl
   `).all(limit);
 
   res.json({ ok: true, transactions: txs });
+}));
+
+router.post('/waste', requireRole(...ROLE_ACCESS.ownerManager), asyncHandler(async (req: Request, res: Response) => {
+  const { ingredient_id, quantity, reason, notes } = req.body || {};
+  const qty = Number(quantity);
+  if (!ingredient_id || isNaN(qty) || qty <= 0) {
+    return res.status(400).json({ error: 'ingredient_id and positive quantity are required' });
+  }
+
+  const validReasons = ['spoilage', 'prep_waste', 'spill', 'expired', 'other'] as const;
+  const wasteReason = validReasons.includes(reason) ? reason : 'other';
+
+  const result = recordWastage({
+    ingredientId: ingredient_id,
+    quantity: qty,
+    reason: wasteReason,
+    notes: typeof notes === 'string' ? notes.trim() : undefined,
+    reportedByUserId: (req as any).user?.id,
+  });
+
+  res.status(201).json({ ok: true, wastage: result });
+}));
+
+router.get('/waste-summary', requireRole(...ROLE_ACCESS.ownerManager), asyncHandler(async (req: Request, res: Response) => {
+  const { start_date, end_date } = req.query;
+  const summary = getWastageSummary(
+    typeof start_date === 'string' ? start_date : undefined,
+    typeof end_date === 'string' ? end_date : undefined
+  );
+  res.json({ ok: true, summary });
 }));
 
 export const inventoryRoutes = router;

@@ -6,10 +6,10 @@
 const assert = require('node:assert/strict');
 const Module = require('module');
 const path = require('node:path');
-const frontendRequire = Module.createRequire(path.join(process.cwd(), 'frontend/package.json'));
+const frontendRequire = Module.createRequire(path.join(process.cwd(), 'desktop-ui/package.json'));
 const originalLoad = Module._load;
 
-const { parseLoginFailure } = require('../frontend/src/lib/login-errors');
+const { parseLoginFailure } = require('../desktop-ui/src/lib/login-errors');
 
 async function run() {
   console.log('Deterministic auth login error handling (#229)');
@@ -68,7 +68,7 @@ async function run() {
   };
   (globalThis as any).localStorage = throwingStorage;
 
-  const { useAuthStore, StorageUnavailableError } = require('../frontend/src/store/auth');
+  const { useAuthStore, StorageUnavailableError } = require('../desktop-ui/src/store/auth');
 
   let storageError: unknown = null;
   try {

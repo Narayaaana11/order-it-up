@@ -20,7 +20,7 @@ const EVIDENCE_DIR =
   path.join(os.tmpdir(), 'flo-ssr-evidence');
 
 const Module = require('module');
-const frontendRequire = Module.createRequire(path.join(ROOT, 'frontend/package.json'));
+const frontendRequire = Module.createRequire(path.join(ROOT, 'desktop-ui/package.json'));
 
 const moduleApi = require('module') as {
   _resolveFilename: (...args: any[]) => string;
@@ -29,7 +29,7 @@ const originalResolveFilename = moduleApi._resolveFilename;
 moduleApi._resolveFilename = function (request: string, parent: any, isMain: boolean, options?: any) {
   let resolvedRequest = request;
   if (request.startsWith('@/')) {
-    resolvedRequest = path.resolve(ROOT, 'frontend/src', request.slice(2));
+    resolvedRequest = path.resolve(ROOT, 'desktop-ui/src', request.slice(2));
   } else if (request.startsWith('@print/')) {
     resolvedRequest = path.resolve(ROOT, 'shared/print', request.slice('@print/'.length));
   }
@@ -45,10 +45,10 @@ React.useSyncExternalStore = function (subscribe: any, getSnapshot: any, getServ
 };
 
 const { IntlProvider, useFormatter, useTranslations } = frontendRequire('use-intl');
-const { I18nProvider, handleI18nError, getDefaultTimeZone } = require('../frontend/src/components/providers/I18nProvider');
-const { LANGUAGES } = require('../frontend/src/lib/i18n/languages');
-const { loadLocaleMessages, getCachedMessages } = require('../frontend/src/lib/i18n/loader');
-const { usePosSettingsStore } = require('../frontend/src/store/pos-settings');
+const { I18nProvider, handleI18nError, getDefaultTimeZone } = require('../desktop-ui/src/components/providers/I18nProvider');
+const { LANGUAGES } = require('../desktop-ui/src/lib/i18n/languages');
+const { loadLocaleMessages, getCachedMessages } = require('../desktop-ui/src/lib/i18n/loader');
+const { usePosSettingsStore } = require('../desktop-ui/src/store/pos-settings');
 
 function assert(condition: boolean, msg: string): void {
   if (!condition) throw new Error(`Assertion failed: ${msg}`);

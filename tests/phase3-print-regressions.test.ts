@@ -18,10 +18,10 @@ const order = {
 };
 
 function loadFrontendModules(): {
-  kotEncoder: typeof import('../frontend/src/lib/printer/kot-encoder');
-  kotWebPrint: typeof import('../frontend/src/lib/printer/kot-web-print');
-  taxBillEncoder: typeof import('../frontend/src/lib/printer/tax-bill-encoder');
-  warnings: typeof import('../frontend/src/lib/printer/warnings');
+  kotEncoder: typeof import('../desktop-ui/src/lib/printer/kot-encoder');
+  kotWebPrint: typeof import('../desktop-ui/src/lib/printer/kot-web-print');
+  taxBillEncoder: typeof import('../desktop-ui/src/lib/printer/tax-bill-encoder');
+  warnings: typeof import('../desktop-ui/src/lib/printer/warnings');
   loadLocaleMessages: (language: any) => Promise<unknown>;
 } {
   const path = require('node:path') as typeof import('node:path');
@@ -32,7 +32,7 @@ function loadFrontendModules(): {
     if (request === '@countries') {
       resolvedRequest = path.resolve(__dirname, '../main/countries.ts');
     } else if (request.startsWith('@/')) {
-      resolvedRequest = path.resolve(__dirname, '../frontend/src', request.slice(2));
+      resolvedRequest = path.resolve(__dirname, '../desktop-ui/src', request.slice(2));
     } else if (request.startsWith('@print/')) {
       resolvedRequest = path.resolve(__dirname, '../shared/print', request.slice('@print/'.length));
     }
@@ -40,11 +40,11 @@ function loadFrontendModules(): {
   };
   try {
     return {
-      kotEncoder: require('../frontend/src/lib/printer/kot-encoder'),
-      kotWebPrint: require('../frontend/src/lib/printer/kot-web-print'),
-      taxBillEncoder: require('../frontend/src/lib/printer/tax-bill-encoder'),
-      warnings: require('../frontend/src/lib/printer/warnings'),
-      loadLocaleMessages: require('../frontend/src/lib/i18n/loader').loadLocaleMessages,
+      kotEncoder: require('../desktop-ui/src/lib/printer/kot-encoder'),
+      kotWebPrint: require('../desktop-ui/src/lib/printer/kot-web-print'),
+      taxBillEncoder: require('../desktop-ui/src/lib/printer/tax-bill-encoder'),
+      warnings: require('../desktop-ui/src/lib/printer/warnings'),
+      loadLocaleMessages: require('../desktop-ui/src/lib/i18n/loader').loadLocaleMessages,
     };
   } finally {
     moduleApi._resolveFilename = originalResolveFilename;

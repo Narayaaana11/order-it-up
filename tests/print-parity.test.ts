@@ -57,9 +57,9 @@ import {
 // ---------------------------------------------------------------------------
 
 function loadFrontendPrintModules(): {
-  receiptEncoder: typeof import('../frontend/src/lib/printer/receipt-encoder');
-  webPrint: typeof import('../frontend/src/lib/printer/web-print');
-  warnings: typeof import('../frontend/src/lib/printer/warnings');
+  receiptEncoder: typeof import('../desktop-ui/src/lib/printer/receipt-encoder');
+  webPrint: typeof import('../desktop-ui/src/lib/printer/web-print');
+  warnings: typeof import('../desktop-ui/src/lib/printer/warnings');
 } {
   const path = require('path') as typeof import('path');
   const moduleApi = require('module') as {
@@ -71,7 +71,7 @@ function loadFrontendPrintModules(): {
     if (request === '@countries') {
       resolvedRequest = path.resolve(__dirname, '../main/countries.ts');
     } else if (request.startsWith('@/')) {
-      resolvedRequest = path.resolve(__dirname, '../frontend/src', request.slice(2));
+      resolvedRequest = path.resolve(__dirname, '../desktop-ui/src', request.slice(2));
     } else if (request.startsWith('@print/')) {
       resolvedRequest = path.resolve(__dirname, '../shared/print', request.slice('@print/'.length));
     }
@@ -79,9 +79,9 @@ function loadFrontendPrintModules(): {
   };
   try {
     return {
-      receiptEncoder: require('../frontend/src/lib/printer/receipt-encoder'),
-      webPrint: require('../frontend/src/lib/printer/web-print'),
-      warnings: require('../frontend/src/lib/printer/warnings'),
+      receiptEncoder: require('../desktop-ui/src/lib/printer/receipt-encoder'),
+      webPrint: require('../desktop-ui/src/lib/printer/web-print'),
+      warnings: require('../desktop-ui/src/lib/printer/warnings'),
     };
   } finally {
     moduleApi._resolveFilename = originalResolveFilename;
@@ -189,7 +189,7 @@ export function buildParityFixtures() {
   return { order, bill, business, tenant };
 }
 
-type Warnings = import('../frontend/src/lib/printer/warnings').PrintWarning[];
+type Warnings = import('../desktop-ui/src/lib/printer/warnings').PrintWarning[];
 
 /** Digit-normalizing content probe: immune to grouping/locale separator styles. */
 function digitsOf(text: string): string {
@@ -463,7 +463,7 @@ function run(): void {
       { paperSize: 'thermal80', businessName: 'OIU Parity Cafe' },
     );
 
-    for (const [renderer, text] of [['backend/classic', backendOutputs[0]], ['backend/compact', backendOutputs[1]], ['frontend/webusb/classic', frontendText]] as const) {
+    for (const [renderer, text] of [['backend/classic', backendOutputs[0]], ['backend/compact', backendOutputs[1]], ['desktop-ui/webusb/classic', frontendText]] as const) {
       const addonRow = contentRows(text).find((row) => /Extra shot/.test(row));
       warn(addonRow != null && digitsOf(addonRow).includes('3000'), `${renderer}: addon 5 × 3 × 2 renders 30.00`);
       const secondAddonRow = contentRows(text).find((row) => /Vanilla syrup/.test(row));
@@ -487,8 +487,8 @@ function run(): void {
       total: 50,
     };
     for (const [renderer, build] of [
-      ['frontend/webusb/classic', fe.receiptEncoder.buildClassicReceiptBytes],
-      ['frontend/webusb/compact', fe.receiptEncoder.buildCompactReceiptBytes],
+      ['desktop-ui/webusb/classic', fe.receiptEncoder.buildClassicReceiptBytes],
+      ['desktop-ui/webusb/compact', fe.receiptEncoder.buildCompactReceiptBytes],
     ] as const) {
       const zeroText = new TextDecoder().decode(build(zeroChargeBill as any, { ...tenant, business_name: 'OIU Parity Cafe' } as any, { paperWidth: 80, useUnicode: true }, []));
       const zeroRows = zeroText.split(/\r?\n/);

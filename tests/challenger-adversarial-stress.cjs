@@ -12,7 +12,7 @@ const ROOT = path.resolve(__dirname, '..');
 console.log('=== ADVANCED ADVERSARIAL STRESS HARNESS ===\n');
 
 // -------------------------------------------------------------------
-// 1. Graph Analysis: Circular Dependency Detector across frontend/src
+// 1. Graph Analysis: Circular Dependency Detector across desktop-ui/src
 // -------------------------------------------------------------------
 console.log('--- Adversarial Check 1: Circular Dependency Detection ---');
 
