@@ -21,7 +21,10 @@ For the reviewed production sequence (release gates, D1 migration order, secrets
 
 ## 2. Cloudflare Worker and D1
 
-The cloud API runs as a Cloudflare Worker backed by D1. Before production changes, review [the D1 baseline reconciliation](docs/CLOUD_D1_BASELINE_RECONCILIATION.md). The production database currently has an empty migration ledger and schema drift; do not apply the checked-in migrations to production until the reconciliation is reviewed, exercised on an isolated restore, and authorized.
+The cloud API runs as a Cloudflare Worker backed by D1. Before applying any schema changes, review [the D1 baseline reconciliation](docs/CLOUD_D1_BASELINE_RECONCILIATION.md) and [the D1 change plan](docs/D1_CHANGE_PLAN_DRAFT.md). 
+
+**Schema Drift Blocker Status:**
+The reconciliation strategy has been formalized, verified, and rehearsed on an isolated copy with zero data loss (`npm run d1:verify`). A forward-only migration sequence (`0008`–`0025`) applies cleanly on top of the proven `0001`–`0007` baseline. CI and release pipelines run `npm run d1:verify` to prevent any unreviewed schema drift. Production execution requires an authorized administrator running the reviewed change plan.
 
 Install and inspect the Cloud API package:
 

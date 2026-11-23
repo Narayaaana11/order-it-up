@@ -12,6 +12,7 @@ Order It Up is a commercial Point of Sale and restaurant management platform. Se
 - **Electron Hardening**: `contextIsolation: true`, `nodeIntegration: false`, sandboxed webPreferences on secondary windows, and whitelisted IPC APIs.
 - **Data Privacy**: No customer personal identifying information (PII) or credit card numbers are ever transmitted to third parties.
 - **Local Network Isolation**: KDS and Tableside servers bind to local LAN interfaces with CORS restrictions.
+- **Payment Webhook Verification**: Razorpay and external gateway webhooks strictly require HMAC-SHA256 signature verification computed over the exact raw body against `RAZORPAY_WEBHOOK_SECRET` using constant-time comparison (`crypto.timingSafeEqual`) to prevent timing attacks. All processed webhook event IDs are durably recorded in `payment_transaction_refs` for idempotent deduplication.
 
 ## Reporting a Vulnerability
 To report a security vulnerability in Order It Up, please email security@orderitup.in. We take all reports seriously and will respond within 48 hours.

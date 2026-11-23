@@ -35,6 +35,8 @@
         "release:mac": "npm run build:frontend && npm run build && electron-builder --mac --publish never",
         "release:win": "npm run build:frontend && npm run build && electron-builder --win --publish never",
         "pack": "electron-builder --dir && node scripts/mark-unpacked-artifact.cjs",
+        "d1:verify": "node scripts/verify-d1-schema.cjs",
+        "test:razorpay-signature": "node tests/run-electron-node-test.cjs tests/razorpay-webhook-signature.test.ts",
         "pretest": "node tests/run-test.cjs npm run test:payment-methods-split && node tests/run-test.cjs npm run test:release-regressions",
         "start": "electron .",
         "rebuild": "HOME=~/.electron-gyp node-gyp rebuild --target=$(node -p \"require('./node_modules/electron/package.json').version\") --arch=$(node -p \"process.arch\") --dist-url=https://electronjs.org/headers --runtime=electron --directory node_modules/better-sqlite3",
