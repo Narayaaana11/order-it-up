@@ -46,6 +46,7 @@ import { aggregatorRoutes } from './aggregators';
 import { aiRoutes } from './ai';
 import { auditLogRoutes } from './audit-log';
 import { cloudHqRoutes } from './cloud-hq';
+import { systemRoutes } from './system';
 import { getDatabase, now, parseItemJson, attachEffectiveAddons, withTxn, getSettingValue, getCachedPairingCode, setCachedPairingCode, verifyPin } from '../db';
 import { checkPinRateLimit } from './orders';
 import { recordAudit } from '../services/audit';
@@ -133,6 +134,7 @@ export function registerRoutes(app: Express): void {
   app.use('/api', aiRoutes);
   app.use('/api', auditLogRoutes);
   app.use('/api/cloud', cloudHqRoutes);
+  app.use('/api/system', systemRoutes);
   app.post('/api/pos/pair', (req, res, next) => {
     req.url = '/pair';
     cloudHqRoutes(req, res, next);
