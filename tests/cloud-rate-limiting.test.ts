@@ -44,6 +44,7 @@ class MockCloudD1Database {
   public branches = new Map<string, any>();
   public pairingTokens = new Map<string, any>();
   public terminals = new Map<string, any>();
+  public memberships = new Map<string, any>();
   public rateLimits = new Map<string, { count: number; reset_at: number; updated_at: string }>();
   public simulateFailure = false;
 
@@ -87,6 +88,24 @@ class MockCloudD1Database {
             // 2. Count organizations (for setup-demo)
             if (normalized.includes('SELECT COUNT(*) as count FROM organizations')) {
               return { count: db.organizations.size } as T;
+            }
+
+            // Organization lookup with subscription/plan
+            if (normalized.includes('FROM organizations o') && normalized.includes('WHERE o.id = ?')) {
+              const orgId = params[0];
+              const org = db.organizations.get(orgId);
+              if (!org) return null;
+              return {
+                account_status: org.account_status || 'active',
+                id: null,
+                plan_code: null,
+                status: null,
+                trial_ends_at: null,
+                current_period_end: null,
+                cancel_at_period_end: 0,
+                grace_period_end: null,
+                entitlements_json: null,
+              } as T;
             }
 
             // 3. Cloud users login query
@@ -145,6 +164,15 @@ class MockCloudD1Database {
           async all<T = any>(): Promise<{ results: T[] }> {
             if (db.simulateFailure) {
               throw new Error('D1 Database connection failure simulated');
+            }
+            const normalized = sql.replace(/\s+/g, ' ').trim();
+            if (normalized.includes('FROM memberships') && normalized.includes("status = 'active'")) {
+              const [orgId, userId] = params;
+              return {
+                results: [...db.memberships.values()].filter((m: any) =>
+                  m.organization_id === orgId && m.user_id === userId && m.status === 'active'
+                ) as T[],
+              };
             }
             return { results: [] };
           },
@@ -414,6 +442,15 @@ async function testPairingHardening(): Promise<void> {
   db.organizations.set(orgId, { id: orgId, name: 'TasteCraft' });
   db.branches.set(branchId, { id: branchId, organization_id: orgId, name: 'Connaught Place' });
   db.branches.set('br-other', { id: 'br-other', organization_id: otherOrgId, name: 'Other Branch' });
+  db.memberships.set('mem-admin', {
+    id: 'mem-admin',
+    organization_id: orgId,
+    user_id: 'usr-admin',
+    restaurant_id: null,
+    branch_id: null,
+    role: 'owner',
+    status: 'active',
+  });
 
   // Generate Admin JWT for pairing generation
   const adminToken = await createJWT({
@@ -665,7 +702,7 @@ async function testDemoSetupProtections(): Promise<void> {
   );
   assert.equal(resProdBlocked.status, 403, 'Demo setup endpoint MUST be disabled in production');
   const prodBody = await resProdBlocked.json() as any;
-  assert.equal(prodBody.error, 'Demo setup is disabled in production environment');
+  assert.equal(prodBody.error, 'Demo setup is disabled in this environment');
 
   // 4b. Dev/Staging Environment: Rate limiting demo setup calls (max 3/hour per IP)
   const devEnv = {

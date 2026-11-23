@@ -93,7 +93,9 @@ class _WhatsAppScreenState extends State<WhatsAppScreen> {
       } else {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
-            content: const Text('Failed to send WhatsApp message. Please check server connection.'),
+            content: const Text(
+              'Failed to send WhatsApp message. Please check server connection.',
+            ),
             backgroundColor: Colors.red.shade700,
           ),
         );

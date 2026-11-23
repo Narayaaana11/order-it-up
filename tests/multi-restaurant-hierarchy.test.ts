@@ -60,17 +60,23 @@ function createSqliteD1(db: DatabaseSync) {
 
 function runSqlFile(db: DatabaseSync, filePath: string): void {
   const content = fs.readFileSync(filePath, 'utf-8');
-  // Strip comments and split by semicolon
-  const clean = content.replace(/--.*$/gm, '');
-  const statements = clean.split(';').map(s => s.trim()).filter(s => s.length > 0);
-  for (const stmt of statements) {
-    try {
-      db.exec(stmt);
-    } catch (err: any) {
-      if (err?.message && err.message.includes('duplicate column name')) {
-        continue;
+  try {
+    db.exec(content);
+  } catch (err: any) {
+    if (err?.message && err.message.includes('duplicate column name')) {
+      return;
+    }
+    const clean = content.replace(/--.*$/gm, '');
+    const statements = clean.split(/;\s*[\r\n]+/).map(s => s.trim()).filter(s => s.length > 0);
+    for (const stmt of statements) {
+      try {
+        db.exec(stmt.endsWith(';') ? stmt : stmt + ';');
+      } catch (innerErr: any) {
+        if (innerErr?.message && innerErr.message.includes('duplicate column name')) {
+          continue;
+        }
+        throw innerErr;
       }
-      throw err;
     }
   }
 }
@@ -193,15 +199,15 @@ async function runTestSuite(): Promise<void> {
   console.log('🧪 [Test 3/8] Multi-Restaurant Concept Hierarchy via Cloud Edge API...');
   const appDb = new DatabaseSync(':memory:');
   appDb.exec('PRAGMA foreign_keys = ON;');
-  runSqlFile(appDb, m1Path);
-  runSqlFile(appDb, m2Path);
-  runSqlFile(appDb, m3Path);
-  runSqlFile(appDb, m4Path);
+  for (const migration of fs.readdirSync(migrationsDir).filter((name) => name.endsWith('.sql')).sort()) {
+    runSqlFile(appDb, path.join(migrationsDir, migration));
+  }
 
   const env = {
     DB: createSqliteD1(appDb),
     JWT_SECRET: TEST_JWT_SECRET,
     ENVIRONMENT: 'test',
+    ALLOW_SELF_SERVICE_REGISTRATION: 'true',
   };
 
   // 3a. Register Tenant (Creates Org + Primary Restaurant Concept + Primary Branch + Owner Membership)
@@ -229,6 +235,9 @@ async function runTestSuite(): Promise<void> {
   const ownerId = regData.user.id;
   const concept1Id = regData.restaurant.id;
   const branch1Id = regData.branch.id;
+
+  // Upgrade tenant subscription to Enterprise to enable multi-concept & multi-outlet features
+  appDb.prepare("UPDATE organization_subscriptions SET plan_code = 'enterprise' WHERE organization_id = ?").run(orgId);
 
   // 3b. Create Second Restaurant Concept under same Organization: "BurgerCraft (QSR)"
   const createRestReq = new Request('http://localhost/api/restaurants', {
@@ -335,6 +344,7 @@ async function runTestSuite(): Promise<void> {
   );
   const tenantBData = await regBRes.json() as any;
   const tenantBToken = tenantBData.token;
+  appDb.prepare("UPDATE organization_subscriptions SET plan_code = 'enterprise' WHERE organization_id = ?").run(tenantBData.user.organization_id);
 
   // Tenant B attempts to read Tenant A's branches by specifying restaurant_id
   const breachBranchReq = new Request(`http://localhost/api/branches?restaurant_id=${concept1Id}`, {

@@ -1229,9 +1229,14 @@ class ApiService {
           }
         }
         return {
-          'prepItems': insights['prepRecommendations'] ?? insights['prepItems'] ?? [],
-          'menuMatrix': matrixItems.isNotEmpty ? matrixItems : (insights['menuMatrix'] ?? []),
-          'peakRushHour': insights['peakHour'] ?? insights['peakRushHour'] ?? '08:30 PM - 10:15 PM',
+          'prepItems':
+              insights['prepRecommendations'] ?? insights['prepItems'] ?? [],
+          'menuMatrix': matrixItems.isNotEmpty
+              ? matrixItems
+              : (insights['menuMatrix'] ?? []),
+          'peakRushHour': insights['peakHour'] ??
+              insights['peakRushHour'] ??
+              '08:30 PM - 10:15 PM',
         };
       }
       return {};
