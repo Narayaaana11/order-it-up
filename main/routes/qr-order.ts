@@ -12,11 +12,11 @@ import { resolveItemAddons } from './orders';
 
 const router = Router();
 
-function hashQrToken(token: string): Buffer {
+export function hashQrToken(token: string): Buffer {
   return createHash('sha256').update(token).digest();
 }
 
-function isValidTableToken(tableId: string, rawToken: unknown): boolean {
+export function isValidTableToken(tableId: string, rawToken: unknown): boolean {
   if (typeof rawToken !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(rawToken)) return false;
   const db = getDatabase();
   const stored = db.prepare(`
@@ -24,6 +24,16 @@ function isValidTableToken(tableId: string, rawToken: unknown): boolean {
   `).get(tableId) as { token_hash: string } | undefined;
   if (!stored || !/^[a-f0-9]{64}$/i.test(stored.token_hash)) return false;
   return timingSafeEqual(hashQrToken(rawToken), Buffer.from(stored.token_hash, 'hex'));
+}
+
+export function isValidAnyActiveQrToken(rawToken: unknown): boolean {
+  if (typeof rawToken !== 'string' || !/^[A-Za-z0-9_-]{43}$/.test(rawToken)) return false;
+  const db = getDatabase();
+  const tokenHash = hashQrToken(rawToken).toString('hex');
+  const stored = db.prepare(`
+    SELECT table_id FROM qr_table_tokens WHERE token_hash = ? AND revoked_at IS NULL
+  `).get(tokenHash) as { table_id: string } | undefined;
+  return Boolean(stored);
 }
 
 const qrRateLimit = expressRateLimit({

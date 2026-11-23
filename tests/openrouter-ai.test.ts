@@ -181,9 +181,10 @@ async function runTests() {
     assert(resSaveConfig.status === 200, 'POST /api/ai/config responds with 200');
     assert(resSaveConfig.body.model === 'google/gemini-2.0-flash-exp:free', 'Model successfully updated');
 
-    // POST /api/ai/dish-sommelier (Public endpoint)
+    // POST /api/ai/dish-sommelier (Authenticated staff or QR guest)
     const resSommelier = await request(app)
       .post('/api/ai/dish-sommelier')
+      .set('Authorization', `Bearer ${token}`)
       .send({
         dish_name: 'Garlic Butter Naan',
         category: 'Breads',
@@ -194,9 +195,10 @@ async function runTests() {
     assert(resSommelier.body.ok === true, 'Dish sommelier response contains ok: true');
     assert(resSommelier.body.pairings.length > 0, 'Pairings included in response');
 
-    // POST /api/ai/waiter-chat (Public endpoint)
+    // POST /api/ai/waiter-chat (Authenticated staff or QR guest)
     const resWaiter = await request(app)
       .post('/api/ai/waiter-chat')
+      .set('Authorization', `Bearer ${token}`)
       .send({
         messages: [{ role: 'user', content: 'What are your top spicy starters?' }],
         menu_items: menuItems,

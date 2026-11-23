@@ -1,7 +1,8 @@
-import { Request, Response, Router } from 'express';
+import { Request, Response, Router, NextFunction } from 'express';
 import { getDatabase, now } from '../db';
 import { requireRole } from '../middleware/security';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
+import { isValidTableToken, isValidAnyActiveQrToken } from './qr-order';
 import {
   getOpenRouterConfig,
   setOpenRouterConfig,
@@ -14,6 +15,108 @@ import {
 } from '../services/openrouter';
 
 const router = Router();
+
+// ── Authentication & Rate Limiting for Public Guest AI Endpoints ─────
+function requireAiGuestOrStaff(req: Request, res: Response, next: NextFunction): void {
+  // 1. Authenticated staff session
+  if ((req as any).user) {
+    return next();
+  }
+
+  // 2. QR token validation
+  const authHeader = req.get('authorization');
+  const bearerToken = authHeader?.match(/^Bearer\s+([A-Za-z0-9_-]{43})$/i)?.[1];
+  const headerToken = req.get('x-table-token') || req.get('x-qr-token');
+  const bodyToken = typeof req.body?.table_token === 'string' ? req.body.table_token : undefined;
+  const queryToken = typeof req.query?.table_token === 'string' ? req.query.table_token : undefined;
+  const token = bearerToken || headerToken || bodyToken || queryToken;
+
+  const tableId = (req.body?.table_id || req.query?.table_id) as string | undefined;
+
+  if (token) {
+    if (tableId && isValidTableToken(tableId, token)) {
+      return next();
+    }
+    if (isValidAnyActiveQrToken(token)) {
+      return next();
+    }
+  }
+
+  res.status(401).json({
+    ok: false,
+    error: 'Unauthorized: AI assistance requires an active QR table token or authenticated staff session',
+  });
+}
+
+// In-memory sliding rate limiter per client
+interface RateRecord {
+  countMinute: number;
+  minuteTimestamp: number;
+  countHour: number;
+  hourTimestamp: number;
+}
+const clientRateMap = new Map<string, RateRecord>();
+
+function checkAiRateAndQuota(req: Request, res: Response, next: NextFunction): void {
+  // 1. Reject oversized request bodies (8KB ceiling)
+  const headerLen = req.headers['content-length'] ? parseInt(req.headers['content-length'], 10) : 0;
+  const bodyLen = req.body ? JSON.stringify(req.body).length : 0;
+  if (headerLen > 8192 || bodyLen > 8192) {
+    res.status(413).json({ ok: false, error: 'Request payload too large (max 8KB)' });
+    return;
+  }
+
+  // 2. Per-client rate limit (10 req/min, 60 req/hour)
+  const clientKey = req.get('authorization') || req.get('x-table-token') || req.ip || 'anonymous';
+  const nowMs = Date.now();
+  let record = clientRateMap.get(clientKey);
+  if (!record) {
+    record = { countMinute: 0, minuteTimestamp: nowMs, countHour: 0, hourTimestamp: nowMs };
+    clientRateMap.set(clientKey, record);
+  }
+
+  if (nowMs - record.minuteTimestamp > 60_000) {
+    record.countMinute = 0;
+    record.minuteTimestamp = nowMs;
+  }
+  if (nowMs - record.hourTimestamp > 3600_000) {
+    record.countHour = 0;
+    record.hourTimestamp = nowMs;
+  }
+
+  if (record.countMinute >= 10 || record.countHour >= 60) {
+    res.status(429).json({ ok: false, error: 'Rate limit exceeded for AI assistant. Please wait a moment.' });
+    return;
+  }
+  record.countMinute++;
+  record.countHour++;
+
+  // 3. Daily AI request cap
+  try {
+    const db = getDatabase();
+    const capRow = db.prepare("SELECT value FROM settings WHERE key = 'ai_daily_request_cap'").get() as { value: string } | undefined;
+    const dailyCap = capRow?.value ? parseInt(capRow.value, 10) : 500;
+
+    const todayDate = new Date().toISOString().split('T')[0];
+    const counterKey = `ai_requests_count_${todayDate}`;
+    const countRow = db.prepare('SELECT value FROM settings WHERE key = ?').get(counterKey) as { value: string } | undefined;
+    const currentCount = countRow?.value ? parseInt(countRow.value, 10) : 0;
+
+    if (currentCount >= dailyCap) {
+      res.status(429).json({ ok: false, error: 'Daily restaurant AI request limit reached.' });
+      return;
+    }
+
+    db.prepare(`
+      INSERT INTO settings (key, value, updated_at) VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+    `).run(counterKey, String(currentCount + 1), now());
+  } catch {
+    // If DB check fails, do not block request
+  }
+
+  next();
+}
 
 // ── 0. AI Configuration & Diagnostics ────────────────────────────────
 router.get('/ai/config', requireRole(...ROLE_ACCESS.ownerManagerCashier), (_req: Request, res: Response) => {
@@ -302,8 +405,8 @@ router.post('/ai/ask', requireRole(...ROLE_ACCESS.ownerManagerCashier), async (r
 });
 
 // ── 3. AI Food Sommelier ("Explain Dish") ───────────────────────────
-// Public/guest accessible for QR digital menu & Restaurant Landing Page
-router.post('/ai/dish-sommelier', async (req: Request, res: Response) => {
+// Accessible via authenticated staff or valid QR table token
+router.post('/ai/dish-sommelier', requireAiGuestOrStaff, checkAiRateAndQuota, async (req: Request, res: Response) => {
   try {
     const { dish_name, description, category, price, is_veg, guest_query } = req.body;
 
@@ -327,8 +430,8 @@ router.post('/ai/dish-sommelier', async (req: Request, res: Response) => {
 });
 
 // ── 4. Virtual Tableside Waiter Chat ────────────────────────────────
-// Public/guest accessible for interactive chat on Landing Page & POS Menu
-router.post('/ai/waiter-chat', async (req: Request, res: Response) => {
+// Accessible via authenticated staff or valid QR table token
+router.post('/ai/waiter-chat', requireAiGuestOrStaff, checkAiRateAndQuota, async (req: Request, res: Response) => {
   try {
     const { messages, menu_items } = req.body;
 
@@ -336,8 +439,19 @@ router.post('/ai/waiter-chat', async (req: Request, res: Response) => {
       return res.status(400).json({ ok: false, error: 'Messages array is required' });
     }
 
-    const items: MenuItemSummary[] = Array.isArray(menu_items) ? menu_items : [];
-    const result = await chatVirtualWaiter(messages, items);
+    if (messages.length > 12) {
+      return res.status(400).json({ ok: false, error: 'Message turns cannot exceed 12 turns' });
+    }
+
+    for (const m of messages) {
+      const content = m.text || m.content || '';
+      if (typeof content === 'string' && content.length > 500) {
+        return res.status(400).json({ ok: false, error: 'Individual message content cannot exceed 500 characters' });
+      }
+    }
+
+    // Security: Discard client-supplied menu_items; let engine load verified active products from SQLite
+    const result = await chatVirtualWaiter(messages, []);
 
     res.json({
       ok: true,
