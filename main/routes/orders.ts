@@ -1,4 +1,5 @@
 import { createHash } from 'crypto';
+import Decimal from 'decimal.js';
 import { Router, Request, Response } from 'express';
 import { getDatabase, generateOrderNumber, now, parseItemJson, parseRowJson, withTxn, verifyPin, getSettingValue, insertOrderItemAddons, attachEffectiveAddons, utcDayBounds, utcTodayDate } from '../db';
 import {
@@ -630,9 +631,12 @@ router.post('/', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales), (req: R
         chargeTaxes,
         minorFactor,
       });
-      const preRoundTotal = subtotal + taxRollup.exclusiveTaxAmount
-        + delCharge + pkgCharge + serviceCharge;
-      const total = Number(preRoundTotal.toFixed(decimals));
+      const preRoundTotal = new Decimal(subtotal)
+        .plus(taxRollup.exclusiveTaxAmount)
+        .plus(delCharge)
+        .plus(pkgCharge)
+        .plus(serviceCharge);
+      const total = preRoundTotal.toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toNumber();
       const roundOff = 0;
 
       db.prepare(`
@@ -881,19 +885,23 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
       if (existingDiscountAmount > 0 && currentOrder.subtotal > 0) {
         if (currentOrder.discount_type === 'percentage') {
           const pct = currentOrder.discount_value || 0;
-          newDiscountAmount = Number((subtotal * pct / 100).toFixed(decimals));
+          newDiscountAmount = new Decimal(subtotal)
+            .times(pct)
+            .dividedBy(100)
+            .toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP)
+            .toNumber();
         }
         // amount type: keep same value
       }
 
-      const discountedSubtotal = Math.max(0, subtotal - newDiscountAmount);
+      const discountedSubtotal = Math.max(0, new Decimal(subtotal).minus(newDiscountAmount).toNumber());
       let newTaxAmount = totalTax;
       let newExclusiveTax = exclusiveTax;
       let taxRatio = 1;
       if (newDiscountAmount > 0 && subtotal > 0) {
-        taxRatio = discountedSubtotal / subtotal;
-        newTaxAmount = Number((totalTax * taxRatio).toFixed(decimals));
-        newExclusiveTax = Number((exclusiveTax * taxRatio).toFixed(decimals));
+        taxRatio = new Decimal(discountedSubtotal).dividedBy(subtotal).toNumber();
+        newTaxAmount = new Decimal(totalTax).times(taxRatio).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toNumber();
+        newExclusiveTax = new Decimal(exclusiveTax).times(taxRatio).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toNumber();
       }
 
       const chargeTaxes = calculateConfiguredChargeTaxes(tenantInfo, currentOrder, customer);
@@ -906,9 +914,12 @@ router.post('/:id/items', orderWriteRateLimit, requireRole(...ROLE_ACCESS.sales)
         chargeTaxes,
         minorFactor,
       });
-      const preRoundTotal = discountedSubtotal + taxRollup.exclusiveTaxAmount
-        + (currentOrder.delivery_charge || 0) + (currentOrder.packaging_charge || 0) + (currentOrder.service_charge || 0);
-      const total = Number(preRoundTotal.toFixed(decimals));
+      const preRoundTotal = new Decimal(discountedSubtotal)
+        .plus(taxRollup.exclusiveTaxAmount)
+        .plus(currentOrder.delivery_charge || 0)
+        .plus(currentOrder.packaging_charge || 0)
+        .plus(currentOrder.service_charge || 0);
+      const total = preRoundTotal.toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toNumber();
       const roundOff = 0;
 
       // Update order totals and optionally update order-level notes
@@ -1409,11 +1420,15 @@ router.patch('/:id/discount', orderWriteRateLimit, requireRole(...ROLE_ACCESS.ow
       let discountAmount = 0;
       if (discount_value > 0) {
         if (discount_type === 'percentage') {
-          discountAmount = (currentOrder.subtotal * discount_value) / 100;
+          discountAmount = new Decimal(currentOrder.subtotal)
+            .times(discount_value)
+            .dividedBy(100)
+            .toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP)
+            .toNumber();
         } else {
           discountAmount = Math.min(discount_value, currentOrder.subtotal);
         }
-        discountAmount = Number(discountAmount.toFixed(decimals));
+        discountAmount = new Decimal(discountAmount).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toNumber();
       }
 
       // Recalculate tax from item-level data to avoid compounding on repeated discount edits.
@@ -1439,13 +1454,13 @@ router.patch('/:id/discount', orderWriteRateLimit, requireRole(...ROLE_ACCESS.ow
       let newExclusiveTax = exclusiveTax;
       let taxRatio = 1;
       if (discountAmount > 0 && currentOrder.subtotal > 0) {
-        const discountedSubtotal = Math.max(0, currentOrder.subtotal - discountAmount);
-        taxRatio = discountedSubtotal / currentOrder.subtotal;
-        newTaxAmount = Number((freshTax * taxRatio).toFixed(decimals));
-        newExclusiveTax = Number((exclusiveTax * taxRatio).toFixed(decimals));
+        const discountedSubtotal = Math.max(0, new Decimal(currentOrder.subtotal).minus(discountAmount).toNumber());
+        taxRatio = new Decimal(discountedSubtotal).dividedBy(currentOrder.subtotal).toNumber();
+        newTaxAmount = new Decimal(freshTax).times(taxRatio).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toNumber();
+        newExclusiveTax = new Decimal(exclusiveTax).times(taxRatio).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toNumber();
       }
 
-      const discountedSubtotal = Math.max(0, currentOrder.subtotal - discountAmount);
+      const discountedSubtotal = Math.max(0, new Decimal(currentOrder.subtotal).minus(discountAmount).toNumber());
       const chargeTaxes = calculateConfiguredChargeTaxes(tenantInfo, currentOrder, customer);
       const taxRollup = combineItemAndChargeTaxes({
         itemTaxAmount: newTaxAmount,
@@ -1456,9 +1471,12 @@ router.patch('/:id/discount', orderWriteRateLimit, requireRole(...ROLE_ACCESS.ow
         chargeTaxes,
         minorFactor,
       });
-      const preRoundTotal = discountedSubtotal + taxRollup.exclusiveTaxAmount
-        + (currentOrder.packaging_charge || 0) + (currentOrder.delivery_charge || 0) + (currentOrder.service_charge || 0);
-      const newTotal = Number(preRoundTotal.toFixed(decimals));
+      const preRoundTotal = new Decimal(discountedSubtotal)
+        .plus(taxRollup.exclusiveTaxAmount)
+        .plus(currentOrder.packaging_charge || 0)
+        .plus(currentOrder.delivery_charge || 0)
+        .plus(currentOrder.service_charge || 0);
+      const newTotal = preRoundTotal.toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toNumber();
       const roundOff = 0;
 
       db.prepare(`
@@ -1672,18 +1690,22 @@ router.patch('/:id/items/:itemId/discount', orderWriteRateLimit, requireRole(...
       let newOrderDiscount = existingDiscountAmount;
       if (existingDiscountAmount > 0 && order.subtotal > 0) {
         // Scale discount proportionally to new subtotal
-        newOrderDiscount = Number((existingDiscountAmount * (orderSubtotal / order.subtotal)).toFixed(decimals));
+        newOrderDiscount = new Decimal(existingDiscountAmount)
+          .times(orderSubtotal)
+          .dividedBy(order.subtotal)
+          .toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP)
+          .toNumber();
       }
 
       // Recalculate tax on discounted subtotal
-      const discountedSubtotal = Math.max(0, orderSubtotal - newOrderDiscount);
+      const discountedSubtotal = Math.max(0, new Decimal(orderSubtotal).minus(newOrderDiscount).toNumber());
       let newOrderTax = orderTax;
       let newExclusiveOrderTax = exclusiveOrderTax;
       let taxRatio = 1;
       if (newOrderDiscount > 0 && orderSubtotal > 0) {
-        taxRatio = discountedSubtotal / orderSubtotal;
-        newOrderTax = Number((orderTax * taxRatio).toFixed(decimals));
-        newExclusiveOrderTax = Number((exclusiveOrderTax * taxRatio).toFixed(decimals));
+        taxRatio = new Decimal(discountedSubtotal).dividedBy(orderSubtotal).toNumber();
+        newOrderTax = new Decimal(orderTax).times(taxRatio).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toNumber();
+        newExclusiveOrderTax = new Decimal(exclusiveOrderTax).times(taxRatio).toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toNumber();
       }
 
       const chargeTaxes = calculateConfiguredChargeTaxes(tenantInfo, order, customer);
@@ -1696,9 +1718,12 @@ router.patch('/:id/items/:itemId/discount', orderWriteRateLimit, requireRole(...
         chargeTaxes,
         minorFactor,
       });
-      const preRoundTotal = discountedSubtotal + taxRollup.exclusiveTaxAmount
-        + (order.packaging_charge || 0) + (order.delivery_charge || 0) + (order.service_charge || 0);
-      const orderTotal = Number(preRoundTotal.toFixed(decimals));
+      const preRoundTotal = new Decimal(discountedSubtotal)
+        .plus(taxRollup.exclusiveTaxAmount)
+        .plus(order.packaging_charge || 0)
+        .plus(order.delivery_charge || 0)
+        .plus(order.service_charge || 0);
+      const orderTotal = preRoundTotal.toDecimalPlaces(decimals, Decimal.ROUND_HALF_UP).toNumber();
       const roundOff = 0;
 
       db.prepare(`
