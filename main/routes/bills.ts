@@ -2380,4 +2380,16 @@ router.get('/:id/upi-qr', requireRole(...ROLE_ACCESS.ownerManagerCashier), async
   });
 }));
 
+// GET /api/bills/:id/einvoice - Export standard B2B IRP JSON schema
+router.get('/:id/einvoice', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+  try {
+    const payload = generateB2BEinvoiceJson(Number(req.params.id));
+    res.json(payload);
+  } catch (error: any) {
+    res.status(error.statusCode || 500).json({ error: error.message || 'Failed to generate e-invoice JSON' });
+  }
+});
+
+import { generateB2BEinvoiceJson } from '../services/einvoice';
+
 export const billRoutes = router;

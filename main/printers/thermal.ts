@@ -1476,6 +1476,8 @@ function renderEscposLineTemplateV1(payload: any, profile: { columns: number; la
   if (biz.show_table_number !== false && order.table?.name) lines.push(truncateShapedLine(formatTableLabel(order.table.name, lang), cols, arabicShaping, lang, capabilities));
   if (biz.show_customer_name !== false && biz.customer_name) lines.push(truncateShapedLine(printLabel(lang, 'pos.customer') + ': ' + biz.customer_name, cols, arabicShaping, lang, capabilities));
   if (biz.show_customer_phone !== false && biz.customer_phone) lines.push(normalize(printLabel(lang, 'print.numberShort')) + ': ' + biz.customer_phone);
+  if (biz.customerGstin) lines.push(normalize('Customer GSTIN: ' + biz.customerGstin));
+  if (biz.fssaiLicense) lines.push(normalize('FSSAI Lic No: ' + biz.fssaiLicense));
   lines.push(dash);
   lines.push(pluginItemHeader(layout, cols, lang, capabilities));
   lines.push(dash);
@@ -1705,6 +1707,9 @@ function pluginItemColumnValue(key: string, item: any, prefix: string, locale: s
     }
     case 'taxRate':
       return pluginItemTaxRate(item);
+    case 'hsn':
+    case 'hsn_sac':
+      return String(item.hsn_sac || item.hsn || '996331');
     case 'amount':
       return formatCurrency(item.total, prefix, locale, trimDecimals, fractionDigits);
     default:

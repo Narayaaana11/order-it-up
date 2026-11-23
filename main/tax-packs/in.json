@@ -1,0 +1,106 @@
+{
+  "schemaVersion": 1,
+  "id": "official-in",
+  "publisher": "Order It Up Official",
+  "version": "1.0.0",
+  "country": "IN",
+  "jurisdiction": "National",
+  "currency": "INR",
+  "effectiveFrom": "2026-01-01",
+  "publishedAt": "2026-01-01",
+  "minFloVersion": "1.0.0",
+  "taxPoint": "finalized_at",
+  "inclusivePricingDefault": false,
+  "registrationNumberLabel": "GSTIN",
+  "categories": [
+    { "id": "standard_restaurant", "label": "Restaurant Food (5% GST - No ITC)", "ruleIds": ["in_cgst_2_5", "in_sgst_2_5"] },
+    { "id": "specified_restaurant", "label": "Hotel Restaurant (18% GST - With ITC)", "ruleIds": ["in_cgst_9_0", "in_sgst_9_0"] },
+    { "id": "beverage_standard", "label": "Beverages & Drinks (5% GST)", "ruleIds": ["in_cgst_2_5", "in_sgst_2_5"] },
+    { "id": "packaging", "label": "Packaging Charge (5% GST)", "ruleIds": ["in_cgst_2_5", "in_sgst_2_5"] },
+    { "id": "delivery", "label": "Delivery Charge (5% GST)", "ruleIds": ["in_cgst_2_5", "in_sgst_2_5"] },
+    { "id": "service_charge", "label": "Service Charge (5% GST)", "ruleIds": ["in_cgst_2_5", "in_sgst_2_5"] },
+    { "id": "addon", "label": "Food Add-ons (5% GST)", "ruleIds": ["in_cgst_2_5", "in_sgst_2_5"] },
+    { "id": "exempt_food", "label": "Exempt / Nil Rated", "ruleIds": [] },
+    { "id": "unclassified", "label": "Unclassified", "ruleIds": ["in_cgst_2_5", "in_sgst_2_5"] }
+  ],
+  "defaultCategories": {
+    "product": "standard_restaurant",
+    "packaging": "packaging",
+    "delivery": "delivery",
+    "service_charge": "service_charge",
+    "addon": "addon"
+  },
+  "unclassifiedCategoryId": "unclassified",
+  "rules": [
+    {
+      "id": "in_cgst_2_5",
+      "label": "CGST",
+      "type": "percent",
+      "rate": "2.5",
+      "categoryIds": ["standard_restaurant", "beverage_standard", "packaging", "delivery", "service_charge", "addon", "unclassified"],
+      "conditions": {
+        "customerStateRelation": "intra_or_unspecified"
+      }
+    },
+    {
+      "id": "in_sgst_2_5",
+      "label": "SGST",
+      "type": "percent",
+      "rate": "2.5",
+      "categoryIds": ["standard_restaurant", "beverage_standard", "packaging", "delivery", "service_charge", "addon", "unclassified"],
+      "conditions": {
+        "customerStateRelation": "intra_or_unspecified"
+      }
+    },
+    {
+      "id": "in_cgst_9_0",
+      "label": "CGST",
+      "type": "percent",
+      "rate": "9",
+      "categoryIds": ["specified_restaurant"],
+      "conditions": {
+        "customerStateRelation": "intra_or_unspecified"
+      }
+    },
+    {
+      "id": "in_sgst_9_0",
+      "label": "SGST",
+      "type": "percent",
+      "rate": "9",
+      "categoryIds": ["specified_restaurant"],
+      "conditions": {
+        "customerStateRelation": "intra_or_unspecified"
+      }
+    },
+    {
+      "id": "in_igst_5_0",
+      "label": "IGST",
+      "type": "percent",
+      "rate": "5",
+      "categoryIds": ["standard_restaurant", "beverage_standard", "packaging", "delivery", "service_charge", "addon", "unclassified"],
+      "conditions": {
+        "customerStateRelation": "interstate"
+      }
+    },
+    {
+      "id": "in_igst_18_0",
+      "label": "IGST",
+      "type": "percent",
+      "rate": "18",
+      "categoryIds": ["specified_restaurant"],
+      "conditions": {
+        "customerStateRelation": "interstate"
+      }
+    }
+  ],
+  "taxRounding": {
+    "scope": "line",
+    "method": "half_up",
+    "decimalPlaces": 2,
+    "remainderAllocation": "largest_remainder"
+  },
+  "payableRounding": {
+    "increment": "1.00",
+    "method": "half_up"
+  }
+}

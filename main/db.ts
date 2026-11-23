@@ -4389,6 +4389,50 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       `);
     },
   },
+  {
+    version: 91,
+    name: 'add_india_gst_and_compliance_fields',
+    up: () => {
+      // Add HSN/SAC column to products and categories
+      const productCols = db.prepare('PRAGMA table_info(products)').all() as any[];
+      if (!productCols.some((c) => c.name === 'hsn_sac')) {
+        db.exec("ALTER TABLE products ADD COLUMN hsn_sac TEXT DEFAULT '996331'");
+      }
+
+      const categoryCols = db.prepare('PRAGMA table_info(categories)').all() as any[];
+      if (!categoryCols.some((c) => c.name === 'hsn_sac')) {
+        db.exec("ALTER TABLE categories ADD COLUMN hsn_sac TEXT DEFAULT '996331'");
+      }
+
+      // Add customer_gstin, customer_legal_name, and einvoice_status to bills
+      const billCols = db.prepare('PRAGMA table_info(bills)').all() as any[];
+      if (!billCols.some((c) => c.name === 'customer_gstin')) {
+        db.exec('ALTER TABLE bills ADD COLUMN customer_gstin TEXT DEFAULT NULL');
+      }
+      if (!billCols.some((c) => c.name === 'customer_legal_name')) {
+        db.exec('ALTER TABLE bills ADD COLUMN customer_legal_name TEXT DEFAULT NULL');
+      }
+      if (!billCols.some((c) => c.name === 'einvoice_status')) {
+        db.exec("ALTER TABLE bills ADD COLUMN einvoice_status TEXT DEFAULT 'unreported'");
+      }
+      if (!billCols.some((c) => c.name === 'einvoice_irn')) {
+        db.exec('ALTER TABLE bills ADD COLUMN einvoice_irn TEXT DEFAULT NULL');
+      }
+
+      // Add customer_gstin to orders
+      const orderCols = db.prepare('PRAGMA table_info(orders)').all() as any[];
+      if (!orderCols.some((c) => c.name === 'customer_gstin')) {
+        db.exec('ALTER TABLE orders ADD COLUMN customer_gstin TEXT DEFAULT NULL');
+      }
+
+      // Seed default settings for Indian compliance
+      upsertSettings({
+        fssai_license_number: '',
+        composition_scheme: 'false',
+        b2b_einvoice_enabled: 'false',
+      });
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {
@@ -4509,6 +4553,7 @@ function createSchema(): void {
       slug TEXT,
       color TEXT,
       icon TEXT,
+      hsn_sac TEXT DEFAULT '996331',
       deleted_at TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT DEFAULT CURRENT_TIMESTAMP
@@ -4538,6 +4583,7 @@ function createSchema(): void {
       tax_behavior TEXT DEFAULT 'country_default',
       -- Defaults to 0 so fresh and upgraded installs have identical schema.
       cb_percent REAL DEFAULT 0,
+      hsn_sac TEXT DEFAULT '996331',
       tags TEXT,
       deleted_at TEXT,
       created_at TEXT DEFAULT CURRENT_TIMESTAMP,
@@ -4684,6 +4730,7 @@ function createSchema(): void {
       total REAL DEFAULT 0,
       online_platform TEXT DEFAULT NULL,
       external_order_id TEXT DEFAULT NULL,
+      customer_gstin TEXT DEFAULT NULL,
       customer_name TEXT DEFAULT NULL,
       customer_phone TEXT DEFAULT NULL,
       delivery_address TEXT DEFAULT NULL,
@@ -4734,6 +4781,10 @@ function createSchema(): void {
       bill_number TEXT UNIQUE NOT NULL,
       order_id INTEGER NOT NULL,
       customer_id TEXT,
+      customer_gstin TEXT DEFAULT NULL,
+      customer_legal_name TEXT DEFAULT NULL,
+      einvoice_status TEXT DEFAULT 'unreported',
+      einvoice_irn TEXT DEFAULT NULL,
       subtotal REAL DEFAULT 0,
       tax_amount REAL DEFAULT 0,
       tax_breakdown TEXT,

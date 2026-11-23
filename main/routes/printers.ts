@@ -463,6 +463,8 @@ router.post('/print-bill', requireRole(...ROLE_ACCESS.ownerManagerCashier), asyn
       address: settings.business_address || '',
       phone: settings.business_phone || '',
       taxRegistrationNumber: settings.tax_registration_number || '',
+      fssaiLicense: settings.fssai_license_number || '',
+      customerGstin: bill.customer_gstin || '',
       currency,
       // Derive from resolved currency before stored symbol to avoid stale currency symbols.
       currency_symbol: getCurrencySymbol(currency, getCountryByCode(country)?.locale) || settings.currency_symbol || currency,
