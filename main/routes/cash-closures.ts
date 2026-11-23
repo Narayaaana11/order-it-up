@@ -33,6 +33,7 @@ import { Router, Request, Response } from 'express';
 import {
   dayBoundsInTimezone, getDatabase, getSettingValue, localDateInTimezone, now, withTxn,
 } from '../db';
+import { recordAudit } from '../services/audit';
 import { requireRole } from '../middleware/security';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { nextZNumber } from '../db';
@@ -473,6 +474,25 @@ router.post('/', requireRole(...ROLE_ACCESS.owner), (req: Request, res: Response
       const id = Number((db.prepare(
         `SELECT id FROM cash_closures WHERE business_date = ? AND scope = 'day'`
       ).get(businessDate) as { id: number }).id);
+
+      recordAudit(db, {
+        actor_user_id: String(closedBy),
+        actor_role: (req as any).user?.role || 'owner',
+        action: 'cash_closure_close',
+        entity_type: 'cash_closure',
+        entity_id: String(id),
+        before_json: null,
+        after_json: {
+          business_date: businessDate,
+          expected_cash_cents: expectedCashCents,
+          counted_cash_cents: countedCashCents,
+          variance_cents: varianceCents,
+          z_number: zNumber,
+        },
+        reason: notes || null,
+        ip: req.ip || null,
+        severity: varianceCents !== 0 ? 'warning' : 'info',
+      });
 
       return {
         id,

@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { randomUUID, createHash, type KeyLike } from 'crypto';
 import Decimal from 'decimal.js';
 import { getDatabase, getSettingValue, now, upsertSettings, withTxn } from '../db';
+import { recordAudit } from '../services/audit';
 import { requireRole } from '../middleware/security';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { applyPayableRounding, TaxEngine } from '../services/tax-engine';
@@ -422,11 +423,25 @@ function audit(
   overrideId: string | null,
   details: Record<string, unknown>,
 ): void {
-  getDatabase().prepare(`
+  const db = getDatabase();
+  db.prepare(`
     INSERT INTO tax_config_audit (
       action, pack_id, pack_version_id, override_id, actor_user_id, details_json, created_at
     ) VALUES (?, ?, ?, ?, ?, ?, ?)
   `).run(action, packId, packVersionId, overrideId, actorId, JSON.stringify(details), now());
+
+  try {
+    recordAudit({
+      action: 'tax_config_edit',
+      entity_type: 'tax_pack',
+      entity_id: packId || overrideId || 'global',
+      after_json: JSON.stringify({ action, packId, packVersionId, overrideId, details }),
+      actor_user_id: actorId,
+      severity: 'warn',
+    }, db);
+  } catch (e) {
+    console.error('[TaxPack] Failed to mirror to audit_log:', e);
+  }
 }
 
 export function validationChecklist(

@@ -7,6 +7,7 @@ import { checkPinRateLimit } from './orders';
 import { createRefund, getTenantCurrency, RefundRequest } from '../services/refund';
 import { getCurrencyFractionDigits, getCurrencyMinorUnitFactor } from '../countries';
 import { cloudSync } from '../services/cloud-sync';
+import { recordAudit } from '../services/audit';
 
 const router = Router();
 const MAX_IDEMPOTENCY_KEY_LENGTH = 128;
@@ -97,7 +98,23 @@ router.post('/', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: R
       requestHash,
     };
 
-    const result = withTxn(() => createRefund(db, refundRequest));
+    const result = withTxn(() => {
+      const res = createRefund(db, refundRequest);
+      recordAudit(db, {
+        actor_user_id: userId,
+        actor_role: (req as any).user?.role,
+        action: 'refund',
+        entity_type: 'bill',
+        entity_id: String(billId),
+        before_json: { bill_id: billId, order_item_id: orderItemId },
+        after_json: res,
+        reason: body.reason ?? null,
+        approver_user_id: body.manager_id || null,
+        ip: clientIp,
+        severity: 'critical',
+      });
+      return res;
+    });
     const bill = db.prepare('SELECT order_id FROM bills WHERE id = ?').get(billId) as { order_id?: number } | undefined;
     if (bill?.order_id) {
       cloudSync.recordOrderChanged(bill.order_id, 'order.refunded');

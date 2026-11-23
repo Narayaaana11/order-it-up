@@ -17,6 +17,7 @@ import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { getCountryByCode, getCurrencySymbol, resolveTenantCurrency } from '../countries';
 import { asyncHandler } from '../middleware/async-handler';
 import { getHttpRequestSignal } from '../shutdown';
+import { recordAudit } from '../services/audit';
 
 const router = Router();
 
@@ -273,6 +274,31 @@ router.delete('/:id', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, r
   }
 });
 
+// POST /api/printers/open-drawer — kick cash drawer (no-sale)
+router.post('/open-drawer', requireRole(...ROLE_ACCESS.ownerManagerCashier), asyncHandler(async (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const userId = (req as any).user?.userId || null;
+    const userRole = (req as any).user?.role || null;
+    const reason = req.body?.reason || 'No-sale manual drawer open';
+
+    recordAudit(db, {
+      actor_user_id: userId,
+      actor_role: userRole,
+      action: 'cash_drawer_open',
+      entity_type: 'cash_drawer',
+      entity_id: 'drawer-primary',
+      reason,
+      ip: req.ip || null,
+      severity: 'warning',
+    });
+
+    res.json({ success: true, message: 'Cash drawer opened' });
+  } catch (error: any) {
+    res.status(500).json({ error: error.message || 'Internal server error' });
+  }
+}));
+
 // POST /api/printers/:id/set-default
 router.post('/:id/set-default', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
   try {
@@ -495,6 +521,20 @@ router.post('/print-bill', requireRole(...ROLE_ACCESS.ownerManagerCashier), asyn
     });
 
     if (result.ok) {
+      if (isReprint && !preview) {
+        recordAudit(db, {
+          actor_user_id: (req as any).user?.userId || null,
+          actor_role: (req as any).user?.role || null,
+          action: 'bill_reprint',
+          entity_type: 'bill',
+          entity_id: String(bill.id),
+          before_json: null,
+          after_json: { bill_id: bill.id, bill_number: bill.bill_number, order_id: order.id },
+          reason: 'DUPLICATE receipt reprint',
+          ip: req.ip || null,
+          severity: 'info',
+        });
+      }
       res.json({ success: true, warnings: result.warnings || [] });
     } else {
       res.status(502).json({ error: result.detail || 'Print failed. Check printer connection and settings.', detail: result.detail, failure_class: result.failureClass, code: result.code, correlation_id: result.correlationId, stage: result.stage, warnings: result.warnings || [] });

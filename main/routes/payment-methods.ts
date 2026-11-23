@@ -3,6 +3,7 @@ import { getDatabase, now, withTxn } from '../db';
 import { requireRole } from '../middleware/security';
 import { ROLE_ACCESS, hasRole } from '../../shared/role-permissions';
 import { sendEvent } from '../services/telemetry';
+import { recordAudit } from '../services/audit';
 
 const router = Router();
 
@@ -68,6 +69,19 @@ router.put('/:id', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res:
     if (!Number.isSafeInteger(order) || order < 0) return res.status(400).json({ error: 'Invalid sort order' });
     db.prepare('UPDATE payment_methods SET name = ?, is_active = ?, sort_order = ?, updated_at = ? WHERE id = ?')
       .run(name, active, order, now(), id);
+
+    recordAudit({
+      action: 'payment_method_edit',
+      entity_type: 'payment_method',
+      entity_id: String(id),
+      before_json: JSON.stringify({ name: current.name, is_active: current.is_active, sort_order: current.sort_order }),
+      after_json: JSON.stringify({ name, is_active: active, sort_order: order }),
+      actor_user_id: (req as any).user?.id || (req as any).user?.userId || null,
+      actor_role: (req as any).user?.role || null,
+      ip: req.ip || req.socket.remoteAddress || null,
+      severity: 'info',
+    }, db);
+
     if (active !== current.is_active) void sendEvent('feature_used', { feature: 'custom_payment_methods', action: active ? 'enabled' : 'disabled' });
     res.json({ payment_method: list(true).find((row) => row.id === id) });
   } catch (error: any) {

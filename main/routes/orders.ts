@@ -18,6 +18,7 @@ import { ROLE_ACCESS, hasRole } from '../../shared/role-permissions';
 import { getCurrencyFractionDigits, getCurrencyMinorUnitFactor } from '../countries';
 import { getTenantCurrency } from './bills';
 import { deductIngredientsForOrderItems, restoreIngredientsForOrderItems } from '../services/inventory-engine';
+import { recordAudit } from '../services/audit';
 import expressRateLimit from 'express-rate-limit';
 
 const router = Router();
@@ -1049,6 +1050,7 @@ router.patch('/:id/status', orderWriteRateLimit, requireRole(...ROLE_ACCESS.orde
       const currentStatusIndex = statusOrder.indexOf(currentOrder.status);
       const requiresOverride = (currentStatusIndex > 0 || hasItemsInProgress) && status === 'cancelled';
 
+      let approverUserId: string | null = null;
       if (requiresOverride) {
         if (!override_pin) {
           throw Object.assign(new Error('Manager PIN required to cancel order in progress'), { statusCode: 400 });
@@ -1063,11 +1065,12 @@ router.patch('/:id/status', orderWriteRateLimit, requireRole(...ROLE_ACCESS.orde
 
         const user = db.prepare(`SELECT * FROM users WHERE is_active = 1 AND pin_hash IS NOT NULL AND role IN (${OWNER_MANAGER_ROLE_PLACEHOLDERS})`)
           .all(...ROLE_ACCESS.ownerManager)
-          .find((u: any) => verifyPin(u.pin_hash, override_pin));
+          .find((u: any) => verifyPin(u.pin_hash, override_pin)) as any;
 
         if (!user) {
           throw Object.assign(new Error('Invalid manager PIN'), { statusCode: 403 });
         }
+        approverUserId = user.id;
       }
 
       switch (status) {
@@ -1178,6 +1181,20 @@ router.patch('/:id/status', orderWriteRateLimit, requireRole(...ROLE_ACCESS.orde
             db.prepare("UPDATE tables SET status = 'available', updated_at = ? WHERE id = ?")
               .run(nowStr, currentOrder.table_id);
           }
+
+          recordAudit({
+            action: 'order_cancel',
+            entity_type: 'order',
+            entity_id: String(req.params.id),
+            before_json: JSON.stringify({ status: currentOrder.status, total: currentOrder.total, items_count: eligibleItems.length }),
+            after_json: JSON.stringify({ status: 'cancelled', total: currentOrder.total, reason: reason || null }),
+            reason: reason || 'Order cancelled',
+            actor_user_id: (req as any).user?.id || (req as any).user?.userId || null,
+            actor_role: (req as any).user?.role || null,
+            approver_user_id: approverUserId,
+            ip: req.ip || req.socket.remoteAddress || null,
+            severity: 'warn',
+          }, db);
           break;
         }
       }
@@ -1476,6 +1493,20 @@ router.patch('/:id/discount', orderWriteRateLimit, requireRole(...ROLE_ACCESS.ow
       }
 
       const updatedOrder = parseRowJson(db.prepare('SELECT * FROM orders WHERE id = ?').get(req.params.id)) as any;
+
+      recordAudit({
+        action: 'discount_apply',
+        entity_type: 'order',
+        entity_id: String(req.params.id),
+        before_json: JSON.stringify({ discount_amount: currentOrder.discount_amount, total: currentOrder.total }),
+        after_json: JSON.stringify({ discount_amount: discountAmount, discount_type, discount_value, total: newTotal }),
+        reason: discount_reason || null,
+        actor_user_id: (req as any).user?.id || (req as any).user?.userId || null,
+        actor_role: (req as any).user?.role || null,
+        ip: req.ip || req.socket.remoteAddress || null,
+        severity: discountAmount > 0 ? 'info' : 'info',
+      }, db);
+
       return updatedOrder;
     });
 
@@ -1684,7 +1715,22 @@ router.patch('/:id/items/:itemId/discount', orderWriteRateLimit, requireRole(...
           .run(billTotal, newBillBalance, taxRollup.taxAmount, JSON.stringify(taxRollup.breakdowns), taxRollup.snapshotJson, newOrderDiscount, order.service_charge || 0, billRoundOff, now(), existingBill.id);
       }
 
-      return db.prepare('SELECT * FROM order_items WHERE id = ?').get(req.params.itemId) as any;
+      const updated = db.prepare('SELECT * FROM order_items WHERE id = ?').get(req.params.itemId) as any;
+
+      recordAudit({
+        action: 'discount_apply',
+        entity_type: 'order_item',
+        entity_id: String(req.params.itemId),
+        before_json: JSON.stringify({ item_id: item.id, discount_amount: item.discount_amount, total: item.total }),
+        after_json: JSON.stringify({ item_id: item.id, discount_amount: discountAmount, discount_type, discount_value, total: newTotal }),
+        reason: req.body?.discount_reason || null,
+        actor_user_id: (req as any).user?.id || (req as any).user?.userId || null,
+        actor_role: (req as any).user?.role || null,
+        ip: req.ip || req.socket.remoteAddress || null,
+        severity: 'info',
+      }, db);
+
+      return updated;
     });
 
     res.json({ item: updatedItem });

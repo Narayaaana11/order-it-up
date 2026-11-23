@@ -44,9 +44,11 @@ import { reservationRoutes } from './reservations';
 import { qrOrderRoutes } from './qr-order';
 import { aggregatorRoutes } from './aggregators';
 import { aiRoutes } from './ai';
+import { auditLogRoutes } from './audit-log';
 import { cloudHqRoutes } from './cloud-hq';
 import { getDatabase, now, parseItemJson, attachEffectiveAddons, withTxn, getSettingValue, getCachedPairingCode, setCachedPairingCode, verifyPin } from '../db';
 import { checkPinRateLimit } from './orders';
+import { recordAudit } from '../services/audit';
 import { getCurrencyFractionDigits, getCurrencyMinorUnitFactor } from '../countries';
 
 const OWNER_MANAGER_ROLE_PLACEHOLDERS = ROLE_ACCESS.ownerManager.map(() => '?').join(', ');
@@ -129,6 +131,7 @@ export function registerRoutes(app: Express): void {
   app.use('/api/qr', qrOrderRoutes);
   app.use('/api', aggregatorRoutes);
   app.use('/api', aiRoutes);
+  app.use('/api', auditLogRoutes);
   app.use('/api/cloud', cloudHqRoutes);
   app.post('/api/pos/pair', (req, res, next) => {
     req.url = '/pair';
@@ -298,7 +301,7 @@ export function registerRoutes(app: Express): void {
     try {
       const orderId = String(req.params.orderId);
       const itemId = String(req.params.itemId);
-      const { override_pin } = req.body;
+      const { override_pin, reason } = req.body || {};
 
       // requireAuth (main/server.ts) already verified the token and attached
       // the user's current DB role to req.user — use that, not the JWT claim.
@@ -316,6 +319,7 @@ export function registerRoutes(app: Express): void {
         return res.status(404).json({ error: 'Item not found in this order' });
       }
 
+      let pinUser: any = null;
       // Wrap item cancel and total recalculation in transaction.
       const result = withTxn(() => {
         const currentOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId) as any;
@@ -385,7 +389,6 @@ export function registerRoutes(app: Express): void {
           }
 
           const managerId = req.body.manager_id || req.body.user_id;
-          let pinUser: any = null;
           if (managerId) {
             const candidate = db.prepare(`SELECT * FROM users WHERE id = ? AND pin_hash IS NOT NULL AND role IN (${OWNER_MANAGER_ROLE_PLACEHOLDERS}) AND is_active = 1`).get(managerId, ...ROLE_ACCESS.ownerManager) as any;
             if (candidate && verifyPin(candidate.pin_hash, override_pin)) {
@@ -540,6 +543,37 @@ export function registerRoutes(app: Express): void {
 
         const updatedOrder = db.prepare('SELECT * FROM orders WHERE id = ?').get(orderId) as any;
         const items = attachEffectiveAddons(db, db.prepare('SELECT * FROM order_items WHERE order_id = ?').all(orderId).map(parseItemJson) as any[]);
+
+        recordAudit({
+          action: isItemVoid ? 'void' : 'item_cancel',
+          entity_type: 'order_item',
+          entity_id: String(itemId),
+          before_json: JSON.stringify({ item_id: itemId, product_name: currentItem.product_name, status: currentItem.status, total: currentItem.total }),
+          after_json: JSON.stringify({ item_id: itemId, product_name: currentItem.product_name, status: isItemVoid ? 'voided' : 'cancelled' }),
+          reason: reason || null,
+          actor_user_id: (req as any).user?.id || (req as any).user?.userId || null,
+          actor_role: (req as any).user?.role || null,
+          approver_user_id: pinUser?.id || null,
+          ip: req.ip || req.socket.remoteAddress || null,
+          severity: 'warn',
+        }, db);
+
+        if (orderCancelled) {
+          recordAudit({
+            action: 'order_cancel',
+            entity_type: 'order',
+            entity_id: String(orderId),
+            before_json: JSON.stringify({ status: currentOrder.status, total: currentOrder.total }),
+            after_json: JSON.stringify({ status: 'cancelled', total: currentOrder.total, reason: 'All items cancelled' }),
+            reason: 'All items cancelled',
+            actor_user_id: (req as any).user?.id || (req as any).user?.userId || null,
+            actor_role: (req as any).user?.role || null,
+            approver_user_id: pinUser?.id || null,
+            ip: req.ip || req.socket.remoteAddress || null,
+            severity: 'warn',
+          }, db);
+        }
+
         return {
           updatedOrder,
           items,

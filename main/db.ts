@@ -4346,6 +4346,49 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       );
     },
   },
+  {
+    version: 90,
+    name: 'add_tamper_evident_audit_log',
+    up: () => {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS audit_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          ts TEXT NOT NULL,
+          tenant_id TEXT NOT NULL DEFAULT 'default',
+          actor_user_id TEXT,
+          actor_role TEXT,
+          terminal_id TEXT,
+          action TEXT NOT NULL,
+          entity_type TEXT NOT NULL,
+          entity_id TEXT,
+          before_json TEXT,
+          after_json TEXT,
+          reason TEXT,
+          approver_user_id TEXT,
+          ip TEXT,
+          severity TEXT NOT NULL DEFAULT 'info',
+          prev_hash TEXT NOT NULL,
+          row_hash TEXT NOT NULL
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_audit_log_ts ON audit_log(ts);
+        CREATE INDEX IF NOT EXISTS idx_audit_log_actor_ts ON audit_log(actor_user_id, ts);
+        CREATE INDEX IF NOT EXISTS idx_audit_log_action_ts ON audit_log(action, ts);
+
+        CREATE TRIGGER IF NOT EXISTS audit_log_prevent_update
+        BEFORE UPDATE ON audit_log
+        BEGIN
+          SELECT RAISE(ABORT, 'audit_log is append-only: updates forbidden');
+        END;
+
+        CREATE TRIGGER IF NOT EXISTS audit_log_prevent_delete
+        BEFORE DELETE ON audit_log
+        BEGIN
+          SELECT RAISE(ABORT, 'audit_log is append-only: deletes forbidden');
+        END;
+      `);
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {

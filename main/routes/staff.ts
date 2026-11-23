@@ -6,6 +6,7 @@ import { getDatabase, now } from '../db';
 import { requireRole, validatePassword, authRateLimit, invalidateUserAuthCache } from '../middleware/security';
 import { isValidEmail } from './auth';
 import { ROLE_ACCESS, ROLE_KEYS, OPERATIONAL_ROLES, hasRole } from '../../shared/role-permissions';
+import { recordAudit } from '../services/audit';
 
 const router = Router();
 
@@ -142,6 +143,18 @@ router.post('/', requireRole(...ROLE_ACCESS.ownerManager), authRateLimit(), (req
       VALUES (?, ?, ?, ?, ?, ?, 1, ?, ?)
     `).run(id, name, normalizedEmail, hashedPassword, role, hashedPin, now(), now());
 
+    recordAudit(db, {
+      actor_user_id: (req as any).user?.userId || null,
+      actor_role: (req as any).user?.role || null,
+      action: 'staff_create',
+      entity_type: 'staff',
+      entity_id: id,
+      before_json: null,
+      after_json: { id, name, email: normalizedEmail, role },
+      ip: req.ip || null,
+      severity: 'info',
+    });
+
     const member = db.prepare(
       `SELECT ${STAFF_SELECT_FIELDS} FROM users WHERE id = ?`
     ).get(id);
@@ -258,6 +271,34 @@ router.put('/:id', requireRole(...ROLE_ACCESS.ownerManager), authRateLimit(), (r
     }
     invalidateUserAuthCache(req.params.id as string);
 
+    if (role !== undefined && role !== member.role) {
+      recordAudit(db, {
+        actor_user_id: (req as any).user?.userId || null,
+        actor_role: (req as any).user?.role || null,
+        action: 'staff_role_change',
+        entity_type: 'staff',
+        entity_id: String(req.params.id),
+        before_json: { role: member.role },
+        after_json: { role: targetRole },
+        ip: req.ip || null,
+        severity: 'warning',
+      });
+    }
+
+    if (pinChanged) {
+      recordAudit(db, {
+        actor_user_id: (req as any).user?.userId || null,
+        actor_role: (req as any).user?.role || null,
+        action: 'staff_pin_reset',
+        entity_type: 'staff',
+        entity_id: String(req.params.id),
+        before_json: null,
+        after_json: { pin_reset: true },
+        ip: req.ip || null,
+        severity: 'warning',
+      });
+    }
+
     const updated = db.prepare(
       `SELECT ${STAFF_SELECT_FIELDS} FROM users WHERE id = ?`
     ).get(req.params.id);
@@ -291,6 +332,19 @@ router.post('/:id/deactivate', requireRole(...ROLE_ACCESS.ownerManager), (req: R
       return res.status(400).json({ error: 'Cannot deactivate the last owner account' });
     }
     invalidateUserAuthCache(req.params.id as string);
+
+    recordAudit(db, {
+      actor_user_id: (req as any).user?.userId || null,
+      actor_role: (req as any).user?.role || null,
+      action: 'staff_deactivate',
+      entity_type: 'staff',
+      entity_id: String(req.params.id),
+      before_json: { is_active: 1, role: member.role },
+      after_json: { is_active: 0 },
+      ip: req.ip || null,
+      severity: 'warning',
+    });
+
     const updated = db.prepare(
       `SELECT ${STAFF_SELECT_FIELDS} FROM users WHERE id = ?`
     ).get(req.params.id);
@@ -314,6 +368,19 @@ router.post('/:id/reactivate', requireRole(...ROLE_ACCESS.ownerManager), (req: R
 
     db.prepare('UPDATE users SET is_active = 1, updated_at = ? WHERE id = ?').run(now(), req.params.id);
     invalidateUserAuthCache(req.params.id as string);
+
+    recordAudit(db, {
+      actor_user_id: (req as any).user?.userId || null,
+      actor_role: (req as any).user?.role || null,
+      action: 'staff_create',
+      entity_type: 'staff',
+      entity_id: String(req.params.id),
+      before_json: { is_active: 0 },
+      after_json: { is_active: 1, role: member.role },
+      ip: req.ip || null,
+      severity: 'warning',
+    });
+
     const updated = db.prepare(
       `SELECT ${STAFF_SELECT_FIELDS} FROM users WHERE id = ?`
     ).get(req.params.id);
