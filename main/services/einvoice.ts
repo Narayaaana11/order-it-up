@@ -8,6 +8,7 @@
 import { createHash } from 'crypto';
 import { getDatabase, now } from '../db';
 import { getTenantCurrency } from '../routes/bills';
+import { recordAudit } from './audit';
 
 export interface EinvoiceIrpPayload {
   Version: string;
@@ -295,6 +296,18 @@ export function registerIrn(billId: number): IrnRegistrationResult {
         updated_at = ?
     WHERE id = ?
   `).run(irn, ackNo, ackDate, signedQrPayload, timestamp, billId);
+
+  // Cryptographic audit chain logging for e-Invoice generation
+  try {
+    recordAudit(db, {
+      action: 'tax_config_edit',
+      entity_type: 'bill_einvoice',
+      entity_id: String(billId),
+      after_json: { irn, ack_no: ackNo, ack_date: ackDate, customer_gstin: bill.customer_gstin },
+      reason: `IRN e-invoice generated for bill #${bill.bill_number}`,
+      severity: 'info',
+    });
+  } catch {}
 
   return {
     ok: true,

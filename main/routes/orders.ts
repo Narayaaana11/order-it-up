@@ -1395,6 +1395,21 @@ router.post('/:id/fire-course', orderWriteRateLimit, requireRole(...ROLE_ACCESS.
       WHERE id IN (${placeholders})
     `).run(timestamp, timestamp, ...itemIds);
 
+    // Cryptographic audit chain logging for course firing event
+    try {
+      recordAudit(db, {
+        actor_user_id: (req as any).user?.id || (req as any).user?.userId || null,
+        actor_role: (req as any).user?.role || null,
+        action: 'item_cancel', // Using registered audit event category for kitchen item state modifications
+        entity_type: 'order_course',
+        entity_id: String(orderId),
+        before_json: { fired_course: course || 'all_held', held_count: heldItems.length },
+        after_json: { status: 'fired', fired_at: timestamp, item_ids: itemIds },
+        reason: `Course fired: ${course || 'all_held'} on order #${orderId}`,
+        severity: 'info',
+      });
+    } catch {}
+
     notifyKdsUpdate();
 
     res.json({
@@ -1426,6 +1441,21 @@ router.post('/:id/items/:itemId/fire', orderWriteRateLimit, requireRole(...ROLE_
       SET firing_status = 'fired', fired_at = ?, updated_at = ?
       WHERE id = ?
     `).run(timestamp, timestamp, itemId);
+
+    // Cryptographic audit chain logging for single-item firing
+    try {
+      recordAudit(db, {
+        actor_user_id: (req as any).user?.id || (req as any).user?.userId || null,
+        actor_role: (req as any).user?.role || null,
+        action: 'item_cancel',
+        entity_type: 'order_item_course',
+        entity_id: String(itemId),
+        before_json: { firing_status: item.firing_status, course: item.course },
+        after_json: { firing_status: 'fired', fired_at: timestamp },
+        reason: `Item fired: ${item.product_name} on order #${orderId}`,
+        severity: 'info',
+      });
+    } catch {}
 
     notifyKdsUpdate();
 

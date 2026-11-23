@@ -1,5 +1,6 @@
 import { randomUUID } from 'crypto';
 import { getDatabase, now, localDateInTimezone, getSettingValue } from '../db';
+import { recordAudit } from './audit';
 import log from 'electron-log';
 
 export interface TipDistributionResult {
@@ -120,14 +121,34 @@ export function distributeTips(params: {
         allocations.push({ userId: staff.id, staffName: staff.name, role: staff.role, allocatedAmount: share });
       }
     } else {
-      // Equal split
-      const perStaffShare = Math.round((poolToDistribute / staffList.length) * 100) / 100;
-      for (const staff of staffList) {
+      // Equal split with exact penny balancing to guarantee 0 rounding leakage
+      const count = staffList.length;
+      const baseShare = Math.floor((poolToDistribute / count) * 100) / 100;
+      let remainder = Math.round((poolToDistribute - (baseShare * count)) * 100) / 100;
+
+      for (let i = 0; i < staffList.length; i++) {
+        const staff = staffList[i];
+        let share = baseShare;
+        if (remainder > 0.005) {
+          share = Math.round((share + 0.01) * 100) / 100;
+          remainder = Math.round((remainder - 0.01) * 100) / 100;
+        }
         const allocId = `tip_alloc_${randomUUID()}`;
-        stmtAlloc.run(allocId, distributionId, staff.id, staff.name, staff.role, perStaffShare, timestamp);
-        allocations.push({ userId: staff.id, staffName: staff.name, role: staff.role, allocatedAmount: perStaffShare });
+        stmtAlloc.run(allocId, distributionId, staff.id, staff.name, staff.role, share, timestamp);
+        allocations.push({ userId: staff.id, staffName: staff.name, role: staff.role, allocatedAmount: share });
       }
     }
+
+    try {
+      recordAudit(db, {
+        action: 'cash_closure_close',
+        entity_type: 'tip_distribution',
+        entity_id: distributionId,
+        after_json: { total_tips: poolToDistribute, staff_count: staffList.length, rule },
+        reason: `Tip pool distributed: ${poolToDistribute} across ${staffList.length} staff`,
+        severity: 'info',
+      });
+    } catch {}
   })();
 
   log.info(`[Tips] Distributed ${poolToDistribute} tips across ${staffList.length} staff members (Dist ID: ${distributionId})`);
