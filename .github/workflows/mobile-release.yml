@@ -13,10 +13,18 @@ jobs:
   build-apk:
     name: Build Flutter Android Release APK
     runs-on: ubuntu-latest
+    env:
+      ANDROID_HOME: /usr/local/lib/android/sdk
+      ANDROID_SDK_ROOT: /usr/local/lib/android/sdk
 
     steps:
       - name: Checkout Repository
         uses: actions/checkout@v4
+
+      - name: Configure Android SDK Permissions & Licenses
+        run: |
+          sudo chown -R $USER:$USER "$ANDROID_HOME"
+          yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
 
       - name: Set up Java JDK
         uses: actions/setup-java@v4
@@ -33,6 +41,9 @@ jobs:
 
       - name: Verify Flutter Installation
         run: flutter doctor -v
+
+      - name: Accept Android Licenses
+        run: yes | flutter doctor --android-licenses || true
 
       - name: Get Dependencies
         working-directory: mobile

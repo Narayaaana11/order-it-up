@@ -77,12 +77,15 @@ jobs:
           retention-days: 14
 
       - name: Create draft GitHub release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/') || (github.event_name == 'workflow_dispatch' && inputs.tag != '')
         shell: bash
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          TAG="${GITHUB_REF_NAME}"
+          TAG="${{ inputs.tag }}"
+          if [ -z "$TAG" ]; then
+            TAG="${GITHUB_REF_NAME}"
+          fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "::error::Release ${TAG} already exists; refusing to overwrite it."
             exit 1
