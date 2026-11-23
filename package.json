@@ -125,7 +125,7 @@
                     "test:print-kernel":  "ts-node --transpile-only -P tests/tsconfig.json tests/print-kernel.test.ts \u0026\u0026 ts-node --transpile-only -P tests/tsconfig.json tests/kernel-purity.test.ts \u0026\u0026 ts-node --transpile-only -P tests/tsconfig.json tests/print-language-settings.test.ts",
                     "test:thermal-capabilities":  "ts-node --transpile-only -P tests/tsconfig.json tests/thermal-capabilities.test.ts \u0026\u0026 ts-node --transpile-only -P tests/tsconfig.json tests/windows-print-stderr.test.ts \u0026\u0026 ts-node --transpile-only -P tests/tsconfig.json tests/printer-error-toast-clarity.test.ts \u0026\u0026 ts-node --transpile-only -P tests/tsconfig.json tests/network-print-chunking.test.ts",
                     "test:raster":  "ts-node --transpile-only -P tests/tsconfig.json tests/raster-printing.test.ts \u0026\u0026 npm run test:raster-electron",
-                    "test:raster-electron":  "npm run build \u0026\u0026 electron --no-sandbox tests/raster-renderer-electron.test.cjs",
+                    "test:raster-electron":  "npm run build \u0026\u0026 node tests/run-raster-test.cjs",
                     "test:cancel-override":  "node tests/run-electron-node-test.cjs tests/cancel-override.test.ts \u0026\u0026 node tests/run-electron-node-test.cjs tests/manager-pin-rate-limit-bypass.test.ts",
                     "test:refunds":  "node tests/run-electron-node-test.cjs tests/refunds.test.ts",
                     "test:cash-closures":  "node tests/run-electron-node-test.cjs tests/cash-closures.test.ts",

@@ -98,6 +98,9 @@ jobs:
       - name: Refund Authorization, Payment Window & Ledger Integrity
         run: npm run test:refunds
 
+      - name: Raster Printing & Chromium Raster Surface Tests
+        run: npm run test:raster
+
       - name: Cloud Public QR Pricing, Approval, Tracking & Token Rotation
         run: npm run test:cloud-public-qr
 
