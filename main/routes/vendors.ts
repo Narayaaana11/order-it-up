@@ -4,6 +4,7 @@ import { getDatabase, now } from '../db';
 import { requireRole } from '../middleware/security';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { asyncHandler } from '../middleware/async-handler';
+import { recordAudit } from '../services/audit';
 
 const router = Router();
 
@@ -224,6 +225,19 @@ router.post('/purchases', requireRole(...ROLE_ACCESS.ownerManager), asyncHandler
       db.prepare('UPDATE vendors SET balance = balance + ?, updated_at = ? WHERE id = ?')
         .run(balanceDelta, timestamp, vendor_id);
     }
+
+    try {
+      recordAudit(db, {
+        actor_user_id: (req as any).user?.id || (req as any).user?.userId || null,
+        actor_role: (req as any).user?.role || null,
+        action: 'product_stock_change',
+        entity_type: 'purchase_order',
+        entity_id: poId,
+        after_json: { po_number: poNumber, total_amount: totalAmount, items_count: items.length },
+        reason: `Purchase Order GRN ${poNumber} received and stock incremented`,
+        severity: 'info',
+      });
+    } catch {}
   })();
 
   res.status(201).json({

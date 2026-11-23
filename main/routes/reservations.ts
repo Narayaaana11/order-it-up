@@ -4,6 +4,7 @@ import { getDatabase, now, getSettingValue, localDateInTimezone } from '../db';
 import { requireRole } from '../middleware/security';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { asyncHandler } from '../middleware/async-handler';
+import { recordAudit } from '../services/audit';
 
 const router = Router();
 
@@ -192,6 +193,20 @@ router.patch('/waitlist/:id/status', requireRole(...ROLE_ACCESS.ownerManagerCash
       SET status = ?, notified_at = ?, seated_at = ?, seated_table_id = ?, updated_at = ?
       WHERE id = ?
     `).run(status, notifiedAt, seatedAt, seatedTableId, timestamp, id);
+
+    try {
+      recordAudit(db, {
+        actor_user_id: (req as any).user?.id || (req as any).user?.userId || null,
+        actor_role: (req as any).user?.role || null,
+        action: 'settings_change',
+        entity_type: 'table_waitlist',
+        entity_id: Array.isArray(id) ? id[0] : String(id),
+        before_json: { status: existing.status, seated_table_id: existing.seated_table_id },
+        after_json: { status, seated_table_id: seatedTableId },
+        reason: `Waitlist entry ${existing.customer_name} updated to ${status}${table_id ? ` at table ${table_id}` : ''}`,
+        severity: 'info',
+      });
+    } catch {}
   })();
 
   const updated = db.prepare(`
