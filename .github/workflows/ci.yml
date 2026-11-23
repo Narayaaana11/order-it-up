@@ -230,7 +230,8 @@ jobs:
 
       - name: Verify Formatting
         working-directory: mobile
-        run: dart format . --set-exit-if-changed || (echo "Warning: formatting drift detected; formatting files automatically" && dart format .)
+        run: |
+          dart format . --set-exit-if-changed || (echo "Formatting drift detected in mobile" && dart format .)
 
       - name: Static Analysis
         working-directory: mobile
