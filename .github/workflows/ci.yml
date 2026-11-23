@@ -224,6 +224,9 @@ jobs:
       - name: Verify Flutter Installation
         run: flutter doctor -v
 
+      - name: Accept Android Licenses
+        run: yes | flutter doctor --android-licenses || true
+
       - name: Get Dependencies
         working-directory: mobile
         run: flutter pub get
@@ -259,6 +262,7 @@ jobs:
           node-version: 22.x
           cache: npm
           cache-dependency-path: |
+            package-lock.json
             frontend/package-lock.json
             tablet-android/package-lock.json
 
@@ -272,6 +276,9 @@ jobs:
         run: |
           yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses || true
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0" || true
+
+      - name: Install Root Dependencies
+        run: npm ci
 
       - name: Install Frontend Dependencies
         working-directory: frontend
