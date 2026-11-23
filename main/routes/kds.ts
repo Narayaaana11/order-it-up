@@ -3,6 +3,7 @@ import { getDatabase, getKdsStationCategoryIds, getKdsStationRoutingScope, getUs
 import * as crypto from 'crypto';
 import { randomUUID } from 'crypto';
 import { requireRole, requireKdsEnabled, requireKdsEnabledOr404, isTokenRevoked, isTokenStale } from '../middleware/security';
+import { requireSubscriptionFeature } from '../middleware/subscription-gate';
 import { parseCategoryIds } from './auth';
 import { notifyKdsUpdate } from '../services/kds';
 import { ROLE_ACCESS, hasRole } from '../../shared/role-permissions';
@@ -38,6 +39,7 @@ function getKdsUserCategoryIds(db: ReturnType<typeof getDatabase>, req: Request)
 // Return 404 on pairing endpoints when KDS is disabled before checking roles.
 router.use('/pairing', requireKdsEnabledOr404);
 
+router.use(requireSubscriptionFeature('kdsStations'));
 router.use(requireRole(...ROLE_ACCESS.kitchen));
 
 router.get('/orders', requireKdsEnabled, (req: Request, res: Response) => {

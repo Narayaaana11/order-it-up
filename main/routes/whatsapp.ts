@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { requireRole } from '../middleware/security';
+import { requireSubscriptionFeature } from '../middleware/subscription-gate';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { asyncHandler } from '../middleware/async-handler';
 import { getDatabase, getSettingValue, upsertSettings } from '../db';
@@ -70,7 +71,7 @@ router.post('/disable', requireRole(...ROLE_ACCESS.ownerManager), (_req: Request
   res.json({ ok: true });
 });
 
-router.post('/connect', requireRole(...ROLE_ACCESS.ownerManager), asyncHandler(async (req, res) => {
+router.post('/connect', requireRole(...ROLE_ACCESS.ownerManager), requireSubscriptionFeature('whatsappReceipts'), asyncHandler(async (req, res) => {
   const { method, phone } = req.body ?? {};
   if (method === 'qr') {
     res.json(await trackHttpRequestWork(req, whatsapp.connectWithQr(getHttpRequestSignal(req))));
@@ -96,7 +97,7 @@ router.post('/disconnect', requireRole(...ROLE_ACCESS.ownerManager), (_req: Requ
   res.json({ ok: true });
 });
 
-router.post('/send', requireRole(...ROLE_ACCESS.ownerManagerCashier), asyncHandler(async (req, res) => {
+router.post('/send', requireRole(...ROLE_ACCESS.ownerManagerCashier), requireSubscriptionFeature('whatsappReceipts'), asyncHandler(async (req, res) => {
   const { bill_id, phone_e164, body, kind } = req.body ?? {};
   if (!phone_e164) {
     res.status(400).json({ error: 'phone_e164 required', reason: 'phone_required' });

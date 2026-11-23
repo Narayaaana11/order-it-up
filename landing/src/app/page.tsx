@@ -4,6 +4,7 @@ import Hero from "@/components/Hero";
 import HardwareMarquee from "@/components/HardwareMarquee";
 import TrustMetrics from "@/components/TrustMetrics";
 import FeaturesGrid from "@/components/FeaturesGrid";
+import PricingSection from "@/components/PricingSection";
 import OfflineArchitecture from "@/components/OfflineArchitecture";
 import UiPreviews from "@/components/UiPreviews";
 import RolePersonas from "@/components/RolePersonas";
@@ -39,6 +40,9 @@ export default function Home() {
 
         {/* Realistic Interactive UI Previews: Cart Simulator, KDS Ticket, Thermal Receipt */}
         <UiPreviews />
+
+        {/* Subscription Plans & Pricing */}
+        <PricingSection />
 
         {/* Multi-Role Operational Personas */}
         <RolePersonas />

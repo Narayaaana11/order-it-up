@@ -39,9 +39,73 @@ export const UNSPLASH_ASSETS = {
 
 export const NAV_LINKS = [
   { label: "Features", href: "#features" },
+  { label: "Pricing & Plans", href: "#pricing" },
   { label: "Interactive Demo", href: "#ui-preview" },
   { label: "Role Personas", href: "#roles" },
   { label: "Hardware & Specs", href: "#specs" },
+];
+
+export const PRICING_PLANS = [
+  {
+    id: "starter",
+    name: "Starter",
+    badge: "Solo Counters & Cafes",
+    monthlyPrice: 499,
+    yearlyPrice: 4999,
+    description: "Essential offline billing and thermal printing for single-counter cafes, quick-service stalls, and food trucks.",
+    popular: false,
+    features: [
+      { text: "1 POS Terminal license", included: true },
+      { text: "Core sub-second billing & invoicing", included: true },
+      { text: "Direct ESC/POS thermal printing (58/80mm)", included: true },
+      { text: "Daily cash register & shift closures", included: true },
+      { text: "Local SQLite offline data storage", included: true },
+      { text: "Kitchen Display System (KDS)", included: false },
+      { text: "Cloud sync & multi-branch HQ", included: false },
+      { text: "WhatsApp digital receipts", included: false },
+    ],
+    ctaText: "Get Started",
+  },
+  {
+    id: "pro",
+    name: "Professional",
+    badge: "Most Popular • Dine-in & QSR",
+    monthlyPrice: 1299,
+    yearlyPrice: 12999,
+    description: "Full-scale restaurant management with multi-station kitchen routing, cloud sync, and digital guest receipts.",
+    popular: true,
+    features: [
+      { text: "Up to 5 POS & Waiter terminals", included: true },
+      { text: "Kitchen Display System (KDS) & KOT routing", included: true },
+      { text: "Cloud HQ sync & multi-device relay", included: true },
+      { text: "WhatsApp itemized digital receipts", included: true },
+      { text: "Ingredient inventory & recipe costing", included: true },
+      { text: "Table floorplan management & turnover tracking", included: true },
+      { text: "Staff role permissions & shift audit trails", included: true },
+      { text: "Multi-outlet central management", included: false },
+    ],
+    ctaText: "Start 14-Day Free Trial",
+  },
+  {
+    id: "enterprise",
+    name: "Enterprise",
+    badge: "Chains & Multi-Outlet Brands",
+    monthlyPrice: 2999,
+    yearlyPrice: 29999,
+    description: "Centralized HQ controls, multi-outlet menu catalogs, inter-branch transfers, and offline asymmetric licensing.",
+    popular: false,
+    features: [
+      { text: "Up to 50 Terminals across outlets", included: true },
+      { text: "Multi-outlet central catalog & price overrides", included: true },
+      { text: "Inter-branch stock & inventory transfers", included: true },
+      { text: "Zomato / Swiggy online aggregator sync", included: true },
+      { text: "Offline Ed25519 asymmetric cryptographic license", included: true },
+      { text: "Custom fiscal tax packs & compliance reports", included: true },
+      { text: "Consolidated chain financial analytics", included: true },
+      { text: "24/7 Priority support & dedicated deployment SLA", included: true },
+    ],
+    ctaText: "Contact Enterprise Sales",
+  },
 ];
 
 export const TRUST_METRICS = [

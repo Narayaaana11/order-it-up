@@ -6,9 +6,12 @@
 import { Router, Request, Response } from 'express';
 import { getDatabase } from '../db';
 import { requireRole } from '../middleware/security';
+import { requireSubscriptionFeature } from '../middleware/subscription-gate';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 
 export const cloudHqRoutes = Router();
+
+cloudHqRoutes.use(requireSubscriptionFeature('cloudSync'));
 
 // In-memory / persistent cache for branch overrides and stock transfers
 const branchOverridesMap = new Map<string, { price_override?: number | null; is_available?: boolean }>();

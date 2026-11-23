@@ -2,11 +2,14 @@ import { Router, Request, Response } from 'express';
 import { randomUUID } from 'crypto';
 import { getDatabase, now } from '../db';
 import { requireRole } from '../middleware/security';
+import { requireSubscriptionFeature } from '../middleware/subscription-gate';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { asyncHandler } from '../middleware/async-handler';
 import { calculateProductRecipeCost, getLowStockIngredients } from '../services/inventory-engine';
 
 const router = Router();
+
+router.use(requireSubscriptionFeature('inventoryTracking'));
 
 // ── Raw Ingredients ─────────────────────────────────────────────────────────
 

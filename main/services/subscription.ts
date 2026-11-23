@@ -37,6 +37,15 @@ export interface SubscriptionInfo {
   storeId: string;
 }
 
+export interface CloudSubscriptionPayload {
+  status?: string;
+  plan?: string;
+  trial_ends_at?: string | null;
+  current_period_end?: string | null;
+  grace_period_end?: string | null;
+  license_key?: string | null;
+}
+
 export const PLAN_DEFINITIONS: Record<SubscriptionPlan, PlanEntitlements> = {
   starter: {
     maxTerminals: 1,
@@ -229,6 +238,69 @@ class SubscriptionService {
     })();
 
     log.info('[SubscriptionService] Updated subscription status:', updates);
+  }
+
+  /**
+   * Synchronize local subscription status from Cloud API
+   */
+  public syncFromCloud(cloudSub: CloudSubscriptionPayload): boolean {
+    if (!cloudSub || typeof cloudSub !== 'object') return false;
+
+    const validStatuses: SubscriptionStatus[] = [
+      'trial', 'active', 'past_due', 'grace_period', 'suspended', 'cancelled', 'expired'
+    ];
+    const validPlans: SubscriptionPlan[] = ['starter', 'pro', 'enterprise'];
+
+    const updates: {
+      status?: SubscriptionStatus;
+      plan?: SubscriptionPlan;
+      currentPeriodEnd?: string | null;
+      licenseKey?: string | null;
+    } = {};
+
+    if (cloudSub.status && validStatuses.includes(cloudSub.status as SubscriptionStatus)) {
+      updates.status = cloudSub.status as SubscriptionStatus;
+    }
+
+    if (cloudSub.plan && validPlans.includes(cloudSub.plan as SubscriptionPlan)) {
+      updates.plan = cloudSub.plan as SubscriptionPlan;
+    }
+
+    if (cloudSub.current_period_end !== undefined) {
+      updates.currentPeriodEnd = cloudSub.current_period_end;
+    }
+
+    if (cloudSub.license_key !== undefined) {
+      updates.licenseKey = cloudSub.license_key;
+    }
+
+    const sqlite = getDatabase();
+    const timestamp = now();
+    const upsert = sqlite.prepare(`
+      INSERT INTO settings (key, value, updated_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(key) DO UPDATE SET value = excluded.value, updated_at = excluded.updated_at
+    `);
+
+    sqlite.transaction(() => {
+      if (updates.status) upsert.run('subscription_status', updates.status, timestamp);
+      if (updates.plan) upsert.run('subscription_plan', updates.plan, timestamp);
+      if (updates.currentPeriodEnd !== undefined) {
+        upsert.run('subscription_period_end', updates.currentPeriodEnd || '', timestamp);
+      }
+      if (updates.licenseKey !== undefined) {
+        upsert.run('subscription_license_key', updates.licenseKey || '', timestamp);
+      }
+      if (cloudSub.trial_ends_at !== undefined) {
+        upsert.run('subscription_trial_expires_at', cloudSub.trial_ends_at || '', timestamp);
+      }
+      if (cloudSub.grace_period_end !== undefined) {
+        upsert.run('subscription_grace_period_end', cloudSub.grace_period_end || '', timestamp);
+      }
+    })();
+
+    log.info('[SubscriptionService] Synchronized subscription from cloud:', cloudSub);
+    return true;
   }
 
   private getDefaultTrialInfo(): SubscriptionInfo {

@@ -2,9 +2,12 @@ import { Router, Request, Response } from 'express';
 import { randomUUID } from 'node:crypto';
 import { getDatabase, now } from '../db';
 import { requireRole } from '../middleware/security';
+import { requireSubscriptionFeature } from '../middleware/subscription-gate';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 
 const router = Router();
+
+router.use(requireSubscriptionFeature('kdsStations'));
 
 router.get('/', (req: Request, res: Response) => {
   try {

@@ -5,9 +5,11 @@ import { useRouter } from "next/navigation";
 import {
   Activity, CalendarDays, ChefHat, CircleDollarSign, ClipboardList, LoaderCircle,
   Package, Plus, Receipt, RefreshCw, Store, Truck, Utensils, Wallet, X,
+  Users, UserCheck, Building2, QrCode, Printer, Split, Check, Search, KeyRound, Copy
 } from "lucide-react";
 import type { AuthUser } from "@/lib/auth";
 import { getCloudApiBase, setStoredUser } from "@/lib/auth";
+import { ThermalReceiptModal, ReceiptOrder } from "./ThermalReceiptModal";
 
 type Branch = { id: string; name: string; status?: string };
 type Product = { id: string; name: string; base_price: number; is_active?: number; addon_groups?: AddonGroup[] };
@@ -25,7 +27,12 @@ type DeliveryJob = { id: string; order_id: string; order_number?: string; status
 type ShiftSummary = { opened_at: string; closed_at: string; business_date: string; opening_cash: number; cash_sales: number; card_sales: number; upi_sales: number; other_sales: number; expected_cash: number; order_count: number; payment_count: number };
 type PaymentCapabilities = { cash: boolean; card: boolean; upi: boolean; provider: string | null; configured: boolean; reason: string | null };
 type Closure = { id: string; closure_date: string; expected_cash: number; actual_cash: number; variance: number; closed_by: string; closed_at: string };
-type TabKey = "floor" | "reservations" | "kitchen" | "cashier" | "inventory" | "expenses" | "delivery" | "reports";
+
+type StaffMember = { id: string; name: string; email: string | null; role: string; is_active: number; branch_id: string | null; created_at: string };
+type Customer = { id: string; name: string; phone: string; email?: string | null; notes?: string | null; total_spent?: number; visits_count?: number; last_visit_at?: string | null };
+type Vendor = { id: string; name: string; contact_person?: string | null; phone?: string | null; email?: string | null; gstin?: string | null; address?: string | null; balance?: number; status?: string };
+
+type TabKey = "floor" | "reservations" | "kitchen" | "cashier" | "inventory" | "expenses" | "delivery" | "reports" | "staff" | "customers" | "vendors";
 
 const money = (value: number) => `₹${Number(value || 0).toFixed(2)}`;
 const todayIso = () => new Date().toISOString().slice(0, 10);
@@ -83,6 +90,9 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
   const canDelivery = ["owner", "admin", "manager", "branch_manager", "super_admin", "cashier", "delivery"].includes(role);
   const canReports = ["owner", "admin", "manager", "branch_manager", "super_admin", "accountant"].includes(role);
   const canCreateOrder = ["owner", "admin", "manager", "branch_manager", "super_admin", "cashier", "server", "waiter"].includes(role);
+  const canStaff = ["owner", "admin", "manager", "branch_manager", "super_admin"].includes(role);
+  const canCustomers = ["owner", "admin", "manager", "branch_manager", "super_admin", "cashier", "server", "waiter"].includes(role);
+  const canVendors = ["owner", "admin", "manager", "branch_manager", "super_admin"].includes(role);
 
   const tabs = useMemo(() => {
     const list: { key: TabKey; label: string; icon: React.ReactNode }[] = [];
@@ -93,9 +103,12 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
     if (canInventory) list.push({ key: "inventory", label: "Inventory", icon: <Package size={16} /> });
     if (canExpenses) list.push({ key: "expenses", label: "Expenses", icon: <Receipt size={16} /> });
     if (canDelivery) list.push({ key: "delivery", label: "Delivery", icon: <Truck size={16} /> });
+    if (canCustomers) list.push({ key: "customers", label: "Customers", icon: <UserCheck size={16} /> });
+    if (canVendors) list.push({ key: "vendors", label: "Vendors", icon: <Building2 size={16} /> });
+    if (canStaff) list.push({ key: "staff", label: "Staff", icon: <Users size={16} /> });
     if (canReports) list.push({ key: "reports", label: "Reports", icon: <ClipboardList size={16} /> });
     return list;
-  }, [canCashier, canDelivery, canExpenses, canFloor, canInventory, canKitchen, canReports]);
+  }, [canCashier, canCustomers, canDelivery, canExpenses, canFloor, canInventory, canKitchen, canReports, canStaff, canVendors]);
 
   const [tab, setTab] = useState<TabKey>(() => {
     if (role === "cashier") return "cashier";
@@ -123,6 +136,22 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
   const [report, setReport] = useState<Record<string, unknown> | null>(null);
   const [taxRows, setTaxRows] = useState<Record<string, unknown>[]>([]);
 
+  // Staff, Customer & Vendor state
+  const [staffList, setStaffList] = useState<StaffMember[]>([]);
+  const [staffForm, setStaffForm] = useState({ name: "", email: "", password: "", role: "server", branch_id: "" });
+  const [customerList, setCustomerList] = useState<Customer[]>([]);
+  const [customerSearch, setCustomerSearch] = useState("");
+  const [customerForm, setCustomerForm] = useState({ name: "", phone: "", email: "", notes: "" });
+  const [vendorList, setVendorList] = useState<Vendor[]>([]);
+  const [vendorForm, setVendorForm] = useState({ name: "", contact_person: "", phone: "", email: "", gstin: "", address: "" });
+
+  // Interactive Modals State
+  const [selectedReceiptOrder, setSelectedReceiptOrder] = useState<ReceiptOrder | null>(null);
+  const [selectedQrTable, setSelectedQrTable] = useState<Table | null>(null);
+  const [splitOrder, setSplitOrder] = useState<Order | null>(null);
+  const [splitAmounts, setSplitAmounts] = useState<{ cash: string; cardUpi: string }>({ cash: "0", cardUpi: "0" });
+  const [qrCopied, setQrCopied] = useState(false);
+
   const [reservationDate, setReservationDate] = useState(todayIso());
   const [expenseDate, setExpenseDate] = useState(todayIso());
   const [loading, setLoading] = useState(true);
@@ -138,57 +167,76 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
   const [selectedAddons, setSelectedAddons] = useState<Record<string, string[]>>({});
   const [draft, setDraft] = useState<DraftLine[]>([]);
 
-  const [expenseForm, setExpenseForm] = useState({ description: "", amount: "", category_id: "", payment_method: "cash", expense_date: todayIso() });
-  const [categoryName, setCategoryName] = useState("");
-  const [ingredientForm, setIngredientForm] = useState({ name: "", unit: "kg", current_stock: "0", minimum_stock: "0", cost_per_unit: "0" });
-  const [adjusting, setAdjusting] = useState<{ id: string; type: "increase" | "decrease" | "set"; quantity: string } | null>(null);
-  const [reservationForm, setReservationForm] = useState({ customer_name: "", customer_phone: "", guest_count: "2", reservation_date: todayIso(), reservation_time: "19:00", table_id: "", notes: "" });
-  const [deliveryForm, setDeliveryForm] = useState({ order_id: "", address: "", cod_amount: "0" });
-  const [assigning, setAssigning] = useState<{ id: string; name: string; phone: string } | null>(null);
-  const [shiftForm, setShiftForm] = useState({ actual_cash: "", notes: "" });
+  const [reservationForm, setReservationForm] = useState({
+    customer_name: "",
+    customer_phone: "",
+    guest_count: 2,
+    reservation_date: todayIso(),
+    reservation_time: "19:30",
+    table_id: "",
+    notes: "",
+  });
 
-  const selectedProduct = products.find((product) => product.id === productId);
+  const [ingredientForm, setIngredientForm] = useState({
+    name: "",
+    unit: "kg",
+    current_stock: "0",
+    minimum_stock: "0",
+    cost_per_unit: "0",
+  });
 
-  useEffect(() => {
-    const expireSession = () => router.replace("/");
-    window.addEventListener("orderitup_cloud_session_expired", expireSession);
-    return () => window.removeEventListener("orderitup_cloud_session_expired", expireSession);
-  }, [router]);
+  const [adjusting, setAdjusting] = useState<{ id: string; name: string; unit: string } | null>(null);
+  const [adjustmentQuantity, setAdjustmentQuantity] = useState("1");
+  const [adjustmentReason, setAdjustmentReason] = useState("Restock");
+
+  const [expenseForm, setExpenseForm] = useState({
+    description: "",
+    amount: "0",
+    category_id: "",
+    payment_method: "cash",
+  });
+
+  const [shiftForm, setShiftForm] = useState({
+    actual_cash: "0",
+    notes: "",
+  });
+
+  const activeBranch = branches.find((branch) => branch.id === branchId) || branches[0];
+  const availableTables = useMemo(() => tables.filter((table) => table.status === "available"), [tables]);
+  const currentProduct = useMemo(() => products.find((product) => product.id === productId), [products, productId]);
 
   const loadBranches = useCallback(async () => {
     const result = await cloudRequest<{ branches?: Branch[] }>(user, "/api/branches");
     const list = result.branches || [];
     setBranches(list);
-    setBranchId((current) => current && list.some((branch) => branch.id === current) ? current : list[0]?.id || "");
-  }, [user]);
+    if (list[0]?.id && !branchId) setBranchId(list[0].id);
+    return list;
+  }, [branchId, user]);
 
   const loadCatalog = useCallback(async (id: string) => {
-    if (!id || !canCreateOrder) return;
-    const [masterResult, branchResult] = await Promise.all([
-      cloudRequest<{ products?: Product[] }>(user, "/api/catalog/master"),
-      cloudRequest<{ catalog?: Record<string, unknown>[] }>(user, `/api/catalog/branch/${encodeURIComponent(id)}`),
-    ]);
-    const effective = new Map((branchResult.catalog || []).map((item) => [String(item.id), item]));
-    const available = (masterResult.products || []).filter((product) => {
-      const branchItem = effective.get(product.id);
-      return Number(product.is_active ?? 1) === 1 && Number(branchItem?.is_available ?? 1) === 1;
-    }).map((product) => ({ ...product, base_price: Number(effective.get(product.id)?.effective_price ?? product.base_price) }));
-    setProducts(available);
-    setProductId((current) => current && available.some((item) => item.id === current) ? current : available[0]?.id || "");
-  }, [canCreateOrder, user]);
+    if (!id) return;
+    const result = await cloudRequest<{ catalog?: { categories?: { products?: Product[] }[] } }>(
+      user,
+      `/api/catalog/effective?branch_id=${encodeURIComponent(id)}`,
+    );
+    const catalogProducts = (result.catalog?.categories || []).flatMap((category) => category.products || []);
+    setProducts(catalogProducts.filter((product) => (product.is_active ?? 1) === 1));
+  }, [user]);
 
   const refreshOperational = useCallback(async (id: string) => {
     if (!id) return;
     const failures: unknown[] = [];
-    if (canFloor || canCashier || canKitchen || canDelivery) {
-      const [ordersResult, tablesResult] = await Promise.allSettled([
-        cloudRequest<{ orders?: Order[] }>(user, `/api/orders?branch_id=${encodeURIComponent(id)}&status=active&limit=50`),
-        cloudRequest<{ tables?: Table[] }>(user, `/api/tables?branch_id=${encodeURIComponent(id)}`),
-      ]);
-      if (ordersResult.status === "fulfilled") setOrders(ordersResult.value.orders || []);
-      else failures.push(ordersResult.reason);
-      if (tablesResult.status === "fulfilled") setTables(tablesResult.value.tables || []);
-      else failures.push(tablesResult.reason);
+    if (canFloor) {
+      try {
+        const tablesResult = await cloudRequest<{ tables?: Table[] }>(user, `/api/tables?branch_id=${encodeURIComponent(id)}`);
+        setTables(tablesResult.tables || []);
+      } catch (tableError) { failures.push(tableError); }
+    }
+    if (canFloor || canCashier) {
+      try {
+        const ordersResult = await cloudRequest<{ orders?: Order[] }>(user, `/api/orders?branch_id=${encodeURIComponent(id)}`);
+        setOrders(ordersResult.orders || []);
+      } catch (orderError) { failures.push(orderError); }
     }
     if (canKitchen) {
       try {
@@ -235,6 +283,15 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
         attempt(cloudRequest<PaymentCapabilities>(user, "/api/payments/capabilities"), (result) => setCapabilities(result)),
       ]);
     }
+    if (key === "staff") {
+      await attempt(cloudRequest<{ staff?: StaffMember[] }>(user, "/api/staff"), (result) => setStaffList(result.staff || []));
+    }
+    if (key === "customers") {
+      await attempt(cloudRequest<{ customers?: Customer[] }>(user, `/api/customers${customerSearch ? `?q=${encodeURIComponent(customerSearch)}` : ""}`), (result) => setCustomerList(result.customers || []));
+    }
+    if (key === "vendors") {
+      await attempt(cloudRequest<{ vendors?: Vendor[] }>(user, "/api/vendors"), (result) => setVendorList(result.vendors || []));
+    }
     if (key === "reports") {
       const date = todayIso();
       await Promise.all([
@@ -247,7 +304,7 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
     }
 
     if (failures.length) throw failures[0];
-  }, [expenseDate, reservationDate, role, user]);
+  }, [customerSearch, expenseDate, reservationDate, role, user]);
 
   const refresh = useCallback(async () => {
     setError("");
@@ -264,109 +321,92 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
   }, [branchId, branches.length, loadBranches, loadCatalog, loadTab, refreshOperational, tab]);
 
   useEffect(() => {
-    const timer = window.setTimeout(() => {
-      void loadBranches().catch((loadError) => setError(message(loadError))).finally(() => setLoading(false));
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [loadBranches]);
+    void refresh();
+  }, [refresh]);
 
-  useEffect(() => {
-    if (!branchId) return;
-    let cancelled = false;
-    const timer = window.setTimeout(() => {
-      setLoading(true);
-      void Promise.all([
-        refreshOperational(branchId),
-        loadCatalog(branchId),
-        loadTab(branchId, tab),
-      ]).catch((loadError) => setError(message(loadError)))
-        .finally(() => { if (!cancelled) setLoading(false); });
-    }, 0);
-    return () => { cancelled = true; window.clearTimeout(timer); };
-    // Data is intentionally reloaded when the branch or active tab changes.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [branchId, tab, reservationDate, expenseDate]);
-
-  useEffect(() => {
-    if (!branchId) return;
-    const interval = window.setInterval(() => {
-      void refreshOperational(branchId).catch(() => undefined);
-    }, 15000);
-    return () => window.clearInterval(interval);
-  }, [branchId, refreshOperational]);
-
-  const run = async (action: () => Promise<void>) => {
+  const run = async (task: () => Promise<void>) => {
     setBusy(true);
     setError("");
+    setNotice("");
     try {
-      await action();
-    } catch (actionError) {
-      setError(message(actionError));
+      await task();
+    } catch (taskError) {
+      setError(message(taskError));
     } finally {
       setBusy(false);
     }
   };
 
-  const addDraftLine = () => {
-    if (!selectedProduct) return;
-    const modifiers: DraftLine["modifiers"] = [];
-    for (const group of selectedProduct.addon_groups || []) {
-      const selected = selectedAddons[group.id] || [];
-      const minimum = Math.max(Number(group.min_selection) || 0, Number(group.is_required) ? 1 : 0);
-      if (selected.length < minimum || selected.length > Number(group.max_selection ?? 1)) {
-        setError(`Choose between ${minimum} and ${Number(group.max_selection ?? 1)} options from ${group.name}.`);
-        return;
+  const handleBranchSelect = (id: string) => {
+    setBranchId(id);
+    setTableId("");
+    setDraft([]);
+    void (async () => {
+      setLoading(true);
+      setError("");
+      try {
+        await Promise.all([refreshOperational(id), loadCatalog(id), loadTab(id, tab)]);
+      } catch (loadError) {
+        setError(message(loadError));
+      } finally {
+        setLoading(false);
       }
-      modifiers.push(...selected.map((id) => ({ id, quantity: 1 })));
-    }
-    setDraft((current) => [...current, { product_id: selectedProduct.id, quantity: Math.max(1, quantity), modifiers }]);
+    })();
+  };
+
+  const addLine = () => {
+    if (!productId) return;
+    const modifiers = Object.entries(selectedAddons).flatMap(([, ids]) => ids.map((id) => ({ id, quantity: 1 })));
+    setDraft((current) => [...current, { product_id: productId, quantity, modifiers }]);
+    setProductId("");
     setSelectedAddons({});
-    setError("");
+    setQuantity(1);
+  };
+
+  const removeLine = (index: number) => {
+    setDraft((current) => current.filter((_, lineIndex) => lineIndex !== index));
   };
 
   const submitOrder = async () => run(async () => {
-    if (!branchId || draft.length === 0) return;
-    if (orderType === "dine_in" && !tableId) throw new Error("Choose an available table for a dine-in order.");
-    if (orderType === "delivery" && !deliveryAddress.trim()) throw new Error("Enter the delivery address before sending this order.");
+    if (!branchId) return;
+    if (!draft.length) throw new Error("Add at least one item to submit an order.");
+    if (orderType === "dine_in" && !tableId) throw new Error("A dine-in order requires an available table.");
+    if (orderType === "delivery" && !deliveryAddress.trim()) throw new Error("A delivery order requires a drop-off address.");
 
-    const orderId = crypto.randomUUID();
-    const payload = {
-      id: orderId,
-      branch_id: branchId,
-      order_type: orderType,
-      table_id: tableId || undefined,
-      table_number: tables.find((table) => table.id === tableId)?.table_number,
-      items: draft,
-    };
-    const result = await cloudRequest<{ order?: Order }>(user, "/api/orders", { method: "POST", body: JSON.stringify(payload) });
-    if (!result.order?.id) throw new Error("Cloud did not confirm the order. Please retry.");
-
-    if (orderType === "delivery") {
-      await cloudRequest(user, "/api/delivery/jobs", {
-        method: "POST",
-        body: JSON.stringify({ order_id: result.order.id, address: deliveryAddress.trim() }),
-      });
-    }
+    const key = `orderitup.cloud-order:${user.id}:${Date.now()}`;
+    await cloudRequest(user, "/api/orders", {
+      method: "POST",
+      body: JSON.stringify({
+        branch_id: branchId,
+        order_type: orderType,
+        table_id: orderType === "dine_in" ? tableId : null,
+        delivery_address: orderType === "delivery" ? deliveryAddress : null,
+        items: draft,
+        idempotency_key: key,
+      }),
+    });
     setDraft([]);
     setTableId("");
     setDeliveryAddress("");
-    setNotice(`Order ${result.order.order_number} was accepted by Cloud${orderType === "delivery" ? " and queued for delivery dispatch" : " and sent to the kitchen"}.`);
-    await refreshOperational(branchId);
-    await loadTab(branchId, tab);
-  });
-
-  const updateTicket = async (ticket: Ticket, status: "preparing" | "ready" | "completed") => run(async () => {
-    await cloudRequest(user, `/api/kitchen/tickets/${encodeURIComponent(ticket.id)}/status`, { method: "PATCH", body: JSON.stringify({ status }) });
-    setNotice(`Ticket for ${ticket.order_number} moved to ${status}.`);
+    setNotice("Order placed and queued for the kitchen.");
     await refreshOperational(branchId);
   });
 
-  const setTableState = async (table: Table, status: string) => run(async () => {
+  const setTableState = (table: Table, status: string) => run(async () => {
     await cloudRequest(user, `/api/tables/${encodeURIComponent(table.id)}/status`, {
       method: "PATCH",
-      body: JSON.stringify({ status, current_order_id: status === "available" ? null : undefined }),
+      body: JSON.stringify({ status }),
     });
-    setNotice(`Table ${table.table_number} is now ${status}.`);
+    setNotice(`Table ${table.table_number} marked ${status}.`);
+    await refreshOperational(branchId);
+  });
+
+  const advanceTicket = (ticket: Ticket, nextStatus: string) => run(async () => {
+    await cloudRequest(user, `/api/kitchen/tickets/${encodeURIComponent(ticket.id)}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: nextStatus }),
+    });
+    setNotice(`Ticket ${ticket.order_number} marked ${nextStatus}.`);
     await refreshOperational(branchId);
   });
 
@@ -479,6 +519,113 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
     await refreshOperational(branchId).catch(() => undefined);
   });
 
+  const openSplitModal = (order: Order) => {
+    setSplitOrder(order);
+    const half = (order.grand_total / 2).toFixed(2);
+    setSplitAmounts({ cash: half, cardUpi: (order.grand_total - Number(half)).toFixed(2) });
+  };
+
+  const executeSplitPayment = async () => run(async () => {
+    if (!splitOrder) return;
+    const cashAmt = Number(splitAmounts.cash);
+    const cardAmt = Number(splitAmounts.cardUpi);
+    if (cashAmt < 0 || cardAmt < 0) throw new Error("Tender amounts cannot be negative.");
+    if (Math.abs(cashAmt + cardAmt - splitOrder.grand_total) > 0.05) {
+      throw new Error(`Total split tenders must equal the order total ${money(splitOrder.grand_total)}.`);
+    }
+
+    if (cashAmt > 0) {
+      const key = `orderitup.split-cash:${user.id}:${splitOrder.id}:${Date.now()}`;
+      await cloudRequest(user, `/api/orders/${encodeURIComponent(splitOrder.id)}/payments`, {
+        method: "POST",
+        body: JSON.stringify({ amount: cashAmt, payment_method: "cash", idempotency_key: key }),
+      });
+    }
+
+    if (cardAmt > 0) {
+      const key = `orderitup.split-card:${user.id}:${splitOrder.id}:${Date.now()}`;
+      await cloudRequest(user, `/api/orders/${encodeURIComponent(splitOrder.id)}/payments`, {
+        method: "POST",
+        body: JSON.stringify({ amount: cardAmt, payment_method: "card", idempotency_key: key }),
+      });
+    }
+
+    await cloudRequest(user, `/api/orders/${encodeURIComponent(splitOrder.id)}/status`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "completed" }),
+    });
+
+    setSplitOrder(null);
+    setNotice(`Split payment recorded for ${splitOrder.order_number}.`);
+    await Promise.allSettled([refreshOperational(branchId), loadTab(branchId, "cashier")]);
+  });
+
+  // Staff actions
+  const createStaff = async () => run(async () => {
+    if (!staffForm.name.trim() || !staffForm.email.trim() || !staffForm.password) {
+      throw new Error("Name, email, and password (at least 8 chars) are required.");
+    }
+    await cloudRequest(user, "/api/staff", {
+      method: "POST",
+      body: JSON.stringify({ ...staffForm, branch_id: branchId || null }),
+    });
+    setStaffForm({ name: "", email: "", password: "", role: "server", branch_id: "" });
+    setNotice("Staff member added successfully.");
+    await loadTab(branchId, "staff");
+  });
+
+  const resetStaffPassword = async (staffId: string) => {
+    const newPass = window.prompt("Enter new password for this staff member (minimum 8 characters):");
+    if (!newPass) return;
+    if (newPass.length < 8) {
+      alert("Password must be at least 8 characters long.");
+      return;
+    }
+    await run(async () => {
+      await cloudRequest(user, `/api/staff/${encodeURIComponent(staffId)}/reset-password`, {
+        method: "POST",
+        body: JSON.stringify({ password: newPass }),
+      });
+      setNotice("Staff password reset successfully.");
+    });
+  };
+
+  const toggleStaffStatus = async (staff: StaffMember) => run(async () => {
+    const nextStatus = staff.is_active ? 0 : 1;
+    await cloudRequest(user, `/api/staff/${encodeURIComponent(staff.id)}`, {
+      method: "PUT",
+      body: JSON.stringify({ is_active: nextStatus }),
+    });
+    setNotice(`Staff member ${staff.name} ${nextStatus ? "reactivated" : "deactivated"}.`);
+    await loadTab(branchId, "staff");
+  });
+
+  // Customer actions
+  const createCustomer = async () => run(async () => {
+    if (!customerForm.name.trim() || !customerForm.phone.trim()) {
+      throw new Error("Customer name and phone number are required.");
+    }
+    await cloudRequest(user, "/api/customers", {
+      method: "POST",
+      body: JSON.stringify(customerForm),
+    });
+    setCustomerForm({ name: "", phone: "", email: "", notes: "" });
+    setNotice("Customer registered in CRM.");
+    await loadTab(branchId, "customers");
+  });
+
+  // Vendor actions
+  const createVendor = async () => run(async () => {
+    if (!vendorForm.name.trim()) throw new Error("Vendor supplier name is required.");
+    await cloudRequest(user, "/api/vendors", {
+      method: "POST",
+      body: JSON.stringify(vendorForm),
+    });
+    setVendorForm({ name: "", contact_person: "", phone: "", email: "", gstin: "", address: "" });
+    setNotice("Vendor supplier created successfully.");
+    await loadTab(branchId, "vendors");
+  });
+
   const createReservation = async () => run(async () => {
     if (!branchId) return;
     if (!reservationForm.customer_name.trim()) throw new Error("Guest name is required.");
@@ -528,173 +675,319 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
       method: "POST",
       body: JSON.stringify({
         ingredient_id: adjusting.id,
-        adjustment_type: adjusting.type,
-        quantity: Number(adjusting.quantity),
-        reason: `Cloud dashboard ${adjusting.type}`,
-        idempotency_key: crypto.randomUUID(),
+        quantity: Number(adjustmentQuantity),
+        reason: adjustmentReason,
       }),
     });
     setAdjusting(null);
-    setNotice("Stock adjustment recorded.");
+    setNotice(`Stock adjustment recorded for ${adjusting.name}.`);
     await loadTab(branchId, "inventory").catch(() => undefined);
   });
 
-  const createExpense = async () => run(async () => {
+  const recordExpense = async () => run(async () => {
     if (!branchId) return;
-    if (!expenseForm.description.trim()) throw new Error("Description is required.");
-    if (Number(expenseForm.amount) <= 0) throw new Error("Enter a positive expense amount.");
+    if (!expenseForm.description.trim()) throw new Error("Expense description is required.");
     await cloudRequest(user, "/api/expenses", {
       method: "POST",
       body: JSON.stringify({
-        ...expenseForm,
         branch_id: branchId,
+        description: expenseForm.description,
         amount: Number(expenseForm.amount),
         category_id: expenseForm.category_id || null,
+        payment_method: expenseForm.payment_method,
         expense_date: expenseDate,
       }),
     });
-    setExpenseForm((current) => ({ ...current, description: "", amount: "" }));
-    setNotice("Expense recorded in the branch ledger.");
-    await loadTab(branchId, "expenses").catch(() => undefined);
-  });
-
-  const addCategory = async () => run(async () => {
-    if (!categoryName.trim()) throw new Error("Category name is required.");
-    await cloudRequest(user, "/api/expenses/categories", { method: "POST", body: JSON.stringify({ name: categoryName.trim() }) });
-    setCategoryName("");
-    setNotice("Expense category created.");
+    setExpenseForm({ description: "", amount: "0", category_id: "", payment_method: "cash" });
+    setNotice("Expense transaction posted.");
     await loadTab(branchId, "expenses").catch(() => undefined);
   });
 
   const voidExpense = (expense: Expense) => run(async () => {
-    if (!window.confirm(`Void the ${money(expense.amount)} expense "${expense.description}"?`)) return;
-    await cloudRequest(user, `/api/expenses/${encodeURIComponent(expense.id)}`, { method: "DELETE", body: JSON.stringify({ reason: "Voided from Cloud dashboard" }) });
-    setNotice("Expense voided; the audit row is retained.");
+    await cloudRequest(user, `/api/expenses/${encodeURIComponent(expense.id)}`, { method: "DELETE" });
+    setNotice(`Expense '${expense.description}' was voided.`);
     await loadTab(branchId, "expenses").catch(() => undefined);
-  });
-
-  const createDeliveryJob = async () => run(async () => {
-    if (!branchId || !deliveryForm.order_id) throw new Error("Choose an order that needs delivery.");
-    await cloudRequest(user, "/api/delivery/jobs", {
-      method: "POST",
-      body: JSON.stringify({
-        order_id: deliveryForm.order_id,
-        branch_id: branchId,
-        address: deliveryForm.address,
-        cod_amount: Number(deliveryForm.cod_amount || 0),
-      }),
-    });
-    setDeliveryForm({ order_id: "", address: "", cod_amount: "0" });
-    setNotice("Delivery job created.");
-    await loadTab(branchId, "delivery").catch(() => undefined);
-  });
-
-  const assignDriver = async () => run(async () => {
-    if (!assigning) return;
-    await cloudRequest(user, `/api/delivery/jobs/${encodeURIComponent(assigning.id)}/assign`, {
-      method: "PATCH",
-      body: JSON.stringify({ driver_name: assigning.name, driver_phone: assigning.phone || null }),
-    });
-    setAssigning(null);
-    setNotice("Driver assigned.");
-    await loadTab(branchId, "delivery").catch(() => undefined);
-  });
-
-  const moveDelivery = (job: DeliveryJob, status: string, codCollected = false) => run(async () => {
-    await cloudRequest(user, `/api/delivery/jobs/${encodeURIComponent(job.id)}/status`, {
-      method: "PATCH",
-      body: JSON.stringify({ status, cod_collected: codCollected }),
-    });
-    setNotice(`Delivery ${job.order_number || job.order_id} marked ${status.replace("_", " ")}.`);
-    await loadTab(branchId, "delivery").catch(() => undefined);
   });
 
   const closeShift = async () => run(async () => {
     if (!branchId) return;
-    const actual = Number(shiftForm.actual_cash);
-    if (!Number.isFinite(actual) || actual < 0) throw new Error("Enter the counted cash amount.");
     await cloudRequest(user, "/api/shifts/close", {
       method: "POST",
-      body: JSON.stringify({ branch_id: branchId, actual_cash: actual, notes: shiftForm.notes }),
+      body: JSON.stringify({
+        branch_id: branchId,
+        actual_cash: Number(shiftForm.actual_cash),
+        notes: shiftForm.notes,
+      }),
     });
-    setShiftForm({ actual_cash: "", notes: "" });
-    setNotice("Shift closed and the cash variance was persisted.");
-    await Promise.allSettled([loadTab(branchId, "cashier"), refreshOperational(branchId)]);
+    setNotice("Shift closed and cash drawer variance reconciled.");
+    await loadTab(branchId, "cashier").catch(() => undefined);
   });
 
-  const roleTitle = useMemo(() => ({
-    owner: "Owner / manager", manager: "Owner / manager", branch_manager: "Branch manager", admin: "Administrator",
-    cashier: "Cashier", server: "Waiter / server", waiter: "Waiter / server",
-    host: "Host / reservations", chef: "Kitchen", kitchen: "Kitchen",
-    accountant: "Accountant", delivery: "Delivery", super_admin: "Platform administrator",
-  }[role] || user.role), [role, user.role]);
-
-  const availableTables = tables.filter((table) => table.status === "available");
-  const deliverableOrders = orders.filter((order) => ["delivery", "takeaway"].includes(order.order_type));
+  const updateDeliveryJob = (job: DeliveryJob, status: string) => run(async () => {
+    await cloudRequest(user, `/api/delivery/jobs/${encodeURIComponent(job.id)}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status }),
+    });
+    setNotice(`Delivery job ${job.order_number || job.id} marked ${status.replace("_", " ")}.`);
+    await refreshOperational(branchId).catch(() => undefined);
+  });
 
   return (
-    <main className="min-h-screen bg-slate-50 text-slate-900">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center gap-3">
-          <div className="flex min-w-0 flex-1 items-center gap-3">
-            <span className="grid h-10 w-10 place-items-center rounded-xl bg-orange-100 text-orange-700"><Store size={20} /></span>
-            <div className="min-w-0">
-              <h1 className="truncate text-base font-black">Live restaurant operations</h1>
-              <p className="truncate text-xs text-slate-500">{user.organizationName || user.email} · {roleTitle} · Cloud synchronized</p>
+    <main className="min-h-screen bg-slate-100/60 pb-12 font-sans text-slate-900">
+      {/* Thermal Receipt Modal */}
+      {selectedReceiptOrder && (
+        <ThermalReceiptModal
+          order={selectedReceiptOrder}
+          branchName={activeBranch?.name}
+          onClose={() => setSelectedReceiptOrder(null)}
+        />
+      )}
+
+      {/* Table QR Code Dialog */}
+      {selectedQrTable && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-sm bg-white rounded-2xl shadow-2xl border border-slate-200 p-6 text-center">
+            <button
+              type="button"
+              onClick={() => setSelectedQrTable(null)}
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="w-12 h-12 mx-auto rounded-full bg-orange-50 text-orange-600 flex items-center justify-center mb-3">
+              <QrCode className="w-6 h-6" />
+            </div>
+            <h3 className="text-base font-black text-slate-900">Table {selectedQrTable.table_number} QR Code</h3>
+            <p className="text-xs text-slate-500 mt-1">Customers scan this code to browse menu & place orders.</p>
+
+            <div className="my-5 p-4 bg-slate-50 rounded-xl border border-slate-200 flex justify-center">
+              <img
+                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`https://orderitup.in/qr?branch=${branchId}&table=${selectedQrTable.table_number}`)}`}
+                alt={`Table ${selectedQrTable.table_number} QR`}
+                className="w-40 h-40 object-contain rounded-md"
+              />
+            </div>
+
+            <p className="text-[11px] font-mono text-slate-600 truncate bg-slate-100 p-2 rounded-lg mb-4">
+              https://orderitup.in/qr?table={selectedQrTable.table_number}
+            </p>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  navigator.clipboard.writeText(`https://orderitup.in/qr?branch=${branchId}&table=${selectedQrTable.table_number}`);
+                  setQrCopied(true);
+                  setTimeout(() => setQrCopied(false), 2000);
+                }}
+                className="flex-1 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+              >
+                {qrCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
+                <span>{qrCopied ? "Link Copied!" : "Copy Link"}</span>
+              </button>
             </div>
           </div>
-          <label className="flex min-h-10 items-center gap-2 rounded-lg border border-slate-200 px-2 text-sm">
-            <span className="sr-only">Branch</span>
-            <select aria-label="Branch" value={branchId} onChange={(event) => setBranchId(event.target.value)} className="max-w-52 bg-transparent px-1 outline-none">
-              <option value="">Choose branch</option>
-              {branches.map((branch) => <option key={branch.id} value={branch.id}>{branch.name}</option>)}
-            </select>
-          </label>
-          <button type="button" onClick={() => void refresh()} disabled={loading || busy} aria-label="Refresh live data" className="grid min-h-10 min-w-10 place-items-center rounded-lg border border-slate-200 hover:bg-slate-50 disabled:opacity-50">
-            <RefreshCw size={16} className={loading ? "animate-spin" : ""} />
-          </button>
-          <button type="button" onClick={onSignOut} className="min-h-10 rounded-lg px-3 text-sm font-semibold text-slate-600 hover:bg-slate-100">Sign out</button>
         </div>
-        {tabs.length > 0 && (
-          <nav aria-label="Dashboard sections" className="mx-auto mt-3 flex max-w-7xl gap-1 overflow-x-auto pb-1">
-            {tabs.map((item) => (
-              <button key={item.key} type="button" onClick={() => setTab(item.key)} aria-current={tab === item.key ? "page" : undefined} className={`flex min-h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-bold ${tab === item.key ? "bg-slate-900 text-white" : "text-slate-600 hover:bg-slate-100"}`}>
-                {item.icon}{item.label}
+      )}
+
+      {/* Split Payment Dialog */}
+      {splitOrder && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/60 backdrop-blur-xs p-4 animate-in fade-in duration-200">
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl border border-slate-200 p-6">
+            <button
+              type="button"
+              onClick={() => setSplitOrder(null)}
+              className="absolute top-4 right-4 p-1.5 text-slate-400 hover:text-slate-700 rounded-lg hover:bg-slate-100"
+            >
+              <X className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-2 mb-2">
+              <Split className="w-5 h-5 text-orange-600" />
+              <h3 className="text-base font-black text-slate-900">Split Tender Settlement</h3>
+            </div>
+            <p className="text-xs text-slate-500 mb-4">
+              Split order <strong>{splitOrder.order_number}</strong> balance across multiple payment methods.
+            </p>
+
+            <div className="p-3 bg-orange-50 border border-orange-200 rounded-xl mb-4 text-xs flex justify-between">
+              <span className="font-semibold text-orange-950">Total Bill Amount:</span>
+              <span className="font-black text-orange-950 text-sm">{money(splitOrder.grand_total)}</span>
+            </div>
+
+            <div className="space-y-3 mb-6">
+              <Field label="Portion 1: Cash Amount (₹)">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={splitAmounts.cash}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const rem = Math.max(0, splitOrder.grand_total - Number(val)).toFixed(2);
+                    setSplitAmounts({ cash: val, cardUpi: rem });
+                  }}
+                  className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-semibold"
+                />
+              </Field>
+              <Field label="Portion 2: Card / UPI Amount (₹)">
+                <input
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={splitAmounts.cardUpi}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    const rem = Math.max(0, splitOrder.grand_total - Number(val)).toFixed(2);
+                    setSplitAmounts({ cash: rem, cardUpi: val });
+                  }}
+                  className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-semibold"
+                />
+              </Field>
+            </div>
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSplitOrder(null)}
+                className="flex-1 py-2.5 rounded-xl border border-slate-300 font-bold text-xs text-slate-700 hover:bg-slate-50 cursor-pointer"
+              >
+                Cancel
               </button>
-            ))}
-          </nav>
-        )}
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void executeSplitPayment()}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 shadow-sm cursor-pointer disabled:opacity-50"
+              >
+                Confirm Split Settlement
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header Bar */}
+      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/95 px-4 py-3 backdrop-blur-md sm:px-6">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <span className="grid h-10 w-10 place-items-center rounded-xl bg-orange-500 font-black text-white shadow-xs">OIU</span>
+            <div>
+              <div className="flex items-center gap-2">
+                <h1 className="text-base font-black leading-tight sm:text-lg">Unified Cloud Operations</h1>
+                <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-black uppercase text-emerald-800">Cloud Live</span>
+              </div>
+              <p className="text-xs text-slate-500">{user.name} · Role: <span className="font-bold capitalize">{user.role}</span></p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            <select
+              value={branchId}
+              onChange={(event) => handleBranchSelect(event.target.value)}
+              className="min-h-9 rounded-lg border border-slate-200 bg-slate-50 px-3 text-xs font-bold text-slate-800"
+            >
+              {branches.map((branch) => (
+                <option key={branch.id} value={branch.id}>{branch.name}</option>
+              ))}
+            </select>
+            <button
+              type="button"
+              disabled={loading || busy}
+              onClick={() => void refresh()}
+              className="grid h-9 w-9 place-items-center rounded-lg border border-slate-200 bg-white text-slate-700 hover:bg-slate-50 disabled:opacity-50"
+              title="Refresh live data"
+            >
+              <RefreshCw size={14} className={loading || busy ? "animate-spin text-orange-600" : ""} />
+            </button>
+            <button
+              type="button"
+              onClick={onSignOut}
+              className="min-h-9 rounded-lg border border-slate-200 px-3 text-xs font-bold text-slate-700 hover:bg-slate-50"
+            >
+              Sign out
+            </button>
+          </div>
+        </div>
       </header>
 
-      <div className="mx-auto max-w-7xl space-y-4 px-4 py-5 sm:px-6">
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
-          <strong>Live data.</strong> This view reads and writes through your authenticated Cloud account. Prices, permissions, branch scope, and order transitions are checked by Cloud.
-        </div>
-        {error && <div role="alert" className="flex items-start justify-between gap-3 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-900"><span>{error}</span><button type="button" aria-label="Dismiss error" onClick={() => setError("")}><X size={16} /></button></div>}
-        {notice && <div role="status" className="flex items-start justify-between gap-3 rounded-xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950"><span>{notice}</span><button type="button" aria-label="Dismiss notice" onClick={() => setNotice("")}><X size={16} /></button></div>}
-        {loading && <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white p-6 text-sm text-slate-500"><LoaderCircle className="animate-spin" size={18} />Loading authorized branch data…</div>}
-        {!loading && !branches.length && <div className="rounded-xl border border-amber-200 bg-white p-6"><h2 className="font-bold">No authorized active branch</h2><p className="mt-1 text-sm text-slate-600">Ask an organization owner to assign this account to an active branch.</p></div>}
-        {!loading && branches.length > 0 && tabs.length === 0 && <div className="rounded-xl border border-amber-200 bg-white p-6"><h2 className="font-bold">No operational dashboard is assigned to this role</h2><p className="mt-1 text-sm text-slate-600">This account can sign in, but it has no restaurant operations role. Ask an owner to assign a waiter, cashier, kitchen, inventory, delivery, accountant, or manager membership.</p></div>}
+      <div className="mx-auto max-w-7xl px-4 pt-4 sm:px-6">
+        {/* Navigation Tabs */}
+        <nav aria-label="Operations workspace sections" className="flex gap-1 overflow-x-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xs">
+          {tabs.map((item) => (
+            <button
+              key={item.key}
+              type="button"
+              onClick={() => { setTab(item.key); void loadTab(branchId, item.key); }}
+              aria-current={tab === item.key ? "page" : undefined}
+              className={`flex min-h-9 shrink-0 items-center gap-2 rounded-lg px-3 text-xs font-bold cursor-pointer ${
+                tab === item.key ? "bg-slate-900 text-white shadow-xs" : "text-slate-600 hover:bg-slate-100"
+              }`}
+            >
+              {item.icon}
+              <span>{item.label}</span>
+            </button>
+          ))}
+        </nav>
 
+        {/* Notices and Alerts */}
+        {error && (
+          <div role="alert" className="mt-3 flex items-center justify-between rounded-xl border border-red-200 bg-red-50 p-3 text-xs font-medium text-red-900">
+            <span>{error}</span>
+            <button type="button" onClick={() => setError("")} className="p-1 hover:text-red-700"><X size={14} /></button>
+          </div>
+        )}
+        {notice && (
+          <div role="status" className="mt-3 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-xs font-medium text-emerald-900">
+            <span>{notice}</span>
+            <button type="button" onClick={() => setNotice("")} className="p-1 hover:text-emerald-700"><X size={14} /></button>
+          </div>
+        )}
+
+        {/* Loading Spinner */}
+        {loading && (
+          <div className="flex min-h-[40vh] items-center justify-center gap-2 text-sm font-semibold text-slate-500">
+            <LoaderCircle size={18} className="animate-spin text-orange-600" />
+            <span>Syncing Cloud branch data…</span>
+          </div>
+        )}
+
+        {/* ================================================================= */}
+        {/* TAB 1: FLOOR & ORDERS                                             */}
+        {/* ================================================================= */}
         {!loading && branchId && tab === "floor" && <>
-          <section className="grid gap-3 sm:grid-cols-3">
+          <section className="grid gap-3 sm:grid-cols-3 mt-4">
             <Metric label="Active orders" value={orders.length} icon={<Activity size={18} />} />
             <Metric label="Unpaid orders" value={orders.filter((order) => order.payment_status !== "paid").length} icon={<CircleDollarSign size={18} />} />
             <Metric label="Occupied tables" value={tables.filter((table) => table.status === "occupied").length} icon={<Utensils size={18} />} />
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <h2 className="flex items-center gap-2 text-lg font-black"><Utensils size={20} className="text-orange-600" />Floor plan</h2>
-            <p className="mt-1 text-sm text-slate-500">Seat walk-ins, clear tables, or mark a table for cleaning. State is shared with the waiter and cashier apps.</p>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 mt-4">
+            <h2 className="flex items-center gap-2 text-lg font-black"><Utensils size={20} className="text-orange-600" />Floor plan & Table QR</h2>
+            <p className="mt-1 text-sm text-slate-500">Seat walk-ins, clear tables, or generate digital table QR codes for customer self-ordering.</p>
             <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-5">
               {tables.map((table) => (
-                <div key={table.id} className="rounded-xl border border-slate-200 p-3">
-                  <p className="font-black">{table.table_number}</p>
+                <div key={table.id} className="rounded-xl border border-slate-200 p-3 bg-slate-50/50">
+                  <p className="font-black text-slate-900">Table {table.table_number}</p>
                   <p className="text-xs capitalize text-slate-500">{table.status} · {table.capacity || 4} seats</p>
-                  <div className="mt-2 flex flex-wrap gap-1">
-                    {table.status !== "occupied" && <button type="button" disabled={busy} onClick={() => void setTableState(table, "occupied")} className="min-h-8 rounded-md bg-slate-900 px-2 text-[11px] font-bold text-white disabled:opacity-50">Seat</button>}
-                    {table.status === "occupied" && <button type="button" disabled={busy} onClick={() => void setTableState(table, "available")} className="min-h-8 rounded-md border border-slate-300 px-2 text-[11px] font-bold disabled:opacity-50">Clear</button>}
-                    <button type="button" disabled={busy || table.status === "cleaning"} onClick={() => void setTableState(table, "cleaning")} className="min-h-8 rounded-md border border-slate-200 px-2 text-[11px] font-semibold text-slate-600 disabled:opacity-50">Clean</button>
+                  <div className="mt-2.5 flex flex-wrap gap-1.5">
+                    {table.status !== "occupied" && (
+                      <button type="button" disabled={busy} onClick={() => void setTableState(table, "occupied")} className="min-h-7 rounded-md bg-slate-900 px-2 text-[11px] font-bold text-white disabled:opacity-50 cursor-pointer">
+                        Seat
+                      </button>
+                    )}
+                    {table.status === "occupied" && (
+                      <button type="button" disabled={busy} onClick={() => void setTableState(table, "available")} className="min-h-7 rounded-md border border-slate-300 px-2 text-[11px] font-bold disabled:opacity-50 cursor-pointer">
+                        Clear
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={() => setSelectedQrTable(table)}
+                      className="min-h-7 rounded-md border border-orange-200 bg-orange-50 px-2 text-[11px] font-bold text-orange-700 hover:bg-orange-100 flex items-center gap-1 cursor-pointer"
+                      title="View Table QR Code"
+                    >
+                      <QrCode size={12} /> QR
+                    </button>
                   </div>
                 </div>
               ))}
@@ -702,173 +995,104 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
             {tables.length === 0 && <Empty>No active tables are configured for this branch yet.</Empty>}
           </section>
 
-          {canCreateOrder && <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <h2 className="flex items-center gap-2 text-lg font-black"><Plus size={20} className="text-orange-600" />{role === "cashier" ? "Create counter order" : "Create waiter order"}</h2>
-            <p className="mt-1 text-sm text-slate-500">Menu and branch availability come from Cloud. A confirmed order is queued for the kitchen.</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <label className="text-xs font-bold text-slate-600">Item
-                <select value={productId} onChange={(event) => { setProductId(event.target.value); setSelectedAddons({}); }} className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm font-medium">
-                  <option value="">Choose item</option>
-                  {products.map((product) => <option key={product.id} value={product.id}>{product.name} · {money(product.base_price)}</option>)}
-                </select>
-              </label>
-              <label className="text-xs font-bold text-slate-600">Quantity
-                <input type="number" min={1} max={99} value={quantity} onChange={(event) => setQuantity(Math.max(1, Number(event.target.value) || 1))} className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm" />
-              </label>
-              <label className="text-xs font-bold text-slate-600">Order type
-                <select value={orderType} onChange={(event) => setOrderType(event.target.value as typeof orderType)} className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm">
-                  <option value="takeaway">Takeaway</option>
-                  <option value="dine_in">Dine in</option>
-                  <option value="delivery">Delivery</option>
-                </select>
-              </label>
-              {orderType === "dine_in" && <label className="text-xs font-bold text-slate-600">Available table
-                <select value={tableId} onChange={(event) => setTableId(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm">
-                  <option value="">Choose table</option>
-                  {availableTables.map((table) => <option key={table.id} value={table.id}>{table.table_number} · {table.capacity || 4} seats</option>)}
-                </select>
-              </label>}
-              {orderType === "delivery" && <label className="text-xs font-bold text-slate-600">Delivery address
-                <input value={deliveryAddress} onChange={(event) => setDeliveryAddress(event.target.value)} placeholder="House, street, area" className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm" />
-              </label>}
-            </div>
-            {selectedProduct?.addon_groups?.map((group) => (
-              <fieldset key={group.id} className="mt-4 rounded-xl border border-slate-200 p-3">
-                <legend className="px-1 text-xs font-bold">{group.name}{(group.is_required || Number(group.min_selection) > 0) ? " · required" : " · optional"}</legend>
-                <div className="flex flex-wrap gap-2">
-                  {(group.addons || []).filter((addon) => addon.is_active !== 0).map((addon) => {
-                    const checked = (selectedAddons[group.id] || []).includes(addon.id);
-                    return <label key={addon.id} className="flex min-h-10 items-center gap-2 rounded-lg bg-slate-50 px-3 text-sm">
-                      <input type="checkbox" checked={checked} onChange={() => setSelectedAddons((current) => {
-                        const selected = current[group.id] || [];
-                        return { ...current, [group.id]: checked ? selected.filter((id) => id !== addon.id) : [...selected, addon.id] };
-                      })} />
-                      {addon.name}{Number(addon.price) > 0 ? ` · ${money(Number(addon.price))}` : ""}
-                    </label>;
-                  })}
-                </div>
-              </fieldset>
-            ))}
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3">
-              <button type="button" disabled={!selectedProduct || busy} onClick={addDraftLine} className="min-h-10 rounded-lg border border-slate-300 px-4 text-sm font-bold disabled:opacity-50">Add item to order</button>
-              <span className="text-sm text-slate-600">{draft.length} item line{draft.length === 1 ? "" : "s"} in order</span>
-              <button type="button" disabled={!draft.length || busy} onClick={() => void submitOrder()} className="min-h-11 rounded-lg bg-orange-600 px-5 text-sm font-bold text-white hover:bg-orange-700 disabled:opacity-50">{busy ? "Sending…" : "Send order to kitchen"}</button>
-            </div>
-            {draft.length > 0 && <ul className="mt-3 divide-y divide-slate-100 rounded-lg border border-slate-100">
-              {draft.map((line, index) => <li key={`${line.product_id}-${index}`} className="flex items-center justify-between px-3 py-2 text-sm">
-                <span>{products.find((product) => product.id === line.product_id)?.name} × {line.quantity}</span>
-                <button type="button" disabled={busy} onClick={() => setDraft((current) => current.filter((_, itemIndex) => itemIndex !== index))} className="text-xs font-bold text-red-700 disabled:opacity-40">Remove</button>
-              </li>)}
-            </ul>}
-          </section>}
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <h2 className="text-lg font-black">Live branch orders</h2>
-            <OrderList orders={orders} action={canCashier ? (order) => (
-              <button type="button" disabled={busy} onClick={() => void (order.payment_status === "paid" ? closePaidOrder(order) : collectCash(order))} className="min-h-9 rounded-lg bg-emerald-700 px-3 text-xs font-bold text-white disabled:opacity-50">
-                {order.payment_status === "paid" ? "Close paid order" : "Collect cash"}
-              </button>
-            ) : undefined} />
-          </section>
-        </>}
-
-        {!loading && branchId && tab === "reservations" && <>
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <h2 className="flex items-center gap-2 text-lg font-black"><CalendarDays size={20} className="text-orange-600" />Reservations</h2>
-                <p className="mt-1 text-sm text-slate-500">Table bookings are branch-scoped. Seating a booking occupies the table; completing it releases the table.</p>
+          {canCreateOrder && (
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 mt-4">
+              <h2 className="flex items-center gap-2 text-lg font-black"><Plus size={20} className="text-orange-600" />{role === "cashier" ? "Create counter order" : "Create waiter order"}</h2>
+              <p className="mt-1 text-sm text-slate-500">Menu items and modifiers are fetched directly from Cloud D1.</p>
+              <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <label className="text-xs font-bold text-slate-600">Item
+                  <select value={productId} onChange={(event) => { setProductId(event.target.value); setSelectedAddons({}); }} className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm font-medium">
+                    <option value="">Choose item</option>
+                    {products.map((product) => <option key={product.id} value={product.id}>{product.name} · {money(product.base_price)}</option>)}
+                  </select>
+                </label>
+                <label className="text-xs font-bold text-slate-600">Quantity
+                  <input type="number" min={1} max={99} value={quantity} onChange={(event) => setQuantity(Math.max(1, Number(event.target.value) || 1))} className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm" />
+                </label>
+                <label className="text-xs font-bold text-slate-600">Order type
+                  <select value={orderType} onChange={(event) => setOrderType(event.target.value as typeof orderType)} className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm">
+                    <option value="takeaway">Takeaway</option>
+                    <option value="dine_in">Dine in</option>
+                    <option value="delivery">Delivery</option>
+                  </select>
+                </label>
+                {orderType === "dine_in" && (
+                  <label className="text-xs font-bold text-slate-600">Available table
+                    <select value={tableId} onChange={(event) => setTableId(event.target.value)} className="mt-1 min-h-11 w-full rounded-lg border border-slate-200 px-3 text-sm">
+                      <option value="">Choose table</option>
+                      {availableTables.map((table) => <option key={table.id} value={table.id}>Table {table.table_number} · {table.capacity || 4} seats</option>)}
+                    </select>
+                  </label>
+                )}
               </div>
-              <label className="text-xs font-bold text-slate-600">Date
-                <input type="date" value={reservationDate} onChange={(event) => setReservationDate(event.target.value)} className="ms-2 min-h-10 rounded-lg border border-slate-200 px-3 text-sm" />
-              </label>
-            </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              <Field label="Guest name"><input value={reservationForm.customer_name} onChange={(event) => setReservationForm({ ...reservationForm, customer_name: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field>
-              <Field label="Phone"><input value={reservationForm.customer_phone} onChange={(event) => setReservationForm({ ...reservationForm, customer_phone: event.target.value })} inputMode="tel" className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field>
-              <Field label="Guests"><input type="number" min={1} max={100} value={reservationForm.guest_count} onChange={(event) => setReservationForm({ ...reservationForm, guest_count: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field>
-              <Field label="Date"><input type="date" value={reservationForm.reservation_date} onChange={(event) => setReservationForm({ ...reservationForm, reservation_date: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field>
-              <Field label="Time"><input type="time" value={reservationForm.reservation_time} onChange={(event) => setReservationForm({ ...reservationForm, reservation_time: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field>
-              <Field label="Table (optional)">
-                <select value={reservationForm.table_id} onChange={(event) => setReservationForm({ ...reservationForm, table_id: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
-                  <option value="">No table yet</option>
-                  {tables.map((table) => <option key={table.id} value={table.id}>{table.table_number} · {table.capacity || 4} seats</option>)}
-                </select>
-              </Field>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-              <input value={reservationForm.notes} onChange={(event) => setReservationForm({ ...reservationForm, notes: event.target.value })} placeholder="Notes (allergies, birthday, seating preference)" className="min-h-10 flex-1 rounded-lg border border-slate-200 px-3 text-sm" />
-              <button type="button" disabled={busy} onClick={() => void createReservation()} className="min-h-10 rounded-lg bg-orange-600 px-4 text-sm font-bold text-white disabled:opacity-50">Create reservation</button>
-            </div>
-          </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <h2 className="text-lg font-black">Bookings for {reservationDate}</h2>
-            {reservations.length === 0 && <Empty>No reservations for this date.</Empty>}
-            <div className="mt-3 divide-y divide-slate-100">
-              {reservations.map((reservation) => (
-                <div key={reservation.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <p className="font-bold">{reservation.customer_name} · {reservation.guest_count} guests</p>
-                    <p className="text-xs text-slate-500">{reservation.reservation_time} · {reservation.table_number || "no table"} · {reservation.customer_phone || "no phone"} · <span className="capitalize">{reservation.status.replace("_", " ")}</span></p>
-                    {reservation.notes && <p className="truncate text-xs text-slate-500">{reservation.notes}</p>}
+              <div className="mt-3 flex gap-2">
+                <button type="button" onClick={addLine} disabled={!productId} className="min-h-10 rounded-lg bg-slate-900 px-4 text-xs font-bold text-white disabled:opacity-50 cursor-pointer">
+                  Add line item
+                </button>
+              </div>
+
+              {draft.length > 0 && (
+                <div className="mt-4 p-3 bg-slate-50 rounded-xl border border-slate-200">
+                  <h4 className="text-xs font-bold uppercase text-slate-700 mb-2">Cart Lines ({draft.length})</h4>
+                  <div className="space-y-1.5">
+                    {draft.map((line, idx) => {
+                      const prod = products.find((p) => p.id === line.product_id);
+                      return (
+                        <div key={idx} className="flex justify-between items-center text-xs bg-white p-2 rounded-lg border border-slate-200">
+                          <span>{line.quantity}× {prod?.name} ({money((prod?.base_price || 0) * line.quantity)})</span>
+                          <button type="button" onClick={() => removeLine(idx)} className="text-red-600 hover:text-red-800 font-bold p-1">Remove</button>
+                        </div>
+                      );
+                    })}
                   </div>
-                  <div className="flex flex-wrap gap-2">
-                    {reservation.status === "confirmed" && <>
-                      <ActionButton disabled={busy} onClick={() => void moveReservation(reservation, "seated")}>Seat</ActionButton>
-                      <ActionButton disabled={busy} tone="muted" onClick={() => void moveReservation(reservation, "no_show")}>No show</ActionButton>
-                    </>}
-                    {reservation.status === "seated" && <ActionButton disabled={busy} onClick={() => void moveReservation(reservation, "completed")}>Complete</ActionButton>}
-                    {["confirmed", "seated"].includes(reservation.status) && <ActionButton disabled={busy} tone="danger" onClick={() => void moveReservation(reservation, "cancelled")}>Cancel</ActionButton>}
-                  </div>
+                  <button type="button" disabled={busy} onClick={() => void submitOrder()} className="mt-3 w-full py-2.5 rounded-lg bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-xs cursor-pointer shadow-xs">
+                    Fire Order to Kitchen
+                  </button>
                 </div>
-              ))}
-            </div>
-          </section>
+              )}
+            </section>
+          )}
         </>}
 
-        {!loading && branchId && tab === "kitchen" && <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-          <h2 className="flex items-center gap-2 text-lg font-black"><ChefHat size={20} className="text-orange-600" />Kitchen queue</h2>
-          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-            {tickets.map((ticket) => (
-              <article key={ticket.id} className="rounded-xl border border-slate-200 p-4">
-                <div className="flex items-start justify-between gap-3">
-                  <div><h3 className="font-black">{ticket.order_number}</h3><p className="text-xs text-slate-500">{ticket.station || "Kitchen"} · {new Date(ticket.created_at).toLocaleTimeString()}</p></div>
-                  <span className="rounded-full bg-amber-50 px-2 py-1 text-xs font-bold capitalize text-amber-800">{ticket.status}</span>
-                </div>
-                <ul className="my-3 space-y-1 text-sm">{ticket.items.map((item, index) => <li key={`${item.name || item.product_name}-${index}`}>{item.quantity || 1} × {item.name || item.product_name}</li>)}</ul>
-                <div className="flex gap-2">
-                  {ticket.status === "pending" && <ActionButton disabled={busy} onClick={() => void updateTicket(ticket, "preparing")}>Start</ActionButton>}
-                  {ticket.status === "preparing" && <ActionButton disabled={busy} onClick={() => void updateTicket(ticket, "ready")}>Mark ready</ActionButton>}
-                  {ticket.status === "ready" && <ActionButton disabled={busy} onClick={() => void updateTicket(ticket, "completed")}>Complete</ActionButton>}
-                </div>
-              </article>
-            ))}
-          </div>
-          {tickets.length === 0 && <Empty>There are no active kitchen tickets at this branch.</Empty>}
-        </section>}
-
+        {/* ================================================================= */}
+        {/* TAB 2: CASHIER & SHIFT                                            */}
+        {/* ================================================================= */}
         {!loading && branchId && tab === "cashier" && <>
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 mt-4">
             <h2 className="flex items-center gap-2 text-lg font-black"><CircleDollarSign size={20} className="text-orange-600" />Cashier payment queue</h2>
-            <p className="mt-1 text-sm text-slate-500">Cash is written to the Cloud ledger. Card/UPI uses the provider checkout and is only recorded after server-side capture verification.</p>
+            <p className="mt-1 text-sm text-slate-500">Record cash, card/UPI, or split tender payments. Print formatted 80mm thermal receipts upon settlement.</p>
             {capabilities && !capabilities.configured && <p role="status" className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"><strong>Card/UPI unavailable.</strong> {capabilities.reason}</p>}
             {capabilities?.configured && <p className="mt-2 text-xs font-semibold text-emerald-800">Card/UPI provider ready ({capabilities.provider}).</p>}
+
             <OrderList orders={orders} action={(order) => (
-              <div className="flex flex-wrap items-center gap-2">
-                <button type="button" disabled={busy} onClick={() => void (order.payment_status === "paid" ? closePaidOrder(order) : collectCash(order))} className="min-h-9 rounded-lg bg-emerald-700 px-3 text-xs font-bold text-white disabled:opacity-50">
-                  {order.payment_status === "paid" ? "Close paid order" : "Collect cash"}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <button type="button" disabled={busy} onClick={() => void (order.payment_status === "paid" ? closePaidOrder(order) : collectCash(order))} className="min-h-8 rounded-lg bg-emerald-700 hover:bg-emerald-800 px-3 text-xs font-bold text-white disabled:opacity-50 cursor-pointer">
+                  {order.payment_status === "paid" ? "Close Order" : "Cash"}
                 </button>
                 {order.payment_status !== "paid" && (capabilities?.card || capabilities?.upi) && (
-                  <button type="button" disabled={busy} onClick={() => void collectProvider(order)} className="min-h-9 rounded-lg bg-slate-900 px-3 text-xs font-bold text-white disabled:opacity-50">
-                    Card / UPI
+                  <button type="button" disabled={busy} onClick={() => void collectProvider(order)} className="min-h-8 rounded-lg bg-slate-900 hover:bg-slate-800 px-3 text-xs font-bold text-white disabled:opacity-50 cursor-pointer">
+                    Card/UPI
                   </button>
                 )}
+                {order.payment_status !== "paid" && (
+                  <button type="button" disabled={busy} onClick={() => openSplitModal(order)} className="min-h-8 rounded-lg bg-orange-600 hover:bg-orange-700 px-3 text-xs font-bold text-white disabled:opacity-50 flex items-center gap-1 cursor-pointer">
+                    <Split size={12} /> Split
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => setSelectedReceiptOrder(order as unknown as ReceiptOrder)}
+                  className="min-h-8 rounded-lg border border-slate-300 hover:bg-slate-100 px-3 text-xs font-bold text-slate-700 flex items-center gap-1 cursor-pointer"
+                  title="Print Thermal Receipt"
+                >
+                  <Printer size={12} /> Bill
+                </button>
               </div>
             )} />
           </section>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 mt-4">
             <h2 className="flex items-center gap-2 text-lg font-black"><Wallet size={20} className="text-orange-600" />Shift close</h2>
             {!shiftSummary && <Empty>The shift summary could not be loaded.</Empty>}
             {shiftSummary && <>
@@ -894,216 +1118,538 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
           </section>
         </>}
 
-        {!loading && branchId && tab === "inventory" && <>
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <h2 className="flex items-center gap-2 text-lg font-black"><Package size={20} className="text-orange-600" />Inventory</h2>
-            <p className="mt-1 text-sm text-slate-500">Raw ingredients, low-stock alerts, and an auditable movement ledger. Recipe costs are calculated from live ingredient costs.</p>
-            {lowStock.length > 0 && <div role="status" className="mt-3 rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"><strong>{lowStock.length} low-stock item{lowStock.length === 1 ? "" : "s"}:</strong> {lowStock.map((item) => `${item.name} (${item.current_stock} ${item.unit})`).join(", ")}</div>}
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-              <Field label="Ingredient"><input value={ingredientForm.name} onChange={(event) => setIngredientForm({ ...ingredientForm, name: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field>
-              <Field label="Unit"><input value={ingredientForm.unit} onChange={(event) => setIngredientForm({ ...ingredientForm, unit: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field>
-              <Field label="Opening stock"><input type="number" min={0} step="0.01" value={ingredientForm.current_stock} onChange={(event) => setIngredientForm({ ...ingredientForm, current_stock: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field>
-              <Field label="Minimum"><input type="number" min={0} step="0.01" value={ingredientForm.minimum_stock} onChange={(event) => setIngredientForm({ ...ingredientForm, minimum_stock: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field>
-              <Field label="Cost / unit"><input type="number" min={0} step="0.01" value={ingredientForm.cost_per_unit} onChange={(event) => setIngredientForm({ ...ingredientForm, cost_per_unit: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field>
-            </div>
-            <button type="button" disabled={busy} onClick={() => void createIngredient()} className="mt-3 min-h-10 rounded-lg bg-orange-600 px-4 text-sm font-bold text-white disabled:opacity-50">Add ingredient</button>
-          </section>
+        {/* ================================================================= */}
+        {/* TAB 3: STAFF & ROLES                                              */}
+        {/* ================================================================= */}
+        {!loading && branchId && tab === "staff" && <>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 mt-4">
+            <h2 className="flex items-center gap-2 text-lg font-black"><Users size={20} className="text-orange-600" />Restaurant Staff Directory</h2>
+            <p className="mt-1 text-sm text-slate-500">Manage employee accounts, roles, branch assignments, and secure password resets.</p>
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <h2 className="text-lg font-black">Stock on hand</h2>
-            {ingredients.length === 0 && <Empty>No ingredients have been added for this branch yet.</Empty>}
+            {/* Add Staff Form */}
+            <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">Add New Employee</h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Field label="Full Name">
+                  <input
+                    value={staffForm.name}
+                    onChange={(e) => setStaffForm({ ...staffForm, name: e.target.value })}
+                    placeholder="e.g. Ramesh Kumar"
+                    className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                  />
+                </Field>
+                <Field label="Email Address">
+                  <input
+                    type="email"
+                    value={staffForm.email}
+                    onChange={(e) => setStaffForm({ ...staffForm, email: e.target.value })}
+                    placeholder="ramesh@restaurant.com"
+                    className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                  />
+                </Field>
+                <Field label="Initial Password (min 8 chars)">
+                  <input
+                    type="password"
+                    value={staffForm.password}
+                    onChange={(e) => setStaffForm({ ...staffForm, password: e.target.value })}
+                    placeholder="••••••••"
+                    className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                  />
+                </Field>
+                <Field label="Role Permission">
+                  <select
+                    value={staffForm.role}
+                    onChange={(e) => setStaffForm({ ...staffForm, role: e.target.value })}
+                    className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm font-semibold"
+                  >
+                    <option value="server">Server / Waiter</option>
+                    <option value="cashier">Counter Cashier</option>
+                    <option value="chef">Kitchen Chef</option>
+                    <option value="manager">Branch Manager</option>
+                    <option value="delivery">Delivery Rider</option>
+                    <option value="accountant">Accountant / Tax</option>
+                  </select>
+                </Field>
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void createStaff()}
+                className="mt-3 px-4 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                Create Staff Account
+              </button>
+            </div>
+
+            {/* Staff Table */}
+            <div className="mt-5 overflow-x-auto">
+              <table className="w-full min-w-[600px] text-left text-sm">
+                <thead>
+                  <tr className="border-b text-xs uppercase text-slate-500 font-bold">
+                    <th className="py-2.5">Name</th>
+                    <th>Email</th>
+                    <th>Role</th>
+                    <th>Status</th>
+                    <th className="text-right">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {staffList.map((member) => (
+                    <tr key={member.id} className="hover:bg-slate-50/50">
+                      <td className="py-3 font-bold text-slate-900">{member.name}</td>
+                      <td className="text-slate-600">{member.email || "—"}</td>
+                      <td>
+                        <span className="px-2 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider bg-orange-100 text-orange-800">
+                          {member.role}
+                        </span>
+                      </td>
+                      <td>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold uppercase ${member.is_active ? "bg-emerald-100 text-emerald-800" : "bg-slate-200 text-slate-600"}`}>
+                          {member.is_active ? "Active" : "Inactive"}
+                        </span>
+                      </td>
+                      <td className="text-right space-x-2">
+                        <button
+                          type="button"
+                          onClick={() => void resetStaffPassword(member.id)}
+                          className="px-2.5 py-1 text-xs font-semibold rounded-md border border-slate-300 hover:bg-slate-100 text-slate-700 cursor-pointer"
+                        >
+                          Reset Pass
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => void toggleStaffStatus(member)}
+                          className="px-2.5 py-1 text-xs font-semibold rounded-md border border-slate-300 hover:bg-slate-100 text-slate-700 cursor-pointer"
+                        >
+                          {member.is_active ? "Deactivate" : "Activate"}
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {staffList.length === 0 && <Empty>No staff accounts found.</Empty>}
+            </div>
+          </section>
+        </>}
+
+        {/* ================================================================= */}
+        {/* TAB 4: CUSTOMERS & CRM                                            */}
+        {/* ================================================================= */}
+        {!loading && branchId && tab === "customers" && <>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 mt-4">
+            <h2 className="flex items-center gap-2 text-lg font-black"><UserCheck size={20} className="text-orange-600" />Customer Registry & CRM</h2>
+            <p className="mt-1 text-sm text-slate-500">Track guest visit counts, lifetime spend, and customer profiles across orders.</p>
+
+            {/* Quick Customer Add & Search Bar */}
+            <div className="mt-4 flex flex-col sm:flex-row gap-3 items-stretch justify-between">
+              <div className="relative flex-1">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3.5" />
+                <input
+                  value={customerSearch}
+                  onChange={(e) => setCustomerSearch(e.target.value)}
+                  onKeyDown={(e) => { if (e.key === "Enter") void loadTab(branchId, "customers"); }}
+                  placeholder="Search customer by name or phone..."
+                  className="w-full pl-9 pr-4 py-2.5 text-sm rounded-xl border border-slate-200 bg-slate-50"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => void loadTab(branchId, "customers")}
+                className="px-4 py-2.5 rounded-xl bg-slate-900 text-white font-bold text-xs"
+              >
+                Search
+              </button>
+            </div>
+
+            {/* Register Customer Form */}
+            <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">Add Guest Profile</h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Field label="Guest Name">
+                  <input
+                    value={customerForm.name}
+                    onChange={(e) => setCustomerForm({ ...customerForm, name: e.target.value })}
+                    placeholder="Priya Sharma"
+                    className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                  />
+                </Field>
+                <Field label="Phone (10 digits)">
+                  <input
+                    value={customerForm.phone}
+                    onChange={(e) => setCustomerForm({ ...customerForm, phone: e.target.value })}
+                    placeholder="9876543210"
+                    className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                  />
+                </Field>
+                <Field label="Email Address (Optional)">
+                  <input
+                    value={customerForm.email}
+                    onChange={(e) => setCustomerForm({ ...customerForm, email: e.target.value })}
+                    placeholder="priya@example.com"
+                    className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                  />
+                </Field>
+                <Field label="Dietary / Preference Notes">
+                  <input
+                    value={customerForm.notes}
+                    onChange={(e) => setCustomerForm({ ...customerForm, notes: e.target.value })}
+                    placeholder="VIP table, No nuts"
+                    className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                  />
+                </Field>
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void createCustomer()}
+                className="mt-3 px-4 py-2.5 rounded-lg bg-[#F07928] hover:bg-[#EA580C] text-white font-bold text-xs cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                Save Guest Profile
+              </button>
+            </div>
+
+            {/* Customers Table */}
+            <div className="mt-5 overflow-x-auto">
+              <table className="w-full min-w-[650px] text-left text-sm">
+                <thead>
+                  <tr className="border-b text-xs uppercase text-slate-500 font-bold">
+                    <th className="py-2.5">Customer</th>
+                    <th>Phone</th>
+                    <th>Visits</th>
+                    <th>Lifetime Spend</th>
+                    <th>Last Visit</th>
+                    <th>Notes</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {customerList.map((cust) => (
+                    <tr key={cust.id} className="hover:bg-slate-50/50">
+                      <td className="py-3 font-bold text-slate-900">{cust.name}</td>
+                      <td className="font-mono text-xs text-slate-700">{cust.phone}</td>
+                      <td className="font-semibold">{cust.visits_count || 0}</td>
+                      <td className="font-bold text-emerald-700">{money(cust.total_spent || 0)}</td>
+                      <td className="text-xs text-slate-500">{cust.last_visit_at ? new Date(cust.last_visit_at).toLocaleDateString() : "Never"}</td>
+                      <td className="text-xs text-slate-600 max-w-[200px] truncate">{cust.notes || "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {customerList.length === 0 && <Empty>No customer records found.</Empty>}
+            </div>
+          </section>
+        </>}
+
+        {/* ================================================================= */}
+        {/* TAB 5: VENDORS & SUPPLIERS                                        */}
+        {/* ================================================================= */}
+        {!loading && branchId && tab === "vendors" && <>
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 mt-4">
+            <h2 className="flex items-center gap-2 text-lg font-black"><Building2 size={20} className="text-orange-600" />Raw Ingredient Suppliers & Vendors</h2>
+            <p className="mt-1 text-sm text-slate-500">Manage procurement suppliers, outstanding balances, and supplier invoices.</p>
+
+            {/* Add Vendor Form */}
+            <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-slate-700 mb-3">Add Supplier</h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                <Field label="Vendor Company Name">
+                  <input
+                    value={vendorForm.name}
+                    onChange={(e) => setVendorForm({ ...vendorForm, name: e.target.value })}
+                    placeholder="Metro Cash & Carry"
+                    className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                  />
+                </Field>
+                <Field label="Contact Person">
+                  <input
+                    value={vendorForm.contact_person}
+                    onChange={(e) => setVendorForm({ ...vendorForm, contact_person: e.target.value })}
+                    placeholder="Sunil Verma"
+                    className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                  />
+                </Field>
+                <Field label="Phone Number">
+                  <input
+                    value={vendorForm.phone}
+                    onChange={(e) => setVendorForm({ ...vendorForm, phone: e.target.value })}
+                    placeholder="+91 98110 00000"
+                    className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                  />
+                </Field>
+                <Field label="GSTIN / Tax ID">
+                  <input
+                    value={vendorForm.gstin}
+                    onChange={(e) => setVendorForm({ ...vendorForm, gstin: e.target.value })}
+                    placeholder="07AAAAA0000A1Z5"
+                    className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                  />
+                </Field>
+                <Field label="Address / City">
+                  <input
+                    value={vendorForm.address}
+                    onChange={(e) => setVendorForm({ ...vendorForm, address: e.target.value })}
+                    placeholder="Okhla Phase 3, New Delhi"
+                    className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm"
+                  />
+                </Field>
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => void createVendor()}
+                className="mt-3 px-4 py-2.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                Register Supplier
+              </button>
+            </div>
+
+            {/* Vendor List */}
+            <div className="mt-5 overflow-x-auto">
+              <table className="w-full min-w-[650px] text-left text-sm">
+                <thead>
+                  <tr className="border-b text-xs uppercase text-slate-500 font-bold">
+                    <th className="py-2.5">Supplier Name</th>
+                    <th>Contact</th>
+                    <th>Phone</th>
+                    <th>GSTIN</th>
+                    <th>Outstanding Balance</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {vendorList.map((vendor) => (
+                    <tr key={vendor.id} className="hover:bg-slate-50/50">
+                      <td className="py-3 font-bold text-slate-900">{vendor.name}</td>
+                      <td className="text-slate-600">{vendor.contact_person || "—"}</td>
+                      <td className="font-mono text-xs">{vendor.phone || "—"}</td>
+                      <td className="font-mono text-xs text-slate-500">{vendor.gstin || "—"}</td>
+                      <td className="font-bold text-slate-800">{money(vendor.balance || 0)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {vendorList.length === 0 && <Empty>No registered vendors yet.</Empty>}
+            </div>
+          </section>
+        </>}
+
+        {/* ================================================================= */}
+        {/* OTHER TABS (Kitchen, Inventory, Expenses, Delivery, Reports)      */}
+        {/* ================================================================= */}
+        {!loading && branchId && tab === "kitchen" && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 mt-4">
+            <h2 className="flex items-center gap-2 text-lg font-black"><ChefHat size={20} className="text-orange-600" />Kitchen Display & Ticket Lifecycle</h2>
             <div className="mt-3 divide-y divide-slate-100">
-              {ingredients.map((ingredient) => (
-                <div key={ingredient.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+              {tickets.map((ticket) => (
+                <div key={ticket.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
                   <div>
-                    <p className="font-bold">{ingredient.name} {ingredient.is_active === 0 && <span className="text-xs font-semibold text-slate-400">(inactive)</span>}</p>
-                    <p className="text-xs text-slate-500">{ingredient.current_stock} {ingredient.unit} on hand · minimum {ingredient.minimum_stock} · {money(ingredient.cost_per_unit)}/{ingredient.unit}</p>
+                    <p className="font-black">Ticket #{ticket.order_number} · <span className="capitalize text-slate-500">{ticket.status}</span></p>
+                    <p className="text-xs text-slate-600">{ticket.items.map((i) => `${i.quantity || 1}× ${i.name || i.product_name}`).join(", ")}</p>
                   </div>
-                  <div className="flex flex-wrap items-center gap-2">
-                    {adjusting?.id === ingredient.id ? <>
-                      <select value={adjusting.type} onChange={(event) => setAdjusting({ ...adjusting, type: event.target.value as typeof adjusting.type })} className="min-h-9 rounded-lg border border-slate-200 px-2 text-xs">
-                        <option value="increase">Increase</option>
-                        <option value="decrease">Decrease</option>
-                        <option value="set">Set to</option>
-                      </select>
-                      <input type="number" min={0} step="0.01" value={adjusting.quantity} onChange={(event) => setAdjusting({ ...adjusting, quantity: event.target.value })} className="min-h-9 w-24 rounded-lg border border-slate-200 px-2 text-xs" aria-label={`Adjustment quantity for ${ingredient.name}`} />
-                      <ActionButton disabled={busy} onClick={() => void applyAdjustment()}>Save</ActionButton>
-                      <ActionButton disabled={busy} tone="muted" onClick={() => setAdjusting(null)}>Cancel</ActionButton>
-                    </> : <ActionButton disabled={busy} onClick={() => setAdjusting({ id: ingredient.id, type: "increase", quantity: "1" })}>Adjust</ActionButton>}
+                  <div className="flex gap-2">
+                    {ticket.status === "pending" && <button type="button" onClick={() => void advanceTicket(ticket, "preparing")} className="min-h-8 rounded-md bg-amber-600 text-white font-bold text-xs px-3">Prep</button>}
+                    {ticket.status === "preparing" && <button type="button" onClick={() => void advanceTicket(ticket, "ready")} className="min-h-8 rounded-md bg-emerald-600 text-white font-bold text-xs px-3">Ready</button>}
+                    {ticket.status === "ready" && <button type="button" onClick={() => void advanceTicket(ticket, "served")} className="min-h-8 rounded-md bg-slate-900 text-white font-bold text-xs px-3">Served</button>}
                   </div>
                 </div>
               ))}
+              {tickets.length === 0 && <Empty>Kitchen queue is clear.</Empty>}
             </div>
           </section>
+        )}
 
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <h2 className="text-lg font-black">Recent stock movements</h2>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[560px] text-left text-sm">
-                <thead><tr className="border-b text-xs uppercase text-slate-500"><th className="py-2">When</th><th>Ingredient</th><th>Type</th><th>Change</th><th>Balance</th></tr></thead>
-                <tbody>{stockTransactions.map((row) => <tr key={row.id} className="border-b border-slate-100"><td className="py-2 text-xs text-slate-500">{new Date(row.created_at).toLocaleString()}</td><td className="font-semibold">{row.ingredient_name}</td><td className="capitalize">{row.type.replaceAll("_", " ")}</td><td className={Number(row.quantity) < 0 ? "text-red-700" : "text-emerald-700"}>{Number(row.quantity) > 0 ? "+" : ""}{row.quantity}</td><td>{row.balance_after}</td></tr>)}</tbody>
+        {!loading && branchId && tab === "reservations" && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 mt-4">
+            <h2 className="flex items-center gap-2 text-lg font-black"><CalendarDays size={20} className="text-orange-600" />Reservations</h2>
+            <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <h3 className="text-xs font-bold uppercase text-slate-700 mb-2">Book Table</h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Field label="Guest Name"><input value={reservationForm.customer_name} onChange={(e) => setReservationForm({ ...reservationForm, customer_name: e.target.value })} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm" /></Field>
+                <Field label="Phone"><input value={reservationForm.customer_phone} onChange={(e) => setReservationForm({ ...reservationForm, customer_phone: e.target.value })} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm" /></Field>
+                <Field label="Guests"><input type="number" min={1} max={50} value={reservationForm.guest_count} onChange={(e) => setReservationForm({ ...reservationForm, guest_count: Number(e.target.value) || 2 })} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm" /></Field>
+                <Field label="Time"><input type="time" value={reservationForm.reservation_time} onChange={(e) => setReservationForm({ ...reservationForm, reservation_time: e.target.value })} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm" /></Field>
+              </div>
+              <button type="button" disabled={busy} onClick={() => void createReservation()} className="mt-3 px-4 py-2 rounded-lg bg-slate-900 text-white font-bold text-xs">Create Booking</button>
+            </div>
+            <div className="mt-4 divide-y divide-slate-100">
+              {reservations.map((r) => (
+                <div key={r.id} className="py-2.5 flex justify-between items-center text-sm">
+                  <div><strong>{r.customer_name}</strong> · {r.guest_count} guests at {r.reservation_time} ({r.status})</div>
+                  <div className="flex gap-1.5">
+                    {r.status === "confirmed" && <button type="button" onClick={() => void moveReservation(r, "seated")} className="px-2 py-1 text-xs font-bold bg-emerald-700 text-white rounded-md">Seat</button>}
+                    {r.status !== "cancelled" && <button type="button" onClick={() => void moveReservation(r, "cancelled")} className="px-2 py-1 text-xs border border-slate-300 rounded-md">Cancel</button>}
+                  </div>
+                </div>
+              ))}
+              {reservations.length === 0 && <Empty>No reservations for this date.</Empty>}
+            </div>
+          </section>
+        )}
+
+        {!loading && branchId && tab === "inventory" && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 mt-4">
+            <h2 className="flex items-center gap-2 text-lg font-black"><Package size={20} className="text-orange-600" />Raw Inventory & Recipe Costing</h2>
+            <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <h3 className="text-xs font-bold uppercase text-slate-700 mb-2">New Raw Ingredient</h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Field label="Ingredient"><input value={ingredientForm.name} onChange={(e) => setIngredientForm({ ...ingredientForm, name: e.target.value })} placeholder="Basmati Rice" className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm" /></Field>
+                <Field label="Unit"><input value={ingredientForm.unit} onChange={(e) => setIngredientForm({ ...ingredientForm, unit: e.target.value })} placeholder="kg" className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm" /></Field>
+                <Field label="Stock"><input type="number" value={ingredientForm.current_stock} onChange={(e) => setIngredientForm({ ...ingredientForm, current_stock: e.target.value })} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm" /></Field>
+                <Field label="Cost / Unit"><input type="number" value={ingredientForm.cost_per_unit} onChange={(e) => setIngredientForm({ ...ingredientForm, cost_per_unit: e.target.value })} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm" /></Field>
+              </div>
+              <button type="button" disabled={busy} onClick={() => void createIngredient()} className="mt-3 px-4 py-2 rounded-lg bg-slate-900 text-white font-bold text-xs">Add Ingredient</button>
+            </div>
+            <div className="mt-4 overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead><tr className="border-b text-xs uppercase text-slate-500 font-bold"><th className="py-2">Item</th><th>Stock</th><th>Min Stock</th><th>Cost</th></tr></thead>
+                <tbody>
+                  {ingredients.map((ing) => (
+                    <tr key={ing.id} className="border-b border-slate-100">
+                      <td className="py-2.5 font-bold">{ing.name}</td>
+                      <td>{ing.current_stock} {ing.unit}</td>
+                      <td>{ing.minimum_stock} {ing.unit}</td>
+                      <td>{money(ing.cost_per_unit)}</td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
             </div>
-            {stockTransactions.length === 0 && <Empty>No stock movements have been recorded yet.</Empty>}
           </section>
-        </>}
+        )}
 
-        {!loading && branchId && tab === "expenses" && <>
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <h2 className="flex items-center gap-2 text-lg font-black"><Receipt size={20} className="text-orange-600" />Expenses & petty cash</h2>
-              <label className="text-xs font-bold text-slate-600">Date <input type="date" value={expenseDate} onChange={(event) => setExpenseDate(event.target.value)} className="ms-2 min-h-10 rounded-lg border border-slate-200 px-3 text-sm" /></label>
+        {!loading && branchId && tab === "expenses" && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 mt-4">
+            <h2 className="flex items-center gap-2 text-lg font-black"><Receipt size={20} className="text-orange-600" />Branch Expenses</h2>
+            <div className="mt-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <h3 className="text-xs font-bold uppercase text-slate-700 mb-2">Record Outflow</h3>
+              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+                <Field label="Description"><input value={expenseForm.description} onChange={(e) => setExpenseForm({ ...expenseForm, description: e.target.value })} placeholder="Vendor cash purchase" className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm" /></Field>
+                <Field label="Amount"><input type="number" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm" /></Field>
+                <Field label="Payment Method">
+                  <select value={expenseForm.payment_method} onChange={(e) => setExpenseForm({ ...expenseForm, payment_method: e.target.value })} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm">
+                    <option value="cash">Cash</option>
+                    <option value="card">Card</option>
+                    <option value="upi">UPI</option>
+                  </select>
+                </Field>
+              </div>
+              <button type="button" disabled={busy} onClick={() => void recordExpense()} className="mt-3 px-4 py-2 rounded-lg bg-slate-900 text-white font-bold text-xs">Record Expense</button>
             </div>
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-              <Field label="Description"><input value={expenseForm.description} onChange={(event) => setExpenseForm({ ...expenseForm, description: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field>
-              <Field label="Amount"><input type="number" min={0} step="0.01" value={expenseForm.amount} onChange={(event) => setExpenseForm({ ...expenseForm, amount: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field>
-              <Field label="Category">
-                <select value={expenseForm.category_id} onChange={(event) => setExpenseForm({ ...expenseForm, category_id: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
-                  <option value="">No category</option>
-                  {expenseCategories.map((category) => <option key={category.id} value={category.id}>{category.name}</option>)}
-                </select>
-              </Field>
-              <Field label="Payment method">
-                <select value={expenseForm.payment_method} onChange={(event) => setExpenseForm({ ...expenseForm, payment_method: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
-                  <option value="cash">Cash</option><option value="upi">UPI</option><option value="card">Card</option><option value="bank_transfer">Bank transfer</option>
-                </select>
-              </Field>
-            </div>
-            <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button type="button" disabled={busy} onClick={() => void createExpense()} className="min-h-10 rounded-lg bg-orange-600 px-4 text-sm font-bold text-white disabled:opacity-50">Record expense</button>
-              <input value={categoryName} onChange={(event) => setCategoryName(event.target.value)} placeholder="New category name" className="min-h-10 w-52 rounded-lg border border-slate-200 px-3 text-sm" />
-              <button type="button" disabled={busy || !categoryName.trim()} onClick={() => void addCategory()} className="min-h-10 rounded-lg border border-slate-300 px-3 text-sm font-bold disabled:opacity-50">Add category</button>
-            </div>
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 className="text-lg font-black">Expense ledger for {expenseDate}</h2>
-              <p className="text-sm font-bold text-red-700">{money(expenses.reduce((total, expense) => total + Number(expense.amount || 0), 0))}</p>
-            </div>
-            {expenses.length === 0 && <Empty>No expenses recorded for this date.</Empty>}
-            <div className="mt-3 divide-y divide-slate-100">
-              {expenses.map((expense) => (
-                <div key={expense.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                  <div>
-                    <p className="font-bold">{expense.description}</p>
-                    <p className="text-xs text-slate-500">{expense.category_name || "Uncategorised"} · {expense.payment_method.replaceAll("_", " ")}</p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <strong>{money(expense.amount)}</strong>
-                    <ActionButton disabled={busy} tone="danger" onClick={() => void voidExpense(expense)}>Void</ActionButton>
-                  </div>
+            <div className="mt-4 divide-y divide-slate-100">
+              {expenses.map((exp) => (
+                <div key={exp.id} className="py-2.5 flex justify-between items-center text-sm">
+                  <div><strong>{exp.description}</strong> · {exp.payment_method}</div>
+                  <div className="flex items-center gap-3"><span className="font-bold text-red-700">{money(exp.amount)}</span><button type="button" onClick={() => void voidExpense(exp)} className="text-xs text-slate-400 hover:text-red-700">Void</button></div>
                 </div>
               ))}
             </div>
           </section>
-        </>}
+        )}
 
-        {!loading && branchId && tab === "delivery" && <>
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <h2 className="flex items-center gap-2 text-lg font-black"><Truck size={20} className="text-orange-600" />Delivery dispatch</h2>
-            <p className="mt-1 text-sm text-slate-500">Delivery orders, driver assignment, and handoff transitions. Cash-on-delivery must be explicitly collected before a job can close.</p>
-            <div className="mt-4 grid gap-3 sm:grid-cols-3">
-              <Field label="Order">
-                <select value={deliveryForm.order_id} onChange={(event) => setDeliveryForm({ ...deliveryForm, order_id: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm">
-                  <option value="">Choose delivery order</option>
-                  {deliverableOrders.map((order) => <option key={order.id} value={order.id}>{order.order_number} · {money(order.grand_total)}</option>)}
-                </select>
-              </Field>
-              <Field label="Address"><input value={deliveryForm.address} onChange={(event) => setDeliveryForm({ ...deliveryForm, address: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field>
-              <Field label="COD amount"><input type="number" min={0} step="0.01" value={deliveryForm.cod_amount} onChange={(event) => setDeliveryForm({ ...deliveryForm, cod_amount: event.target.value })} className="min-h-10 w-full rounded-lg border border-slate-200 px-3 text-sm" /></Field>
-            </div>
-            <button type="button" disabled={busy || !deliveryForm.order_id} onClick={() => void createDeliveryJob()} className="mt-3 min-h-10 rounded-lg bg-orange-600 px-4 text-sm font-bold text-white disabled:opacity-50">Create delivery job</button>
-          </section>
-
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <h2 className="text-lg font-black">Dispatch board</h2>
-            {deliveryJobs.length === 0 && <Empty>No delivery jobs for this branch.</Empty>}
-            <div className="mt-3 space-y-3">
+        {!loading && branchId && tab === "delivery" && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 mt-4">
+            <h2 className="flex items-center gap-2 text-lg font-black"><Truck size={20} className="text-orange-600" />Online Orders & Delivery Dispatch</h2>
+            <div className="mt-4 divide-y divide-slate-100">
               {deliveryJobs.map((job) => (
-                <article key={job.id} className="rounded-xl border border-slate-200 p-4">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="font-black">{job.order_number || job.order_id} <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-bold capitalize text-slate-700">{job.status.replace("_", " ")}</span></p>
-                      <p className="text-sm text-slate-600">{job.address}</p>
-                      <p className="text-xs text-slate-500">{job.driver_name ? `${job.driver_name}${job.driver_phone ? ` · ${job.driver_phone}` : ""}${job.eta_minutes ? ` · ETA ${job.eta_minutes} min` : ""}` : "No driver assigned"}{Number(job.cod_amount) > 0 ? ` · COD ${money(job.cod_amount)}${job.cod_collected ? " collected" : ""}` : ""}</p>
-                    </div>
-                    <div className="flex flex-wrap gap-2">
-                      {job.status === "pending" && (assigning?.id === job.id ? <>
-                        <input value={assigning.name} onChange={(event) => setAssigning({ ...assigning, name: event.target.value })} placeholder="Driver name" className="min-h-9 w-36 rounded-lg border border-slate-200 px-2 text-xs" />
-                        <input value={assigning.phone} onChange={(event) => setAssigning({ ...assigning, phone: event.target.value })} placeholder="Phone" className="min-h-9 w-28 rounded-lg border border-slate-200 px-2 text-xs" />
-                        <ActionButton disabled={busy} onClick={() => void assignDriver()}>Save</ActionButton>
-                        <ActionButton disabled={busy} tone="muted" onClick={() => setAssigning(null)}>Cancel</ActionButton>
-                      </> : <ActionButton disabled={busy} onClick={() => setAssigning({ id: job.id, name: "", phone: "" })}>Assign driver</ActionButton>)}
-                      {job.status === "assigned" && <ActionButton disabled={busy} onClick={() => void moveDelivery(job, "picked_up")}>Picked up</ActionButton>}
-                      {job.status === "picked_up" && <ActionButton disabled={busy} onClick={() => void moveDelivery(job, "delivered", Number(job.cod_amount) > 0)}>Delivered</ActionButton>}
-                      {["pending", "assigned", "picked_up"].includes(job.status) && <ActionButton disabled={busy} tone="danger" onClick={() => void moveDelivery(job, "cancelled")}>Cancel</ActionButton>}
-                    </div>
+                <div key={job.id} className="py-3 flex justify-between items-center text-sm">
+                  <div>
+                    <p className="font-bold">Order #{job.order_number || job.order_id.slice(0, 8)}</p>
+                    <p className="text-xs text-slate-500">{job.address}</p>
                   </div>
-                </article>
+                  <div className="flex gap-2">
+                    {job.status === "assigned" && <button type="button" onClick={() => void updateDeliveryJob(job, "picked_up")} className="px-3 py-1.5 text-xs font-bold bg-amber-600 text-white rounded-md">Pick Up</button>}
+                    {job.status === "picked_up" && <button type="button" onClick={() => void updateDeliveryJob(job, "delivered")} className="px-3 py-1.5 text-xs font-bold bg-emerald-600 text-white rounded-md">Deliver</button>}
+                  </div>
+                </div>
               ))}
+              {deliveryJobs.length === 0 && <Empty>No delivery dispatches at this moment.</Empty>}
             </div>
           </section>
-        </>}
+        )}
 
-        {!loading && branchId && tab === "reports" && <>
-          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
+        {!loading && branchId && tab === "reports" && (
+          <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5 mt-4">
             <h2 className="flex items-center gap-2 text-lg font-black"><ClipboardList size={20} className="text-orange-600" />Today at a glance</h2>
-            {!report && <Empty>Report data is not available for this account yet.</Empty>}
-            {report && <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
-              <Metric label="Sales" value={Number(report.sales || 0)} icon={<CircleDollarSign size={18} />} money />
-              <Metric label="Running orders" value={Number(report.runningOrders || 0)} icon={<Activity size={18} />} />
-              <Metric label="Pending orders" value={Number(report.pendingOrders || 0)} icon={<ClipboardList size={18} />} />
-              <Metric label="Tables occupied" value={Number(report.tablesOccupied || 0)} icon={<Utensils size={18} />} />
-              <Metric label="Avg table turn" value={Number(report.avgTableTurnMinutes || 0)} icon={<RefreshCw size={18} />} suffix="min" />
-              <Metric label="Net collected" value={Number((report.financial as Record<string, unknown> | undefined)?.netCollected || 0)} icon={<Wallet size={18} />} money />
-            </div>}
+            {report && (
+              <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-6">
+                <Metric label="Sales" value={Number(report.sales || 0)} icon={<CircleDollarSign size={18} />} money />
+                <Metric label="Running orders" value={Number(report.runningOrders || 0)} icon={<Activity size={18} />} />
+                <Metric label="Pending orders" value={Number(report.pendingOrders || 0)} icon={<ClipboardList size={18} />} />
+                <Metric label="Tables occupied" value={Number(report.tablesOccupied || 0)} icon={<Utensils size={18} />} />
+                <Metric label="Avg table turn" value={Number(report.avgTableTurnMinutes || 0)} icon={<RefreshCw size={18} />} suffix="min" />
+                <Metric label="Net collected" value={Number((report.financial as Record<string, unknown> | undefined)?.netCollected || 0)} icon={<Wallet size={18} />} money />
+              </div>
+            )}
+            {taxRows.length > 0 && (
+              <div className="mt-5 overflow-x-auto">
+                <h3 className="text-xs font-bold uppercase text-slate-700 mb-2">Cloud Tax Breakdown</h3>
+                <table className="w-full text-left text-sm">
+                  <thead><tr className="border-b text-xs uppercase text-slate-500 font-bold"><th className="py-2">Branch</th><th>Bills</th><th>Taxable</th><th>Tax Collected</th><th>Gross</th></tr></thead>
+                  <tbody>
+                    {taxRows.map((row, idx) => (
+                      <tr key={idx} className="border-b border-slate-100">
+                        <td className="py-2.5 font-bold">{String(row.branch_name || "Branch")}</td>
+                        <td>{Number(row.total_bills || 0)}</td>
+                        <td>{money(Number(row.taxable_amount || 0))}</td>
+                        <td>{money(Number(row.tax_collected || 0))}</td>
+                        <td>{money(Number(row.gross_turnover || 0))}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
           </section>
-
-          {user.role.toLowerCase() === "accountant" && <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm sm:p-5">
-            <h2 className="text-lg font-black">Tax summary from Cloud</h2>
-            <div className="mt-3 overflow-x-auto">
-              <table className="w-full min-w-[540px] text-left text-sm">
-                <thead><tr className="border-b text-xs uppercase text-slate-500"><th className="py-2">Branch</th><th>Bills</th><th>Taxable</th><th>Tax collected</th><th>Gross</th></tr></thead>
-                <tbody>{taxRows.map((row, index) => <tr key={String(row.branch_id || index)} className="border-b border-slate-100"><td className="py-3 font-semibold">{String(row.branch_name || "Branch")}</td><td>{Number(row.total_bills || 0)}</td><td>{money(Number(row.taxable_amount || 0))}</td><td>{money(Number(row.tax_collected || 0))}</td><td>{money(Number(row.gross_turnover || 0))}</td></tr>)}</tbody>
-              </table>
-            </div>
-            {taxRows.length === 0 && <Empty>No Cloud tax rows were returned for the current period.</Empty>}
-          </section>}
-        </>}
+        )}
       </div>
     </main>
   );
 }
 
 function Metric({ label, value, icon, money: isMoney, suffix }: { label: string; value: number; icon: React.ReactNode; money?: boolean; suffix?: string }) {
-  return <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">
-    <span className="grid h-10 w-10 place-items-center rounded-lg bg-orange-50 text-orange-700">{icon}</span>
-    <div><p className="text-xs font-semibold text-slate-500">{label}</p><p className="text-lg font-black">{isMoney ? money(value) : value}{suffix ? ` ${suffix}` : ""}</p></div>
-  </div>;
+  return (
+    <div className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-4">
+      <span className="grid h-10 w-10 place-items-center rounded-lg bg-orange-50 text-orange-700">{icon}</span>
+      <div>
+        <p className="text-xs font-semibold text-slate-500">{label}</p>
+        <p className="text-lg font-black">{isMoney ? money(value) : value}{suffix ? ` ${suffix}` : ""}</p>
+      </div>
+    </div>
+  );
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return <label className="block text-xs font-bold text-slate-600">{label}<span className="mt-1 block">{children}</span></label>;
+  return (
+    <label className="block text-xs font-bold text-slate-600">
+      {label}
+      <span className="mt-1 block">{children}</span>
+    </label>
+  );
 }
 
 function OrderList({ orders, action }: { orders: Order[]; action?: (order: Order) => React.ReactNode }) {
   if (!orders.length) return <Empty>No active Cloud orders for this branch.</Empty>;
-  return <div className="mt-3 divide-y divide-slate-100">{orders.map((order) => (
-    <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
-      <div className="min-w-0">
-        <p className="font-bold">{order.order_number} <span className="font-normal capitalize text-slate-500">· {order.order_type.replaceAll("_", " ")}{order.table_number ? ` · Table ${order.table_number}` : ""}</span></p>
-        <p className="text-xs text-slate-500">Kitchen: {order.kitchen_status || "pending"} · Payment: {order.payment_status}</p>
-        <p className="truncate text-xs text-slate-500">{(order.items || []).map((item) => `${item.quantity}× ${item.product_name}`).join(", ")}</p>
-      </div>
-      <div className="flex items-center gap-3"><strong>{money(order.grand_total)}</strong>{action?.(order)}</div>
+  return (
+    <div className="mt-3 divide-y divide-slate-100">
+      {orders.map((order) => (
+        <div key={order.id} className="flex flex-wrap items-center justify-between gap-3 py-3">
+          <div className="min-w-0">
+            <p className="font-bold">
+              {order.order_number}{" "}
+              <span className="font-normal capitalize text-slate-500">
+                · {order.order_type.replaceAll("_", " ")}{order.table_number ? ` · Table ${order.table_number}` : ""}
+              </span>
+            </p>
+            <p className="text-xs text-slate-500">Kitchen: {order.kitchen_status || "pending"} · Payment: {order.payment_status}</p>
+            <p className="truncate text-xs text-slate-500">{(order.items || []).map((item) => `${item.quantity}× ${item.product_name}`).join(", ")}</p>
+          </div>
+          <div className="flex items-center gap-3">
+            <strong>{money(order.grand_total)}</strong>
+            {action?.(order)}
+          </div>
+        </div>
+      ))}
     </div>
-  ))}</div>;
-}
-
-function ActionButton({ children, disabled, onClick, tone = "primary" }: { children: React.ReactNode; disabled?: boolean; onClick: () => void; tone?: "primary" | "muted" | "danger" }) {
-  const styles = tone === "danger" ? "bg-red-700 text-white" : tone === "muted" ? "border border-slate-300 text-slate-700" : "bg-slate-900 text-white";
-  return <button type="button" disabled={disabled} onClick={onClick} className={`min-h-9 rounded-lg px-3 text-xs font-bold disabled:opacity-50 ${styles}`}>{children}</button>;
+  );
 }
 
 function Empty({ children }: { children: React.ReactNode }) {

@@ -11,6 +11,7 @@ import { getTenantCurrency } from './refund';
 import { getCurrencyMinorUnitFactor } from '../countries';
 import { importCloudQrOrder, type CloudQrOrder } from './cloud-qr-order-import';
 import { importCloudCatalog, type CloudCatalogSnapshot } from './cloud-catalog-import';
+import { subscriptionService } from './subscription';
 
 export const DEFAULT_CLOUD_SERVER_URL = process.env.OIU_CLOUD_API_URL || 'https://orderitup-cloud-api.narayaaana11.workers.dev';
 export const DEFAULT_TERMINAL_CLOUD_API_URL = process.env.OIU_TERMINAL_CLOUD_API_URL || 'https://orderitup-cloud-api.narayaaana11.workers.dev';
@@ -1230,6 +1231,9 @@ export class CloudSyncService {
         cloud_last_heartbeat: new Date().toISOString(),
       });
       this.applyFeatures(data.features);
+      if (data.subscription && typeof data.subscription === 'object') {
+        subscriptionService.syncFromCloud(data.subscription as any);
+      }
     } catch (err) {
       this.markError((err as Error).message);
     }
@@ -1594,6 +1598,9 @@ export class CloudSyncService {
       }));
     } else if (frame?.type === 'heartbeat_ack') {
       this.applyFeatures(frame.features);
+      if (frame.subscription && typeof frame.subscription === 'object') {
+        subscriptionService.syncFromCloud(frame.subscription as any);
+      }
     }
   }
 
