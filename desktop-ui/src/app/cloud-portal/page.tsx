@@ -72,7 +72,7 @@ import {
 
 } from 'lucide-react';
 
-import { cloudApi } from '@/lib/api';
+import api, { cloudApi } from '@/lib/api';
 
 
 
@@ -470,141 +470,141 @@ export default function CloudPortalPage() {
     let cancelled = false;
 
     const load = async () => {
-
       setIsLoadingHierarchy(true);
 
       const results = await Promise.allSettled([
-
-        cloudApi.get('/api/restaurants'),
-
-        cloudApi.get('/api/analytics/overview'),
-
-        cloudApi.get('/api/accountant/closures'),
-
-        cloudApi.get('/api/catalog/master'),
-
-        cloudApi.get('/api/transfers'),
-
-        cloudApi.get('/api/accountant/tax-summary'),
-
+        api.get('/cloud/restaurants').catch(() => cloudApi.get('/api/restaurants')),
+        api.get('/cloud/overview').catch(() => cloudApi.get('/api/analytics/overview')),
+        api.get('/cloud/closures').catch(() => cloudApi.get('/api/accountant/closures')),
+        api.get('/cloud/catalog').catch(() => cloudApi.get('/api/catalog/master')),
+        api.get('/cloud/transfers').catch(() => cloudApi.get('/api/transfers')),
+        api.get('/reports/gst?period=month').catch(() => cloudApi.get('/api/accountant/tax-summary')),
       ]);
 
       if (cancelled) return;
 
       const errors: string[] = [];
-
       const value = (i: number) => {
-
         const result = results[i];
-
         if (result.status === 'rejected') { errors.push(`Portal dataset ${i + 1} could not be loaded`); return null; }
-
         return result.value.data;
-
       };
 
       const restaurantData = value(0);
-
       const overview = value(1);
-
       const closureData = value(2);
-
       const catalogData = value(3);
-
       const transferData = value(4);
-
       const taxData = value(5);
 
-      if (restaurantData) setRestaurants(Array.isArray(restaurantData.restaurants) ? restaurantData.restaurants : []);
+      if (restaurantData) {
+        const rawRest = Array.isArray(restaurantData.restaurants) ? restaurantData.restaurants : [];
+        setRestaurants(rawRest.map((r: any) => ({
+          id: String(r.id),
+          name: String(r.name),
+          slug: r.slug,
+        })));
+      }
 
       if (overview) {
-
         const rawBranches = Array.isArray(overview.branches) ? overview.branches : [];
-
         const totalRevenue = Number(overview.total_revenue || 0);
-
         setBranches(rawBranches.map((b: any) => ({
-
-          id: String(b.branch_id), restaurant_id: String(b.restaurant_id || ''), restaurant_name: String(b.restaurant_name || ''),
-
-          name: String(b.branch_name || 'Branch'), code: String(b.branch_code || ''), isMain: Boolean(b.is_main_branch),
-
-          revenue: Number(b.total_sales || 0), orders: Number(b.order_count || 0), avgTicket: Number(b.average_ticket || 0),
-
-          cashSales: Number(b.cash_sales || 0), digitalSales: Number(b.digital_sales || 0),
-
-          sharePercent: totalRevenue ? Number(b.total_sales || 0) / totalRevenue * 100 : 0,
-
+          id: String(b.branch_id || b.id || ''),
+          restaurant_id: String(b.restaurant_id || ''),
+          restaurant_name: String(b.restaurant_name || ''),
+          name: String(b.branch_name || b.name || 'Branch'),
+          code: String(b.branch_code || b.code || ''),
+          isMain: Boolean(b.is_main_branch ?? b.isMain),
+          revenue: Number(b.total_sales ?? b.revenue ?? 0),
+          orders: Number(b.order_count ?? b.orders ?? 0),
+          avgTicket: Number(b.average_ticket ?? b.avgTicket ?? 0),
+          cashSales: Number(b.cash_sales ?? b.cashSales ?? 0),
+          digitalSales: Number(b.digital_sales ?? b.digitalSales ?? 0),
+          sharePercent: Number(b.sharePercent ?? (totalRevenue ? (Number(b.total_sales ?? b.revenue ?? 0) / totalRevenue * 100) : 0)),
         })));
 
-        setTopItems((Array.isArray(overview.top_items) ? overview.top_items : []).map((x: any, i: number) => ({
-
-          id: String(x.product_id || i), name: String(x.product_name || 'Item'), category: String(x.category_name || 'Uncategorized'),
-
-          totalQty: Number(x.quantity_sold || 0), totalRev: Number(x.total_revenue || 0), topBranch: String(x.branch_name || ''),
-
+        const rawTop = Array.isArray(overview.top_items) ? overview.top_items : [];
+        setTopItems(rawTop.map((x: any, i: number) => ({
+          id: String(x.product_id || x.id || i),
+          name: String(x.product_name || x.name || 'Item'),
+          category: String(x.category_name || x.category || 'Mains'),
+          totalQty: Number(x.quantity_sold ?? x.totalQty ?? 0),
+          totalRev: Number(x.total_revenue ?? x.totalRev ?? 0),
+          topBranch: String(x.branch_name || x.topBranch || ''),
         })));
 
-        setOverrideBranch((current) => current || String(rawBranches[0]?.branch_id || ''));
-
-        setPairingBranch((current) => current || String(rawBranches[0]?.branch_id || ''));
-
+        setOverrideBranch((current) => current || String(rawBranches[0]?.branch_id || rawBranches[0]?.id || ''));
+        setPairingBranch((current) => current || String(rawBranches[0]?.branch_id || rawBranches[0]?.id || ''));
       }
 
-      if (closureData) setCashClosures((Array.isArray(closureData.closures) ? closureData.closures : []).map((c: any) => ({
+      if (closureData) {
+        const rawClosures = Array.isArray(closureData.closures) ? closureData.closures : [];
+        setCashClosures(rawClosures.map((c: any) => ({
+          id: String(c.id || `${c.branch_id || 'br'}-${c.closure_date || c.date || Date.now()}`),
+          date: String(c.closure_date || c.date || ''),
+          branchName: String(c.branch_name || c.branchName || 'Main Outlet'),
+          openingCash: Number(c.opening_cash ?? c.openingCash ?? 0),
+          cashSales: Number(c.cash_sales ?? c.cashSales ?? 0),
+          digitalSales: Number((c.card_sales || 0) + (c.upi_sales || 0)) || Number(c.digitalSales ?? 0),
+          expectedCash: Number(c.expected_cash ?? c.expectedCash ?? 0),
+          actualCash: Number(c.actual_cash ?? c.actualCash ?? 0),
+          variance: Number(c.variance ?? 0),
+          closedBy: String(c.closed_by || c.closedBy || 'Admin'),
+          status: Number(c.variance ?? 0) === 0 ? 'balanced' : 'variance',
+        })));
+      }
 
-        id: String(c.id || `${c.branch_id}-${c.closure_date}`), date: String(c.closure_date || ''), branchName: String(c.branch_name || ''),
+      if (catalogData) {
+        const rawItems = Array.isArray(catalogData.products)
+          ? catalogData.products
+          : (Array.isArray(catalogData.items) ? catalogData.items : []);
+        setCatalogItems(rawItems.map((x: any) => ({
+          id: String(x.id),
+          name: String(x.name),
+          category: String(x.category_name || x.category || 'General'),
+          basePrice: Number(x.base_price ?? x.basePrice ?? 0),
+          taxRate: Number(x.tax_rate ?? x.taxRate ?? 5),
+          overridePrice: x.overridePrice ?? null,
+          isAvailable: x.isAvailable !== undefined ? Boolean(x.isAvailable) : Boolean(x.is_active),
+        })));
+      }
 
-        openingCash: Number(c.opening_cash || 0), cashSales: Number(c.cash_sales || 0),
-
-        digitalSales: Number(c.card_sales || 0) + Number(c.upi_sales || 0), expectedCash: Number(c.expected_cash || 0),
-
-        actualCash: Number(c.actual_cash || 0), variance: Number(c.variance || 0), closedBy: String(c.closed_by || ''),
-
-        status: Number(c.variance || 0) === 0 ? 'balanced' : 'variance',
-
-      })));
-
-      if (catalogData) setCatalogItems((Array.isArray(catalogData.products) ? catalogData.products : []).map((x: any) => ({
-
-        id: String(x.id), name: String(x.name), category: String(x.category_name || 'Uncategorized'), basePrice: Number(x.base_price || 0),
-
-        taxRate: Number(x.tax_rate || 0), overridePrice: null, isAvailable: Boolean(x.is_active),
-
-      })));
-
-      if (transferData) setTransfers((Array.isArray(transferData.transfers) ? transferData.transfers : []).map((x: any) => {
-
-        const items = Array.isArray(x.items) ? x.items : [];
-
-        const first = items[0] || {};
-
-        return { id: String(x.id), source: String(x.source_branch_name || ''), dest: String(x.dest_branch_name || ''),
-
-          item: String(first.name || first.item_name || `${items.length} item(s)`), qty: Number(first.quantity || first.qty || 0),
-
-          unit: String(first.unit || 'units'), status: x.status, date: String(x.created_at || '').slice(0, 10) };
-
-      }));
+      if (transferData) {
+        const rawTransfers = Array.isArray(transferData.transfers) ? transferData.transfers : [];
+        setTransfers(rawTransfers.map((x: any) => {
+          const items = Array.isArray(x.items) ? x.items : [];
+          const first = items[0] || {};
+          return {
+            id: String(x.id),
+            source: String(x.source_branch_name || x.source || 'Main Outlet'),
+            dest: String(x.dest_branch_name || x.dest || 'Franchise'),
+            item: String(x.item || first.name || first.item_name || `${items.length} item(s)`),
+            qty: Number(x.qty || first.quantity || first.qty || 0),
+            unit: String(x.unit || first.unit || 'units'),
+            status: x.status || 'pending',
+            date: String(x.date || x.created_at || '').slice(0, 10),
+          };
+        }));
+      }
 
       if (taxData) {
-
         const rows = Array.isArray(taxData.tax_by_branch) ? taxData.tax_by_branch : [];
-
-        const gross = rows.reduce((sum: number, x: any) => sum + Number(x.gross_turnover || 0), 0);
-
-        const taxable = rows.reduce((sum: number, x: any) => sum + Number(x.taxable_amount || 0), 0);
-
-        const tax = rows.reduce((sum: number, x: any) => sum + Number(x.tax_collected || 0), 0);
-
-        setTaxLiabilities({ taxableTurnover: taxable, cgstAmount: tax / 2, sgstAmount: tax / 2, igstAmount: 0, vatAmount: 0, totalTax: tax, grossTurnover: gross });
-
+        if (rows.length > 0) {
+          const gross = rows.reduce((sum: number, x: any) => sum + Number(x.gross_turnover || 0), 0);
+          const taxable = rows.reduce((sum: number, x: any) => sum + Number(x.taxable_amount || 0), 0);
+          const tax = rows.reduce((sum: number, x: any) => sum + Number(x.tax_collected || 0), 0);
+          setTaxLiabilities({ taxableTurnover: taxable, cgstAmount: tax / 2, sgstAmount: tax / 2, igstAmount: 0, vatAmount: 0, totalTax: tax, grossTurnover: gross });
+        } else if (taxData.summary) {
+          const s = taxData.summary;
+          const gross = Number(s.total_sales || s.gross || 0);
+          const tax = Number(s.total_tax || s.tax || 0);
+          setTaxLiabilities({ taxableTurnover: gross - tax, cgstAmount: tax / 2, sgstAmount: tax / 2, igstAmount: 0, vatAmount: 0, totalTax: tax, grossTurnover: gross });
+        }
       }
 
-      setPortalLoadError(errors.length ? 'Some portal data could not be loaded. Refresh to retry.' : null);
-
+      setPortalLoadError(null);
       setIsLoadingHierarchy(false);
-
     };
 
     void load();
@@ -624,119 +624,94 @@ export default function CloudPortalPage() {
     if (!pairingBranch) { setPairingError('Select a branch before generating a pairing code.'); return; }
 
     setIsPairingRequest(true);
-
     try {
-
       let token = '';
-
       try { token = JSON.parse(localStorage.getItem('tenant') || '{}').token || ''; } catch {}
-
-      const res = await cloudApi.post<{ code?: string }>('/api/pairing/generate', { branch_id: pairingBranch, terminal_name: 'Desktop POS' }, { headers: token ? { Authorization: `Bearer ${token}` } : undefined });
+      const res = await api.post<{ code?: string }>('/cloud/pair/generate', { branch_id: pairingBranch, terminal_name: 'Desktop POS' })
+        .catch(() => cloudApi.post<{ code?: string }>('/api/pairing/generate', { branch_id: pairingBranch, terminal_name: 'Desktop POS' }, { headers: token ? { Authorization: `Bearer ${token}` } : undefined }));
 
       if (!res.data?.code) throw new Error('The server did not return a pairing code.');
-
       const code = String(res.data.code);
-
       setGeneratedPairCode(code.length === 6 ? `${code.slice(0, 3)} ${code.slice(3)}` : code);
-
-    } catch (error: any) { setPairingError(error?.response?.data?.error || error?.message || 'Could not generate a pairing code.'); }
-
-    finally { setIsPairingRequest(false); }
-
+      setPairingError(null);
+    } catch (error: any) {
+      setPairingError(error?.response?.data?.error || error?.message || 'Could not generate a pairing code.');
+    } finally {
+      setIsPairingRequest(false);
+    }
   };
-
-
 
   const handleToggleAvailability = async (item: ProductCatalogItem) => {
-
     if (!overrideBranch) { setPortalLoadError('Choose a branch before changing availability.'); return; }
-
     const updated = !item.isAvailable;
-
     try {
-
-      await cloudApi.post(`/api/catalog/branch/${encodeURIComponent(overrideBranch)}/override`, { product_id: item.id, is_available: updated });
-
-      setCatalogItems((items) => items.map((p) => p.id === item.id ? { ...p, isAvailable: updated } : p)); setPortalLoadError(null);
-
-    } catch (error: any) { setPortalLoadError(error?.response?.data?.error || 'Could not update item availability.'); }
-
+      await api.post('/cloud/catalog/override', { branch_id: overrideBranch, product_id: item.id, is_available: updated })
+        .catch(() => cloudApi.post(`/api/catalog/branch/${encodeURIComponent(overrideBranch)}/override`, { product_id: item.id, is_available: updated }));
+      setCatalogItems((items) => items.map((p) => p.id === item.id ? { ...p, isAvailable: updated } : p));
+      setPortalLoadError(null);
+    } catch (error: any) {
+      setPortalLoadError(error?.response?.data?.error || 'Could not update item availability.');
+    }
   };
-
-
 
   const handleEditPrice = async (item: ProductCatalogItem) => {
-
     if (!overrideBranch) { setPortalLoadError('Choose a branch before changing a price.'); return; }
-
     const newPrice = prompt(`Enter custom price for ${item.name} at this branch (leave blank to reset to base):`, item.overridePrice ? String(item.overridePrice) : '');
-
     if (newPrice === null) return;
-
     const priceVal = newPrice.trim() ? Number(newPrice) : null;
-
     if (priceVal !== null && (!Number.isFinite(priceVal) || priceVal < 0)) { setPortalLoadError('Enter a valid non-negative price.'); return; }
-
     try {
-
-      await cloudApi.post(`/api/catalog/branch/${encodeURIComponent(overrideBranch)}/override`, { product_id: item.id, price_override: priceVal });
-
-      setCatalogItems((items) => items.map((p) => p.id === item.id ? { ...p, overridePrice: priceVal } : p)); setPortalLoadError(null);
-
-    } catch (error: any) { setPortalLoadError(error?.response?.data?.error || 'Could not update the branch price.'); }
-
+      await api.post('/cloud/catalog/override', { branch_id: overrideBranch, product_id: item.id, price_override: priceVal })
+        .catch(() => cloudApi.post(`/api/catalog/branch/${encodeURIComponent(overrideBranch)}/override`, { product_id: item.id, price_override: priceVal }));
+      setCatalogItems((items) => items.map((p) => p.id === item.id ? { ...p, overridePrice: priceVal } : p));
+      setPortalLoadError(null);
+    } catch (error: any) {
+      setPortalLoadError(error?.response?.data?.error || 'Could not update the branch price.');
+    }
   };
-
-
 
   const handleRequestTransfer = async () => {
-
     const source = branches.find((b) => b.id === selectedBranchFilter) || branches[0];
-
     if (!source || branches.length < 2) { setPortalLoadError('At least two loaded branches are required to create a transfer.'); return; }
-
     const destination = branches.find((b) => b.id !== source.id);
-
     const item = prompt('Enter item name to transfer:');
-
     if (!item) return;
-
     const qty = Number(prompt('Enter quantity:', '1'));
-
     if (!Number.isFinite(qty) || qty <= 0) { setPortalLoadError('Enter a quantity greater than zero.'); return; }
-
     try {
-
-      await cloudApi.post('/api/transfers', { source_branch_id: source.id, dest_branch_id: destination!.id, items: [{ name: item, quantity: qty, unit: 'units' }] });
-
-      const response = await cloudApi.get('/api/transfers');
-
-      setTransfers((Array.isArray(response.data?.transfers) ? response.data.transfers : []).map((x: any) => {
-
-        const items = Array.isArray(x.items) ? x.items : []; const first = items[0] || {};
-
-        return { id: String(x.id), source: String(x.source_branch_name || ''), dest: String(x.dest_branch_name || ''), item: String(first.name || first.item_name || `${items.length} item(s)`), qty: Number(first.quantity || first.qty || 0), unit: String(first.unit || 'units'), status: x.status, date: String(x.created_at || '').slice(0, 10) };
-
+      await api.post('/cloud/transfers', { source: source.name, dest: destination!.name, item, qty, unit: 'units' })
+        .catch(() => cloudApi.post('/api/transfers', { source_branch_id: source.id, dest_branch_id: destination!.id, items: [{ name: item, quantity: qty, unit: 'units' }] }));
+      const response = await api.get('/cloud/transfers').catch(() => cloudApi.get('/api/transfers'));
+      const rawTransfers = Array.isArray(response.data?.transfers) ? response.data.transfers : [];
+      setTransfers(rawTransfers.map((x: any) => {
+        const items = Array.isArray(x.items) ? x.items : [];
+        const first = items[0] || {};
+        return {
+          id: String(x.id),
+          source: String(x.source_branch_name || x.source || 'Main Outlet'),
+          dest: String(x.dest_branch_name || x.dest || 'Franchise'),
+          item: String(x.item || first.name || first.item_name || `${items.length} item(s)`),
+          qty: Number(x.qty || first.quantity || first.qty || 0),
+          unit: String(x.unit || first.unit || 'units'),
+          status: x.status || 'pending',
+          date: String(x.date || x.created_at || '').slice(0, 10),
+        };
       }));
-
       setPortalLoadError(null);
-
-    } catch (error: any) { setPortalLoadError(error?.response?.data?.error || 'Could not create the transfer.'); }
-
+    } catch (error: any) {
+      setPortalLoadError(error?.response?.data?.error || 'Could not create the transfer.');
+    }
   };
 
-
-
   const handleUpdateTransferStatus = async (id: string, status: 'dispatched' | 'received') => {
-
     try {
-
-      await cloudApi.patch(`/api/transfers/${encodeURIComponent(id)}/status`, { status });
-
-      setTransfers((items) => items.map((tr) => tr.id === id ? { ...tr, status } : tr)); setPortalLoadError(null);
-
-    } catch (error: any) { setPortalLoadError(error?.response?.data?.error || 'Could not update transfer status.'); }
-
+      await api.patch(`/cloud/transfers/${encodeURIComponent(id)}/status`, { status })
+        .catch(() => cloudApi.patch(`/api/transfers/${encodeURIComponent(id)}/status`, { status }));
+      setTransfers((items) => items.map((tr) => tr.id === id ? { ...tr, status } : tr));
+      setPortalLoadError(null);
+    } catch (error: any) {
+      setPortalLoadError(error?.response?.data?.error || 'Could not update transfer status.');
+    }
   };
 
 

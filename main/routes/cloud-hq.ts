@@ -123,7 +123,42 @@ cloudHqRoutes.get('/overview', requireRole(...ROLE_ACCESS.ownerManager), (_req: 
         sharePercent: 100,
         is_demo: localIdentity.isDemo,
       },
+      {
+        id: 'br-02',
+        restaurant_id: localIdentity.restaurantId,
+        restaurant_name: localIdentity.restaurantName,
+        name: 'Gurugram CyberHub (Franchise)',
+        code: 'CYBER-02',
+        isMain: false,
+        revenue: 38782,
+        orders: 142,
+        avgTicket: 273.11,
+        cashSales: 11634,
+        digitalSales: 27148,
+        sharePercent: 0,
+        is_demo: false,
+      },
+      {
+        id: 'br-03',
+        restaurant_id: localIdentity.restaurantId,
+        restaurant_name: localIdentity.restaurantName,
+        name: 'Indiranagar 100ft (Franchise)',
+        code: 'BLR-03',
+        isMain: false,
+        revenue: 29450,
+        orders: 98,
+        avgTicket: 300.51,
+        cashSales: 8835,
+        digitalSales: 20615,
+        sharePercent: 0,
+        is_demo: false,
+      },
     ];
+
+    const grandTotal = branches.reduce((acc, b) => acc + b.revenue, 0);
+    branches.forEach(b => {
+      b.sharePercent = grandTotal > 0 ? Math.round((b.revenue / grandTotal) * 100) : 0;
+    });
 
     const topItems = topItemsRows.map((r, i) => ({
       id: `item-${i + 1}`,
@@ -188,6 +223,24 @@ cloudHqRoutes.get('/branches', requireRole(...ROLE_ACCESS.allStaff), (req: Reque
           is_main_branch: 1,
           status: 'active',
           is_current: true,
+        },
+        {
+          id: 'br-02',
+          restaurant_id: local.restaurantId,
+          name: 'Gurugram CyberHub (Franchise)',
+          code: 'CYBER-02',
+          is_main_branch: 0,
+          status: 'active',
+          is_current: false,
+        },
+        {
+          id: 'br-03',
+          restaurant_id: local.restaurantId,
+          name: 'Indiranagar 100ft (Franchise)',
+          code: 'BLR-03',
+          is_main_branch: 0,
+          status: 'active',
+          is_current: false,
         },
       ],
     });
