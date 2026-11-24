@@ -117,11 +117,31 @@ export default function Navbar() {
           </Link>
 
           <nav aria-label="Main navigation" className="hidden items-center gap-5 xl:flex">
-            {NAV_LINKS.map((link) => (
-              <Link key={link.href} href={sectionHref(link.href)} className="whitespace-nowrap rounded-lg px-1 py-2 text-[13px] font-semibold text-slate-600 transition-colors hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
-                {link.label}
-              </Link>
-            ))}
+            {NAV_LINKS.map((link) => {
+              const isExternal = link.href.startsWith("http://") || link.href.startsWith("https://");
+              return isExternal ? (
+                <a
+                  key={link.href}
+                  href={link.href}
+                  className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-orange-200 bg-orange-50/70 px-2.5 py-1.5 text-[13px] font-bold text-orange-700 transition-colors hover:bg-orange-100 hover:text-orange-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                >
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                  </span>
+                  {link.label}
+                  <ArrowUpRight className="h-3.5 w-3.5" aria-hidden="true" />
+                </a>
+              ) : (
+                <Link
+                  key={link.href}
+                  href={sectionHref(link.href)}
+                  className="whitespace-nowrap rounded-lg px-1 py-2 text-[13px] font-semibold text-slate-600 transition-colors hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
             {showDashboardLink && (
               <button type="button" onClick={openDashboard} className="whitespace-nowrap rounded-lg px-1 py-2 text-[13px] font-semibold text-slate-600 transition-colors hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
                 Dashboard
@@ -130,6 +150,18 @@ export default function Navbar() {
           </nav>
 
           <div className="hidden shrink-0 items-center gap-2 xl:flex">
+            <a
+              href="http://localhost:3001/"
+              title="Launch Cloud POS terminal on port 3001"
+              className="inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-orange-200 bg-orange-50/80 px-3.5 py-2 text-sm font-bold text-orange-700 shadow-sm transition hover:bg-orange-100 hover:text-orange-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+            >
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+              </span>
+              Cloud POS
+              <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+            </a>
             {!currentUser ? (
               <>
                 <button type="button" onClick={openLogin} className="min-h-10 whitespace-nowrap rounded-xl px-3 py-2 text-sm font-bold text-slate-700 transition-colors hover:bg-slate-100 hover:text-slate-950 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
@@ -166,11 +198,35 @@ export default function Navbar() {
         {mobileMenuOpen && (
           <nav id="mobile-navigation" aria-label="Mobile navigation" className="border-t border-slate-200 py-3 xl:hidden">
             <div className="grid gap-1 sm:grid-cols-2">
-              {NAV_LINKS.map((link) => (
-                <Link key={link.href} href={sectionHref(link.href)} onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
-                  {link.label}
-                </Link>
-              ))}
+              {NAV_LINKS.map((link) => {
+                const isExternal = link.href.startsWith("http://") || link.href.startsWith("https://");
+                return isExternal ? (
+                  <a
+                    key={link.href}
+                    href={link.href}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="flex items-center justify-between rounded-xl border border-orange-200 bg-orange-50 px-3 py-3 text-sm font-bold text-orange-700 transition hover:bg-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="relative flex h-2 w-2">
+                        <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                      </span>
+                      {link.label} (localhost:3001)
+                    </span>
+                    <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+                  </a>
+                ) : (
+                  <Link
+                    key={link.href}
+                    href={sectionHref(link.href)}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+                  >
+                    {link.label}
+                  </Link>
+                );
+              })}
               {showDashboardLink && (
                 <button type="button" onClick={openDashboard} className="rounded-xl px-3 py-3 text-left text-sm font-semibold text-slate-700 transition hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">
                   Dashboard

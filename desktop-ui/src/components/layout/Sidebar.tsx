@@ -29,6 +29,7 @@ import {
   Sparkles,
   Tablet,
   UtensilsCrossed,
+  Globe,
   type LucideIcon,
 } from 'lucide-react';
 import { useTranslations, type AppConfig } from 'use-intl';
@@ -270,6 +271,17 @@ export default function AppSidebar() {
                     <LifeBuoy className="size-4 shrink-0" />
                     <span>{t('support')}</span>
                   </Link>
+                </DropdownMenuItem>
+                <DropdownMenuItem asChild className="cursor-pointer">
+                  <a
+                    href="http://localhost:3004/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-orange-600 dark:text-orange-400 font-medium"
+                  >
+                    <Globe className="size-4 shrink-0" />
+                    <span>Cloud Portal (:3004)</span>
+                  </a>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem

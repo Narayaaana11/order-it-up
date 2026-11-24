@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 
 const PRODUCT_LINKS = [
+  { label: "Cloud POS Terminal", href: "http://localhost:3001/" },
   { label: "Dashboard sandbox", href: "/dashboard" },
   { label: "Platform admin", href: "/dashboard?perspective=founder" },
   { label: "Request pilot access", href: "/request-access" },
@@ -85,16 +86,28 @@ export default function Footer() {
             </h3>
 
             <ul className="mt-5 space-y-3">
-              {PRODUCT_LINKS.map((item) => (
-                <li key={item.label}>
-                  <Link
-                    href={item.href}
-                    className="text-sm text-neutral-400 transition-colors hover:text-orange-400"
-                  >
-                    {item.label}
-                  </Link>
-                </li>
-              ))}
+              {PRODUCT_LINKS.map((item) => {
+                const isExternal = item.href.startsWith("http://") || item.href.startsWith("https://");
+                return (
+                  <li key={item.label}>
+                    {isExternal ? (
+                      <a
+                        href={item.href}
+                        className="text-sm font-medium text-orange-400 transition-colors hover:text-orange-300"
+                      >
+                        {item.label} &rarr;
+                      </a>
+                    ) : (
+                      <Link
+                        href={item.href}
+                        className="text-sm text-neutral-400 transition-colors hover:text-orange-400"
+                      >
+                        {item.label}
+                      </Link>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
           </div>
 
