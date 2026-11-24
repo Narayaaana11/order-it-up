@@ -4,6 +4,19 @@
  * Usage: node dev-server.js
  */
 
+if (!process.versions.electron && !process.env.ELECTRON_RUN_AS_NODE) {
+  const { spawn } = require('child_process');
+  const electron = require('electron');
+  const child = spawn(electron, [__filename, ...process.argv.slice(2)], {
+    stdio: 'inherit',
+    env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+  });
+  child.on('exit', (code, signal) => {
+    process.exit(code ?? (signal ? 1 : 0));
+  });
+  return;
+}
+
 // Load .env before anything else
 const fs = require('fs');
 const envPath = require('path').join(__dirname, '.env');

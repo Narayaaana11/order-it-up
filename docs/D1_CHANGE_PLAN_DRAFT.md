@@ -1,7 +1,7 @@
 # D1 production change plan — DRAFT (not authorized)
 
-**Generated:** 2026-11-23T11:01:53.835Z  
-**Source commit:** `0541631`  
+**Generated:** 2026-11-23T23:38:23.942Z  
+**Source commit:** `b5b12b2`  
 **Status:** PREPARED ONLY. Do not run any statement below against production until this plan is filled in, reviewed by a second person, and explicitly authorized.  
 **Companion:** [PRODUCTION_RELEASE_RUNBOOK.md](./PRODUCTION_RELEASE_RUNBOOK.md), [CLOUD_D1_BASELINE_RECONCILIATION.md](./CLOUD_D1_BASELINE_RECONCILIATION.md)
 
