@@ -4609,6 +4609,57 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
       }
     },
   },
+  {
+    version: 95,
+    name: 'add_branches_and_branch_user_association',
+    up: () => {
+      // 1. Branches table for multi-outlet management
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS branches (
+          id TEXT PRIMARY KEY,
+          restaurant_id TEXT NOT NULL DEFAULT 'rest-01',
+          name TEXT NOT NULL,
+          code TEXT NOT NULL UNIQUE,
+          address TEXT,
+          phone TEXT,
+          manager_name TEXT,
+          manager_email TEXT,
+          is_main_branch INTEGER NOT NULL DEFAULT 0,
+          status TEXT NOT NULL DEFAULT 'active',
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_branches_code ON branches(code);
+        CREATE INDEX IF NOT EXISTS idx_branches_restaurant ON branches(restaurant_id);
+      `);
+
+      // 2. Add branch_id column to users table if not exists
+      const userCols = db.prepare("PRAGMA table_info(users)").all() as any[];
+      if (!userCols.some((c: any) => c.name === 'branch_id')) {
+        db.exec(`ALTER TABLE users ADD COLUMN branch_id TEXT;`);
+      }
+
+      // 3. Seed initial branch records
+      const localStoreName = getSettingValue('business_name') || 'Main Outlet';
+      const localBranchId = getSettingValue('branch_id') || 'br-01';
+      const localBranchCode = getSettingValue('branch_code') || 'MAIN-01';
+
+      db.prepare(`
+        INSERT OR IGNORE INTO branches (id, restaurant_id, name, code, is_main_branch, status, created_at, updated_at)
+        VALUES (?, 'rest-01', ?, ?, 1, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `).run(localBranchId, localStoreName, localBranchCode);
+
+      db.prepare(`
+        INSERT OR IGNORE INTO branches (id, restaurant_id, name, code, address, is_main_branch, status, created_at, updated_at)
+        VALUES ('br-02', 'rest-01', 'Gurugram CyberHub (Franchise)', 'CYBER-02', 'DLF Cyber City, Phase 2, Gurugram', 0, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `).run();
+
+      db.prepare(`
+        INSERT OR IGNORE INTO branches (id, restaurant_id, name, code, address, is_main_branch, status, created_at, updated_at)
+        VALUES ('br-03', 'rest-01', 'Indiranagar 100ft (Franchise)', 'BLR-03', '100 Feet Rd, Indiranagar, Bengaluru', 0, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
+      `).run();
+    },
+  },
 ];
 
 function syncBackupBeforeMigration(fromVersion: number, toVersion: number): void {

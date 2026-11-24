@@ -67,11 +67,13 @@ import {
   AlertTriangle,
 
   RotateCcw,
-
   Percent,
-
+  Plus,
+  X,
+  Lock,
+  Mail,
+  MapPin,
 } from 'lucide-react';
-
 import api, { cloudApi } from '@/lib/api';
 
 
@@ -361,6 +363,26 @@ export default function CloudPortalPage() {
   const [isPairingRequest, setIsPairingRequest] = useState(false);
 
   const [pairingError, setPairingError] = useState<string | null>(null);
+
+  // Create Branch & POS Login state
+  const [showCreateBranchModal, setShowCreateBranchModal] = useState(false);
+  const [isCreatingBranch, setIsCreatingBranch] = useState(false);
+  const [createBranchError, setCreateBranchError] = useState<string | null>(null);
+  const [createdBranchCredentials, setCreatedBranchCredentials] = useState<{
+    branch: any;
+    credentials: any;
+  } | null>(null);
+
+  // New Branch Form inputs
+  const [newBranchName, setNewBranchName] = useState('');
+  const [newBranchCode, setNewBranchCode] = useState('');
+  const [newBranchAddress, setNewBranchAddress] = useState('');
+  const [newBranchPhone, setNewBranchPhone] = useState('');
+  const [newBranchManagerName, setNewBranchManagerName] = useState('');
+  const [newBranchEmail, setNewBranchEmail] = useState('');
+  const [newBranchPassword, setNewBranchPassword] = useState('Branch@1234');
+  const [newBranchPin, setNewBranchPin] = useState('1234');
+  const [newBranchRole, setNewBranchRole] = useState<'manager' | 'cashier'>('manager');
 
 
 
@@ -711,6 +733,67 @@ export default function CloudPortalPage() {
       setPortalLoadError(null);
     } catch (error: any) {
       setPortalLoadError(error?.response?.data?.error || 'Could not update transfer status.');
+    }
+  };
+
+  const handleCreateBranchSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setCreateBranchError(null);
+    if (!newBranchName.trim()) { setCreateBranchError('Branch name is required.'); return; }
+    if (!newBranchCode.trim()) { setCreateBranchError('Branch code is required (e.g. BLR-04).'); return; }
+    if (!newBranchEmail.trim() || !newBranchEmail.includes('@')) { setCreateBranchError('A valid manager email is required.'); return; }
+    if (!newBranchPassword || newBranchPassword.length < 8) { setCreateBranchError('Password must be at least 8 characters with upper, lower, and numbers.'); return; }
+
+    setIsCreatingBranch(true);
+    try {
+      const res = await api.post('/cloud/branches', {
+        name: newBranchName.trim(),
+        code: newBranchCode.trim().toUpperCase(),
+        address: newBranchAddress.trim(),
+        phone: newBranchPhone.trim(),
+        manager_name: newBranchManagerName.trim() || `${newBranchName.trim()} Manager`,
+        email: newBranchEmail.trim().toLowerCase(),
+        password: newBranchPassword,
+        pin: newBranchPin || '1234',
+        role: newBranchRole,
+      });
+
+      if (res.data?.success && res.data?.branch) {
+        const nb = res.data.branch;
+        setBranches((prev) => [
+          ...prev,
+          {
+            id: String(nb.id),
+            restaurant_id: 'rest-01',
+            restaurant_name: tenantName,
+            name: String(nb.name),
+            code: String(nb.code),
+            isMain: false,
+            revenue: 0,
+            orders: 0,
+            avgTicket: 0,
+            cashSales: 0,
+            digitalSales: 0,
+            sharePercent: 0,
+          },
+        ]);
+        setCreatedBranchCredentials({
+          branch: nb,
+          credentials: res.data.credentials,
+        });
+        setNewBranchName('');
+        setNewBranchCode('');
+        setNewBranchAddress('');
+        setNewBranchPhone('');
+        setNewBranchManagerName('');
+        setNewBranchEmail('');
+      } else {
+        throw new Error(res.data?.error || 'Failed to create branch');
+      }
+    } catch (err: any) {
+      setCreateBranchError(err?.response?.data?.error || err?.message || 'Could not create branch.');
+    } finally {
+      setIsCreatingBranch(false);
     }
   };
 
@@ -2792,19 +2875,26 @@ export default function CloudPortalPage() {
 
 
 
-              <button
-
-                onClick={() => handleGeneratePairPin('desktop')}
-
-                className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F07928] text-white font-semibold text-xs hover:bg-[#EA580C] transition-colors shadow-sm"
-
-              >
-
-                <KeyRound className="w-4 h-4" />
-
-                Generate New Pairing PIN
-
-              </button>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setShowCreateBranchModal(true);
+                    setCreatedBranchCredentials(null);
+                    setCreateBranchError(null);
+                  }}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-emerald-600 text-white font-semibold text-xs hover:bg-emerald-700 transition-colors shadow-sm"
+                >
+                  <Plus className="w-4 h-4" />
+                  + Create Branch & POS Login
+                </button>
+                <button
+                  onClick={() => handleGeneratePairPin('desktop')}
+                  className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#F07928] text-white font-semibold text-xs hover:bg-[#EA580C] transition-colors shadow-sm"
+                >
+                  <KeyRound className="w-4 h-4" />
+                  Generate New Pairing PIN
+                </button>
+              </div>
 
             </div>
 
@@ -3062,6 +3152,238 @@ export default function CloudPortalPage() {
 
       )}
 
+      {/* CREATE BRANCH & POS LOGIN MODAL */}
+      {showCreateBranchModal && (
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white border border-slate-200 rounded-2xl max-w-lg w-full p-6 flex flex-col gap-5 shadow-2xl relative text-slate-900 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between border-b border-slate-200 pb-4">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shadow-xs">
+                  <Building2 className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="text-base font-bold text-slate-900">Create Branch & POS Login</h3>
+                  <p className="text-xs text-slate-500">Add an outlet and auto-provision terminal login credentials</p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowCreateBranchModal(false);
+                  setCreatedBranchCredentials(null);
+                  setCreateBranchError(null);
+                }}
+                className="text-slate-500 hover:text-slate-900 text-xs px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+
+            {createBranchError && (
+              <div className="p-3 bg-rose-50 border border-rose-200 text-rose-700 text-xs rounded-xl flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 shrink-0" />
+                <span>{createBranchError}</span>
+              </div>
+            )}
+
+            {createdBranchCredentials ? (
+              <div className="flex flex-col gap-4">
+                <div className="p-4 rounded-xl bg-emerald-50/80 border border-emerald-200 flex flex-col gap-3">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold uppercase tracking-wider text-emerald-800">Branch & Login Created!</span>
+                    <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800">Ready to Sign In</span>
+                  </div>
+                  <div className="text-xs text-emerald-900 space-y-1">
+                    <p><strong>Branch:</strong> {createdBranchCredentials.branch.name} ({createdBranchCredentials.branch.code})</p>
+                    <p><strong>Role:</strong> {createdBranchCredentials.credentials.role}</p>
+                  </div>
+                  <div className="p-3 bg-white rounded-lg border border-emerald-200 font-mono text-xs space-y-1.5 shadow-xs">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Email:</span>
+                      <span className="font-semibold text-slate-900 select-all">{createdBranchCredentials.credentials.email}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Password:</span>
+                      <span className="font-semibold text-slate-900 select-all">{createdBranchCredentials.credentials.password}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-500">Quick PIN:</span>
+                      <span className="font-semibold text-slate-900 select-all">{createdBranchCredentials.credentials.pin}</span>
+                    </div>
+                  </div>
+                  <p className="text-[11px] text-emerald-700">
+                    Use these credentials to sign in at the POS terminal (<code className="font-mono bg-emerald-100 px-1 py-0.5 rounded">/auth/login</code>).
+                  </p>
+                </div>
+
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      const text = `Branch: ${createdBranchCredentials.branch.name} (${createdBranchCredentials.branch.code})\nEmail: ${createdBranchCredentials.credentials.email}\nPassword: ${createdBranchCredentials.credentials.password}\nPIN: ${createdBranchCredentials.credentials.pin}\nURL: http://localhost:3001/auth/login/`;
+                      navigator.clipboard?.writeText(text);
+                      alert('Branch credentials copied to clipboard!');
+                    }}
+                    className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs transition-colors shadow-sm flex items-center justify-center gap-2"
+                  >
+                    <Copy className="w-4 h-4" /> Copy Credentials
+                  </button>
+                  <a
+                    href="/auth/login/"
+                    target="_blank"
+                    rel="noreferrer"
+                    className="px-4 py-2.5 rounded-xl bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold shadow-xs transition-colors flex items-center justify-center gap-1.5"
+                  >
+                    Open POS Login <ChevronRight className="w-4 h-4" />
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <form onSubmit={handleCreateBranchSubmit} className="flex flex-col gap-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="flex flex-col gap-1.5 col-span-2">
+                    <label className="text-xs font-semibold text-slate-700">Branch Name *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. Indiranagar Flagship, Mumbai Airport T2"
+                      value={newBranchName}
+                      onChange={(e) => setNewBranchName(e.target.value)}
+                      required
+                      className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 bg-white"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Branch Code *</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. BLR-04, MUM-01"
+                      value={newBranchCode}
+                      onChange={(e) => setNewBranchCode(e.target.value)}
+                      required
+                      className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 uppercase font-mono bg-white"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5">
+                    <label className="text-xs font-semibold text-slate-700">Phone</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. +91 9876543210"
+                      value={newBranchPhone}
+                      onChange={(e) => setNewBranchPhone(e.target.value)}
+                      className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 bg-white"
+                    />
+                  </div>
+
+                  <div className="flex flex-col gap-1.5 col-span-2">
+                    <label className="text-xs font-semibold text-slate-700">Address / Location</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. 100 Feet Road, HAL 2nd Stage, Bengaluru"
+                      value={newBranchAddress}
+                      onChange={(e) => setNewBranchAddress(e.target.value)}
+                      className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 bg-white"
+                    />
+                  </div>
+                </div>
+
+                <div className="border-t border-slate-200 pt-3">
+                  <h4 className="text-xs font-bold text-slate-900 mb-2 flex items-center gap-1.5">
+                    <Lock className="w-3.5 h-3.5 text-emerald-600" /> POS Login & Credentials Provisioning
+                  </h4>
+
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="flex flex-col gap-1.5 col-span-2">
+                      <label className="text-xs font-semibold text-slate-700">Manager Name</label>
+                      <input
+                        type="text"
+                        placeholder="e.g. Ramesh Kumar"
+                        value={newBranchManagerName}
+                        onChange={(e) => setNewBranchManagerName(e.target.value)}
+                        className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 bg-white"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 col-span-2">
+                      <label className="text-xs font-semibold text-slate-700">POS Login Email (Username) *</label>
+                      <input
+                        type="email"
+                        placeholder="e.g. ramesh.indiranagar@orderitup.com"
+                        value={newBranchEmail}
+                        onChange={(e) => setNewBranchEmail(e.target.value)}
+                        required
+                        className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 bg-white"
+                      />
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-slate-700">Initial Password *</label>
+                      <input
+                        type="text"
+                        value={newBranchPassword}
+                        onChange={(e) => setNewBranchPassword(e.target.value)}
+                        required
+                        className="px-3 py-2 text-xs border border-slate-200 rounded-xl font-mono focus:outline-none focus:border-emerald-500 bg-white"
+                      />
+                      <span className="text-[10px] text-slate-400">Min 8 chars (upper, lower, num)</span>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5">
+                      <label className="text-xs font-semibold text-slate-700">Quick PIN</label>
+                      <input
+                        type="text"
+                        maxLength={6}
+                        value={newBranchPin}
+                        onChange={(e) => setNewBranchPin(e.target.value)}
+                        className="px-3 py-2 text-xs border border-slate-200 rounded-xl font-mono focus:outline-none focus:border-emerald-500 bg-white"
+                      />
+                      <span className="text-[10px] text-slate-400">4-6 digit numeric</span>
+                    </div>
+
+                    <div className="flex flex-col gap-1.5 col-span-2">
+                      <label className="text-xs font-semibold text-slate-700">Terminal Role</label>
+                      <select
+                        value={newBranchRole}
+                        onChange={(e) => setNewBranchRole(e.target.value as 'manager' | 'cashier')}
+                        className="px-3 py-2 text-xs border border-slate-200 rounded-xl focus:outline-none focus:border-emerald-500 bg-white"
+                      >
+                        <option value="manager">Store Manager (Full Outlet Access)</option>
+                        <option value="cashier">Cashier (Order & Billing Access)</option>
+                      </select>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="pt-2 flex gap-2">
+                  <button
+                    type="submit"
+                    disabled={isCreatingBranch}
+                    className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 disabled:opacity-50 text-white font-bold text-xs transition-colors shadow-sm flex items-center justify-center gap-2"
+                  >
+                    {isCreatingBranch ? (
+                      <>
+                        <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        Provisioning Branch & Login...
+                      </>
+                    ) : (
+                      <>
+                        <Building2 className="w-4 h-4" />
+                        Create Branch & Generate Credentials
+                      </>
+                    )}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setShowCreateBranchModal(false)}
+                    className="px-4 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-semibold transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </form>
+            )}
+          </div>
+        </div>
+      )}
     </div>
 
   );

@@ -4,9 +4,12 @@
  */
 
 import { Router, Request, Response } from 'express';
+import bcrypt from 'bcryptjs';
+import { randomUUID } from 'crypto';
 import { getDatabase } from '../db';
-import { requireRole } from '../middleware/security';
+import { requireRole, validatePassword } from '../middleware/security';
 import { requireSubscriptionFeature } from '../middleware/subscription-gate';
+import { recordAudit } from '../services/audit';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 
 export const cloudHqRoutes = Router();
@@ -202,16 +205,37 @@ cloudHqRoutes.get('/restaurants', requireRole(...ROLE_ACCESS.allStaff), (_req: R
   }
 });
 
-// 1c. Authorized Branches List
+// 1c. Authorized Branches List (backed by branches table with fallback)
 cloudHqRoutes.get('/branches', requireRole(...ROLE_ACCESS.allStaff), (req: Request, res: Response) => {
   try {
-    const local = getLocalStoreIdentity();
-    const restaurantIdFilter = req.query.restaurant_id as string | undefined;
-
-    if (restaurantIdFilter && restaurantIdFilter !== local.restaurantId) {
-      return res.json({ success: true, branches: [] });
+    const db = getDatabase();
+    let rows: any[] = [];
+    try {
+      rows = db.prepare(`SELECT * FROM branches ORDER BY is_main_branch DESC, name ASC`).all() as any[];
+    } catch {
+      rows = [];
     }
 
+    if (rows.length > 0) {
+      return res.json({
+        success: true,
+        branches: rows.map(r => ({
+          id: r.id,
+          restaurant_id: r.restaurant_id,
+          name: r.name,
+          code: r.code,
+          address: r.address,
+          phone: r.phone,
+          manager_name: r.manager_name,
+          manager_email: r.manager_email,
+          is_main_branch: Boolean(r.is_main_branch),
+          status: r.status,
+          is_current: Boolean(r.is_main_branch),
+        })),
+      });
+    }
+
+    const local = getLocalStoreIdentity(db);
     res.json({
       success: true,
       branches: [
@@ -220,7 +244,7 @@ cloudHqRoutes.get('/branches', requireRole(...ROLE_ACCESS.allStaff), (req: Reque
           restaurant_id: local.restaurantId,
           name: local.storeName,
           code: local.branchCode,
-          is_main_branch: 1,
+          is_main_branch: true,
           status: 'active',
           is_current: true,
         },
@@ -229,7 +253,7 @@ cloudHqRoutes.get('/branches', requireRole(...ROLE_ACCESS.allStaff), (req: Reque
           restaurant_id: local.restaurantId,
           name: 'Gurugram CyberHub (Franchise)',
           code: 'CYBER-02',
-          is_main_branch: 0,
+          is_main_branch: false,
           status: 'active',
           is_current: false,
         },
@@ -238,7 +262,7 @@ cloudHqRoutes.get('/branches', requireRole(...ROLE_ACCESS.allStaff), (req: Reque
           restaurant_id: local.restaurantId,
           name: 'Indiranagar 100ft (Franchise)',
           code: 'BLR-03',
-          is_main_branch: 0,
+          is_main_branch: false,
           status: 'active',
           is_current: false,
         },
@@ -246,6 +270,123 @@ cloudHqRoutes.get('/branches', requireRole(...ROLE_ACCESS.allStaff), (req: Reque
     });
   } catch (err: any) {
     res.status(500).json({ error: err?.message || 'Failed to fetch branches' });
+  }
+});
+
+// 1d. Create New Branch & Provision POS Login Credentials
+cloudHqRoutes.post('/branches', requireRole(...ROLE_ACCESS.ownerManager), async (req: Request, res: Response) => {
+  try {
+    const db = getDatabase();
+    const {
+      name,
+      code,
+      address,
+      phone,
+      manager_name,
+      email,
+      password,
+      pin = '1234',
+      role = 'manager',
+    } = req.body || {};
+
+    const branchName = String(name || '').trim();
+    const branchCode = String(code || '').trim().toUpperCase();
+    const branchAddress = String(address || '').trim();
+    const branchPhone = String(phone || '').trim();
+    const managerName = String(manager_name || `${branchName} Manager`).trim();
+    const loginEmail = String(email || '').trim().toLowerCase();
+    const plainPassword = String(password || '');
+    const quickPin = String(pin || '1234').trim();
+    const assignedRole = role === 'cashier' ? 'cashier' : 'manager';
+
+    if (!branchName) {
+      return res.status(400).json({ error: 'Branch name is required' });
+    }
+    if (!branchCode || branchCode.length < 2) {
+      return res.status(400).json({ error: 'Branch code (min 2 characters) is required' });
+    }
+    if (!loginEmail || !loginEmail.includes('@')) {
+      return res.status(400).json({ error: 'A valid login email is required for the branch manager' });
+    }
+    if (!validatePassword(plainPassword)) {
+      return res.status(400).json({ error: 'Password must be at least 8 characters and include uppercase, lowercase, and numbers' });
+    }
+    if (!/^\d{4,6}$/.test(quickPin)) {
+      return res.status(400).json({ error: 'PIN must be 4 to 6 numeric digits' });
+    }
+
+    // Check unique branch code
+    try {
+      const existingCode = db.prepare('SELECT id FROM branches WHERE code = ?').get(branchCode);
+      if (existingCode) {
+        return res.status(409).json({ error: `A branch with code "${branchCode}" already exists` });
+      }
+    } catch { }
+
+    // Check unique user email
+    const existingEmail = db.prepare('SELECT id FROM users WHERE email = ?').get(loginEmail);
+    if (existingEmail) {
+      return res.status(409).json({ error: `A user with email "${loginEmail}" already exists` });
+    }
+
+    const branchId = `br-${randomUUID().slice(0, 8)}`;
+    const userId = randomUUID();
+    const nowIso = new Date().toISOString();
+    const hashedPassword = bcrypt.hashSync(plainPassword, 10);
+    const hashedPin = bcrypt.hashSync(quickPin, 10);
+
+    db.transaction(() => {
+      // 1. Insert branch
+      try {
+        db.prepare(`
+          INSERT INTO branches (id, restaurant_id, name, code, address, phone, manager_name, manager_email, is_main_branch, status, created_at, updated_at)
+          VALUES (?, 'rest-01', ?, ?, ?, ?, ?, ?, 0, 'active', ?, ?)
+        `).run(branchId, branchName, branchCode, branchAddress, branchPhone, managerName, loginEmail, nowIso, nowIso);
+      } catch { }
+
+      // 2. Insert branch login user
+      db.prepare(`
+        INSERT INTO users (id, name, email, password, role, pin, pin_hash, branch_id, is_active, terms_accepted_at, created_at, updated_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, 1, ?, ?, ?)
+      `).run(userId, managerName, loginEmail, hashedPassword, assignedRole, quickPin, hashedPin, branchId, nowIso, nowIso, nowIso);
+
+      // 3. Tamper-evident audit log
+      recordAudit(db, {
+        actor_user_id: (req as any).user?.userId || (req as any).user?.id || null,
+        actor_role: (req as any).user?.role || null,
+        action: 'branch_create',
+        entity_type: 'branch',
+        entity_id: branchId,
+        before_json: null,
+        after_json: { branchId, name: branchName, code: branchCode, managerEmail: loginEmail, role: assignedRole },
+        ip: req.ip || null,
+        severity: 'info',
+      });
+    })();
+
+    res.status(201).json({
+      success: true,
+      branch: {
+        id: branchId,
+        name: branchName,
+        code: branchCode,
+        address: branchAddress,
+        phone: branchPhone,
+        manager_name: managerName,
+        manager_email: loginEmail,
+        is_main_branch: false,
+        status: 'active',
+      },
+      credentials: {
+        name: managerName,
+        email: loginEmail,
+        role: assignedRole,
+        pin: quickPin,
+        pos_login_url: 'http://localhost:3001/auth/login/',
+      },
+    });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || 'Failed to create branch' });
   }
 });
 

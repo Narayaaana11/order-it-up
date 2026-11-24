@@ -551,6 +551,7 @@ router.post('/login', authRateLimit(), asyncHandler(async (req: Request, res: Re
         name: user.name,
         email: user.email,
         role: user.role,
+        branch_id: user.branch_id || null,
         category_ids: parseCategoryIds(user.category_ids),
       },
       // Single tenant — frontend auto-selects when tenants.length === 1
