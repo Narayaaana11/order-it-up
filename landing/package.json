@@ -5,7 +5,7 @@
   "description": "Marketing landing page for Order It Up - Offline-First Restaurant POS & Billing",
   "scripts": {
     "dev": "next dev -p 3004",
-    "build": "cross-env NODE_OPTIONS=--max-old-space-size=4096 next build",
+    "build": "node -e \"const { execSync } = require('child_process'); execSync('npx --no-install next build', { stdio: 'inherit', env: { ...process.env, NODE_OPTIONS: [process.env.NODE_OPTIONS, '--max-old-space-size=4096'].filter(Boolean).join(' ') } })\"",
     "start": "next start -p 3004",
     "export": "next build",
     "lint": "eslint ."
