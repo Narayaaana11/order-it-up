@@ -16,6 +16,8 @@ Welcome to the internal engineering documentation for **Order It Up**. This dire
 - **[Cloud Platform Admin & Subscriptions](CLOUD_PLATFORM_ADMIN_AND_SUBSCRIPTIONS.md)**: SaaS tenancy, subscription payment verification, and billing tiers.
 - **[Mobile & Cloud Surface Matrix](MOBILE_CLOUD_SURFACE_MATRIX.md)**: Feature parity matrix across Desktop Electron, Web Cloud, Flutter Mobile, and Capacitor Tablet.
 - **[User Access Guide](user-access-guide.md)**: Seed credentials, operator personas, and PIN authentication rules (also see [users.md](../users.md)).
+- **[End-to-End free-for.dev Toolkit](FREE_FOR_DEV_TOOLKIT.md)**: Curated catalog of free-tier cloud, CI/CD, security, observability, mobile, AI, and support services mapped to Order It Up's architecture and production blockers.
+- **[Free-Tier Setup Runbook](FREE_TIER_SETUP_RUNBOOK.md)**: Step-by-step guide for configuring Resend/Brevo, R2/B2 backups, Healthchecks.io, Sentry/GlitchTip, Aptabase/PostHog, GrowthBook, Langfuse, and Codemagic/Semgrep CI.
 
 ---
 

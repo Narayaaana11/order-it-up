@@ -1,5 +1,6 @@
 import { safeStorage } from 'electron';
 import { getDatabase, now } from '../db';
+import { recordLangfuseTrace } from './free-tier-observability';
 
 export const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions';
 export const DEFAULT_FREE_MODEL = 'meta-llama/llama-3.3-70b-instruct:free';
@@ -275,6 +276,13 @@ export async function callOpenRouter(
 
     const data: any = await res.json();
     const text = data?.choices?.[0]?.message?.content || '';
+    void recordLangfuseTrace({
+      name: 'openrouter_chat_completion',
+      model: data?.model || model,
+      latencyMs,
+      input: messages,
+      output: text,
+    });
     return {
       text,
       model: data?.model || model,

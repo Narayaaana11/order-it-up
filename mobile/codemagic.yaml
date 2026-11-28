@@ -1,0 +1,39 @@
+# Codemagic CI/CD for Order It Up Mobile (Flutter Android & iOS without a local Mac)
+workflows:
+  android-release:
+    name: Order It Up Android APK/AAB
+    max_build_duration: 60
+    instance_type: linux_x2
+    working_directory: mobile
+    environment:
+      flutter: stable
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Run Flutter tests
+        script: flutter test
+      - name: Build Android APK
+        script: flutter build apk --release
+      - name: Build Android App Bundle
+        script: flutter build appbundle --release
+    artifacts:
+      - mobile/build/**/outputs/**/*.apk
+      - mobile/build/**/outputs/**/*.aab
+
+  ios-unsigned-check:
+    name: Order It Up iOS Build Verification
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    working_directory: mobile
+    environment:
+      flutter: stable
+      xcode: latest
+    scripts:
+      - name: Get Flutter packages
+        script: flutter pub get
+      - name: Run Flutter tests
+        script: flutter test
+      - name: Build unsigned iOS IPA
+        script: flutter build ios --release --no-codesign
+    artifacts:
+      - mobile/build/ios/ipa/*.ipa

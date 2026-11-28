@@ -4,6 +4,7 @@ import { app } from 'electron';
 import { readCountryProvenance } from './country-provenance';
 import log from 'electron-log';
 import { ensureTelemetryAnonId, isTelemetryEnabled, getSettingValue, parseDbTimestamp, upsertTelemetryLastPing } from '../db';
+import { trackAptabaseEvent } from './free-tier-observability';
 
 export const TELEMETRY_URL = process.env.OIU_TELEMETRY_URL || 'https://telemetry.orderitup.in/collect';
 
@@ -63,6 +64,9 @@ async function sendEventImpl(eventType: string, payload?: Record<string, unknown
 
 export function sendEvent(eventType: string, payload?: Record<string, unknown>): Promise<boolean> {
   if (matrixOffline() || telemetryStopping) return Promise.resolve(false);
+  if (isTelemetryEnabled() && process.env.OIU_APTABASE_APP_KEY) {
+    void trackAptabaseEvent(eventType, undefined, { appVersion: app.getVersion() });
+  }
   return trackTelemetry(sendEventImpl(eventType, payload));
 }
 

@@ -20,6 +20,7 @@
         "dev:restart": "bash scripts/dev/restart.sh",
         "dev:reset": "bash scripts/dev/nuclear-reset.sh",
         "dev:frontend": "cd desktop-ui && npm run dev",
+        "tunnel:dev": "npx --yes cloudflared tunnel --url http://localhost:3001",
         "build": "node -e \"require('node:fs').rmSync('dist', { recursive: true, force: true })\" && tsc && node scripts/copy-runtime-assets.cjs",
         "lint:backend": "eslint main/ shared/",
         "lint": "npm run lint:backend && npm --prefix desktop-ui run lint",

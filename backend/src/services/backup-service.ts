@@ -37,42 +37,60 @@ export class BackupService {
     const stat = fs.statSync(destPath);
 
     let uploadedToObjectStorage = false;
-    if (
-      this.config.s3Bucket &&
-      this.config.s3AccessKeyId &&
-      this.config.s3SecretAccessKey
-    ) {
-      const client = new S3Client({
-        region: this.config.s3Region || 'us-ashburn-1',
-        endpoint: this.config.s3Endpoint || undefined,
-        forcePathStyle: Boolean(this.config.s3Endpoint),
-        credentials: {
-          accessKeyId: this.config.s3AccessKeyId,
-          secretAccessKey: this.config.s3SecretAccessKey,
-        },
-      });
-      const prefix = (this.config.s3Prefix || 'backups').replace(/^\/+|\/+$/g, '');
-      const key = `${prefix}/${filename}`;
-      const body = fs.readFileSync(destPath);
-      await client.send(
-        new PutObjectCommand({
-          Bucket: this.config.s3Bucket,
-          Key: key,
-          Body: body,
-          ContentType: 'application/x-sqlite3',
-        })
-      );
-      uploadedToObjectStorage = true;
+    try {
+      if (
+        this.config.s3Bucket &&
+        this.config.s3AccessKeyId &&
+        this.config.s3SecretAccessKey
+      ) {
+        const client = new S3Client({
+          region: this.config.s3Region || 'us-ashburn-1',
+          endpoint: this.config.s3Endpoint || undefined,
+          forcePathStyle: Boolean(this.config.s3Endpoint),
+          credentials: {
+            accessKeyId: this.config.s3AccessKeyId,
+            secretAccessKey: this.config.s3SecretAccessKey,
+          },
+        });
+        const prefix = (this.config.s3Prefix || 'backups').replace(/^\/+|\/+$/g, '');
+        const key = `${prefix}/${filename}`;
+        const body = fs.readFileSync(destPath);
+        await client.send(
+          new PutObjectCommand({
+            Bucket: this.config.s3Bucket,
+            Key: key,
+            Body: body,
+            ContentType: 'application/x-sqlite3',
+          })
+        );
+        uploadedToObjectStorage = true;
+      }
+
+      this.pruneOldBackups();
+      void this.pingHealthcheck('ok');
+
+      return {
+        filename,
+        sizeBytes: stat.size,
+        createdAt: stat.mtime.toISOString(),
+        uploadedToObjectStorage,
+      };
+    } catch (err) {
+      void this.pingHealthcheck('fail');
+      throw err;
     }
+  }
 
-    this.pruneOldBackups();
-
-    return {
-      filename,
-      sizeBytes: stat.size,
-      createdAt: stat.mtime.toISOString(),
-      uploadedToObjectStorage,
-    };
+  private async pingHealthcheck(status: 'ok' | 'fail'): Promise<void> {
+    const baseUrl = process.env.HEALTHCHECKS_BACKUP_URL?.trim().replace(/\/+$/, '');
+    if (!baseUrl || process.env.FLO_MATRIX_OFFLINE === '1') return;
+    const url = status === 'fail' ? `${baseUrl}/fail` : baseUrl;
+    try {
+      const res = await fetch(url, { method: 'GET', signal: AbortSignal.timeout(5000) });
+      await res.body?.cancel().catch(() => {});
+    } catch {
+      // Heartbeat failure must never break backup flow
+    }
   }
 
   listBackups(): BackupEntry[] {

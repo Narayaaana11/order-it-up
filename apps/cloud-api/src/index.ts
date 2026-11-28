@@ -213,10 +213,20 @@ export default {
     }
   },
   scheduled(_controller: ScheduledController, env: Env, context: ExecutionContext): void {
-    context.waitUntil(purgeExpiredPilotRequests(env).catch((error) => {
-      console.error('[PilotRequest] Scheduled retention purge failed:', error);
-      throw error;
-    }));
+    const pingCron = async (suffix = '') => {
+      const base = env.HEALTHCHECKS_CRON_URL?.trim().replace(/\/+$/, '');
+      if (!base) return;
+      await fetch(`${base}${suffix}`, { method: 'GET' }).catch(() => {});
+    };
+    context.waitUntil(
+      purgeExpiredPilotRequests(env)
+        .then(() => pingCron())
+        .catch(async (error) => {
+          console.error('[PilotRequest] Scheduled retention purge failed:', error);
+          await pingCron('/fail');
+          throw error;
+        })
+    );
   },
 };
 

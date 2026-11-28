@@ -25,6 +25,7 @@ export interface Env {
   RAZORPAY_KEY_SECRET?: string;
   RAZORPAY_WEBHOOK_SECRET?: string;
   REQUIRE_PROVIDER_VERIFIED_NONCASH?: string;
+  HEALTHCHECKS_CRON_URL?: string;
 }
 
 export const MAX_PAIRING_CODE_ATTEMPTS = 5;
