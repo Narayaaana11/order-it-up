@@ -19,7 +19,7 @@ crons = ["17 3 * * *"]
 ENVIRONMENT = "production"
 ALLOW_SELF_SERVICE_REGISTRATION = "false"
 REQUIRE_PROVIDER_VERIFIED_NONCASH = "true"
-FRONTEND_ORIGIN = "https://app.orderitup.in, https://orderitup.in, https://orderitup.pages.dev"
+FRONTEND_ORIGIN = "https://app.orderitup.in, https://orderitup.in, https://orderitup.pages.dev, https://orderitup-app.pages.dev"
 
 # Production secrets MUST be configured separately as encrypted Worker secrets:
 #
