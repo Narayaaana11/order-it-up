@@ -23,10 +23,15 @@ export const DEMO_USERS: Record<string, DemoProfile> = {
 
 const AUTH_STORAGE_KEY = "orderitup_auth_user";
 const DEMO_PREVIEW_KEY = "orderitup_demo_preview_user";
-const CLOUD_API_BASE = (process.env.NEXT_PUBLIC_OIU_CLOUD_API_URL || "https://orderitup-cloud-api.narayaaana11.workers.dev").replace(/\/$/, "");
+const CLOUD_API_BASE = (
+  process.env.NEXT_PUBLIC_OIU_CLOUD_API_URL ||
+  "https://orderitup-cloud-api.narayaaana11.workers.dev"
+).replace(/\/$/, "");
 
 export function getCloudApiBase(): string {
-  return CLOUD_API_BASE;
+  if (CLOUD_API_BASE) return CLOUD_API_BASE;
+  if (typeof window !== "undefined") return window.location.origin;
+  return "";
 }
 
 export function getStoredUser(): AuthUser | null {

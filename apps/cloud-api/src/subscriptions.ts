@@ -176,35 +176,38 @@ export async function resolveOrganizationAccess(
     return { allowed: true, organizationStatus, subscriptionStatus: currentStatus, planCode, entitlements };
   }
 
-  if (currentStatus === 'active' && organization.current_period_end) {
-    const periodEnd = new Date(organization.current_period_end);
-    if (!Number.isNaN(periodEnd.getTime()) && periodEnd.getTime() <= nowDate.getTime()) {
-      if (Number(organization.cancel_at_period_end) === 1) {
-        await transitionSubscription(db, organization, 'cancelled', 'subscription_cancelled', null, nowIso);
-        return {
-          allowed: false, organizationStatus, subscriptionStatus: 'cancelled', planCode, entitlements,
-          reason: 'The subscription was cancelled at the end of its billing period.',
-        };
+  if (currentStatus === 'active') {
+    if (organization.current_period_end) {
+      const periodEnd = new Date(organization.current_period_end);
+      if (!Number.isNaN(periodEnd.getTime()) && periodEnd.getTime() <= nowDate.getTime()) {
+        if (Number(organization.cancel_at_period_end) === 1) {
+          await transitionSubscription(db, organization, 'cancelled', 'subscription_cancelled', null, nowIso);
+          return {
+            allowed: false, organizationStatus, subscriptionStatus: 'cancelled', planCode, entitlements,
+            reason: 'The subscription was cancelled at the end of its billing period.',
+          };
+        }
+        const graceEnd = new Date(periodEnd.getTime() + GRACE_DAYS * 24 * 60 * 60 * 1000).toISOString();
+        await transitionSubscription(db, organization, 'grace_period', 'subscription_grace_period_started', graceEnd, nowIso);
+        const graceEndTime = new Date(graceEnd).getTime();
+        if (!Number.isFinite(graceEndTime) || graceEndTime <= nowDate.getTime()) {
+          await transitionSubscription(
+            db,
+            { ...organization, status: 'grace_period' },
+            'suspended',
+            'subscription_grace_period_expired',
+            graceEnd,
+            nowIso,
+          );
+          return {
+            allowed: false, organizationStatus, subscriptionStatus: 'suspended', planCode, entitlements,
+            reason: 'The subscription grace period has ended. Update billing to restore access.',
+          };
+        }
+        return { allowed: true, organizationStatus, subscriptionStatus: 'grace_period', planCode, entitlements };
       }
-      const graceEnd = new Date(periodEnd.getTime() + GRACE_DAYS * 24 * 60 * 60 * 1000).toISOString();
-      await transitionSubscription(db, organization, 'grace_period', 'subscription_grace_period_started', graceEnd, nowIso);
-      const graceEndTime = new Date(graceEnd).getTime();
-      if (!Number.isFinite(graceEndTime) || graceEndTime <= nowDate.getTime()) {
-        await transitionSubscription(
-          db,
-          { ...organization, status: 'grace_period' },
-          'suspended',
-          'subscription_grace_period_expired',
-          graceEnd,
-          nowIso,
-        );
-        return {
-          allowed: false, organizationStatus, subscriptionStatus: 'suspended', planCode, entitlements,
-          reason: 'The subscription grace period has ended. Update billing to restore access.',
-        };
-      }
-      return { allowed: true, organizationStatus, subscriptionStatus: 'grace_period', planCode, entitlements };
     }
+    return { allowed: true, organizationStatus, subscriptionStatus: currentStatus, planCode, entitlements };
   }
 
   if (currentStatus === 'past_due') {

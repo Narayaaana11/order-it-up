@@ -8,6 +8,19 @@ export const CLOUD_API_BASE =
   'https://orderitup-cloud-api.narayaaana11.workers.dev';
 
 /**
+ * Derives the WebSocket URL for real-time KDS/POS updates on the unified Oracle backend.
+ */
+export function getCloudWsUrl(channel: 'kds' | 'pos' = 'kds'): string {
+  const configuredWs = process.env.NEXT_PUBLIC_OIU_WS_URL;
+  if (configuredWs) {
+    return `${configuredWs.replace(/\/$/, '')}/ws/${channel}`;
+  }
+  const base = CLOUD_API_BASE.replace(/\/$/, '');
+  const wsBase = base.replace(/^https:/, 'wss:').replace(/^http:/, 'ws:');
+  return `${wsBase}/ws/${channel}`;
+}
+
+/**
  * Returns true if the frontend is running embedded inside the Electron desktop shell.
  */
 export function isElectronEnvironment(): boolean {
@@ -88,7 +101,6 @@ function handleAuthError(error: any) {
     const isPublicOrAuth =
       pathname === '/' ||
       pathname.includes('/auth/login') ||
-      pathname.includes('/auth/register') ||
       pathname.startsWith('/setup') ||
       pathname.startsWith('/qr') ||
       pathname.startsWith('/cloud-portal') ||

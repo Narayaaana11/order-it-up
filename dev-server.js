@@ -4,12 +4,23 @@
  * Usage: node dev-server.js
  */
 
-if (!process.versions.electron && !process.env.ELECTRON_RUN_AS_NODE) {
+if (!process.versions.electron) {
   const { spawn } = require('child_process');
   const electron = require('electron');
   const child = spawn(electron, [__filename, ...process.argv.slice(2)], {
     stdio: 'inherit',
     env: { ...process.env, ELECTRON_RUN_AS_NODE: '1' },
+  });
+  const forwardSignal = (signal) => {
+    if (child.exitCode === null && child.signalCode === null) {
+      try { child.kill(signal); } catch {}
+    }
+  };
+  process.on('SIGINT', () => forwardSignal('SIGINT'));
+  process.on('SIGTERM', () => forwardSignal('SIGTERM'));
+  child.on('error', (err) => {
+    console.error('[DevServer] Failed to launch Electron runtime:', err);
+    process.exit(1);
   });
   child.on('exit', (code, signal) => {
     process.exit(code ?? (signal ? 1 : 0));
@@ -20,8 +31,8 @@ if (!process.versions.electron && !process.env.ELECTRON_RUN_AS_NODE) {
 // Load .env before anything else
 const fs = require('fs');
 const envPath = require('path').join(__dirname, '.env');
-if (fs.existsSync(envPath)) {
-  for (const line of fs.readFileSync(envPath, 'utf8').split('\n')) {
+if (process.env.OIU_SKIP_DOTENV !== '1' && fs.existsSync(envPath)) {
+  for (const line of fs.readFileSync(envPath, 'utf8').split(/\r?\n/)) {
     const match = line.match(/^\s*([^#=\s]+)\s*=\s*(.*)$/);
     if (!match) continue;
     let value = match[2].trim();
@@ -32,7 +43,9 @@ if (fs.existsSync(envPath)) {
     } else {
       value = value.replace(/\s+#.*$/, '').trim();
     }
-    process.env[match[1]] = value;
+    if (process.env[match[1]] === undefined) {
+      process.env[match[1]] = value;
+    }
   }
   console.log('[DevServer] Loaded .env');
 }
@@ -77,6 +90,11 @@ Module._load = function (request, parent, isMain) {
       Menu: { buildFromTemplate: () => ({}), setApplicationMenu: () => {} },
       Tray: class {},
       nativeImage: { createFromPath: () => ({ resize: () => ({}) }) },
+      safeStorage: {
+        isEncryptionAvailable: () => false,
+        encryptString: () => { throw new Error('OS safeStorage is not available in dev-server mode'); },
+        decryptString: () => { throw new Error('OS safeStorage is not available in dev-server mode'); },
+      },
     };
   }
   return originalLoad.call(this, request, parent, isMain);
@@ -88,6 +106,8 @@ const { createExitCodeAwareShutdown, waitForHttpShutdownWork, isShutdownTimeout 
 const { startServer, stopServer, getServerPort } = require('./dist/main/server');
 const { startKdsServer, stopKdsServer, getKdsPort } = require('./dist/main/kds-server');
 const { startServerApp, stopServerApp, getServerAppPort } = require('./dist/main/server-app');
+const { amazonS3Service } = require('./dist/main/services/amazon-s3');
+const { mongoSyncService } = require('./dist/main/services/mongodb-sync');
 const { shutdown: shutdownWhatsApp, requestShutdown: requestWhatsAppShutdown } = require('./dist/main/services/whatsapp');
 const { startStandaloneServers } = require('./dist/main/standalone-startup');
 
@@ -99,6 +119,8 @@ const requestShutdown = createExitCodeAwareShutdown(async () => {
   try { await stopServerApp(); } catch (err) { console.error('[DevServer] Server App shutdown failed:', err); cleanupFailed = true; databaseBlocked = true; if (isShutdownTimeout(err)) throw err; }
   try { await stopServer(); } catch (err) { console.error('[DevServer] Main server shutdown failed:', err); cleanupFailed = true; databaseBlocked = true; if (isShutdownTimeout(err)) throw err; }
   try { await stopKdsServer(); } catch (err) { console.error('[DevServer] KDS server shutdown failed:', err); cleanupFailed = true; databaseBlocked = true; if (isShutdownTimeout(err)) throw err; }
+  try { mongoSyncService.stop(); } catch (err) { console.error('[DevServer] MongoDB sync shutdown failed:', err); cleanupFailed = true; databaseBlocked = true; }
+  try { amazonS3Service.stop(); } catch (err) { console.error('[DevServer] Amazon S3 shutdown failed:', err); cleanupFailed = true; databaseBlocked = true; }
   try { await shutdownWhatsApp(); } catch (err) { console.error('[DevServer] WhatsApp shutdown failed:', err); cleanupFailed = true; databaseBlocked = true; if (isShutdownTimeout(err)) throw err; }
   try { await waitForHttpShutdownWork(); } catch (err) { console.error('[DevServer] HTTP handler cleanup failed:', err); cleanupFailed = true; databaseBlocked = true; if (isShutdownTimeout(err)) throw err; }
   try { beginDatabaseShutdown(); await waitForDatabaseRequests(); } catch (err) { console.error('[DevServer] Database request drain failed:', err); cleanupFailed = true; databaseBlocked = true; if (isShutdownTimeout(err)) throw err; }

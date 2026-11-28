@@ -321,7 +321,7 @@ export async function verifyJWT(token: string, secret: string): Promise<JWTPaylo
       return null;
     }
 
-    const isValidSig = await crypto.subtle.verify('HMAC', key, sigBytes, enc.encode(signingInput));
+    const isValidSig = await crypto.subtle.verify('HMAC', key, sigBytes as Uint8Array<ArrayBuffer>, enc.encode(signingInput));
     if (!isValidSig) {
       return null;
     }

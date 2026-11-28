@@ -95,7 +95,7 @@ function loadWarningsToastWithCapture(captured: string[]): typeof import('../des
   const moduleApi = require('module') as {
     _resolveFilename: (...args: any[]) => string;
   };
-  const toastPath = require.resolve('react-hot-toast', { paths: [path.resolve(__dirname, '../frontend')] });
+  const toastPath = require.resolve('react-hot-toast', { paths: [path.resolve(__dirname, '../desktop-ui')] });
   const previousToastModule = require.cache[toastPath];
   const toastMock = Object.assign(
     (message: string) => { captured.push(message); },

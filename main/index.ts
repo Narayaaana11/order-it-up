@@ -649,6 +649,11 @@ function createWindow(): void {
   mainWindow = createdWindow;
 
   mainWindow.once('ready-to-show', () => {
+    if (mainWindow && !mainWindow.isDestroyed()) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.show();
+      mainWindow.focus();
+    }
     if (isDev) {
       mainWindow?.webContents.openDevTools();
     }

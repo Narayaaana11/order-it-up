@@ -20,8 +20,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
 
-const OUT = path.join(__dirname, '..', 'frontend', 'out');
-const MESSAGES_DIR = path.join(__dirname, '..', 'frontend', 'src', 'lib', 'i18n', 'messages');
+const OUT = path.join(__dirname, '..', 'desktop-ui', 'out');
+const MESSAGES_DIR = path.join(__dirname, '..', 'desktop-ui', 'src', 'lib', 'i18n', 'messages');
 
 function getLocaleMarkers(): Record<string, string> {
   const markers: Record<string, string> = {};

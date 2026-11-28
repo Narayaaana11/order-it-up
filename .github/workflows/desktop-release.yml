@@ -41,7 +41,7 @@ jobs:
         run: npm ci
 
       - name: Install frontend dependencies
-        run: npm ci --prefix frontend
+        run: npm ci --prefix desktop-ui
 
       - name: Build desktop renderer
         run: npm run build:frontend

@@ -1,0 +1,979 @@
+import { hashString } from '../auth';
+import { BatchSyncEvent, BatchSyncResponse } from '../../types/cloud-types';
+import { Env } from './pairing';
+import { checkRateLimit, createRateLimitResponse, DEFAULT_RATE_LIMITS, getEffectiveLimit } from '../rate-limit';
+
+export const MAX_SYNC_PAYLOAD_BYTES = 2 * 1024 * 1024; // 2MB
+export const MAX_EVENTS_PER_BATCH = 250;
+export const MAX_MONETARY_VALUE = 100_000_000; // 100 million maximum to prevent overflow
+export const MAX_ITEM_QUANTITY = 10_000;
+export const MAX_ITEMS_PER_ORDER = 250;
+
+/**
+ * Rounds a monetary or quantity value to 2 decimal places.
+ */
+function round2(val: number): number {
+  return Math.round((val + Number.EPSILON) * 100) / 100;
+}
+
+/**
+ * Validates that a numeric value is finite, not NaN, and non-negative.
+ */
+function isNonNegativeFinite(val: unknown): val is number {
+  return typeof val === 'number' && Number.isFinite(val) && !Number.isNaN(val) && val >= 0;
+}
+
+/**
+ * Validates that a numeric value is finite, not NaN, and strictly positive.
+ */
+function isPositiveFinite(val: unknown): val is number {
+  return typeof val === 'number' && Number.isFinite(val) && !Number.isNaN(val) && val > 0;
+}
+
+/**
+ * Validates that a timestamp is a valid ISO string, not in the distant future, and not before 2020.
+ */
+function isValidBusinessTimestamp(val: unknown): boolean {
+  if (typeof val !== 'string' || !val.trim()) return false;
+  const d = new Date(val);
+  if (Number.isNaN(d.getTime())) return false;
+  // Maximum 24 hours in the future to account for reasonable timezone/clock skew
+  const maxFuture = Date.now() + 86_400_000;
+  if (d.getTime() > maxFuture) return false;
+  if (d.getUTCFullYear() < 2020) return false;
+  return true;
+}
+
+/**
+ * Validates financial and structural rules for an incoming order payload.
+ * Accurately aligns with desktop POS calculations across:
+ * - Exclusive & inclusive tax configurations
+ * - Packaging, delivery, and service charges
+ * - Cash / payable round-off adjustments
+ * - Void adjustments, refunds, cancellations, and fractional quantities
+ */
+function validateOrderFinancials(payload: any): { valid: boolean; error?: string } {
+  if (!payload || typeof payload !== 'object') {
+    return { valid: false, error: 'Order payload must be an object' };
+  }
+
+  if (typeof payload.id !== 'string' || !payload.id.trim() || payload.id.length > 128) {
+    return { valid: false, error: 'Order id is missing, invalid, or exceeds 128 characters' };
+  }
+
+  const subtotal = payload.subtotal !== undefined ? payload.subtotal : 0;
+  const taxTotal = payload.tax_total !== undefined ? payload.tax_total : (payload.tax !== undefined ? payload.tax : 0);
+  const discountTotal = payload.discount_total !== undefined ? payload.discount_total : (payload.discount !== undefined ? payload.discount : (payload.discount_amount !== undefined ? payload.discount_amount : 0));
+  const grandTotal = payload.grand_total !== undefined ? payload.grand_total : (payload.total !== undefined ? payload.total : 0);
+
+  // Charges supported by POS: packaging_charge, delivery_charge, service_charge
+  const pkgCharge = payload.packaging_charge !== undefined ? payload.packaging_charge : 0;
+  const delCharge = payload.delivery_charge !== undefined ? payload.delivery_charge : 0;
+  const srvCharge = payload.service_charge !== undefined ? payload.service_charge : 0;
+  const chargesTotal = payload.charges_total !== undefined ? payload.charges_total : (pkgCharge + delCharge + srvCharge);
+  const roundOff = payload.round_off !== undefined ? payload.round_off : 0;
+
+  if (!isNonNegativeFinite(subtotal)) {
+    return { valid: false, error: `Invalid order subtotal: must be a non-negative finite number (got ${subtotal})` };
+  }
+  if (!isNonNegativeFinite(taxTotal)) {
+    return { valid: false, error: `Invalid order tax_total: must be a non-negative finite number (got ${taxTotal})` };
+  }
+  if (!isNonNegativeFinite(discountTotal)) {
+    return { valid: false, error: `Invalid order discount_total: must be a non-negative finite number (got ${discountTotal})` };
+  }
+  if (!isNonNegativeFinite(grandTotal)) {
+    return { valid: false, error: `Invalid order grand_total: must be a non-negative finite number (got ${grandTotal})` };
+  }
+  if (!Number.isFinite(roundOff) || Math.abs(roundOff) > 100) {
+    return { valid: false, error: `Invalid order round_off: must be a finite number within reasonable rounding bound (got ${roundOff})` };
+  }
+  if (!isNonNegativeFinite(chargesTotal) || chargesTotal > MAX_MONETARY_VALUE) {
+    return { valid: false, error: `Invalid order charges: must be a non-negative finite number (got ${chargesTotal})` };
+  }
+
+  if (grandTotal > MAX_MONETARY_VALUE || subtotal > MAX_MONETARY_VALUE) {
+    return { valid: false, error: `Order total exceeds maximum allowable limit of ${MAX_MONETARY_VALUE}` };
+  }
+
+  // Calculate items breakdown if items are provided
+  let calculatedItemsSum = 0;
+  let itemExclusiveTaxSum = 0;
+  let hasItemTaxTypes = false;
+
+  if (Array.isArray(payload.items)) {
+    if (payload.items.length > MAX_ITEMS_PER_ORDER) {
+      return { valid: false, error: `Order items count (${payload.items.length}) exceeds maximum limit of ${MAX_ITEMS_PER_ORDER}` };
+    }
+
+    for (let idx = 0; idx < payload.items.length; idx++) {
+      const item = payload.items[idx];
+      if (!item || typeof item !== 'object') {
+        return { valid: false, error: `Order item at index ${idx} must be an object` };
+      }
+
+      const qty = item.quantity !== undefined ? item.quantity : 1;
+      const unitPrice = item.price !== undefined ? item.price : (item.unit_price !== undefined ? item.unit_price : 0);
+      const itemSubtotal = item.subtotal !== undefined ? item.subtotal : (qty * unitPrice);
+      const isVoidOrRefund = item.status === 'void_adjustment' || item.status === 'refunded' || unitPrice < 0 || itemSubtotal < 0;
+
+      // Fractional quantities (e.g. 0.5 kg, 1.25 L) are supported
+      if (!Number.isFinite(qty) || Math.abs(qty) > MAX_ITEM_QUANTITY || qty === 0) {
+        return { valid: false, error: `Item ${idx} quantity (${qty}) must be a non-zero finite number <= ${MAX_ITEM_QUANTITY}` };
+      }
+
+      if (isVoidOrRefund) {
+        // Void / refund items represent negative cost adjustments while preserving audit trail
+        if (!Number.isFinite(unitPrice) || Math.abs(unitPrice) > MAX_MONETARY_VALUE) {
+          return { valid: false, error: `Item ${idx} unit price (${unitPrice}) exceeds allowed limit` };
+        }
+        if (!Number.isFinite(itemSubtotal) || Math.abs(itemSubtotal) > MAX_MONETARY_VALUE) {
+          return { valid: false, error: `Item ${idx} subtotal (${itemSubtotal}) exceeds allowed limit` };
+        }
+      } else {
+        if (!isNonNegativeFinite(unitPrice) || unitPrice > MAX_MONETARY_VALUE) {
+          return { valid: false, error: `Item ${idx} unit price (${unitPrice}) must be non-negative and <= ${MAX_MONETARY_VALUE}` };
+        }
+        if (!isNonNegativeFinite(itemSubtotal) || itemSubtotal > MAX_MONETARY_VALUE) {
+          return { valid: false, error: `Item ${idx} subtotal (${itemSubtotal}) must be non-negative and <= ${MAX_MONETARY_VALUE}` };
+        }
+      }
+
+      const expectedItemSubtotal = round2(qty * unitPrice);
+      if (Math.abs(itemSubtotal - expectedItemSubtotal) > 0.15) {
+        return {
+          valid: false,
+          error: `Item ${idx} subtotal mismatch: item subtotal (${itemSubtotal}) does not equal quantity (${qty}) * unit_price (${unitPrice}) = ${expectedItemSubtotal}`,
+        };
+      }
+
+      if (item.tax_type) {
+        hasItemTaxTypes = true;
+        if (item.tax_type !== 'inclusive') {
+          itemExclusiveTaxSum += (item.tax_amount || 0);
+        }
+      }
+
+      calculatedItemsSum += itemSubtotal;
+    }
+
+    // If order has items and subtotal > 0, items sum must balance to order subtotal (+/- 0.25 tolerance)
+    if (payload.items.length > 0 && subtotal > 0 && Math.abs(subtotal - calculatedItemsSum) > 0.25) {
+      return {
+        valid: false,
+        error: `Order subtotal (${subtotal}) does not match sum of item subtotals (${round2(calculatedItemsSum)})`,
+      };
+    }
+  }
+
+  // Financial consistency checks:
+  // Option A (Exclusive taxes): grand_total == subtotal - discount_total + tax_total + chargesTotal + roundOff
+  // Option B (Inclusive taxes): tax is already included in subtotal, so grand_total == subtotal - discount_total + chargesTotal + roundOff
+  // Option C (Item-level tax types known): grand_total == subtotal - discount_total + itemExclusiveTaxSum + chargesTotal + roundOff
+  const expectedExclusive = round2(subtotal - discountTotal + taxTotal + chargesTotal + roundOff);
+  const expectedInclusive = round2(subtotal - discountTotal + chargesTotal + roundOff);
+  const expectedWithItemTaxes = hasItemTaxTypes ? round2(subtotal - discountTotal + itemExclusiveTaxSum + chargesTotal + roundOff) : null;
+
+  const matchesExclusive = Math.abs(grandTotal - expectedExclusive) <= 0.15;
+  const matchesInclusive = Math.abs(grandTotal - expectedInclusive) <= 0.15;
+  const matchesItemTaxes = expectedWithItemTaxes !== null && Math.abs(grandTotal - expectedWithItemTaxes) <= 0.15;
+
+  if (!matchesExclusive && !matchesInclusive && !matchesItemTaxes) {
+    return {
+      valid: false,
+      error: `Financial calculation mismatch: grand_total (${grandTotal}) does not match expected totals (exclusive: ${expectedExclusive}, inclusive: ${expectedInclusive})`,
+    };
+  }
+
+  // Timestamp check
+  const orderedAt = payload.ordered_at || payload.created_at;
+  if (orderedAt && !isValidBusinessTimestamp(orderedAt)) {
+    return { valid: false, error: `Invalid ordered_at timestamp: must be valid ISO timestamp between 2020 and present (${orderedAt})` };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Validates financial and structural rules for an incoming cash closure payload.
+ * Accurately aligns with desktop POS cash drawer operations including:
+ * - Opening floats & counted actual cash
+ * - Cash sales, card, UPI, and digital sales
+ * - Cash movements (pay-ins, cash drops, supplier payouts, cash refunds)
+ * - Mathematical variance reconciliation
+ */
+function validateClosureFinancials(closure: any): { valid: boolean; error?: string } {
+  if (!closure || typeof closure !== 'object') {
+    return { valid: false, error: 'Closure payload must be an object' };
+  }
+
+  if (typeof closure.id !== 'string' || !closure.id.trim() || closure.id.length > 128) {
+    return { valid: false, error: 'Closure id is missing, invalid, or exceeds 128 characters' };
+  }
+
+  const openingCash = closure.opening_cash !== undefined ? closure.opening_cash : (closure.opening_float_cents !== undefined ? closure.opening_float_cents / 100 : 0);
+  const cashSales = closure.cash_sales !== undefined ? closure.cash_sales : 0;
+  const cardSales = closure.card_sales !== undefined ? closure.card_sales : 0;
+  const upiSales = closure.upi_sales !== undefined ? closure.upi_sales : 0;
+  const otherSales = closure.other_sales !== undefined ? closure.other_sales : 0;
+  const expectedCash = closure.expected_cash !== undefined ? closure.expected_cash : (closure.expected_cash_cents !== undefined ? closure.expected_cash_cents / 100 : (openingCash + cashSales));
+  const actualCash = closure.actual_cash !== undefined ? closure.actual_cash : (closure.counted_cash_cents !== undefined ? closure.counted_cash_cents / 100 : 0);
+  const variance = closure.variance !== undefined ? closure.variance : (closure.variance_cents !== undefined ? closure.variance_cents / 100 : (actualCash - expectedCash));
+
+  // Cash movements (pay-ins, supplier cash payouts, cash drops, cash refunds)
+  const cashIn = closure.cash_in !== undefined ? closure.cash_in : (closure.pay_in || 0);
+  const cashOut = closure.cash_out !== undefined ? closure.cash_out : (closure.pay_out || closure.cash_drop || closure.cash_refunds || closure.refunds || 0);
+
+  if (!isNonNegativeFinite(openingCash)) return { valid: false, error: 'Invalid opening_cash' };
+  if (!isNonNegativeFinite(cashSales)) return { valid: false, error: 'Invalid cash_sales' };
+  if (!isNonNegativeFinite(cardSales)) return { valid: false, error: 'Invalid card_sales' };
+  if (!isNonNegativeFinite(upiSales)) return { valid: false, error: 'Invalid upi_sales' };
+  if (!isNonNegativeFinite(otherSales)) return { valid: false, error: 'Invalid other_sales' };
+  if (!isNonNegativeFinite(expectedCash)) return { valid: false, error: 'Invalid expected_cash' };
+  if (!isNonNegativeFinite(actualCash)) return { valid: false, error: 'Invalid actual_cash' };
+
+  // Variance can be negative (shortage) or positive (overage), but must be finite
+  if (typeof variance !== 'number' || !Number.isFinite(variance) || Number.isNaN(variance)) {
+    return { valid: false, error: 'Variance must be a finite number' };
+  }
+
+  // Math check: expected_cash reconciliation
+  const calculatedWithMovements = round2(openingCash + cashSales + cashIn - cashOut);
+  const calculatedSimple = round2(openingCash + cashSales);
+  const expectedMatches = Math.abs(expectedCash - calculatedWithMovements) <= 0.15 || Math.abs(expectedCash - calculatedSimple) <= 0.15;
+
+  if (!expectedMatches) {
+    return {
+      valid: false,
+      error: `Expected cash mismatch: expected_cash (${expectedCash}) does not match opening_cash (${openingCash}) + cash_sales (${cashSales}) with movements = ${calculatedWithMovements}`,
+    };
+  }
+
+  // Math check: variance == actual_cash - expected_cash (+/- 0.15 tolerance)
+  const calculatedVariance = round2(actualCash - expectedCash);
+  if (Math.abs(variance - calculatedVariance) > 0.15) {
+    return {
+      valid: false,
+      error: `Cash variance mismatch: variance (${variance}) does not match actual_cash (${actualCash}) - expected_cash (${expectedCash}) = ${calculatedVariance}`,
+    };
+  }
+
+  return { valid: true };
+}
+
+/**
+ * Executes a list of statements atomically. Uses D1 batch() if available,
+ * or executes each statement in sequence.
+ */
+async function executeBatch(db: any, statements: any[]): Promise<void> {
+  if (typeof db.batch === 'function') {
+    await db.batch(statements);
+  } else {
+    for (const stmt of statements) {
+      await stmt.run();
+    }
+  }
+}
+
+/**
+ * Main ingestion handler for POS batches.
+ */
+export async function handleIngestSyncEvents(request: Request, env: Env): Promise<Response> {
+  // 1. Enforce payload size limit (max 2MB)
+  const contentLength = request.headers.get('content-length');
+  if (contentLength && parseInt(contentLength, 10) > MAX_SYNC_PAYLOAD_BYTES) {
+    return Response.json({ error: 'Payload exceeds 2MB limit' }, { status: 413 });
+  }
+
+  let body: any;
+  try {
+    body = await request.json();
+  } catch {
+    return Response.json({ error: 'Invalid JSON sync payload' }, { status: 400 });
+  }
+
+  if (!body || typeof body !== 'object' || !Array.isArray(body.events)) {
+    return Response.json({ error: 'events array is required' }, { status: 400 });
+  }
+
+  // 2. Validate event batch size limit
+  if (body.events.length > MAX_EVENTS_PER_BATCH) {
+    return Response.json({
+      error: `Batch event count (${body.events.length}) exceeds maximum limit of ${MAX_EVENTS_PER_BATCH}`,
+    }, { status: 413 });
+  }
+
+  // 3. Authenticate POS Terminal exclusively via cryptographic token
+  const authHeader = request.headers.get('Authorization') || '';
+  const rawToken = authHeader.replace(/^Bearer\s+/i, '').trim();
+
+  let tokenHash: string | null = null;
+  if (rawToken) {
+    tokenHash = await hashString(rawToken);
+  } else if (body?.pos_hash && typeof body.pos_hash === 'string' && body.pos_hash.trim()) {
+    // When pos_hash is transmitted as the terminal device secret, hash it
+    tokenHash = await hashString(body.pos_hash.trim());
+  }
+
+  if (!tokenHash) {
+    return Response.json({ error: 'Unauthorized: valid terminal device token required' }, { status: 401 });
+  }
+
+  const terminal = await env.DB.prepare(`
+    SELECT
+      t.id,
+      t.organization_id,
+      t.branch_id,
+      b.restaurant_id,
+      COALESCE(t.status, 'active') as terminal_status,
+      COALESCE(b.status, 'active') as branch_status
+    FROM terminals t
+    JOIN branches b ON t.branch_id = b.id AND t.organization_id = b.organization_id
+    WHERE t.terminal_token_hash = ?
+  `).bind(tokenHash).first<{
+    id: string;
+    organization_id: string;
+    branch_id: string;
+    restaurant_id: string | null;
+    terminal_status: string;
+    branch_status: string;
+  }>();
+
+  if (!terminal) {
+    return Response.json({ error: 'Unauthorized: valid terminal device token required' }, { status: 401 });
+  }
+
+  // Reject revoked or disabled terminal device credentials
+  if (terminal.terminal_status !== 'active') {
+    return Response.json({ error: 'Forbidden: terminal device has been revoked or disabled' }, { status: 403 });
+  }
+
+  // Reject terminals whose parent branch has been deactivated
+  if (terminal.branch_status !== 'active') {
+    return Response.json({ error: 'Forbidden: terminal branch is inactive' }, { status: 403 });
+  }
+
+  // 4. Rate Limit Event Sync by Terminal (allows offline burst catch-up up to 120 req/min)
+  const syncLimit = await checkRateLimit(env.DB, {
+    keyPrefix: 'pos_sync_terminal',
+    identifier: terminal.id,
+    limit: getEffectiveLimit(env.RATE_LIMIT_SYNC_EVENTS_TERMINAL, DEFAULT_RATE_LIMITS.SYNC_EVENTS_TERMINAL.limit),
+    windowSeconds: DEFAULT_RATE_LIMITS.SYNC_EVENTS_TERMINAL.windowSeconds,
+  });
+  if (!syncLimit.allowed) {
+    return createRateLimitResponse(syncLimit);
+  }
+
+  const events: BatchSyncEvent[] = body.events;
+  const processedIds: string[] = [];
+  const now = new Date().toISOString();
+
+  // 5. Update terminal heartbeat
+  await env.DB.prepare('UPDATE terminals SET last_seen_at = ? WHERE id = ?')
+    .bind(now, terminal.id).run();
+
+  // 6. Process events atomically with idempotency and financial validation
+  for (const event of events) {
+    if (!event || typeof event !== 'object' || typeof event.id !== 'string' || !event.id.trim() || typeof event.type !== 'string') {
+      continue;
+    }
+
+    let payloadHash = '';
+    try {
+      // 6a. Compute deterministic payload hash for idempotency and conflict detection
+      const canonicalPayloadStr = JSON.stringify(event.payload || {});
+      payloadHash = await hashString(canonicalPayloadStr);
+
+      // 6b. Check existing event in sync_events table
+      const existingEvent = await env.DB.prepare(`
+        SELECT organization_id, branch_id, payload_hash, status
+        FROM sync_events
+        WHERE id = ?
+      `).bind(event.id).first<{
+        organization_id: string;
+        branch_id: string;
+        payload_hash: string;
+        status: string;
+      }>();
+
+      if (existingEvent) {
+        // Cross-tenant event collision denial
+        if (existingEvent.organization_id !== terminal.organization_id) {
+          console.warn(`[SyncSecurity] Cross-tenant event collision attempt for event ${event.id}`);
+          continue;
+        }
+
+        // Exact match -> Legitimate idempotent retry after timeout / disconnect
+        if (existingEvent.payload_hash === payloadHash) {
+          processedIds.push(event.id);
+          continue;
+        }
+
+        // Mismatched hash -> Event ID conflict (same ID reused with conflicting payload)
+        console.warn(`[SyncSecurity] Event ID conflict: event ${event.id} was previously ingested with a different payload`);
+        continue;
+      }
+
+      // 6c. Process Order Events
+      if (event.type.startsWith('order.')) {
+        const payload = event.payload as any;
+        const validation = validateOrderFinancials(payload);
+        if (!validation.valid) {
+          console.warn(`[SyncValidation] Order event ${event.id} rejected: ${validation.error}`);
+          continue;
+        }
+
+        let completedAt: string | null = null;
+        if (payload.status === 'completed') {
+          completedAt = now;
+        }
+        if (payload.completed_at !== undefined && payload.completed_at !== null) {
+          const completionTime = typeof payload.completed_at === 'string' ? Date.parse(payload.completed_at) : Number.NaN;
+          const orderTime = Date.parse(payload.ordered_at || payload.created_at || now);
+          if (payload.status !== 'completed' || !isValidBusinessTimestamp(payload.completed_at) || !Number.isFinite(orderTime) || completionTime < orderTime) {
+            console.warn(`[SyncValidation] Order event ${event.id} rejected: Invalid completed_at timestamp`);
+            continue;
+          }
+          completedAt = new Date(Math.min(completionTime, Date.now())).toISOString();
+        }
+
+        // Cross-tenant order overwrite prevention:
+        // If order already exists in database, verify it belongs strictly to this tenant and branch
+        const existingOrder = await env.DB.prepare(`
+          SELECT organization_id, branch_id FROM synced_orders WHERE id = ?
+        `).bind(payload.id).first<{ organization_id: string; branch_id: string }>();
+
+        if (existingOrder) {
+          if (existingOrder.organization_id !== terminal.organization_id || existingOrder.branch_id !== terminal.branch_id) {
+            console.warn(`[SyncSecurity] Unauthorized cross-tenant order update attempt on order ${payload.id}`);
+            continue;
+          }
+        }
+
+        const subtotal = payload.subtotal || 0;
+        const taxTotal = payload.tax_total !== undefined ? payload.tax_total : (payload.tax || 0);
+        const discountTotal = payload.discount_total !== undefined ? payload.discount_total : (payload.discount || 0);
+        const grandTotal = payload.grand_total !== undefined ? payload.grand_total : (payload.total || 0);
+        const orderedAt = payload.ordered_at || payload.created_at || now;
+
+        const eventStatements: any[] = [];
+
+        // 1. Durably record event idempotency record
+        eventStatements.push(env.DB.prepare(`
+          INSERT INTO sync_events (
+            id, organization_id, branch_id, terminal_id, event_type,
+            entity_type, entity_id, payload_hash, status, processed_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          event.id,
+          terminal.organization_id,
+          terminal.branch_id,
+          terminal.id,
+          event.type,
+          'order',
+          payload.id,
+          payloadHash,
+          'processed',
+          now
+        ));
+
+        const kitchenStatus = payload.kitchen_status || (payload.status === 'completed' ? 'served' : 'pending');
+
+        // Ordinary order.* events (created, updated, completed) must not independently mark an order paid,
+        // partially paid, or refunded, and cannot create payment ledger entries.
+        // New orders always start as 'unpaid', and existing orders preserve their authoritative payment status.
+
+        // 2. Upsert order with strict tenant condition
+        eventStatements.push(env.DB.prepare(`
+          INSERT INTO synced_orders (
+            id, organization_id, branch_id, terminal_id, order_number, order_type,
+            status, subtotal, tax_total, discount_total, grand_total, payment_method,
+            ordered_at, synced_at, restaurant_id, kitchen_status, payment_status, completed_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'unpaid', ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            status = excluded.status,
+            kitchen_status = COALESCE(excluded.kitchen_status, synced_orders.kitchen_status),
+            payment_status = synced_orders.payment_status,
+            subtotal = excluded.subtotal,
+            tax_total = excluded.tax_total,
+            discount_total = excluded.discount_total,
+            grand_total = excluded.grand_total,
+            payment_method = CASE WHEN synced_orders.payment_status IN ('paid', 'partially_paid') THEN synced_orders.payment_method ELSE excluded.payment_method END,
+            completed_at = COALESCE(synced_orders.completed_at, excluded.completed_at),
+            synced_at = excluded.synced_at,
+            updated_at = excluded.updated_at
+          WHERE synced_orders.organization_id = excluded.organization_id
+            AND synced_orders.branch_id = excluded.branch_id
+        `).bind(
+          payload.id,
+          terminal.organization_id,
+          terminal.branch_id,
+          terminal.id,
+          payload.order_number || payload.daily_order_number || 'ORD',
+          payload.order_type || 'dine_in',
+          payload.status || 'completed',
+          subtotal,
+          taxTotal,
+          discountTotal,
+          grandTotal,
+          payload.payment_method || 'cash',
+          orderedAt,
+          now,
+          terminal.restaurant_id,
+          kitchenStatus,
+          completedAt,
+          now
+        ));
+
+        // 3. Upsert order items
+        if (Array.isArray(payload.items)) {
+          for (const item of payload.items) {
+            const itemId = item.id || `${payload.id}_${item.product_id || item.name || 'item'}_${item.quantity}`;
+            const itemQty = item.quantity || 1;
+            const itemPrice = item.price !== undefined ? item.price : (item.unit_price || 0);
+            const itemSub = item.subtotal !== undefined ? item.subtotal : (itemQty * itemPrice);
+
+            eventStatements.push(env.DB.prepare(`
+              INSERT INTO synced_order_items (
+                id, order_id, branch_id, product_id, product_name, product_sku,
+                quantity, unit_price, subtotal, tax_amount, discount_amount,
+                ordered_at, restaurant_id, kitchen_status, updated_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(id) DO UPDATE SET
+                quantity = excluded.quantity,
+                subtotal = excluded.subtotal,
+                updated_at = excluded.updated_at
+            `).bind(
+              itemId,
+              payload.id,
+              terminal.branch_id,
+              item.product_id || null,
+              item.name || item.product_name || 'Item',
+              item.product_sku || item.sku || null,
+              itemQty,
+              itemPrice,
+              itemSub,
+              item.tax_amount || 0,
+              item.discount_amount || 0,
+              orderedAt,
+              terminal.restaurant_id,
+              kitchenStatus,
+              now
+            ));
+          }
+
+          // 4. Upsert derived kitchen ticket so kitchen clients can track synchronized orders
+          const ticketItems = payload.items.map((i: any) => ({
+            product_name: i.name || i.product_name || 'Item',
+            quantity: i.quantity || 1,
+          }));
+
+          eventStatements.push(env.DB.prepare(`
+            INSERT INTO kitchen_tickets (
+              id, organization_id, restaurant_id, branch_id, order_id, ticket_number,
+              station, status, items_json, notes, prep_time_minutes, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, 'main_kitchen', ?, ?, ?, 15, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+              status = excluded.status,
+              items_json = excluded.items_json,
+              updated_at = excluded.updated_at
+          `).bind(
+            'kot_' + payload.id,
+            terminal.organization_id,
+            terminal.restaurant_id,
+            terminal.branch_id,
+            payload.id,
+            'KOT-' + (payload.order_number || payload.daily_order_number || 'ORD'),
+            payload.status === 'completed' ? 'completed' : 'pending',
+            JSON.stringify(ticketItems),
+            payload.notes || null,
+            orderedAt,
+            now
+          ));
+        }
+
+        // Execute all writes for this event atomically (order events NEVER touch customer_payments)
+        await executeBatch(env.DB, eventStatements);
+        processedIds.push(event.id);
+
+      } else if (event.type === 'payment.settled' || event.type === 'payment.recorded') {
+        const payload = event.payload as any;
+        const orderId = payload.order_id || payload.id;
+        const settlementAmount = Number(payload.amount);
+        const rawMethod = typeof payload.payment_method === 'string' ? payload.payment_method.toLowerCase().trim() : '';
+        const validMethods = ['cash', 'upi', 'card', 'custom', 'razorpay_pos'];
+
+        if (
+          !orderId ||
+          typeof orderId !== 'string' ||
+          !isNonNegativeFinite(settlementAmount) ||
+          settlementAmount <= 0 ||
+          settlementAmount > MAX_MONETARY_VALUE ||
+          !validMethods.includes(rawMethod)
+        ) {
+          console.warn(`[SyncValidation] Payment event ${event.id} rejected: invalid order, amount, or payment method`);
+          continue;
+        }
+
+        const existingOrder = await env.DB.prepare(`
+          SELECT id, organization_id, restaurant_id, branch_id, grand_total, payment_status, version, table_id, status
+          FROM synced_orders
+          WHERE id = ?
+        `).bind(orderId).first<{
+          id: string;
+          organization_id: string;
+          restaurant_id: string | null;
+          branch_id: string;
+          grand_total: number;
+          payment_status: string;
+          version: number;
+          table_id: string | null;
+          status: string;
+        }>();
+
+        if (!existingOrder) {
+          console.warn(`[SyncSecurity] Payment event ${event.id} refers to non-existent order ${orderId}`);
+          continue;
+        }
+
+        if (existingOrder.organization_id !== terminal.organization_id || existingOrder.branch_id !== terminal.branch_id) {
+          console.warn(`[SyncSecurity] Cross-tenant payment settlement attempt on order ${orderId}`);
+          continue;
+        }
+
+        const paymentId = typeof payload.payment_id === 'string' && payload.payment_id.trim()
+          ? payload.payment_id.trim()
+          : ('pay_sync_' + event.id);
+        const paymentIdempotencyKey = typeof payload.idempotency_key === 'string' && payload.idempotency_key.trim()
+          ? payload.idempotency_key.trim()
+          : ('sync_' + event.id);
+        const extRef = typeof payload.external_reference_id === 'string' && payload.external_reference_id.trim()
+          ? payload.external_reference_id.trim()
+          : (typeof payload.reference_number === 'string' && payload.reference_number.trim()
+            ? payload.reference_number.trim()
+            : (typeof payload.utr === 'string' && payload.utr.trim()
+              ? payload.utr.trim()
+              : (typeof payload.transaction_id === 'string' && payload.transaction_id.trim()
+                ? payload.transaction_id.trim()
+                : null)));
+        const existingPayments = await env.DB.prepare(`
+          SELECT id, organization_id, branch_id, order_id, payment_method, amount,
+                 external_reference_id, idempotency_key, status
+            FROM customer_payments
+           WHERE id = ? OR (branch_id = ? AND idempotency_key = ?)
+           LIMIT 2
+        `).bind(paymentId, terminal.branch_id, paymentIdempotencyKey).all<any>();
+        const matches = existingPayments.results || [];
+        if (matches.length > 1) {
+          console.warn(`[SyncSecurity] Payment ID and idempotency key resolve to different records for event ${event.id}`);
+          continue;
+        }
+        const existingPayment = matches[0];
+        if (existingPayment) {
+          const samePayment = existingPayment.organization_id === terminal.organization_id &&
+            existingPayment.branch_id === terminal.branch_id && existingPayment.order_id === orderId &&
+            existingPayment.payment_method === rawMethod && Number(existingPayment.amount) === settlementAmount &&
+            (existingPayment.external_reference_id || null) === extRef &&
+            existingPayment.status === 'completed';
+          if (!samePayment) {
+            console.warn(`[SyncSecurity] Payment ID/idempotency conflict rejected for event ${event.id}`);
+            continue;
+          }
+          // A stable payment ID or idempotency key can be replayed under a new
+          // event ID, but it must not insert a second ledger row or reapply money.
+          try {
+            await executeBatch(env.DB, [env.DB.prepare(`
+              INSERT INTO sync_events (
+                id, organization_id, branch_id, terminal_id, event_type,
+                entity_type, entity_id, payload_hash, status, processed_at
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `).bind(event.id, terminal.organization_id, terminal.branch_id, terminal.id, event.type,
+              'payment', orderId, payloadHash, 'processed', now)]);
+            processedIds.push(event.id);
+          } catch (replayError: any) {
+            console.warn(`[SyncPayment] Idempotent payment replay recording failed for event ${event.id}:`, replayError?.message || replayError);
+          }
+          continue;
+        }
+
+        // 1. External payment references (UTR / auth code)
+        // For UPI, card and other non-cash payments, require a genuine external transaction reference.
+        const BOGUS_REFS = ['123', 'test', 'null', 'na', 'none', 'dummy', '0000', '1111', 'fake', 'abc', 'xyz'];
+        if (rawMethod !== 'cash') {
+          if (!extRef || extRef.length < 4 || BOGUS_REFS.includes(extRef.toLowerCase())) {
+            console.warn(`[SyncValidation] Payment event ${event.id} rejected: remote ${rawMethod.toUpperCase()} payment requires valid external transaction reference`);
+            continue;
+          }
+
+          // Check duplicate transaction reference within this branch
+          const existingRef = await env.DB.prepare(`
+            SELECT id, order_id FROM customer_payments
+            WHERE branch_id = ? AND payment_method = ? AND external_reference_id = ? AND status != 'failed'
+          `).bind(terminal.branch_id, rawMethod, extRef).first<{ id: string; order_id: string }>();
+
+          if (existingRef) {
+            console.warn(`[SyncSecurity] Duplicate payment reference: Transaction ${extRef} was already settled on payment ${existingRef.id} (Order ${existingRef.order_id})`);
+            continue;
+          }
+        }
+
+        // 2. Server-authoritative verification classification
+        // Never accept client-asserted gateway_verified or terminal_verified.
+        let verificationMethod = 'manual_cashier_confirmed';
+        if (rawMethod === 'cash') {
+          verificationMethod = 'cashier_collected';
+        } else {
+          // Offline electronic payments without independently verified provider/terminal evidence must be manual_cashier_confirmed.
+          verificationMethod = 'manual_cashier_confirmed';
+        }
+
+        // 3. Authoritative outstanding balance & overpayment protection
+        // Calculate net paid balance from existing parent payments minus refunded amounts (avoiding double-counting)
+        const orderPayments = await env.DB.prepare(`
+          SELECT id, amount, refunded_amount, status, parent_payment_id
+          FROM customer_payments
+          WHERE order_id = ?
+        `).bind(orderId).all<any>();
+
+        let currentNetPaid = 0;
+        for (const p of orderPayments.results || []) {
+          if (!p.parent_payment_id && Number(p.amount) > 0 && ['completed', 'refunded'].includes(p.status)) {
+            currentNetPaid += (Number(p.amount || 0) - Number(p.refunded_amount || 0));
+          }
+        }
+        currentNetPaid = Math.round(currentNetPaid * 100) / 100;
+
+        const grandTotal = Math.round(Number(existingOrder.grand_total || 0) * 100) / 100;
+        const remainingBalance = Math.round((grandTotal - currentNetPaid) * 100) / 100;
+
+        if (settlementAmount > remainingBalance + 0.05) {
+          console.warn(`[SyncValidation] Payment event ${event.id} rejected: settlement amount (${settlementAmount}) exceeds outstanding order balance (${remainingBalance}) for order ${orderId}`);
+          continue;
+        }
+
+        const newTotalPaid = Math.round((currentNetPaid + settlementAmount) * 100) / 100;
+        const newOutstanding = Math.max(0, Math.round((grandTotal - newTotalPaid) * 100) / 100);
+        const newPaymentStatus = newOutstanding <= 0.05 ? 'paid' : 'partially_paid';
+        const isSplit = currentNetPaid > 0 ? 1 : 0;
+        const orderVersion = Number(existingOrder.version || 1);
+
+        const paymentStatements: any[] = [];
+        paymentStatements.push(env.DB.prepare(`
+          INSERT INTO sync_events (
+            id, organization_id, branch_id, terminal_id, event_type,
+            entity_type, entity_id, payload_hash, status, processed_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          event.id,
+          terminal.organization_id,
+          terminal.branch_id,
+          terminal.id,
+          event.type,
+          'payment',
+          orderId,
+          payloadHash,
+          'processed',
+          now
+        ));
+
+        paymentStatements.push(env.DB.prepare(`
+          INSERT INTO customer_payments (
+            id, organization_id, restaurant_id, branch_id, order_id, payment_method,
+            amount, currency, status, verification_method, external_reference_id, cashier_user_id, cashier_name,
+            terminal_id, idempotency_key, is_split, metadata_json, created_at, updated_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, 'INR', 'completed', ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          paymentId,
+          terminal.organization_id,
+          existingOrder.restaurant_id || terminal.restaurant_id || null,
+          terminal.branch_id,
+          orderId,
+          rawMethod,
+          settlementAmount,
+          verificationMethod,
+          extRef,
+          payload.cashier_user_id || null,
+          payload.cashier_name || 'Cashier',
+          terminal.id,
+          paymentIdempotencyKey,
+          isSplit,
+          JSON.stringify(payload.metadata || {}),
+          payload.settled_at || now,
+          now
+        ));
+
+        paymentStatements.push(env.DB.prepare(`
+          UPDATE synced_orders
+          SET payment_status = ?,
+              payment_method = ?,
+              version = (CASE WHEN version = ? THEN version + 1 ELSE json_extract('{', '$.concurrency_conflict') END),
+              updated_at = ?
+          WHERE id = ? AND organization_id = ? AND branch_id = ?
+        `).bind(
+          newPaymentStatus,
+          rawMethod,
+          orderVersion,
+          now,
+          orderId,
+          terminal.organization_id,
+          terminal.branch_id
+        ));
+
+        if (newPaymentStatus === 'paid' && existingOrder.table_id && existingOrder.status === 'completed') {
+          paymentStatements.push(env.DB.prepare(`
+            UPDATE dining_tables
+            SET table_status = 'available', current_order_id = NULL, updated_at = ?
+            WHERE id = ? AND branch_id = ?
+          `).bind(now, existingOrder.table_id, terminal.branch_id));
+        }
+
+        try {
+          await executeBatch(env.DB, paymentStatements);
+          processedIds.push(event.id);
+        } catch (batchErr: any) {
+          console.warn(`[SyncPayment] Batch execution failed for event ${event.id}:`, batchErr?.message || batchErr);
+          continue;
+        }
+
+      } else if (event.type === 'closure.recorded') {
+        const closure = event.payload as any;
+        const validation = validateClosureFinancials(closure);
+        if (!validation.valid) {
+          console.warn(`[SyncValidation] Closure event ${event.id} rejected: ${validation.error}`);
+          continue;
+        }
+
+        // Cross-tenant closure overwrite prevention
+        const existingClosure = await env.DB.prepare(`
+          SELECT organization_id, branch_id FROM synced_cash_closures WHERE id = ?
+        `).bind(closure.id).first<{ organization_id: string; branch_id: string }>();
+
+        if (existingClosure) {
+          if (existingClosure.organization_id !== terminal.organization_id || existingClosure.branch_id !== terminal.branch_id) {
+            console.warn(`[SyncSecurity] Unauthorized cross-tenant closure update attempt on closure ${closure.id}`);
+            continue;
+          }
+        }
+
+        const closureStatements: any[] = [];
+
+        // 1. Event idempotency record
+        closureStatements.push(env.DB.prepare(`
+          INSERT INTO sync_events (
+            id, organization_id, branch_id, terminal_id, event_type,
+            entity_type, entity_id, payload_hash, status, processed_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          event.id,
+          terminal.organization_id,
+          terminal.branch_id,
+          terminal.id,
+          event.type,
+          'closure',
+          closure.id,
+          payloadHash,
+          'processed',
+          now
+        ));
+
+        // 2. Upsert closure with tenant isolation
+        closureStatements.push(env.DB.prepare(`
+          INSERT INTO synced_cash_closures (
+            id, organization_id, branch_id, closure_date, opened_at, closed_at,
+            opening_cash, cash_sales, card_sales, upi_sales, other_sales,
+            expected_cash, actual_cash, variance, notes, closed_by, synced_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON CONFLICT(id) DO UPDATE SET
+            actual_cash = excluded.actual_cash,
+            variance = excluded.variance,
+            notes = excluded.notes,
+            synced_at = excluded.synced_at
+          WHERE synced_cash_closures.organization_id = excluded.organization_id
+            AND synced_cash_closures.branch_id = excluded.branch_id
+        `).bind(
+          closure.id,
+          terminal.organization_id,
+          terminal.branch_id,
+          closure.closure_date || now.split('T')[0],
+          closure.opened_at || now,
+          closure.closed_at || now,
+          closure.opening_cash || 0,
+          closure.cash_sales || 0,
+          closure.card_sales || 0,
+          closure.upi_sales || 0,
+          closure.other_sales || 0,
+          closure.expected_cash || 0,
+          closure.actual_cash || 0,
+          closure.variance || 0,
+          closure.notes ? String(closure.notes).slice(0, 500) : null,
+          closure.closed_by ? String(closure.closed_by).slice(0, 100) : 'Staff',
+          now
+        ));
+
+        await executeBatch(env.DB, closureStatements);
+        processedIds.push(event.id);
+
+      } else {
+        // Other legitimate event types (e.g. inventory.updated): record idempotently
+        await env.DB.prepare(`
+          INSERT INTO sync_events (
+            id, organization_id, branch_id, terminal_id, event_type,
+            entity_type, entity_id, payload_hash, status, processed_at
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'processed', ?)
+        `).bind(
+          event.id,
+          terminal.organization_id,
+          terminal.branch_id,
+          terminal.id,
+          event.type,
+          event.entity_type || 'generic',
+          event.entity_id || event.id,
+          payloadHash,
+          now
+        ).run();
+
+        processedIds.push(event.id);
+      }
+    } catch (err: any) {
+      // Concurrency race handling:
+      // If a unique constraint failure occurred on sync_events.id, another concurrent
+      // request committed this same event ID simultaneously.
+      const errMsg = String(err?.message || '');
+      if (errMsg.includes('UNIQUE') || errMsg.includes('constraint failed')) {
+        const existing = await env.DB.prepare(`
+          SELECT organization_id, branch_id, payload_hash, status
+          FROM sync_events
+          WHERE id = ?
+        `).bind(event.id).first<{
+          organization_id: string;
+          branch_id: string;
+          payload_hash: string;
+          status: string;
+        }>();
+
+        if (existing && existing.organization_id === terminal.organization_id) {
+          if (existing.payload_hash === payloadHash) {
+            // Concurrent duplicate with identical payload -> Acknowledge idempotently
+            processedIds.push(event.id);
+            continue;
+          } else {
+            // Concurrent duplicate with conflicting payload -> Reject deterministically
+            console.warn(`[SyncSecurity] Event ID conflict under concurrency: event ${event.id} committed by concurrent request with different payload`);
+            continue;
+          }
+        }
+      }
+      console.error(`Failed to ingest event ${event?.id}:`, err);
+    }
+  }
+
+  const response: BatchSyncResponse = {
+    success: processedIds.length > 0 || events.length === 0,
+    processed_count: processedIds.length,
+    failed_count: events.length - processedIds.length,
+    synced_ids: processedIds,
+    server_time: now,
+  };
+
+  return Response.json(response);
+}

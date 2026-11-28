@@ -13,7 +13,7 @@ fi
 is_safe_clear_path() {
   local target=$1
   case "$target" in
-    "$ROOT_DIR/frontend/.next"|"$ROOT_DIR/frontend/node_modules/.cache"|"$ROOT_DIR/dist"|"$ROOT_DIR/tsconfig.tsbuildinfo")
+    "$ROOT_DIR/desktop-ui/.next"|"$ROOT_DIR/desktop-ui/node_modules/.cache"|"$ROOT_DIR/dist"|"$ROOT_DIR/tsconfig.tsbuildinfo")
       return 0
       ;;
     *flo-desktop*)
@@ -156,8 +156,8 @@ echo "----------------------------------------"
 
 # Project caches
 if [ "$ELECTRON_CACHE_ONLY" != "true" ]; then
-  clear_path "$ROOT_DIR/frontend/.next" "frontend/.next"
-  clear_path "$ROOT_DIR/frontend/node_modules/.cache" "frontend/node_modules/.cache"
+  clear_path "$ROOT_DIR/desktop-ui/.next" "desktop-ui/.next"
+  clear_path "$ROOT_DIR/desktop-ui/node_modules/.cache" "desktop-ui/node_modules/.cache"
   clear_path "$ROOT_DIR/dist" "dist/"
 fi
 

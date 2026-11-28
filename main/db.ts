@@ -4648,16 +4648,124 @@ export const MIGRATIONS: { version: number; name: string; up: () => void }[] = [
         INSERT OR IGNORE INTO branches (id, restaurant_id, name, code, is_main_branch, status, created_at, updated_at)
         VALUES (?, 'rest-01', ?, ?, 1, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
       `).run(localBranchId, localStoreName, localBranchCode);
+    },
+  },
+  {
+    version: 96,
+    name: 'cloud_portal_persistence_and_transfers',
+    up: () => {
+      // 1. Persistent inter-branch inventory transfers
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS inventory_transfers (
+          id TEXT PRIMARY KEY,
+          source_branch_id TEXT NOT NULL,
+          dest_branch_id TEXT NOT NULL,
+          source_branch_name TEXT NOT NULL,
+          dest_branch_name TEXT NOT NULL,
+          ingredient_id TEXT,
+          item_name TEXT NOT NULL,
+          quantity REAL NOT NULL,
+          unit TEXT NOT NULL DEFAULT 'kg',
+          status TEXT NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'dispatched', 'received', 'cancelled')),
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_transfers_source ON inventory_transfers(source_branch_id);
+        CREATE INDEX IF NOT EXISTS idx_transfers_dest ON inventory_transfers(dest_branch_id);
+        CREATE INDEX IF NOT EXISTS idx_transfers_status ON inventory_transfers(status);
 
-      db.prepare(`
-        INSERT OR IGNORE INTO branches (id, restaurant_id, name, code, address, is_main_branch, status, created_at, updated_at)
-        VALUES ('br-02', 'rest-01', 'Gurugram CyberHub (Franchise)', 'CYBER-02', 'DLF Cyber City, Phase 2, Gurugram', 0, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      `).run();
+        CREATE TABLE IF NOT EXISTS product_branch_overrides (
+          id TEXT PRIMARY KEY,
+          product_id TEXT NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+          branch_id TEXT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+          override_price REAL,
+          is_available INTEGER NOT NULL DEFAULT 1,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          UNIQUE(product_id, branch_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_branch_overrides_prod ON product_branch_overrides(product_id);
+        CREATE INDEX IF NOT EXISTS idx_branch_overrides_branch ON product_branch_overrides(branch_id);
+      `);
 
-      db.prepare(`
-        INSERT OR IGNORE INTO branches (id, restaurant_id, name, code, address, is_main_branch, status, created_at, updated_at)
-        VALUES ('br-03', 'rest-01', 'Indiranagar 100ft (Franchise)', 'BLR-03', '100 Feet Rd, Indiranagar, Bengaluru', 0, 'active', CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
-      `).run();
+      // Clean up any previously seeded mock data to ensure clean production zero-state
+      db.prepare("DELETE FROM inventory_transfers WHERE id IN ('tr-1', 'tr-2', 'tr-3')").run();
+      db.prepare("DELETE FROM raw_ingredients WHERE id IN ('ing-1', 'ing-2', 'ing-3', 'ing-4', 'ing-5')").run();
+      db.prepare("DELETE FROM branches WHERE code IN ('CYBER-02', 'BLR-03', 'BLR-2404', 'BLR-6241') AND is_main_branch = 0").run();
+    },
+  },
+  {
+    version: 97,
+    name: 'cloud_portal_suppliers_and_paired_terminals',
+    up: () => {
+      const ingCols = db.prepare('PRAGMA table_info(raw_ingredients)').all() as any[];
+      if (!ingCols.some((c: any) => c.name === 'supplier')) {
+        db.exec(`ALTER TABLE raw_ingredients ADD COLUMN supplier TEXT NOT NULL DEFAULT '';`);
+      }
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS paired_terminals (
+          id TEXT PRIMARY KEY,
+          branch_id TEXT NOT NULL REFERENCES branches(id) ON DELETE CASCADE,
+          terminal_name TEXT NOT NULL,
+          device_type TEXT NOT NULL DEFAULT 'desktop',
+          status TEXT NOT NULL DEFAULT 'online' CHECK (status IN ('online', 'standby', 'offline')),
+          last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_paired_terminals_branch ON paired_terminals(branch_id);
+      `);
+    },
+  },
+  {
+    version: 98,
+    name: 'cloud_portal_multibranch_prime_cost_variance',
+    up: () => {
+      const addColumnIfMissing = (table: string, col: string, defSql: string) => {
+        const cols = db.prepare(`PRAGMA table_info(${table})`).all() as Array<{ name: string }>;
+        if (!cols.some((c) => c.name === col)) {
+          db.exec(`ALTER TABLE ${table} ADD COLUMN ${col} ${defSql};`);
+        }
+      };
+
+      addColumnIfMissing('orders', 'branch_id', 'TEXT');
+      addColumnIfMissing('raw_ingredients', 'branch_id', 'TEXT');
+      addColumnIfMissing('expenses', 'branch_id', 'TEXT');
+      addColumnIfMissing('vendors', 'branch_id', 'TEXT');
+      addColumnIfMissing('cash_closures', 'denominations_json', 'TEXT');
+
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS staff_shifts (
+          id TEXT PRIMARY KEY,
+          user_id TEXT REFERENCES users(id) ON DELETE SET NULL,
+          staff_name TEXT NOT NULL,
+          branch_id TEXT,
+          shift_date TEXT NOT NULL CHECK (shift_date GLOB '[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]'),
+          hours_worked REAL NOT NULL DEFAULT 0 CHECK (hours_worked >= 0),
+          hourly_rate REAL NOT NULL DEFAULT 0 CHECK (hourly_rate >= 0),
+          labor_cost REAL NOT NULL DEFAULT 0 CHECK (labor_cost >= 0),
+          notes TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_staff_shifts_date ON staff_shifts(shift_date);
+        CREATE INDEX IF NOT EXISTS idx_staff_shifts_branch ON staff_shifts(branch_id);
+
+        CREATE TABLE IF NOT EXISTS stock_counts (
+          id TEXT PRIMARY KEY,
+          branch_id TEXT,
+          ingredient_id TEXT NOT NULL REFERENCES raw_ingredients(id) ON DELETE CASCADE,
+          system_qty REAL NOT NULL DEFAULT 0,
+          counted_qty REAL NOT NULL DEFAULT 0,
+          variance_qty REAL NOT NULL DEFAULT 0,
+          unit_cost REAL NOT NULL DEFAULT 0,
+          variance_value REAL NOT NULL DEFAULT 0,
+          notes TEXT,
+          counted_by TEXT,
+          created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+        );
+        CREATE INDEX IF NOT EXISTS idx_stock_counts_ingredient ON stock_counts(ingredient_id);
+        CREATE INDEX IF NOT EXISTS idx_stock_counts_created ON stock_counts(created_at);
+      `);
     },
   },
 ];
@@ -5187,6 +5295,7 @@ function createSchema(): void {
       current_stock REAL NOT NULL DEFAULT 0,
       minimum_stock REAL NOT NULL DEFAULT 0,
       cost_per_unit REAL NOT NULL DEFAULT 0,
+      supplier TEXT NOT NULL DEFAULT '',
       is_active INTEGER NOT NULL DEFAULT 1,
       created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
       updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP

@@ -36,14 +36,14 @@ jobs:
         run: npm ci
 
       - name: Install Frontend Dependencies
-        working-directory: frontend
+        working-directory: desktop-ui
         run: npm ci
 
       - name: Cloudflare Pages Static Export
         run: npm run build:web
 
       - name: Frontend Lint
-        working-directory: frontend
+        working-directory: desktop-ui
         run: npm run lint
 
       - name: Frontend Build (Next.js Static Export)
@@ -65,7 +65,7 @@ jobs:
         run: node --test tests/landing-dashboard-m3.test.cjs
 
       - name: Install Playwright Chromium
-        working-directory: frontend
+        working-directory: desktop-ui
         run: npx playwright install chromium --with-deps
 
       - name: Landing Cloud Operations Browser E2E
@@ -277,7 +277,7 @@ jobs:
           cache: npm
           cache-dependency-path: |
             package-lock.json
-            frontend/package-lock.json
+            desktop-ui/package-lock.json
             tablet-android/package-lock.json
 
       - name: Set up Java 21
@@ -297,7 +297,7 @@ jobs:
         run: npm ci
 
       - name: Install Frontend Dependencies
-        working-directory: frontend
+        working-directory: desktop-ui
         run: npm ci
 
       - name: Install Capacitor Dependencies

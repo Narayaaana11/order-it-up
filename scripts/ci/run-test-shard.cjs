@@ -46,23 +46,35 @@ const bashExecutable = (() => {
   return 'bash';
 })();
 
-const packageJsonPath = path.join(__dirname, '..', '..', 'package.json');
+const rootDir = path.join(__dirname, '..', '..');
+const packageJsonPath = path.join(rootDir, 'package.json');
 const pkg = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8'));
-const testScript = pkg.scripts && pkg.scripts.test;
-if (typeof testScript !== 'string' || testScript.length === 0) {
-  console.error('package.json has no "test" script to shard.');
-  process.exit(2);
-}
 
-const suitePattern = /(?:(?:bash|node)\s+tests\/run-test\.(?:sh|cjs)\s+)?npm\s+run\s+(test:[\w-]+)/g;
-const suites = [];
-let match;
-while ((match = suitePattern.exec(testScript)) !== null) {
-  if (!suites.includes(match[1])) suites.push(match[1]);
+const suitesManifestPath = path.join(rootDir, 'scripts', 'test-suites.json');
+let suites = [];
+if (fs.existsSync(suitesManifestPath)) {
+  const parsed = JSON.parse(fs.readFileSync(suitesManifestPath, 'utf8'));
+  if (!Array.isArray(parsed) || parsed.some((s) => typeof s !== 'string' || s.length === 0)) {
+    console.error('scripts/test-suites.json must be a non-empty array of suite names.');
+    process.exit(2);
+  }
+  suites = [...new Set(parsed)];
+} else {
+  const testScript = pkg.scripts && pkg.scripts.test;
+  if (typeof testScript !== 'string' || testScript.length === 0) {
+    console.error('package.json has no "test" script to shard.');
+    process.exit(2);
+  }
+
+  const suitePattern = /(?:(?:bash|node)\s+tests\/run-test\.(?:sh|cjs)\s+)?npm\s+run\s+(test:[\w-]+)/g;
+  let match;
+  while ((match = suitePattern.exec(testScript)) !== null) {
+    if (!suites.includes(match[1])) suites.push(match[1]);
+  }
 }
 
 if (suites.length === 0) {
-  console.error('Could not extract any test suites from package.json "test" script.');
+  console.error('Could not extract any test suites to shard.');
   process.exit(2);
 }
 

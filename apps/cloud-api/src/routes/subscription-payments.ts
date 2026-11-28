@@ -235,7 +235,7 @@ async function webhookSignatureMatches(secret: string, body: Uint8Array, signatu
   const key = await crypto.subtle.importKey(
     'raw', new TextEncoder().encode(secret), { name: 'HMAC', hash: 'SHA-256' }, false, ['sign'],
   );
-  const expected = new Uint8Array(await crypto.subtle.sign('HMAC', key, body));
+  const expected = new Uint8Array(await crypto.subtle.sign('HMAC', key, body as Uint8Array<ArrayBuffer>));
   const supplied = Uint8Array.from(signature.match(/.{2}/g) || [], (pair) => Number.parseInt(pair, 16));
   let difference = expected.length ^ supplied.length;
   for (let index = 0; index < expected.length; index++) difference |= expected[index] ^ (supplied[index] || 0);

@@ -46,14 +46,14 @@ export function isKdsServerRunning(): boolean {
 function getStaticDir(): string | null {
   const candidates = [
     // Development / unpackaged: relative to dist/main/
-    path.join(__dirname, '../../frontend/out'),
-    path.resolve(process.cwd(), 'frontend/out'),
-    path.join(__dirname, '../frontend/out'),
+    path.join(__dirname, '../../desktop-ui/out'),
+    path.resolve(process.cwd(), 'desktop-ui/out'),
+    path.join(__dirname, '../desktop-ui/out'),
     path.join(process.resourcesPath || '', 'frontend-out'),
   ];
 
   for (const dir of candidates) {
-    if (fs.existsSync(path.join(dir, 'index.html'))) {
+    if (fs.existsSync(path.join(dir, 'kds-standalone', 'index.html')) || fs.existsSync(path.join(dir, 'index.html'))) {
       return dir;
     }
   }

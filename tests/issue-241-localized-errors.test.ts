@@ -29,7 +29,7 @@ const frontendRequire = Module.createRequire(path.join(ROOT, 'desktop-ui/package
 
 const nextNavPath = path.resolve(ROOT, 'desktop-ui/node_modules/next/navigation.js');
 try {
-  const nextNavResolved = require.resolve('next/navigation', { paths: [path.join(ROOT, 'frontend')] });
+  const nextNavResolved = require.resolve('next/navigation', { paths: [path.join(ROOT, 'desktop-ui')] });
   require.cache[nextNavResolved] = {
     id: nextNavResolved,
     filename: nextNavResolved,

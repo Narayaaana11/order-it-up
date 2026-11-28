@@ -21,10 +21,19 @@ export interface MongoSyncStatus {
 
 const SYNC_INTERVAL_MS = 60 * 1000; // 1 minute incremental check
 
+function isSafeStorageAvailable(): boolean {
+  try {
+    return Boolean(safeStorage && typeof safeStorage.isEncryptionAvailable === 'function' && safeStorage.isEncryptionAvailable());
+  } catch {
+    return false;
+  }
+}
+
 class MongoSyncService {
   private client: MongoClient | null = null;
   private db: Db | null = null;
   private timer: NodeJS.Timeout | null = null;
+  private initialTimer: NodeJS.Timeout | null = null;
   private isSyncing = false;
   private lastError: string | null = null;
 
@@ -52,7 +61,7 @@ class MongoSyncService {
     const map = new Map(rows.map((r) => [r.key, r.value]));
 
     let uri = map.get('mongodb_uri') || process.env.MONGODB_URI || '';
-    if (uri && safeStorage.isEncryptionAvailable()) {
+    if (uri && isSafeStorageAvailable()) {
       try {
         const decrypted = safeStorage.decryptString(Buffer.from(uri, 'base64'));
         if (decrypted) uri = decrypted;
@@ -76,7 +85,7 @@ class MongoSyncService {
     const merged = { ...current, ...config };
 
     let storedUri = merged.uri;
-    if (storedUri && safeStorage.isEncryptionAvailable()) {
+    if (storedUri && isSafeStorageAvailable()) {
       try {
         storedUri = safeStorage.encryptString(storedUri).toString('base64');
       } catch (err) {
@@ -122,7 +131,8 @@ class MongoSyncService {
         }, SYNC_INTERVAL_MS);
 
         // Initial sync check
-        setTimeout(() => {
+        this.initialTimer = setTimeout(() => {
+          this.initialTimer = null;
           void this.syncIncremental();
         }, 5000);
       } catch (err: any) {
@@ -358,6 +368,10 @@ class MongoSyncService {
 
   /** Stop client and timers */
   public stop(): void {
+    if (this.initialTimer) {
+      clearTimeout(this.initialTimer);
+      this.initialTimer = null;
+    }
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;

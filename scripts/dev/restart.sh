@@ -11,7 +11,7 @@ echo "Order It Up - restarting development app"
 # process names such as electron, next, or node.
 node kill-ports.js 3000 3001 3002 3003 3088
 
-rm -rf -- "$ROOT_DIR/frontend/.next" "$ROOT_DIR/dist"
+rm -rf -- "$ROOT_DIR/desktop-ui/.next" "$ROOT_DIR/dist"
 
 # Use the current documented development entry point. The former script
 # referenced a deleted server.js and mutated source to change its port.

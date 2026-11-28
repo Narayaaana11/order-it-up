@@ -29,7 +29,7 @@ assert.ok(job['timeout-minutes'] >= 30);
 assert.equal(step('Set up Node.js 22').with['node-version'], '22');
 assert.match(step('Install root dependencies').run, /npm ci/);
 assert.match(step('Install frontend dependencies').run, /npm ci --prefix desktop-ui/);
-assert.match(step('Build desktop renderer').run, /npm run build:desktop-ui/);
+assert.match(step('Build desktop renderer').run, /npm run build:frontend/);
 assert.match(step('Build backend').run, /npm run build\b/);
 assert.match(step('Verify Electron runtime').run, /npm run verify:electron/);
 

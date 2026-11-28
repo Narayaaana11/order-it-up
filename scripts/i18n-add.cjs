@@ -30,7 +30,7 @@ try {
 }
 
 const root = path.resolve(__dirname, '..');
-const messagesDir = path.join(root, 'frontend', 'src', 'lib', 'i18n', 'messages');
+const messagesDir = path.join(root, 'desktop-ui', 'src', 'lib', 'i18n', 'messages');
 const source = path.join(messagesDir, 'en.json');
 const target = path.join(messagesDir, `${code}.json`);
 

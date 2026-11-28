@@ -19,7 +19,7 @@ function getMasterPinFilePath(): string {
 
 export function isMasterPinAvailable(): boolean {
   try {
-    return safeStorage.isEncryptionAvailable();
+    return Boolean(safeStorage && typeof safeStorage.isEncryptionAvailable === 'function' && safeStorage.isEncryptionAvailable());
   } catch {
     return false;
   }
@@ -30,6 +30,7 @@ export function isMasterPinSet(): boolean {
 }
 
 function readBlob(): MasterPinBlob | null {
+  if (!isMasterPinAvailable()) return null;
   try {
     const encrypted = fs.readFileSync(getMasterPinFilePath());
     const decrypted = safeStorage.decryptString(encrypted);
@@ -42,6 +43,9 @@ function readBlob(): MasterPinBlob | null {
 }
 
 function writeBlob(blob: MasterPinBlob): void {
+  if (!isMasterPinAvailable()) {
+    throw new Error('Master PIN is not available on this device (OS encryption unavailable).');
+  }
   const encrypted = safeStorage.encryptString(JSON.stringify(blob));
   fs.writeFileSync(getMasterPinFilePath(), encrypted, { mode: 0o600 });
 }

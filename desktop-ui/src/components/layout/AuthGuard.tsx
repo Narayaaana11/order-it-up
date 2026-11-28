@@ -36,7 +36,6 @@ const PUBLIC_PATHS = [
   '/kds-standalone',
   '/server-standalone',
   '/auth/login',
-  '/auth/register',
   '/auth/recover',
   '/setup',
   '/qr',

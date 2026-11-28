@@ -40,14 +40,14 @@ export function isServerAppRunning(): boolean {
 
 function getStaticDir(): string | null {
   const candidates = [
-    path.join(__dirname, '../../frontend/out'),
-    path.resolve(process.cwd(), 'frontend/out'),
-    path.join(__dirname, '../frontend/out'),
+    path.join(__dirname, '../../desktop-ui/out'),
+    path.resolve(process.cwd(), 'desktop-ui/out'),
+    path.join(__dirname, '../desktop-ui/out'),
     path.join(process.resourcesPath || '', 'frontend-out'),
   ];
 
   for (const dir of candidates) {
-    if (fs.existsSync(path.join(dir, 'index.html'))) return dir;
+    if (fs.existsSync(path.join(dir, 'server-standalone', 'index.html')) || fs.existsSync(path.join(dir, 'index.html'))) return dir;
   }
   return null;
 }

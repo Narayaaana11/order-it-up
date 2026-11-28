@@ -1,7 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { Cloud, LoaderCircle, RefreshCw, Store, Wifi, WifiOff, X } from 'lucide-react';
+import { Cloud, LoaderCircle, Printer, RefreshCw, Split, Store, Wifi, WifiOff, X } from 'lucide-react';
 import toast from 'react-hot-toast';
 import AddonModal from '@/components/pos/AddonModal';
 import CartPanel from '@/components/pos/CartPanel';
@@ -9,12 +9,13 @@ import ProductGrid from '@/components/pos/ProductGrid';
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 import api from '@/lib/api';
 import { mapCloudCategory as mapCategory, mapCloudProduct as mapProduct, mapCloudTable as mapTable } from '@/lib/cloud-pos-mappers';
+import { readOfflineValue, writeOfflineValue } from '@/lib/tablet-offline-db';
 import { useAuthStore } from '@/store/auth';
 import { useCartStore } from '@/store/cart';
 import type { Addon, Category, Order, Product, Table } from '@/lib/types';
 
 type Branch = { id: string; name: string; restaurant_name?: string; status?: string };
-type CloudOrder = Order & { branch_id?: string; grand_total?: number; table_number?: string | null; version?: number; payment_status?: 'unpaid' | 'partially_paid' | 'paid' | 'voided' };
+type CloudOrder = Order & { branch_id?: string; order_type?: string; grand_total?: number; table_number?: string | null; version?: number; payment_status?: 'unpaid' | 'partially_paid' | 'paid' | 'voided' };
 type CatalogResponse = { categories?: Record<string, unknown>[]; products?: Record<string, unknown>[] };
 type BranchCatalogResponse = { catalog?: Record<string, unknown>[] };
 type OrderAttempt = { id: string; createdAt: string; payload: Record<string, unknown> };
@@ -60,6 +61,10 @@ export default function TabletPosPage() {
   const [outbox, setOutbox] = useState<OrderAttempt[]>([]);
   const [openOrders, setOpenOrders] = useState<CloudOrder[]>([]);
   const [capabilities, setCapabilities] = useState<PaymentCapabilities | null>(null);
+  const [splitOrder, setSplitOrder] = useState<CloudOrder | null>(null);
+  const [splitCash, setSplitCash] = useState('0');
+  const [splitCard, setSplitCard] = useState('0');
+  const [receiptOrder, setReceiptOrder] = useState<CloudOrder | null>(null);
   const lastAutoSyncKey = useRef('');
 
   const namespace = useMemo(() => {
@@ -84,7 +89,11 @@ export default function TabletPosPage() {
 
   const saveOutbox = useCallback((items: OrderAttempt[]) => {
     setOutbox(items);
-    try { localStorage.setItem(queueKey, JSON.stringify(items)); } catch { setError('This device cannot safely save pending orders. Keep the app open and reconnect before leaving.'); }
+    void writeOfflineValue(queueKey, items).then((ok) => {
+      if (!ok) {
+        setError('This device cannot safely save pending orders. Keep the app open and reconnect before leaving.');
+      }
+    });
   }, [queueKey]);
 
   const refreshOpenOrders = useCallback(async (forBranchId: string) => {
@@ -111,9 +120,12 @@ export default function TabletPosPage() {
       setProducts(mappedProducts);
       const tableRows: Record<string, unknown>[] = Array.isArray(tableResult.data?.tables) ? tableResult.data.tables as Record<string, unknown>[] : [];
       setTables(tableRows.map(mapTable).filter((item) => item.is_active));
-      try {
-        localStorage.setItem(`${namespace}:${forBranchId}:catalog`, JSON.stringify({ categories: master.categories, products: master.products, branchCatalog: branchCatalog.catalog, savedAt: new Date().toISOString() }));
-      } catch { /* Cached catalog is optional; live requests remain authoritative. */ }
+      void writeOfflineValue(`${namespace}:${forBranchId}:catalog`, {
+        categories: master.categories,
+        products: master.products,
+        branchCatalog: branchCatalog.catalog,
+        savedAt: new Date().toISOString(),
+      });
       await refreshOpenOrders(forBranchId);
       try {
         const capabilityResponse = await api.get('/payments/capabilities');
@@ -123,10 +135,14 @@ export default function TabletPosPage() {
         setCapabilities(null);
       }
     } catch (loadError) {
-      const cache = localStorage.getItem(`${namespace}:${forBranchId}:catalog`);
-      if (cache) {
+      const parsed = await readOfflineValue<{
+        categories?: Record<string, unknown>[];
+        products?: Record<string, unknown>[];
+        branchCatalog?: Record<string, unknown>[];
+        savedAt?: string;
+      }>(`${namespace}:${forBranchId}:catalog`);
+      if (parsed) {
         try {
-          const parsed = JSON.parse(cache) as { categories?: Record<string, unknown>[]; products?: Record<string, unknown>[]; branchCatalog?: Record<string, unknown>[]; savedAt?: string };
           const effectiveById = new Map((parsed.branchCatalog || []).map((item) => [String(item.id), item]));
           setCategories((parsed.categories || []).map(mapCategory).filter((item) => item.is_active));
           setProducts((parsed.products || []).map((item) => mapProduct(item, effectiveById.get(String(item.id)))).filter((item) => item.is_active));
@@ -159,10 +175,9 @@ export default function TabletPosPage() {
 
   useEffect(() => {
     if (!branchId) return;
-    const storedQueue = localStorage.getItem(queueKey);
-    if (storedQueue) {
-      try { setOutbox(JSON.parse(storedQueue) as OrderAttempt[]); } catch { localStorage.removeItem(queueKey); }
-    }
+    void readOfflineValue<OrderAttempt[]>(queueKey).then((storedQueue) => {
+      if (Array.isArray(storedQueue)) setOutbox(storedQueue);
+    });
     const savedCart = localStorage.getItem(cartStorageKey);
     if (savedCart) {
       try {
@@ -193,7 +208,7 @@ export default function TabletPosPage() {
       if (!order?.id) throw new Error('The server did not confirm the order. It remains queued for a safe retry.');
       setOutbox((current) => {
         const next = current.filter((item) => item.id !== attempt.id);
-        try { localStorage.setItem(queueKey, JSON.stringify(next)); } catch { /* The order is already confirmed remotely. */ }
+        void writeOfflineValue(queueKey, next);
         return next;
       });
       setOpenOrders((current) => [order, ...current.filter((item) => String(item.id) !== String(order.id))]);
@@ -400,6 +415,90 @@ export default function TabletPosPage() {
     }
   };
 
+  const openSplitTender = (order: CloudOrder) => {
+    const total = Number(order.grand_total ?? order.total ?? 0);
+    const half = (total / 2).toFixed(2);
+    setSplitOrder(order);
+    setSplitCash(half);
+    setSplitCard((total - Number(half)).toFixed(2));
+  };
+
+  const executeSplitTender = async () => {
+    if (!splitOrder) return;
+    const cashAmt = Number(splitCash);
+    const cardAmt = Number(splitCard);
+    if (!Number.isFinite(cashAmt) || !Number.isFinite(cardAmt) || cashAmt < 0 || cardAmt < 0) {
+      setError('Tender amounts cannot be negative.');
+      return;
+    }
+    if (cardAmt > 0 && !capabilities?.configured) {
+      setError(capabilities?.reason || 'Card/UPI provider is not configured for split tender.');
+      return;
+    }
+    setSubmitting(true);
+    setError('');
+    try {
+      const summary = await api.get(`/orders/${encodeURIComponent(String(splitOrder.id))}/payments`);
+      const balance = Number(summary.data?.outstanding_balance);
+      if (!Number.isFinite(balance) || Math.abs(cashAmt + cardAmt - balance) > 0.05) {
+        throw new Error(`Split amounts must equal the outstanding balance (${currency} ${balance.toFixed(2)}).`);
+      }
+
+      if (cashAmt > 0) {
+        await api.post(`/orders/${encodeURIComponent(String(splitOrder.id))}/payments`, {
+          amount: cashAmt,
+          payment_method: 'cash',
+          idempotency_key: `${namespace}:split-cash:${splitOrder.id}:${Date.now()}`,
+        });
+      }
+
+      if (cardAmt > 0) {
+        const created = await api.post(`/orders/${encodeURIComponent(String(splitOrder.id))}/payment-intent`, {
+          amount: cardAmt,
+          idempotency_key: `${namespace}:split-intent:${splitOrder.id}:${Date.now()}`,
+        });
+        const intent = created.data?.intent as { id: string; provider_order_id: string; amount: number; currency: string } | undefined;
+        const keyId = created.data?.provider?.key_id as string | undefined;
+        if (!intent?.id || !keyId) throw new Error('The payment provider did not create an intent.');
+
+        await loadRazorpayCheckout();
+        const scope = window as unknown as { Razorpay?: new (options: Record<string, unknown>) => RazorpayInstance };
+        if (!scope.Razorpay) throw new Error('The payment provider checkout is unavailable.');
+
+        await new Promise<void>((resolve, reject) => {
+          const checkout = new scope.Razorpay!({
+            key: keyId,
+            amount: Math.round(intent.amount * 100),
+            currency: intent.currency,
+            name: 'Order It Up',
+            description: `Split Bill ${splitOrder.order_number}`,
+            order_id: intent.provider_order_id,
+            handler: (response: { razorpay_payment_id: string; razorpay_signature: string }) => {
+              void api.post('/payments/verify', {
+                intent_id: intent.id,
+                provider_payment_id: response.razorpay_payment_id,
+                signature: response.razorpay_signature,
+              }).then(() => resolve(), reject);
+            },
+            modal: {
+              ondismiss: () => reject(new Error('Provider checkout dismissed. Cash portion (if any) was recorded; card/UPI remains unpaid.')),
+            },
+          });
+          checkout.open();
+        });
+      }
+
+      await api.patch(`/orders/${encodeURIComponent(String(splitOrder.id))}/status`, { status: 'completed' });
+      toast.success(`Split payment recorded for ${splitOrder.order_number}.`);
+      setSplitOrder(null);
+      await refreshOpenOrders(branchId);
+    } catch (splitError) {
+      setError(messageFrom(splitError));
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleProductClick = (product: Product) => {
     if (product.addon_groups?.length) setAddonProduct(product);
     else cart.addItem(product, 1);
@@ -459,11 +558,51 @@ export default function TabletPosPage() {
                 : <>
                     <button type="button" disabled={submitting || !online} onClick={() => void collectCash(order)} className="min-h-8 rounded-md bg-brand px-2.5 text-xs font-bold text-white disabled:opacity-50">Record cash payment</button>
                     {capabilities?.configured && <button type="button" disabled={submitting || !online} onClick={() => void collectProvider(order)} className="min-h-8 rounded-md bg-slate-900 px-2.5 text-xs font-bold text-white disabled:opacity-50">Card / UPI</button>}
+                    <button type="button" disabled={submitting || !online} onClick={() => openSplitTender(order)} className="min-h-8 rounded-md border border-border px-2 text-xs font-bold disabled:opacity-50"><Split size={12} className="inline me-1" />Split</button>
                   </>}
+              <button type="button" onClick={() => setReceiptOrder(order)} className="min-h-8 rounded-md border border-border px-2 text-xs font-semibold" title="Print / Preview Receipt"><Printer size={12} className="inline" /></button>
             </div>
           </div>
         ))}
       </div>}
+      {splitOrder && (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center bg-slate-950/50 p-4">
+          <section role="dialog" aria-modal="true" className="w-full max-w-sm rounded-2xl bg-card p-5 shadow-2xl">
+            <div className="flex items-center justify-between">
+              <h2 className="text-base font-bold">Split Tender · {splitOrder.order_number}</h2>
+              <button type="button" onClick={() => setSplitOrder(null)} className="rounded-lg p-1.5 hover:bg-muted"><X size={16} /></button>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">Total: {currency} {Number(splitOrder.grand_total ?? splitOrder.total ?? 0).toFixed(2)}</p>
+            <div className="mt-4 space-y-3">
+              <label className="block text-xs font-semibold">Cash ({currency})<input type="number" min={0} step="0.01" value={splitCash} onChange={(e) => setSplitCash(e.target.value)} className="mt-1 min-h-10 w-full rounded-lg border border-border bg-background px-3 text-sm" /></label>
+              <label className="block text-xs font-semibold">Card / UPI ({currency})<input type="number" min={0} step="0.01" value={splitCard} onChange={(e) => setSplitCard(e.target.value)} disabled={!capabilities?.configured} className="mt-1 min-h-10 w-full rounded-lg border border-border bg-background px-3 text-sm disabled:opacity-50" /></label>
+              {!capabilities?.configured && <p className="text-[11px] text-amber-800">Card/UPI requires configured provider credentials.</p>}
+            </div>
+            <div className="mt-4 flex gap-2">
+              <button type="button" onClick={() => setSplitOrder(null)} className="min-h-10 flex-1 rounded-xl border border-border text-xs font-semibold">Cancel</button>
+              <button type="button" disabled={submitting} onClick={() => void executeSplitTender()} className="min-h-10 flex-1 rounded-xl bg-brand text-xs font-bold text-white disabled:opacity-50">Settle</button>
+            </div>
+          </section>
+        </div>
+      )}
+      {receiptOrder && (
+        <div className="fixed inset-0 z-[75] flex items-center justify-center bg-slate-950/50 p-4 print:bg-white print:p-0">
+          <section role="dialog" aria-modal="true" className="w-full max-w-xs rounded-2xl bg-white p-5 font-mono text-xs text-slate-900 shadow-2xl print:shadow-none">
+            <div className="text-center border-b border-dashed border-slate-300 pb-3">
+              <p className="text-sm font-bold">{currentBranch?.name || 'Order It Up'}</p>
+              <p className="text-[11px] text-slate-500">Order {receiptOrder.order_number} · {receiptOrder.order_type}</p>
+            </div>
+            <div className="py-3 border-b border-dashed border-slate-300 space-y-1">
+              <div className="flex justify-between font-bold"><span>Total</span><span>{currency} {Number(receiptOrder.grand_total ?? receiptOrder.total ?? 0).toFixed(2)}</span></div>
+              <div className="flex justify-between text-[11px] text-slate-600"><span>Status</span><span className="uppercase">{receiptOrder.payment_status}</span></div>
+            </div>
+            <div className="mt-4 flex gap-2 print:hidden">
+              <button type="button" onClick={() => setReceiptOrder(null)} className="min-h-9 flex-1 rounded-lg border border-slate-200 font-sans font-semibold">Close</button>
+              <button type="button" onClick={() => window.print()} className="min-h-9 flex-1 rounded-lg bg-slate-900 font-sans font-bold text-white"><Printer size={13} className="inline me-1" />Print</button>
+            </div>
+          </section>
+        </div>
+      )}
       {outbox.length === 0 && <div className="sr-only" role="status">{online ? 'Cloud is connected' : 'Cloud is offline'}</div>}
     </div>
   );

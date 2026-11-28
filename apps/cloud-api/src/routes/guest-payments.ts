@@ -360,6 +360,165 @@ export async function handleGuestPaymentWebhook(request: Request, env: Env): Pro
 }
 
 /**
+ * Processes an auditable order-level refund (cash or provider-backed Razorpay).
+ * Replay-safe via idempotency_key on customer_payments.
+ */
+export async function handleOrderRefund(
+  request: Request,
+  env: Env,
+  orgId: string,
+  memberships: UserMembership[],
+  userId: string,
+  orderId: string,
+): Promise<Response> {
+  const auth = await authorizeOrder(env, orgId, memberships, orderId);
+  if (auth.error) return auth.error;
+  const order = auth.order;
+  if (!order) return Response.json({ error: 'Order not found' }, { status: 404 });
+
+  let body: any;
+  try { body = await request.json(); } catch { return Response.json({ error: 'Invalid JSON payload' }, { status: 400 }); }
+
+  const reason = text(body?.reason, 300);
+  if (!reason) {
+    return Response.json({ error: 'A valid refund reason is required' }, { status: 400 });
+  }
+
+  const idempotencyKey = text(body?.idempotency_key, 120) || text(request.headers.get('Idempotency-Key'), 120) || null;
+  if (idempotencyKey) {
+    const replay = await env.DB.prepare(`
+      SELECT * FROM customer_payments WHERE branch_id = ? AND idempotency_key = ?
+    `).bind(order.branch_id, idempotencyKey).first<any>();
+    if (replay) {
+      return Response.json({
+        success: true,
+        idempotent: true,
+        refund: replay,
+        refunded_amount: Math.abs(Number(replay.amount || 0)),
+      });
+    }
+  }
+
+  const requestedPaymentId = text(body?.payment_id, 100);
+  let targetPayment: any = null;
+  if (requestedPaymentId) {
+    targetPayment = await env.DB.prepare(`
+      SELECT * FROM customer_payments
+      WHERE id = ? AND order_id = ? AND organization_id = ? AND parent_payment_id IS NULL
+    `).bind(requestedPaymentId, orderId, orgId).first<any>();
+  } else {
+    targetPayment = await env.DB.prepare(`
+      SELECT * FROM customer_payments
+      WHERE order_id = ? AND organization_id = ? AND parent_payment_id IS NULL
+        AND status IN ('completed', 'refunded') AND (amount - COALESCE(refunded_amount, 0)) > 0.005
+      ORDER BY created_at DESC LIMIT 1
+    `).bind(orderId, orgId).first<any>();
+  }
+
+  if (!targetPayment || !['completed', 'refunded'].includes(targetPayment.status)) {
+    return Response.json({ error: 'No refundable payment found for this order' }, { status: 404 });
+  }
+
+  const maxRefundable = round2(Number(targetPayment.amount || 0) - Number(targetPayment.refunded_amount || 0));
+  if (maxRefundable <= 0) {
+    return Response.json({ error: 'This payment has already been fully refunded' }, { status: 409 });
+  }
+
+  const refundAmount = body?.amount === undefined ? maxRefundable : round2(Number(body.amount));
+  if (!Number.isFinite(refundAmount) || refundAmount <= 0 || refundAmount > maxRefundable + 0.01) {
+    return Response.json({ error: `Refund amount must be between 0.01 and ${maxRefundable}` }, { status: 400 });
+  }
+  const appliedRefund = Math.min(refundAmount, maxRefundable);
+
+  let externalRefundId: string | null = null;
+  if (targetPayment.verification_method === 'gateway_verified' && targetPayment.external_reference_id) {
+    if (!providerConfigured(env)) {
+      return Response.json({
+        error: 'The payment provider is not configured to execute online refunds.',
+        code: 'PAYMENT_PROVIDER_NOT_CONFIGURED',
+      }, { status: 503 });
+    }
+    const providerRes = await razorpayRequest(
+      env,
+      `/payments/${encodeURIComponent(String(targetPayment.external_reference_id))}/refund`,
+      {
+        method: 'POST',
+        body: JSON.stringify({
+          amount: Math.round(appliedRefund * 100),
+          notes: { order_id: orderId, organization_id: orgId, reason },
+        }),
+      },
+    );
+    const providerPayload = await providerRes.json().catch(() => ({})) as any;
+    if (!providerRes.ok || !providerPayload?.id) {
+      return Response.json({
+        error: providerPayload?.error?.description || 'Payment provider refund failed',
+      }, { status: 502 });
+    }
+    externalRefundId = String(providerPayload.id);
+  }
+
+  const allPayments = await env.DB.prepare(`SELECT * FROM customer_payments WHERE order_id = ?`).bind(orderId).all<any>();
+  let netPaid = 0;
+  for (const row of allPayments.results || []) {
+    if (!row.parent_payment_id && Number(row.amount) > 0 && ['completed', 'refunded'].includes(row.status)) {
+      const refunded = row.id === targetPayment.id ? Number(row.refunded_amount || 0) + appliedRefund : Number(row.refunded_amount || 0);
+      netPaid += Number(row.amount || 0) - refunded;
+    }
+  }
+  netPaid = round2(Math.max(0, netPaid));
+  const grandTotal = Number(order.grand_total || 0);
+  const nextOrderPayStatus = netPaid >= grandTotal - 0.05 && netPaid > 0
+    ? 'paid'
+    : netPaid > 0
+      ? 'partially_paid'
+      : 'refunded';
+
+  const now = new Date().toISOString();
+  const refundId = `ref_${crypto.randomUUID()}`;
+  const actor = await env.DB.prepare('SELECT name, email FROM cloud_users WHERE id = ?')
+    .bind(userId).first<{ name: string | null; email: string | null }>();
+  const actorName = actor?.name || actor?.email || 'Staff';
+
+  await env.DB.batch([
+    env.DB.prepare(`
+      UPDATE customer_payments
+      SET refunded_amount = ROUND(COALESCE(refunded_amount, 0) + ?, 2),
+          status = CASE WHEN ROUND(COALESCE(refunded_amount, 0) + ?, 2) >= amount - 0.01 THEN 'refunded' ELSE 'completed' END,
+          updated_at = ?
+      WHERE id = ?
+    `).bind(appliedRefund, appliedRefund, now, targetPayment.id),
+    env.DB.prepare(`
+      INSERT INTO customer_payments (
+        id, organization_id, restaurant_id, branch_id, order_id, payment_method,
+        amount, currency, status, verification_method, external_reference_id, cashier_user_id, cashier_name,
+        idempotency_key, parent_payment_id, refund_reason, refund_type, is_split, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 'refunded', ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)
+    `).bind(
+      refundId, orgId, order.restaurant_id, order.branch_id, orderId, targetPayment.payment_method,
+      -appliedRefund, targetPayment.currency || 'INR',
+      externalRefundId ? 'gateway_verified' : 'cashier_collected',
+      externalRefundId, userId, actorName, idempotencyKey, targetPayment.id, reason,
+      externalRefundId ? 'provider_refund' : 'manual_refund', now, now,
+    ),
+    env.DB.prepare(`
+      UPDATE synced_orders
+      SET payment_status = ?, version = COALESCE(version, 1) + 1, updated_at = ?
+      WHERE id = ? AND organization_id = ?
+    `).bind(nextOrderPayStatus, now, orderId, orgId),
+  ]);
+
+  const createdRefund = await env.DB.prepare('SELECT * FROM customer_payments WHERE id = ?').bind(refundId).first<any>();
+  return Response.json({
+    success: true,
+    refund: createdRefund,
+    refunded_amount: appliedRefund,
+    order_payment_status: nextOrderPayStatus,
+    outstanding_balance: round2(Math.max(0, grandTotal - netPaid)),
+  }, { status: 201 });
+}
+
+/**
  * Routes guest payment paths. Returns null when the path is not owned.
  */
 export async function handleGuestPaymentsRequest(
@@ -375,6 +534,10 @@ export async function handleGuestPaymentsRequest(
   }
   if (path === '/api/payments/verify' && method === 'POST') {
     return handleVerifyPaymentIntent(request, env, claims.org, memberships, claims.sub);
+  }
+  const refundMatch = path.match(/^\/api\/orders\/([^/]+)\/refunds$/);
+  if (refundMatch && method === 'POST') {
+    return handleOrderRefund(request, env, claims.org, memberships, claims.sub, decodeURIComponent(refundMatch[1]));
   }
   const intentMatch = path.match(/^\/api\/orders\/([^/]+)\/payment-intent$/);
   if (intentMatch && method === 'POST') {

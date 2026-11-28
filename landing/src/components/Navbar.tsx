@@ -151,7 +151,7 @@ export default function Navbar() {
 
           <div className="hidden shrink-0 items-center gap-2 xl:flex">
             <a
-              href="http://localhost:3001/"
+              href="http://localhost:3001/auth/login/"
               title="Launch Cloud POS terminal on port 3001"
               className="inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-orange-200 bg-orange-50/80 px-3.5 py-2 text-sm font-bold text-orange-700 shadow-sm transition hover:bg-orange-100 hover:text-orange-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
             >
@@ -233,6 +233,20 @@ export default function Navbar() {
                 </button>
               )}
               <Link href="/#ui-preview" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">Explore Demo</Link>
+              <a
+                href="http://localhost:3001/auth/login/"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center justify-between rounded-xl border border-orange-200 bg-orange-50 px-3 py-3 text-sm font-bold text-orange-700 transition hover:bg-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
+              >
+                <span className="flex items-center gap-2">
+                  <span className="relative flex h-2 w-2">
+                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
+                    <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
+                  </span>
+                  Cloud POS (localhost:3001)
+                </span>
+                <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
+              </a>
             </div>
             {!currentUser ? (
               <Link href="/request-access" onClick={() => setMobileMenuOpen(false)} className="mt-3 flex min-h-12 items-center justify-center gap-2 rounded-xl bg-orange-600 px-4 py-3 text-sm font-bold text-white shadow-sm transition hover:bg-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500 focus-visible:ring-offset-2">

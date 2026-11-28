@@ -31,6 +31,8 @@ type Closure = { id: string; closure_date: string; expected_cash: number; actual
 type StaffMember = { id: string; name: string; email: string | null; role: string; is_active: number; branch_id: string | null; created_at: string };
 type Customer = { id: string; name: string; phone: string; email?: string | null; notes?: string | null; total_spent?: number; visits_count?: number; last_visit_at?: string | null };
 type Vendor = { id: string; name: string; contact_person?: string | null; phone?: string | null; email?: string | null; gstin?: string | null; address?: string | null; balance?: number; status?: string };
+type PurchaseOrder = { id: string; po_number: string; vendor_name?: string | null; status: string; total_amount: number; created_at: string; items?: { ingredient_name: string; quantity: number; unit: string; unit_cost: number }[] };
+type StockCount = { id: string; notes?: string | null; created_at: string; created_by_name?: string | null; items?: { ingredient_name: string; system_stock: number; counted_stock: number; variance: number }[] };
 
 type TabKey = "floor" | "reservations" | "kitchen" | "cashier" | "inventory" | "expenses" | "delivery" | "reports" | "staff" | "customers" | "vendors";
 
@@ -148,9 +150,16 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
   // Interactive Modals State
   const [selectedReceiptOrder, setSelectedReceiptOrder] = useState<ReceiptOrder | null>(null);
   const [selectedQrTable, setSelectedQrTable] = useState<Table | null>(null);
+  const [qrPayload, setQrPayload] = useState<{ qr_url: string } | null>(null);
+  const [qrLoading, setQrLoading] = useState(false);
   const [splitOrder, setSplitOrder] = useState<Order | null>(null);
   const [splitAmounts, setSplitAmounts] = useState<{ cash: string; cardUpi: string }>({ cash: "0", cardUpi: "0" });
   const [qrCopied, setQrCopied] = useState(false);
+  const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([]);
+  const [stockCounts, setStockCounts] = useState<StockCount[]>([]);
+  const [poForm, setPoForm] = useState({ vendor_id: "", ingredient_id: "", quantity: "10", unit_cost: "0", notes: "" });
+  const [wasteForm, setWasteForm] = useState({ ingredient_id: "", quantity: "1", reason: "Spoilage" });
+  const [scForm, setScForm] = useState({ ingredient_id: "", counted_stock: "0", notes: "Daily physical count" });
 
   const [reservationDate, setReservationDate] = useState(todayIso());
   const [expenseDate, setExpenseDate] = useState(todayIso());
@@ -268,6 +277,9 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
         attempt(cloudRequest<{ ingredients?: Ingredient[] }>(user, `/api/inventory/ingredients?branch_id=${encodeURIComponent(id)}`), (result) => setIngredients(result.ingredients || [])),
         attempt(cloudRequest<{ low_stock?: Ingredient[] }>(user, `/api/inventory/low-stock?branch_id=${encodeURIComponent(id)}`), (result) => setLowStock(result.low_stock || [])),
         attempt(cloudRequest<{ transactions?: StockTransaction[] }>(user, `/api/inventory/transactions?branch_id=${encodeURIComponent(id)}&limit=25`), (result) => setStockTransactions(result.transactions || [])),
+        attempt(cloudRequest<{ purchase_orders?: PurchaseOrder[] }>(user, `/api/purchase-orders?branch_id=${encodeURIComponent(id)}`), (result) => setPurchaseOrders(result.purchase_orders || [])),
+        attempt(cloudRequest<{ stock_counts?: StockCount[] }>(user, `/api/inventory/stock-counts?branch_id=${encodeURIComponent(id)}`), (result) => setStockCounts(result.stock_counts || [])),
+        attempt(cloudRequest<{ vendors?: Vendor[] }>(user, "/api/vendors"), (result) => setVendorList(result.vendors || [])),
       ]);
     }
     if (key === "expenses") {
@@ -533,6 +545,9 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
     if (Math.abs(cashAmt + cardAmt - splitOrder.grand_total) > 0.05) {
       throw new Error(`Total split tenders must equal the order total ${money(splitOrder.grand_total)}.`);
     }
+    if (cardAmt > 0 && !capabilities?.configured) {
+      throw new Error(capabilities?.reason || "Card/UPI provider is not configured for split tender. Record cash or configure provider credentials.");
+    }
 
     if (cashAmt > 0) {
       const key = `orderitup.split-cash:${user.id}:${splitOrder.id}:${Date.now()}`;
@@ -543,10 +558,55 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
     }
 
     if (cardAmt > 0) {
-      const key = `orderitup.split-card:${user.id}:${splitOrder.id}:${Date.now()}`;
-      await cloudRequest(user, `/api/orders/${encodeURIComponent(splitOrder.id)}/payments`, {
+      const storageKey = `orderitup.split-intent:${user.id}:${splitOrder.id}`;
+      let idempotencyKey = localStorage.getItem(storageKey);
+      if (!idempotencyKey) {
+        idempotencyKey = crypto.randomUUID();
+        localStorage.setItem(storageKey, idempotencyKey);
+      }
+      const created = await cloudRequest<{
+        intent: { id: string; provider_order_id: string; amount: number; currency: string };
+        provider: { key_id: string };
+      }>(user, `/api/orders/${encodeURIComponent(splitOrder.id)}/payment-intent`, {
         method: "POST",
-        body: JSON.stringify({ amount: cardAmt, payment_method: "card", idempotency_key: key }),
+        body: JSON.stringify({ amount: cardAmt, idempotency_key: idempotencyKey }),
+      });
+
+      await loadRazorpayCheckout();
+      const scope = window as unknown as { Razorpay?: new (options: Record<string, unknown>) => RazorpayInstance };
+      if (!scope.Razorpay) throw new Error("The payment provider checkout is unavailable. No non-cash split payment was recorded.");
+
+      await new Promise<void>((resolve, reject) => {
+        const checkout = new scope.Razorpay!({
+          key: created.provider.key_id,
+          amount: Math.round(created.intent.amount * 100),
+          currency: created.intent.currency,
+          name: "Order It Up",
+          description: `Split Bill ${splitOrder.order_number}`,
+          order_id: created.intent.provider_order_id,
+          handler: (response: { razorpay_payment_id: string; razorpay_signature: string }) => {
+            void (async () => {
+              try {
+                await cloudRequest(user, "/api/payments/verify", {
+                  method: "POST",
+                  body: JSON.stringify({
+                    intent_id: created.intent.id,
+                    provider_payment_id: response.razorpay_payment_id,
+                    signature: response.razorpay_signature,
+                  }),
+                });
+                localStorage.removeItem(storageKey);
+                resolve();
+              } catch (verifyError) {
+                reject(verifyError);
+              }
+            })();
+          },
+          modal: {
+            ondismiss: () => reject(new Error("Provider checkout dismissed. Cash tender (if any) was recorded; card/UPI portion remains unpaid.")),
+          },
+        });
+        checkout.open();
       });
     }
 
@@ -558,6 +618,99 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
     setSplitOrder(null);
     setNotice(`Split payment recorded for ${splitOrder.order_number}.`);
     await Promise.allSettled([refreshOperational(branchId), loadTab(branchId, "cashier")]);
+  });
+
+  const issueRefund = async (order: Order) => run(async () => {
+    const reason = window.prompt(`Refund reason for order ${order.order_number}:`, "Customer requested refund");
+    if (!reason || !reason.trim()) return;
+    await cloudRequest(user, `/api/orders/${encodeURIComponent(order.id)}/refunds`, {
+      method: "POST",
+      body: JSON.stringify({
+        reason: reason.trim(),
+        idempotency_key: `refund:${user.id}:${order.id}:${Date.now()}`,
+      }),
+    });
+    setNotice(`Refund processed for ${order.order_number}.`);
+    await Promise.allSettled([refreshOperational(branchId), loadTab(branchId, "cashier")]);
+  });
+
+  const openTableQr = async (table: Table) => {
+    setSelectedQrTable(table);
+    setQrPayload(null);
+    setQrLoading(true);
+    try {
+      const data = await cloudRequest<{ qr_url: string }>(user, `/api/qr/tables/${encodeURIComponent(table.id)}/code`);
+      setQrPayload(data);
+    } catch (qrError) {
+      setError(message(qrError));
+    } finally {
+      setQrLoading(false);
+    }
+  };
+
+  const createPurchaseOrder = async () => run(async () => {
+    if (!poForm.ingredient_id) throw new Error("Select an ingredient for the purchase order.");
+    const qty = Number(poForm.quantity);
+    const cost = Number(poForm.unit_cost);
+    if (!Number.isFinite(qty) || qty <= 0) throw new Error("PO quantity must be greater than zero.");
+    await cloudRequest(user, "/api/purchase-orders", {
+      method: "POST",
+      body: JSON.stringify({
+        branch_id: branchId,
+        vendor_id: poForm.vendor_id || undefined,
+        notes: poForm.notes.trim() || undefined,
+        items: [{ ingredient_id: poForm.ingredient_id, quantity: qty, unit_cost: Number.isFinite(cost) ? cost : 0 }],
+        idempotency_key: `po:${user.id}:${branchId}:${Date.now()}`,
+      }),
+    });
+    setPoForm({ vendor_id: "", ingredient_id: "", quantity: "10", unit_cost: "0", notes: "" });
+    setNotice("Purchase order created.");
+    await loadTab(branchId, "inventory");
+  });
+
+  const receivePurchaseOrder = async (poId: string) => run(async () => {
+    await cloudRequest(user, `/api/purchase-orders/${encodeURIComponent(poId)}/receive`, {
+      method: "POST",
+      body: JSON.stringify({}),
+    });
+    setNotice("Goods received (GRN) and stock incremented.");
+    await loadTab(branchId, "inventory");
+  });
+
+  const recordWastage = async () => run(async () => {
+    if (!wasteForm.ingredient_id) throw new Error("Select an ingredient for wastage.");
+    const qty = Number(wasteForm.quantity);
+    if (!Number.isFinite(qty) || qty <= 0) throw new Error("Wastage quantity must be greater than zero.");
+    await cloudRequest(user, "/api/inventory/wastage", {
+      method: "POST",
+      body: JSON.stringify({
+        ingredient_id: wasteForm.ingredient_id,
+        quantity: qty,
+        reason: wasteForm.reason.trim() || "Kitchen wastage",
+        idempotency_key: `waste:${user.id}:${wasteForm.ingredient_id}:${Date.now()}`,
+      }),
+    });
+    setWasteForm({ ingredient_id: "", quantity: "1", reason: "Spoilage" });
+    setNotice("Wastage recorded and stock updated.");
+    await loadTab(branchId, "inventory");
+  });
+
+  const createStockCount = async () => run(async () => {
+    if (!scForm.ingredient_id) throw new Error("Select an ingredient to count.");
+    const counted = Number(scForm.counted_stock);
+    if (!Number.isFinite(counted) || counted < 0) throw new Error("Counted stock must be zero or greater.");
+    await cloudRequest(user, "/api/inventory/stock-counts", {
+      method: "POST",
+      body: JSON.stringify({
+        branch_id: branchId,
+        notes: scForm.notes.trim() || "Physical stock count",
+        items: [{ ingredient_id: scForm.ingredient_id, counted_stock: counted }],
+        idempotency_key: `sc:${user.id}:${branchId}:${Date.now()}`,
+      }),
+    });
+    setScForm({ ingredient_id: "", counted_stock: "0", notes: "Daily physical count" });
+    setNotice("Physical stock count recorded.");
+    await loadTab(branchId, "inventory");
   });
 
   // Staff actions
@@ -761,29 +914,49 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
             <p className="text-xs text-slate-500 mt-1">Customers scan this code to browse menu & place orders.</p>
 
             <div className="my-5 p-4 bg-slate-50 rounded-xl border border-slate-200 flex justify-center">
-              <img
-                src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(`https://orderitup.in/qr?branch=${branchId}&table=${selectedQrTable.table_number}`)}`}
-                alt={`Table ${selectedQrTable.table_number} QR`}
-                className="w-40 h-40 object-contain rounded-md"
-              />
+              {qrLoading ? (
+                <div className="flex h-40 w-40 items-center justify-center text-xs text-slate-500">
+                  <LoaderCircle className="h-5 w-5 animate-spin me-2" /> Issuing capability…
+                </div>
+              ) : qrPayload?.qr_url ? (
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=180x180&data=${encodeURIComponent(qrPayload.qr_url)}`}
+                  alt={`Table ${selectedQrTable.table_number} QR`}
+                  className="w-40 h-40 object-contain rounded-md"
+                />
+              ) : (
+                <div className="flex h-40 w-40 items-center justify-center text-xs text-red-600">
+                  Unable to issue QR token (owner/manager required).
+                </div>
+              )}
             </div>
 
             <p className="text-[11px] font-mono text-slate-600 truncate bg-slate-100 p-2 rounded-lg mb-4">
-              https://orderitup.in/qr?table={selectedQrTable.table_number}
+              {qrPayload?.qr_url || "No signed capability URL issued"}
             </p>
 
             <div className="flex gap-2">
               <button
                 type="button"
+                disabled={!qrPayload?.qr_url}
                 onClick={() => {
-                  navigator.clipboard.writeText(`https://orderitup.in/qr?branch=${branchId}&table=${selectedQrTable.table_number}`);
+                  if (!qrPayload?.qr_url) return;
+                  navigator.clipboard.writeText(qrPayload.qr_url);
                   setQrCopied(true);
                   setTimeout(() => setQrCopied(false), 2000);
                 }}
-                className="flex-1 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer"
+                className="flex-1 py-2.5 px-4 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
               >
                 {qrCopied ? <Check className="w-3.5 h-3.5 text-emerald-400" /> : <Copy className="w-3.5 h-3.5" />}
                 <span>{qrCopied ? "Link Copied!" : "Copy Link"}</span>
+              </button>
+              <button
+                type="button"
+                disabled={qrLoading}
+                onClick={() => void openTableQr(selectedQrTable)}
+                className="py-2.5 px-4 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 font-bold text-xs cursor-pointer disabled:opacity-50"
+              >
+                Rotate
               </button>
             </div>
           </div>
@@ -982,9 +1155,9 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
                     )}
                     <button
                       type="button"
-                      onClick={() => setSelectedQrTable(table)}
+                      onClick={() => void openTableQr(table)}
                       className="min-h-7 rounded-md border border-orange-200 bg-orange-50 px-2 text-[11px] font-bold text-orange-700 hover:bg-orange-100 flex items-center gap-1 cursor-pointer"
-                      title="View Table QR Code"
+                      title="Issue / View Table QR Code"
                     >
                       <QrCode size={12} /> QR
                     </button>
@@ -1078,6 +1251,11 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
                 {order.payment_status !== "paid" && (
                   <button type="button" disabled={busy} onClick={() => openSplitModal(order)} className="min-h-8 rounded-lg bg-orange-600 hover:bg-orange-700 px-3 text-xs font-bold text-white disabled:opacity-50 flex items-center gap-1 cursor-pointer">
                     <Split size={12} /> Split
+                  </button>
+                )}
+                {(order.payment_status === "paid" || order.payment_status === "partially_paid") && (
+                  <button type="button" disabled={busy} onClick={() => void issueRefund(order)} className="min-h-8 rounded-lg border border-red-200 bg-red-50 hover:bg-red-100 px-3 text-xs font-bold text-red-700 disabled:opacity-50 cursor-pointer">
+                    Refund
                   </button>
                 )}
                 <button
@@ -1512,6 +1690,72 @@ export function CloudOperationsWorkspace({ user, onSignOut }: { user: AuthUser; 
                   ))}
                 </tbody>
               </table>
+            </div>
+
+            {/* Purchase Orders (GRN) */}
+            <div className="mt-6 grid gap-4 lg:grid-cols-2">
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                <h3 className="text-xs font-bold uppercase text-slate-700 mb-2">Create Purchase Order</h3>
+                <div className="grid gap-2 sm:grid-cols-2">
+                  <Field label="Vendor (Optional)">
+                    <select value={poForm.vendor_id} onChange={(e) => setPoForm({ ...poForm, vendor_id: e.target.value })} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm bg-white">
+                      <option value="">Any Vendor</option>
+                      {vendorList.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Ingredient">
+                    <select value={poForm.ingredient_id} onChange={(e) => setPoForm({ ...poForm, ingredient_id: e.target.value })} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm bg-white">
+                      <option value="">Select ingredient…</option>
+                      {ingredients.map((ing) => <option key={ing.id} value={ing.id}>{ing.name} ({ing.unit})</option>)}
+                    </select>
+                  </Field>
+                  <Field label="Quantity"><input type="number" min={0.01} step="0.01" value={poForm.quantity} onChange={(e) => setPoForm({ ...poForm, quantity: e.target.value })} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm" /></Field>
+                  <Field label="Unit Cost"><input type="number" min={0} step="0.01" value={poForm.unit_cost} onChange={(e) => setPoForm({ ...poForm, unit_cost: e.target.value })} className="min-h-10 rounded-lg border border-slate-200 px-3 text-sm" /></Field>
+                </div>
+                <button type="button" disabled={busy} onClick={() => void createPurchaseOrder()} className="mt-3 px-4 py-2 rounded-lg bg-orange-600 text-white font-bold text-xs">Create PO</button>
+                {purchaseOrders.length > 0 && (
+                  <div className="mt-3 divide-y divide-slate-200">
+                    {purchaseOrders.slice(0, 5).map((po) => (
+                      <div key={po.id} className="py-2 flex items-center justify-between text-xs">
+                        <div><strong>{po.po_number}</strong> · {po.vendor_name || "Direct"} · {money(po.total_amount)} · <span className="uppercase">{po.status}</span></div>
+                        {po.status === "ordered" && (
+                          <button type="button" disabled={busy} onClick={() => void receivePurchaseOrder(po.id)} className="px-2.5 py-1 rounded bg-emerald-700 text-white font-bold">Receive GRN</button>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* Wastage & Physical Stock Counts */}
+              <div className="space-y-4">
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <h3 className="text-xs font-bold uppercase text-slate-700 mb-2">Record Wastage</h3>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <select value={wasteForm.ingredient_id} onChange={(e) => setWasteForm({ ...wasteForm, ingredient_id: e.target.value })} className="min-h-10 rounded-lg border border-slate-200 px-2 text-xs bg-white">
+                      <option value="">Ingredient…</option>
+                      {ingredients.map((ing) => <option key={ing.id} value={ing.id}>{ing.name}</option>)}
+                    </select>
+                    <input type="number" min={0.01} step="0.01" value={wasteForm.quantity} onChange={(e) => setWasteForm({ ...wasteForm, quantity: e.target.value })} placeholder="Qty" className="min-h-10 rounded-lg border border-slate-200 px-2 text-xs" />
+                    <input value={wasteForm.reason} onChange={(e) => setWasteForm({ ...wasteForm, reason: e.target.value })} placeholder="Reason" className="min-h-10 rounded-lg border border-slate-200 px-2 text-xs" />
+                  </div>
+                  <button type="button" disabled={busy} onClick={() => void recordWastage()} className="mt-2 px-3 py-1.5 rounded-lg bg-red-700 text-white font-bold text-xs">Log Wastage</button>
+                </div>
+
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200">
+                  <h3 className="text-xs font-bold uppercase text-slate-700 mb-2">Physical Stock Count</h3>
+                  <div className="grid gap-2 sm:grid-cols-3">
+                    <select value={scForm.ingredient_id} onChange={(e) => setScForm({ ...scForm, ingredient_id: e.target.value })} className="min-h-10 rounded-lg border border-slate-200 px-2 text-xs bg-white">
+                      <option value="">Ingredient…</option>
+                      {ingredients.map((ing) => <option key={ing.id} value={ing.id}>{ing.name} ({ing.current_stock})</option>)}
+                    </select>
+                    <input type="number" min={0} step="0.01" value={scForm.counted_stock} onChange={(e) => setScForm({ ...scForm, counted_stock: e.target.value })} placeholder="Counted" className="min-h-10 rounded-lg border border-slate-200 px-2 text-xs" />
+                    <input value={scForm.notes} onChange={(e) => setScForm({ ...scForm, notes: e.target.value })} placeholder="Notes" className="min-h-10 rounded-lg border border-slate-200 px-2 text-xs" />
+                  </div>
+                  <button type="button" disabled={busy} onClick={() => void createStockCount()} className="mt-2 px-3 py-1.5 rounded-lg bg-slate-900 text-white font-bold text-xs">Submit Count</button>
+                  {stockCounts.length > 0 && <p className="mt-2 text-[11px] text-slate-500">Latest count: {new Date(stockCounts[0].created_at).toLocaleString()} ({stockCounts[0].items?.length || 0} item(s))</p>}
+                </div>
+              </div>
             </div>
           </section>
         )}

@@ -1213,6 +1213,330 @@ async function updateDeliveryStatus(ctx: {
   return Response.json({ success: true, id: job.id, status: nextStatus });
 }
 
+// ── Purchase Orders (GRN) & Stock Counts / Wastage ─────────────────────────
+
+async function listPurchaseOrders(ctx: {
+  request: Request; env: Env; orgId: string; memberships: UserMembership[];
+}): Promise<Response> {
+  const url = new URL(ctx.request.url);
+  const auth = await authorizeBranch(ctx.env, ctx.orgId, ctx.memberships, url.searchParams.get('branch_id'), OWNER_MANAGER_ROLES);
+  if ('error' in auth) return auth.error;
+
+  const pos = await ctx.env.DB.prepare(`
+    SELECT po.*, v.name AS vendor_name
+    FROM purchase_orders po
+    LEFT JOIN restaurant_vendors v ON v.id = po.vendor_id
+    WHERE po.organization_id = ? AND po.branch_id = ?
+    ORDER BY po.created_at DESC
+    LIMIT 100
+  `).bind(ctx.orgId, auth.branch.id).all<any>();
+
+  const rows = pos.results || [];
+  const enriched = await Promise.all(rows.map(async (po: any) => {
+    const items = await ctx.env.DB.prepare(`
+      SELECT * FROM purchase_order_items WHERE purchase_order_id = ? ORDER BY ingredient_name ASC
+    `).bind(po.id).all<any>();
+    return { ...po, items: items.results || [] };
+  }));
+
+  return Response.json({ purchase_orders: enriched, branch_id: auth.branch.id });
+}
+
+async function createPurchaseOrder(ctx: {
+  request: Request; env: Env; orgId: string; memberships: UserMembership[]; actor: Actor;
+}): Promise<Response> {
+  const body = await readJson(ctx.request);
+  if (!body) return badRequest('Invalid JSON payload');
+
+  const auth = await authorizeBranch(ctx.env, ctx.orgId, ctx.memberships, text(body.branch_id), OWNER_MANAGER_ROLES);
+  if ('error' in auth) return auth.error;
+
+  const idempotencyKey = text(body.idempotency_key, 120) || null;
+  if (idempotencyKey) {
+    const existing = await ctx.env.DB.prepare(`
+      SELECT * FROM purchase_orders WHERE branch_id = ? AND idempotency_key = ?
+    `).bind(auth.branch.id, idempotencyKey).first<any>();
+    if (existing) {
+      const items = await ctx.env.DB.prepare('SELECT * FROM purchase_order_items WHERE purchase_order_id = ?')
+        .bind(existing.id).all<any>();
+      return Response.json({ purchase_order: { ...existing, items: items.results || [] }, idempotent: true });
+    }
+  }
+
+  const rawItems = Array.isArray(body.items) ? body.items : [];
+  if (rawItems.length === 0) return badRequest('At least one purchase order item is required');
+
+  const vendorId = text(body.vendor_id, 100) || null;
+  if (vendorId) {
+    const vendor = await ctx.env.DB.prepare('SELECT id FROM restaurant_vendors WHERE id = ? AND organization_id = ?')
+      .bind(vendorId, ctx.orgId).first<any>();
+    if (!vendor) return badRequest('Vendor not found in this organization');
+  }
+
+  const parsedItems: Array<{ ingredientId: string; name: string; unit: string; quantity: number; unitCost: number; lineTotal: number }> = [];
+  for (const raw of rawItems) {
+    const ingredientId = text(raw?.ingredient_id, 100);
+    const quantity = Number(raw?.quantity);
+    const unitCost = Number(raw?.unit_cost ?? 0);
+    if (!ingredientId) return badRequest('Every PO line requires an ingredient_id');
+    if (!Number.isFinite(quantity) || quantity <= 0) return badRequest('PO item quantity must be greater than zero');
+    if (!Number.isFinite(unitCost) || unitCost < 0) return badRequest('PO item unit_cost cannot be negative');
+
+    const ingredient = await ctx.env.DB.prepare(`
+      SELECT id, name, unit FROM ingredients WHERE id = ? AND organization_id = ? AND branch_id = ?
+    `).bind(ingredientId, ctx.orgId, auth.branch.id).first<any>();
+    if (!ingredient) return badRequest('All PO ingredients must belong to this branch');
+
+    const lineTotal = round2(quantity * unitCost);
+    parsedItems.push({
+      ingredientId,
+      name: String(ingredient.name),
+      unit: text(raw?.unit, 20) || String(ingredient.unit || 'kg'),
+      quantity: round2(quantity),
+      unitCost: round2(unitCost),
+      lineTotal,
+    });
+  }
+
+  const totalAmount = round2(parsedItems.reduce((sum, item) => sum + item.lineTotal, 0));
+  const now = new Date().toISOString();
+  const poId = crypto.randomUUID();
+  const poNumber = text(body.po_number, 40) || `PO-${Date.now().toString().slice(-6)}`;
+
+  const statements = [
+    ctx.env.DB.prepare(`
+      INSERT INTO purchase_orders (
+        id, organization_id, branch_id, vendor_id, po_number, status, notes, total_amount,
+        idempotency_key, created_by_user_id, created_by_name, created_at, updated_at
+      ) VALUES (?, ?, ?, ?, ?, 'ordered', ?, ?, ?, ?, ?, ?, ?)
+    `).bind(
+      poId, ctx.orgId, auth.branch.id, vendorId, poNumber, text(body.notes, 500) || null,
+      totalAmount, idempotencyKey, ctx.actor.id, ctx.actor.name, now, now,
+    ),
+    ...parsedItems.map((item) => ctx.env.DB.prepare(`
+      INSERT INTO purchase_order_items (
+        id, purchase_order_id, ingredient_id, ingredient_name, quantity, unit, unit_cost, line_total, received_quantity
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, 0)
+    `).bind(crypto.randomUUID(), poId, item.ingredientId, item.name, item.quantity, item.unit, item.unitCost, item.lineTotal)),
+  ];
+
+  await ctx.env.DB.batch(statements);
+  const created = await ctx.env.DB.prepare('SELECT * FROM purchase_orders WHERE id = ?').bind(poId).first<any>();
+  const createdItems = await ctx.env.DB.prepare('SELECT * FROM purchase_order_items WHERE purchase_order_id = ?').bind(poId).all<any>();
+  return Response.json({ purchase_order: { ...created, items: createdItems.results || [] } }, { status: 201 });
+}
+
+async function receivePurchaseOrder(ctx: {
+  request: Request; env: Env; orgId: string; memberships: UserMembership[]; actor: Actor; poId: string;
+}): Promise<Response> {
+  const po = await ctx.env.DB.prepare(`
+    SELECT * FROM purchase_orders WHERE id = ? AND organization_id = ?
+  `).bind(ctx.poId, ctx.orgId).first<any>();
+  if (!po) return Response.json({ error: 'Purchase order not found' }, { status: 404 });
+
+  const auth = await authorizeBranch(ctx.env, ctx.orgId, ctx.memberships, po.branch_id, OWNER_MANAGER_ROLES);
+  if ('error' in auth) return auth.error;
+
+  if (po.status === 'received') {
+    const items = await ctx.env.DB.prepare('SELECT * FROM purchase_order_items WHERE purchase_order_id = ?').bind(po.id).all<any>();
+    return Response.json({ purchase_order: { ...po, items: items.results || [] }, idempotent: true });
+  }
+  if (po.status === 'cancelled') {
+    return Response.json({ error: 'Cancelled purchase orders cannot be received' }, { status: 409 });
+  }
+
+  const poItems = await ctx.env.DB.prepare('SELECT * FROM purchase_order_items WHERE purchase_order_id = ?')
+    .bind(po.id).all<any>();
+  const items = poItems.results || [];
+  const now = new Date().toISOString();
+  const statements: any[] = [
+    ctx.env.DB.prepare(`
+      UPDATE purchase_orders
+      SET status = 'received', received_at = ?, received_by_user_id = ?, received_by_name = ?, updated_at = ?
+      WHERE id = ? AND organization_id = ? AND status != 'received'
+    `).bind(now, ctx.actor.id, ctx.actor.name, now, po.id, ctx.orgId),
+  ];
+
+  for (const item of items) {
+    const ing = await ctx.env.DB.prepare('SELECT current_stock FROM ingredients WHERE id = ?').bind(item.ingredient_id).first<any>();
+    const current = Number(ing?.current_stock || 0);
+    const qty = Number(item.quantity || 0);
+    const nextBalance = round2(current + qty);
+    statements.push(
+      ctx.env.DB.prepare(`
+        UPDATE purchase_order_items SET received_quantity = ? WHERE id = ?
+      `).bind(qty, item.id),
+      ctx.env.DB.prepare(`
+        UPDATE ingredients SET current_stock = ROUND(current_stock + ?, 4), updated_at = ? WHERE id = ?
+      `).bind(qty, now, item.ingredient_id),
+      ctx.env.DB.prepare(`
+        INSERT INTO inventory_transactions (
+          id, organization_id, branch_id, ingredient_id, type, quantity, balance_after,
+          reason, reference_id, idempotency_key, created_by_user_id, created_by_name, created_at
+        ) VALUES (?, ?, ?, ?, 'grn', ?, ?, ?, ?, ?, ?, ?, ?)
+      `).bind(
+        crypto.randomUUID(), ctx.orgId, po.branch_id, item.ingredient_id, qty, nextBalance,
+        `GRN ${po.po_number}`, po.id, `grn:${po.id}:${item.id}`, ctx.actor.id, ctx.actor.name, now,
+      ),
+    );
+  }
+
+  await ctx.env.DB.batch(statements);
+  const updated = await ctx.env.DB.prepare('SELECT * FROM purchase_orders WHERE id = ?').bind(po.id).first<any>();
+  const updatedItems = await ctx.env.DB.prepare('SELECT * FROM purchase_order_items WHERE purchase_order_id = ?').bind(po.id).all<any>();
+  return Response.json({ purchase_order: { ...updated, items: updatedItems.results || [] } });
+}
+
+async function recordWastage(ctx: {
+  request: Request; env: Env; orgId: string; memberships: UserMembership[]; actor: Actor;
+}): Promise<Response> {
+  const body = await readJson(ctx.request);
+  if (!body) return badRequest('Invalid JSON payload');
+
+  const ingredientId = text(body.ingredient_id, 100);
+  const quantity = Number(body.quantity);
+  const reason = text(body.reason, 300) || 'Kitchen wastage';
+  if (!ingredientId) return badRequest('ingredient_id is required');
+  if (!Number.isFinite(quantity) || quantity <= 0) return badRequest('Wastage quantity must be greater than zero');
+
+  const ingredient = await ctx.env.DB.prepare(`
+    SELECT * FROM ingredients WHERE id = ? AND organization_id = ?
+  `).bind(ingredientId, ctx.orgId).first<any>();
+  if (!ingredient) return Response.json({ error: 'Ingredient not found' }, { status: 404 });
+
+  const auth = await authorizeBranch(ctx.env, ctx.orgId, ctx.memberships, ingredient.branch_id, MANAGEMENT_ROLES);
+  if ('error' in auth) return auth.error;
+
+  const idempotencyKey = text(body.idempotency_key, 120) || null;
+  if (idempotencyKey) {
+    const replay = await ctx.env.DB.prepare(`
+      SELECT * FROM inventory_transactions WHERE ingredient_id = ? AND idempotency_key = ?
+    `).bind(ingredientId, idempotencyKey).first<any>();
+    if (replay) return Response.json({ transaction: replay, idempotent: true });
+  }
+
+  const currentStock = Number(ingredient.current_stock || 0);
+  if (currentStock < quantity) {
+    return Response.json({ error: `Cannot record wastage (${quantity}) above current stock (${currentStock})` }, { status: 409 });
+  }
+
+  const now = new Date().toISOString();
+  const nextBalance = round2(currentStock - quantity);
+  const txId = crypto.randomUUID();
+  await ctx.env.DB.batch([
+    ctx.env.DB.prepare(`
+      UPDATE ingredients SET current_stock = ROUND(current_stock - ?, 4), updated_at = ? WHERE id = ?
+    `).bind(quantity, now, ingredientId),
+    ctx.env.DB.prepare(`
+      INSERT INTO inventory_transactions (
+        id, organization_id, branch_id, ingredient_id, type, quantity, balance_after,
+        reason, idempotency_key, created_by_user_id, created_by_name, created_at
+      ) VALUES (?, ?, ?, ?, 'waste', ?, ?, ?, ?, ?, ?, ?)
+    `).bind(txId, ctx.orgId, ingredient.branch_id, ingredientId, -quantity, nextBalance, reason, idempotencyKey, ctx.actor.id, ctx.actor.name, now),
+  ]);
+
+  const tx = await ctx.env.DB.prepare('SELECT * FROM inventory_transactions WHERE id = ?').bind(txId).first<any>();
+  return Response.json({ transaction: tx, balance_after: nextBalance }, { status: 201 });
+}
+
+async function listStockCounts(ctx: {
+  request: Request; env: Env; orgId: string; memberships: UserMembership[];
+}): Promise<Response> {
+  const url = new URL(ctx.request.url);
+  const auth = await authorizeBranch(ctx.env, ctx.orgId, ctx.memberships, url.searchParams.get('branch_id'), OWNER_MANAGER_ROLES);
+  if ('error' in auth) return auth.error;
+
+  const counts = await ctx.env.DB.prepare(`
+    SELECT * FROM stock_counts WHERE organization_id = ? AND branch_id = ? ORDER BY created_at DESC LIMIT 50
+  `).bind(ctx.orgId, auth.branch.id).all<any>();
+
+  const enriched = await Promise.all((counts.results || []).map(async (sc: any) => {
+    const items = await ctx.env.DB.prepare('SELECT * FROM stock_count_items WHERE stock_count_id = ?')
+      .bind(sc.id).all<any>();
+    return { ...sc, items: items.results || [] };
+  }));
+
+  return Response.json({ stock_counts: enriched, branch_id: auth.branch.id });
+}
+
+async function createStockCount(ctx: {
+  request: Request; env: Env; orgId: string; memberships: UserMembership[]; actor: Actor;
+}): Promise<Response> {
+  const body = await readJson(ctx.request);
+  if (!body) return badRequest('Invalid JSON payload');
+
+  const auth = await authorizeBranch(ctx.env, ctx.orgId, ctx.memberships, text(body.branch_id), OWNER_MANAGER_ROLES);
+  if ('error' in auth) return auth.error;
+
+  const idempotencyKey = text(body.idempotency_key, 120) || null;
+  if (idempotencyKey) {
+    const existing = await ctx.env.DB.prepare(`
+      SELECT * FROM stock_counts WHERE branch_id = ? AND idempotency_key = ?
+    `).bind(auth.branch.id, idempotencyKey).first<any>();
+    if (existing) {
+      const items = await ctx.env.DB.prepare('SELECT * FROM stock_count_items WHERE stock_count_id = ?')
+        .bind(existing.id).all<any>();
+      return Response.json({ stock_count: { ...existing, items: items.results || [] }, idempotent: true });
+    }
+  }
+
+  const rawItems = Array.isArray(body.items) ? body.items : [];
+  if (rawItems.length === 0) return badRequest('At least one counted ingredient is required');
+
+  const now = new Date().toISOString();
+  const scId = crypto.randomUUID();
+  const statements: any[] = [
+    ctx.env.DB.prepare(`
+      INSERT INTO stock_counts (id, organization_id, branch_id, notes, status, idempotency_key, created_by_user_id, created_by_name, created_at)
+      VALUES (?, ?, ?, ?, 'completed', ?, ?, ?, ?)
+    `).bind(scId, ctx.orgId, auth.branch.id, text(body.notes, 500) || null, idempotencyKey, ctx.actor.id, ctx.actor.name, now),
+  ];
+
+  for (const raw of rawItems) {
+    const ingredientId = text(raw?.ingredient_id, 100);
+    const countedStock = Number(raw?.counted_stock);
+    if (!ingredientId) return badRequest('Every stock count item requires an ingredient_id');
+    if (!Number.isFinite(countedStock) || countedStock < 0) return badRequest('counted_stock must be zero or greater');
+
+    const ingredient = await ctx.env.DB.prepare(`
+      SELECT id, name, current_stock FROM ingredients WHERE id = ? AND organization_id = ? AND branch_id = ?
+    `).bind(ingredientId, ctx.orgId, auth.branch.id).first<any>();
+    if (!ingredient) return badRequest('All stock count ingredients must belong to this branch');
+
+    const systemStock = Number(ingredient.current_stock || 0);
+    const variance = round2(countedStock - systemStock);
+
+    statements.push(
+      ctx.env.DB.prepare(`
+        INSERT INTO stock_count_items (id, stock_count_id, ingredient_id, ingredient_name, system_stock, counted_stock, variance)
+        VALUES (?, ?, ?, ?, ?, ?, ?)
+      `).bind(crypto.randomUUID(), scId, ingredientId, ingredient.name, systemStock, countedStock, variance),
+    );
+
+    if (Math.abs(variance) > 0.0001) {
+      statements.push(
+        ctx.env.DB.prepare('UPDATE ingredients SET current_stock = ?, updated_at = ? WHERE id = ?')
+          .bind(countedStock, now, ingredientId),
+        ctx.env.DB.prepare(`
+          INSERT INTO inventory_transactions (
+            id, organization_id, branch_id, ingredient_id, type, quantity, balance_after,
+            reason, reference_id, idempotency_key, created_by_user_id, created_by_name, created_at
+          ) VALUES (?, ?, ?, ?, 'stock_count', ?, ?, ?, ?, ?, ?, ?, ?)
+        `).bind(
+          crypto.randomUUID(), ctx.orgId, auth.branch.id, ingredientId, variance, countedStock,
+          text(body.notes, 200) || 'Physical stock count adjustment', scId, `sc:${scId}:${ingredientId}`,
+          ctx.actor.id, ctx.actor.name, now,
+        ),
+      );
+    }
+  }
+
+  await ctx.env.DB.batch(statements);
+  const created = await ctx.env.DB.prepare('SELECT * FROM stock_counts WHERE id = ?').bind(scId).first<any>();
+  const items = await ctx.env.DB.prepare('SELECT * FROM stock_count_items WHERE stock_count_id = ?').bind(scId).all<any>();
+  return Response.json({ stock_count: { ...created, items: items.results || [] } }, { status: 201 });
+}
+
 /**
  * Routes the restaurant operations suite. Returns null when the path is not
  * owned by this module so the caller can continue routing.
@@ -1259,7 +1583,18 @@ export async function handleRestaurantOpsRequest(
   if (path === '/api/inventory/ingredients' && method === 'POST') return createIngredient({ ...base, actor: await needsActor() });
   if (path === '/api/inventory/low-stock' && method === 'GET') return listLowStock(base);
   if (path === '/api/inventory/adjust' && method === 'POST') return adjustIngredientStock({ ...base, actor: await needsActor() });
+  if (path === '/api/inventory/wastage' && method === 'POST') return recordWastage({ ...base, actor: await needsActor() });
+  if (path === '/api/inventory/stock-counts' && method === 'GET') return listStockCounts(base);
+  if (path === '/api/inventory/stock-counts' && method === 'POST') return createStockCount({ ...base, actor: await needsActor() });
   if (path === '/api/inventory/transactions' && method === 'GET') return listInventoryTransactions(base);
+
+  // Purchase Orders & GRN
+  if (path === '/api/purchase-orders' && method === 'GET') return listPurchaseOrders(base);
+  if (path === '/api/purchase-orders' && method === 'POST') return createPurchaseOrder({ ...base, actor: await needsActor() });
+  const poReceiveMatch = path.match(/^\/api\/purchase-orders\/([^/]+)\/receive$/);
+  if (poReceiveMatch && method === 'POST') {
+    return receivePurchaseOrder({ ...base, actor: await needsActor(), poId: decodeURIComponent(poReceiveMatch[1]) });
+  }
   const ingredientMatch = path.match(/^\/api\/inventory\/ingredients\/([^/]+)$/);
   if (ingredientMatch && method === 'PUT') {
     return updateIngredient({

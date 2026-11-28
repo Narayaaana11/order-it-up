@@ -127,6 +127,7 @@ const REQUIRED_READINESS_TABLES = [
   'pilot_access_invitations', 'restaurant_vendors', 'expense_categories', 'expenses',
   'reservations', 'ingredients', 'inventory_transactions', 'recipes', 'delivery_jobs',
   'customers', 'held_orders', 'payment_intents', 'payment_webhook_events',
+  'purchase_orders', 'purchase_order_items', 'stock_counts', 'stock_count_items',
 ] as const;
 
 function hasRequiredAuthenticationConfiguration(env: Env): boolean {

@@ -1,0 +1,50 @@
+services:
+  orderitup-backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: orderitup-backend
+    restart: unless-stopped
+    env_file:
+      - .env.oracle
+    environment:
+      PORT: "8080"
+      HOST: "0.0.0.0"
+      DB_PATH: "/data/oiu-unified.db"
+      BACKUP_DIR: "/backups"
+      STATIC_WEB_DIR: "/app/static"
+    volumes:
+      - oiu_data:/data
+      - oiu_backups:/backups
+      - ../desktop-ui/out:/app/static:ro
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://127.0.0.1:8080/health"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 15s
+
+  caddy:
+    image: caddy:2-alpine
+    container_name: orderitup-caddy
+    restart: unless-stopped
+    depends_on:
+      orderitup-backend:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  oiu_data:
+  oiu_backups:
+  caddy_data:
+  caddy_config:

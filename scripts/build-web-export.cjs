@@ -3,7 +3,7 @@ const path = require('node:path');
 const { spawnSync } = require('node:child_process');
 
 const repositoryRoot = path.resolve(__dirname, '..');
-const frontendDirectory = path.join(repositoryRoot, 'frontend');
+const frontendDirectory = path.join(repositoryRoot, 'desktop-ui');
 const nextCli = require.resolve('next/dist/bin/next', { paths: [frontendDirectory] });
 
 const result = spawnSync(process.execPath, [nextCli, 'build', '--webpack'], {

@@ -113,7 +113,7 @@ function getFrontendDir(): string | null {
   ];
 
   for (const dir of candidates) {
-    if (fs.existsSync(path.join(dir, 'index.html'))) {
+    if (fs.existsSync(path.join(dir, 'auth', 'login', 'index.html')) || fs.existsSync(path.join(dir, 'index.html'))) {
       return dir;
     }
   }
@@ -262,9 +262,15 @@ export function startServer(): Promise<void> {
 
       app.use(express.static(frontendDir, { dotfiles: 'allow', index: false }));
 
-      // Serve each Next.js static route index directly to avoid root redirects.
+      // Redirect root to /auth/login/ and serve each Next.js static route index directly.
       app.get(/^(?!\/api|\/kds|\/admin).*$/, staticRouteRateLimit(), (req: Request, res: Response) => {
-        res.sendFile(resolveStaticPage(frontendDir, req.path), { dotfiles: 'allow' });
+        if (req.path === '/' || req.path === '') {
+          res.redirect(302, '/auth/login/');
+          return;
+        }
+        const resolved = resolveStaticPage(frontendDir, req.path);
+        const fallback = path.join(frontendDir, 'auth', 'login', 'index.html');
+        res.sendFile(fs.existsSync(resolved) ? resolved : fallback, { dotfiles: 'allow' });
       });
     } else {
       console.warn('[Server] Frontend build not found. Run `npm run build:frontend` first.');

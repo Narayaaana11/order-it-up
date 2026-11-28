@@ -63,8 +63,8 @@ async function main() {
       const orderId = Number(orderRes.lastInsertRowid);
 
       db.prepare(`
-        INSERT INTO order_items (order_id, product_name, unit_price, quantity, subtotal, total, status)
-        VALUES (?, 'Paneer Tikka', 250, 2, 500, 500, 'completed')
+        INSERT INTO order_items (order_id, product_id, product_name, unit_price, quantity, subtotal, total, status)
+        VALUES (?, 'prod-paneer-tikka', 'Paneer Tikka', 250, 2, 500, 500, 'completed')
       `).run(orderId);
 
       db.prepare(`
@@ -82,15 +82,16 @@ async function main() {
     rawDb.pragma('journal_mode = WAL');
     rawDb.exec('BEGIN IMMEDIATE TRANSACTION;');
 
-    rawDb.prepare(`
+    const crashOrderRes = rawDb.prepare(`
       INSERT INTO orders (order_number, type, status, subtotal, tax_amount, total)
       VALUES ('ORD-CRASH-UNCOMMITTED', 'dine_in', 'pending', 300, 15, 315)
     `).run();
+    const crashOrderId = Number(crashOrderRes.lastInsertRowid);
 
     rawDb.prepare(`
-      INSERT INTO order_items (order_id, product_name, unit_price, quantity, subtotal, total, status)
-      VALUES (9999, 'Phantom Dish', 300, 1, 300, 300, 'pending')
-    `).run();
+      INSERT INTO order_items (order_id, product_id, product_name, unit_price, quantity, subtotal, total, status)
+      VALUES (?, 'prod-phantom-dish', 'Phantom Dish', 300, 1, 300, 300, 'pending')
+    `).run(crashOrderId);
 
     // Abrupt termination without COMMIT or ROLLBACK (simulate SIGKILL / process crash)
     rawDb.close();

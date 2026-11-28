@@ -1,0 +1,9 @@
+node_modules/
+dist/
+data/
+backups/
+.env
+.env.oracle
+*.db
+*.db-shm
+*.db-wal

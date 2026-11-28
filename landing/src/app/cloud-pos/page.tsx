@@ -4,7 +4,7 @@ import { useEffect } from "react";
 
 export default function CloudPosRedirectPage() {
   useEffect(() => {
-    window.location.href = "http://localhost:3001/";
+    window.location.href = "http://localhost:3001/auth/login/";
   }, []);
 
   return (
@@ -14,7 +14,7 @@ export default function CloudPosRedirectPage() {
       <p className="mt-2 text-sm text-slate-600">Connecting you to the live POS terminal on port 3001.</p>
       <div className="mt-6">
         <a
-          href="http://localhost:3001/"
+          href="http://localhost:3001/auth/login/"
           className="inline-flex items-center gap-2 rounded-xl bg-orange-600 px-5 py-2.5 text-sm font-bold text-white shadow-md transition hover:bg-orange-700"
         >
           Click here if not redirected automatically &rarr;

@@ -175,12 +175,11 @@ export function buildTenantKey(tenantId: string, domain: string, filename: strin
 export class AmazonS3Service {
   private client: S3Client | null = null;
   private timer: NodeJS.Timeout | null = null;
+  private initialTimer: NodeJS.Timeout | null = null;
   private isUploading = false;
   private inMemoryOutbox: OutboxItem[] = [];
 
-  constructor() {
-    this.ensureOutboxTable();
-  }
+  constructor() {}
 
   private ensureOutboxTable(): void {
     try {
@@ -312,6 +311,7 @@ export class AmazonS3Service {
 
   /** Reinitialize client instance */
   public initFromSettings(): void {
+    this.ensureOutboxTable();
     const config = this.getConfig();
     const hasCreds = Boolean(config.region && config.bucketName && config.accessKeyId && config.secretAccessKey);
 
@@ -1042,6 +1042,10 @@ export class AmazonS3Service {
 
   /** Start background scheduler */
   private restartScheduler(): void {
+    if (this.initialTimer) {
+      clearTimeout(this.initialTimer);
+      this.initialTimer = null;
+    }
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;
@@ -1056,7 +1060,8 @@ export class AmazonS3Service {
     }, CHECK_INTERVAL_MS);
 
     // Initial check on launch
-    setTimeout(() => {
+    this.initialTimer = setTimeout(() => {
+      this.initialTimer = null;
       void this.checkScheduledBackup();
       void this.processOutbox();
     }, 15000);
@@ -1086,6 +1091,10 @@ export class AmazonS3Service {
 
   /** Stop service and timers on app quit */
   public stop(): void {
+    if (this.initialTimer) {
+      clearTimeout(this.initialTimer);
+      this.initialTimer = null;
+    }
     if (this.timer) {
       clearInterval(this.timer);
       this.timer = null;

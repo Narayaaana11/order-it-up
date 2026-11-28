@@ -43,7 +43,6 @@ export const NAV_LINKS = [
   { label: "Interactive Demo", href: "#ui-preview" },
   { label: "Role Personas", href: "#roles" },
   { label: "Hardware & Specs", href: "#specs" },
-  { label: "Cloud POS", href: "http://localhost:3001/" },
 ];
 
 export const PRICING_PLANS = [

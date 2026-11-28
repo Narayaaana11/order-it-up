@@ -160,7 +160,7 @@ export function isGoogleDriveConfigured(): boolean {
 
 function isSecureStorageAvailable(): boolean {
   try {
-    return safeStorage.isEncryptionAvailable();
+    return Boolean(safeStorage && typeof safeStorage.isEncryptionAvailable === 'function' && safeStorage.isEncryptionAvailable());
   } catch {
     return false;
   }
@@ -695,6 +695,7 @@ class GoogleDriveService {
   // ── Encrypted token storage (safeStorage, same pattern as master-pin.ts) ─
 
   private readTokens(): StoredTokens | null {
+    if (!isSecureStorageAvailable()) return null;
     try {
       const filePath = getTokenFilePath();
       if (!fs.existsSync(filePath)) return null;
@@ -709,6 +710,9 @@ class GoogleDriveService {
   }
 
   private writeTokens(tokens: StoredTokens): void {
+    if (!isSecureStorageAvailable()) {
+      throw new Error('Secure storage is not available on this device — cannot safely store the Google Drive connection');
+    }
     const encrypted = safeStorage.encryptString(JSON.stringify(tokens));
     fs.writeFileSync(getTokenFilePath(), encrypted, { mode: 0o600 });
   }

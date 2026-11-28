@@ -9,6 +9,7 @@ import ProductGrid from '@/components/pos/ProductGrid';
 import { Drawer, DrawerContent, DrawerTrigger } from '@/components/ui/drawer';
 import api from '@/lib/api';
 import { mapCloudCategory, mapCloudProduct, mapCloudTable, type CloudBranch, type CloudOrderRow } from '@/lib/cloud-pos-mappers';
+import { readOfflineValue, writeOfflineValue } from '@/lib/tablet-offline-db';
 import { useAuthStore } from '@/store/auth';
 import { useCartStore } from '@/store/cart';
 import type { Addon, Category, Product, Table } from '@/lib/types';
@@ -90,12 +91,31 @@ export default function TabletWaiterPage() {
       const tableRows: Record<string, unknown>[] = Array.isArray(tableResult.data?.tables) ? tableResult.data.tables as Record<string, unknown>[] : [];
       setTables(tableRows.map(mapCloudTable).filter((item) => item.is_active));
       setOrders(Array.isArray(orderResult.data?.orders) ? orderResult.data.orders as CloudOrderRow[] : []);
+      void writeOfflineValue(`${namespace}:${forBranchId}:waiter-catalog`, {
+        categories: master.categories,
+        products: master.products,
+        branchCatalog: branchCatalog.catalog,
+        savedAt: new Date().toISOString(),
+      });
     } catch (loadError) {
-      setError(messageFrom(loadError));
+      const cached = await readOfflineValue<{
+        categories?: Record<string, unknown>[];
+        products?: Record<string, unknown>[];
+        branchCatalog?: Record<string, unknown>[];
+        savedAt?: string;
+      }>(`${namespace}:${forBranchId}:waiter-catalog`);
+      if (cached) {
+        const effectiveById = new Map((cached.branchCatalog || []).map((item) => [String(item.id), item]));
+        setCategories((cached.categories || []).map(mapCloudCategory).filter((item) => item.is_active));
+        setProducts((cached.products || []).map((item) => mapCloudProduct(item, effectiveById.get(String(item.id)))).filter((item) => item.is_active));
+        setError(`Showing cached menu (${cached.savedAt ? new Date(cached.savedAt).toLocaleString() : 'offline'}). Reconnect to send rounds to the kitchen.`);
+      } else {
+        setError(messageFrom(loadError));
+      }
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [namespace]);
 
   useEffect(() => {
     let cancelled = false;

@@ -316,7 +316,10 @@ exit 0
   // Real package.json test suite partition & coverage invariance
   const realPkg = JSON.parse(fs.readFileSync(path.join(rootDir, 'package.json'), 'utf8'));
   const testScript = realPkg.scripts?.test;
-  assert.ok(typeof testScript === 'string' && testScript.length > 0, 'package.json must define a "test" script');
+  assert.ok(
+    typeof testScript === 'string' && testScript.includes('scripts/run-all-tests.cjs'),
+    'package.json "test" script must invoke scripts/run-all-tests.cjs',
+  );
 
   const pretestScript = realPkg.scripts?.pretest;
   const releaseRegressionScript = realPkg.scripts?.['test:release-regressions'];
@@ -343,19 +346,18 @@ exit 0
     );
   }
 
-  const suitePattern = /(?:(?:bash|node)\s+tests\/run-test\.(?:sh|cjs)\s+)?npm\s+run\s+(test:[\w-]+)/g;
-  const allSuites: string[] = [];
-  let match: RegExpExecArray | null;
-  while ((match = suitePattern.exec(testScript)) !== null) {
-    if (!allSuites.includes(match[1])) allSuites.push(match[1]);
-  }
+  const suitesManifestPath = path.join(rootDir, 'scripts/test-suites.json');
+  const parsedSuites = JSON.parse(fs.readFileSync(suitesManifestPath, 'utf8'));
+  assert.ok(Array.isArray(parsedSuites), 'scripts/test-suites.json must export a JSON array');
+  const allSuites: string[] = parsedSuites;
 
-  assert.ok(allSuites.length >= 90, `Expected at least 90 test suites in "test" script, got ${allSuites.length}`);
+  assert.ok(allSuites.length >= 90, `Expected at least 90 test suites in scripts/test-suites.json, got ${allSuites.length}`);
+  assert.strictEqual(new Set(allSuites).size, allSuites.length, 'scripts/test-suites.json must not contain duplicate suites');
 
   for (const suiteName of allSuites) {
     assert.ok(
       suiteName in realPkg.scripts,
-      `Suite "${suiteName}" extracted from "test" script must exist in package.json scripts`,
+      `Suite "${suiteName}" in scripts/test-suites.json must exist in package.json scripts`,
     );
   }
 
