@@ -1,0 +1,67 @@
+name: Deploy Oracle Unified Backend
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_production_deploy:
+        description: Pull main and run backend/deploy.sh on the Oracle Cloud VM
+        required: true
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: oracle-backend-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.ref == 'refs/heads/main' && inputs.confirm_production_deploy == true
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: production
+    env:
+      ORACLE_SSH_HOST: ${{ secrets.ORACLE_SSH_HOST }}
+      ORACLE_SSH_USER: ${{ secrets.ORACLE_SSH_USER }}
+      ORACLE_SSH_PORT: ${{ secrets.ORACLE_SSH_PORT || '22' }}
+      ORACLE_REPO_DIR: ${{ vars.ORACLE_REPO_DIR || '/opt/order-it-up' }}
+      CLOUD_API_URL: ${{ vars.CLOUD_API_URL }}
+    steps:
+      - name: Check out main
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22.x
+
+      - name: Validate deployment configuration
+        run: |
+          for var in ORACLE_SSH_HOST ORACLE_SSH_USER CLOUD_API_URL; do
+            if [ -z "${!var}" ]; then
+              echo "ERROR: $var must be configured."
+              exit 1
+            fi
+          done
+          if [ -z "${{ secrets.ORACLE_SSH_KEY }}" ]; then
+            echo "ERROR: secrets.ORACLE_SSH_KEY must be configured."
+            exit 1
+          fi
+
+      - name: Deploy to Oracle Cloud VM over SSH
+        env:
+          ORACLE_SSH_KEY: ${{ secrets.ORACLE_SSH_KEY }}
+        run: |
+          mkdir -p ~/.ssh
+          printf '%s\n' "$ORACLE_SSH_KEY" > ~/.ssh/oracle_deploy_key
+          chmod 600 ~/.ssh/oracle_deploy_key
+          ssh -i ~/.ssh/oracle_deploy_key -p "$ORACLE_SSH_PORT" -o StrictHostKeyChecking=accept-new "${ORACLE_SSH_USER}@${ORACLE_SSH_HOST}" \
+            "set -euo pipefail && cd '${ORACLE_REPO_DIR}' && git fetch origin main && git checkout main && git pull --ff-only origin main && bash backend/deploy.sh"
+          rm -f ~/.ssh/oracle_deploy_key
+
+      - name: Verify Oracle backend readiness
+        env:
+          CLOUD_READY_URL: ${{ vars.CLOUD_API_URL }}/ready
+        run: node scripts/assert-cloud-ready.cjs

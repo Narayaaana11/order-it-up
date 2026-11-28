@@ -16,7 +16,8 @@ services:
     volumes:
       - oiu_data:/data
       - oiu_backups:/backups
-      - ../desktop-ui/out:/app/static:ro
+      # Uncomment only for single-origin hosting without Cloudflare Pages:
+      # - ../desktop-ui/out:/app/static:ro
     expose:
       - "8080"
     healthcheck:

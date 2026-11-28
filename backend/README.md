@@ -23,30 +23,43 @@ This deployment bundle runs **one single Node.js 22 + SQLite WAL + WebSocket bac
 
 ## 2. Configure Environment & Secrets
 
+Generate `backend/.env.oracle` with random 64-character `JWT_SECRET`, `PLATFORM_ADMIN_JWT_SECRET`, and a valid `scrypt` `PLATFORM_ADMIN_PASSWORD_HASH`:
 ```bash
-cp deploy/oracle/.env.oracle.example deploy/oracle/.env.oracle
+node scripts/bootstrap-oracle-env.cjs \
+  --domain api.orderitup.in \
+  --origins https://orderitup.in,https://app.orderitup.in \
+  --admin-email admin@orderitup.in \
+  --admin-password "<STRONG_PASSWORD>"
+```
+Or copy manually:
+```bash
+cp backend/.env.example backend/.env.oracle
 ```
 
-Generate distinct 64-character secrets for `JWT_SECRET` and `PLATFORM_ADMIN_JWT_SECRET`:
-```bash
-openssl rand -hex 32
-openssl rand -hex 32
-```
+Point your domain's DNS `A` record (`api.orderitup.in`) to the OCI VM's public IP, and set `DOMAIN=api.orderitup.in` in `backend/.env.oracle`.
 
-Point your domain's DNS `A` record (`api.orderitup.in`) to the OCI VM's public IP, and set `DOMAIN=api.orderitup.in` in `.env.oracle`.
+## 3. Cloudflare Pages + Oracle Split Setup
 
-## 3. Build Static Web Frontends (Optional, for Single-Origin Hosting)
+When hosting `landing/` and `desktop-ui/` on **Cloudflare Pages** and this backend on **Oracle Cloud**:
+- Set `FRONTEND_ORIGIN` in `backend/.env.oracle` to the exact comma-separated Cloudflare Pages / custom domain origins (no wildcards).
+- In **Cloudflare DNS** for `api.orderitup.in`:
+  - **Recommended:** Use **DNS-only (grey cloud)** so Caddy manages Let's Encrypt TLS and WebSockets (`/ws/kds`, `/ws/pos`) directly.
+  - **If proxied (orange cloud):** Set Cloudflare **SSL/TLS → Full (Strict)** and enable **Network → WebSockets**.
+- Configure GitHub Repository Variables for `.github/workflows/deploy-pages.yml`:
+  - `CLOUD_API_URL` (e.g. `https://api.orderitup.in`)
+  - `CF_PAGES_LANDING_PROJECT` (default `orderitup`)
+  - `CF_PAGES_APP_PROJECT` (default `orderitup-app`)
+  - `LANDING_PUBLIC_URL` and `APP_PUBLIC_URL`
 
-To serve the POS, KDS, QR ordering, and Landing dashboards directly from the Oracle VM:
-```bash
-npm run build:web
-```
+*(Optional single-origin mode: run `npm run build:web` and uncomment the `../desktop-ui/out:/app/static:ro` mount in `backend/docker-compose.yml`.)*
 
 ## 4. Deploy
 
 ```bash
-bash deploy/oracle/deploy.sh
+bash backend/deploy.sh
 ```
+
+Or trigger `.github/workflows/deploy-oracle-backend.yml` from GitHub Actions once `ORACLE_SSH_HOST`, `ORACLE_SSH_USER`, `ORACLE_SSH_KEY`, and `ORACLE_REPO_DIR` are configured.
 
 Verify readiness:
 ```bash

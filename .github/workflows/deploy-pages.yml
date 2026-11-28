@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm_production_deploy:
-        description: Deploy the current main branch to the production Pages project
+        description: Deploy the current main branch to the production Pages projects
         required: true
         type: boolean
         default: false
@@ -20,14 +20,29 @@ jobs:
   deploy:
     if: github.ref == 'refs/heads/main' && inputs.confirm_production_deploy == true
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 25
     environment: production
     env:
       CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
       CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      CLOUD_API_URL: ${{ vars.CLOUD_API_URL }}
+      CLOUD_WS_URL: ${{ vars.CLOUD_WS_URL }}
+      CF_PAGES_LANDING_PROJECT: ${{ vars.CF_PAGES_LANDING_PROJECT || 'orderitup' }}
+      CF_PAGES_APP_PROJECT: ${{ vars.CF_PAGES_APP_PROJECT || 'orderitup-app' }}
+      LANDING_PUBLIC_URL: ${{ vars.LANDING_PUBLIC_URL || 'https://orderitup.pages.dev' }}
+      APP_PUBLIC_URL: ${{ vars.APP_PUBLIC_URL || 'https://orderitup-app.pages.dev' }}
+      NEXT_PUBLIC_OIU_CLOUD_API_URL: ${{ vars.CLOUD_API_URL }}
+      NEXT_PUBLIC_OIU_WS_URL: ${{ vars.CLOUD_WS_URL }}
     steps:
       - name: Check out main
         uses: actions/checkout@v4
+
+      - name: Validate required Cloud API URL
+        run: |
+          if [ -z "$CLOUD_API_URL" ]; then
+            echo "ERROR: Repository variable CLOUD_API_URL must be set (e.g. https://api.orderitup.in)"
+            exit 1
+          fi
 
       - name: Set up Node.js 22
         uses: actions/setup-node@v4
@@ -36,26 +51,60 @@ jobs:
           cache: npm
           cache-dependency-path: |
             landing/package-lock.json
+            desktop-ui/package-lock.json
             apps/cloud-api/package-lock.json
 
       - name: Install landing dependencies
         working-directory: landing
         run: npm ci
 
+      - name: Install desktop-ui dependencies
+        working-directory: desktop-ui
+        run: npm ci
+
       - name: Install Cloudflare Wrangler
         working-directory: apps/cloud-api
         run: npm ci
 
-      - name: Build Cloudflare Pages static export
+      - name: Build landing static export
         working-directory: landing
         run: npm run build
 
-      - name: Require a ready Cloud API
+      - name: Build desktop-ui web static export
+        run: npm run build:web
+
+      - name: Require a ready Oracle Cloud API
+        env:
+          CLOUD_READY_URL: ${{ vars.CLOUD_API_URL }}/ready
         run: node scripts/assert-cloud-ready.cjs
 
-      - name: Deploy the static export to Pages
-        working-directory: apps/cloud-api
-        run: npx wrangler pages deploy ../../landing/out --project-name orderitup --branch main
+      - name: Verify Oracle CORS preflight for frontend origins
+        run: |
+          CLOUD_PILOT_PREFLIGHT_URL="${CLOUD_API_URL%/}/api/pilot-requests" CLOUD_FRONTEND_ORIGIN="${LANDING_PUBLIC_URL%/}" node scripts/assert-cloud-cors.cjs
+          CLOUD_PILOT_PREFLIGHT_URL="${CLOUD_API_URL%/}/api/pilot-requests" CLOUD_FRONTEND_ORIGIN="${APP_PUBLIC_URL%/}" node scripts/assert-cloud-cors.cjs
 
-      - name: Verify the public QR route
-        run: node -e "fetch('https://orderitup.pages.dev/qr/').then(async r => { if (!r.ok) throw new Error('QR route returned HTTP ' + r.status); const html = await r.text(); if (!html.includes('<html')) throw new Error('QR route did not return an HTML document'); console.log('Public QR route returned HTTP ' + r.status); }).catch(e => { console.error(e.message); process.exitCode = 1; })"
+      - name: Deploy landing static export to Cloudflare Pages
+        working-directory: apps/cloud-api
+        run: npx wrangler pages deploy ../../landing/out --project-name "${CF_PAGES_LANDING_PROJECT}" --branch main
+
+      - name: Deploy desktop-ui web export to Cloudflare Pages
+        working-directory: apps/cloud-api
+        run: npx wrangler pages deploy ../../desktop-ui/out --project-name "${CF_PAGES_APP_PROJECT}" --branch main
+
+      - name: Verify deployed landing and app routes
+        run: |
+          node -e "
+            const checks = [
+              '${LANDING_PUBLIC_URL%/}/',
+              '${APP_PUBLIC_URL%/}/qr/',
+              '${APP_PUBLIC_URL%/}/tablet-pos/',
+              '${APP_PUBLIC_URL%/}/tablet-waiter/',
+            ];
+            Promise.all(checks.map(async (url) => {
+              const r = await fetch(url);
+              if (!r.ok) throw new Error(url + ' returned HTTP ' + r.status);
+              const html = await r.text();
+              if (!html.includes('<html')) throw new Error(url + ' did not return HTML');
+              console.log('Verified ' + url + ' (HTTP ' + r.status + ')');
+            })).catch((e) => { console.error(e.message); process.exitCode = 1; });
+          "

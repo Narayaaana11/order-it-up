@@ -12,7 +12,6 @@
   "dependencies": {
     "@aws-sdk/client-s3": "^3.750.0",
     "better-sqlite3": "^12.9.0",
-    "order-it-up": "file:..",
     "ws": "^8.21.2"
   },
   "devDependencies": {
