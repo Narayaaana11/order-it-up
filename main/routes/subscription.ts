@@ -13,17 +13,17 @@ export const PRICING_PLANS = {
   starter: {
     name: 'Starter Plan',
     monthly: 499,
-    yearly: 4999,
+    yearly: 4990,
   },
   pro: {
     name: 'Professional Plan',
-    monthly: 1299,
-    yearly: 12999,
+    monthly: 1499,
+    yearly: 14990,
   },
   enterprise: {
     name: 'Enterprise Plan',
-    monthly: 2999,
-    yearly: 29999,
+    monthly: 3999,
+    yearly: 39990,
   },
 } as const;
 

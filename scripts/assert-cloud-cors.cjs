@@ -1,5 +1,5 @@
 const endpoint = process.env.CLOUD_PILOT_PREFLIGHT_URL ||
-  'https://orderitup-cloud-api.narayaaana11.workers.dev/api/pilot-requests';
+  'http://127.0.0.1:8080/api/pilot-requests';
 const origin = process.env.CLOUD_FRONTEND_ORIGIN || 'https://orderitup.pages.dev';
 
 async function main() {

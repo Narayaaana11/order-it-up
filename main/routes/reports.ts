@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import Decimal from 'decimal.js';
 import { dayBoundsInTimezone, getDatabase, getSettingValue, localDateInTimezone, parseDbTimestamp } from '../db';
 import { requireRole } from '../middleware/security';
+import { requireSubscriptionFeature } from '../middleware/subscription-gate';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { getOrdersWithItemsForBills } from './bills';
 import { aggregateTaxComponents } from '../services/tax-components';
@@ -495,7 +496,7 @@ router.get('/tables', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, r
 // AOV, top staff, top categories, busiest/idlest hour & day-of-week, and
 // average kitchen prep time, aggregated over a trailing window (default 30
 // days) so hour/day patterns reflect a consistent trend rather than one day.
-router.get('/insights', requireRole(...ROLE_ACCESS.ownerManager), (req: Request, res: Response) => {
+router.get('/insights', requireRole(...ROLE_ACCESS.ownerManager), requireSubscriptionFeature('advancedReports'), (req: Request, res: Response) => {
   try {
     const db = getDatabase();
     const minorFactor = getCurrencyMinorUnitFactor(getTenantCurrency(db));

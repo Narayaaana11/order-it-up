@@ -68,6 +68,7 @@ import {
 } from './shutdown';
 import { mongoSyncService } from './services/mongodb-sync';
 import { amazonS3Service } from './services/amazon-s3';
+import { licenseHeartbeat } from './services/license-heartbeat';
 
 // Disable GPU sandbox on Windows to avoid DLL crash fallback
 if (process.platform === 'win32') {
@@ -1193,6 +1194,7 @@ async function initialize(): Promise<void> {
     googleDrive.start();
     void mongoSyncService.initFromSettings();
     amazonS3Service.initFromSettings();
+    licenseHeartbeat.start();
 
     console.log('[OIU] Starting KDS server on port 3002...');
     await startKdsServer();
@@ -1430,6 +1432,7 @@ const cleanupCoordinator = createShutdownCoordinator(() => [
   { name: 'Main server', run: () => stopServer(), blocksDatabase: true },
   { name: 'KDS server', run: () => stopKdsServer(), blocksDatabase: true },
   { name: 'cloud sync', run: () => cloudSync.shutdown(), blocksDatabase: true },
+  { name: 'license heartbeat', run: () => licenseHeartbeat.stop(), blocksDatabase: false },
   { name: 'telemetry', run: () => telemetry.stop(), blocksDatabase: true },
   { name: 'Google Drive', run: () => googleDrive.stop(), blocksDatabase: true },
   { name: 'MongoDB sync', run: () => mongoSyncService.stop(), blocksDatabase: true },

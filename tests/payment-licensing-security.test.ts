@@ -192,11 +192,11 @@ async function testPaymentLifecycleAndWebhooks(): Promise<void> {
   // 1. Server-authoritative pricing validation
   const { PRICING_PLANS } = require('../main/routes/subscription');
   assert.equal(PRICING_PLANS.starter.monthly, 499);
-  assert.equal(PRICING_PLANS.starter.yearly, 4999);
-  assert.equal(PRICING_PLANS.pro.monthly, 1299);
-  assert.equal(PRICING_PLANS.pro.yearly, 12999);
-  assert.equal(PRICING_PLANS.enterprise.monthly, 2999);
-  assert.equal(PRICING_PLANS.enterprise.yearly, 29999);
+  assert.equal(PRICING_PLANS.starter.yearly, 4990);
+  assert.equal(PRICING_PLANS.pro.monthly, 1499);
+  assert.equal(PRICING_PLANS.pro.yearly, 14990);
+  assert.equal(PRICING_PLANS.enterprise.monthly, 3999);
+  assert.equal(PRICING_PLANS.enterprise.yearly, 39990);
 
   // 2. Order creation price integrity
   const keySecret = 'secret_test_abcdefghijklmnopqrstuvwxyz';
@@ -204,7 +204,7 @@ async function testPaymentLifecycleAndWebhooks(): Promise<void> {
   const plan = 'pro';
   const billingCycle = 'yearly';
   const expectedAmount = PRICING_PLANS[plan][billingCycle];
-  assert.equal(expectedAmount, 12999, 'Server amount must be derived strictly from server pricing table');
+  assert.equal(expectedAmount, 14990, 'Server amount must be derived strictly from server pricing table');
 
   // 3. Payment verification & method-scoped replay attack prevention
   const orderId = 'order_sub_101';
@@ -215,10 +215,10 @@ async function testPaymentLifecycleAndWebhooks(): Promise<void> {
   assert.equal(checkTx('razorpay_subscription', paymentId), undefined, 'Payment must not be already consumed');
   const originalPaymentFetch = global.fetch;
   global.fetch = (async () => new Response(JSON.stringify({
-    id: paymentId, order_id: orderId, amount: 1299900, currency: 'INR', status: 'captured', captured: true,
+    id: paymentId, order_id: orderId, amount: 1499000, currency: 'INR', status: 'captured', captured: true,
   }), { status: 200 })) as typeof fetch;
   const verifyResult = await provider.verifyPayment({
-    orderId, paymentId, signature: validSignature, expectedAmountMinor: 1299900, expectedCurrency: 'INR',
+    orderId, paymentId, signature: validSignature, expectedAmountMinor: 1499000, expectedCurrency: 'INR',
   });
   global.fetch = originalPaymentFetch;
   assert.equal(verifyResult.verified, true);
@@ -320,7 +320,7 @@ async function testPaymentLifecycleAndWebhooks(): Promise<void> {
 
   const originalRaceFetch = global.fetch;
   global.fetch = (async () => new Response(JSON.stringify({
-    id: racePaymentId, order_id: raceOrder, amount: 1299900, currency: 'INR', status: 'captured', captured: true,
+    id: racePaymentId, order_id: raceOrder, amount: 1499000, currency: 'INR', status: 'captured', captured: true,
   }), { status: 200 })) as typeof fetch;
   const [res1, res2] = await Promise.all([attemptActivation(), attemptActivation()]);
   global.fetch = originalRaceFetch;

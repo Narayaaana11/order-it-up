@@ -108,10 +108,10 @@ async function run() {
       return new Response(JSON.stringify({ id, amount: payload.amount, currency: payload.currency, receipt: payload.receipt }), { status: 200 });
     }
     if (String(url) === 'https://api.razorpay.com/v1/payments/pay_test123abc') {
-      return new Response(JSON.stringify({ id: 'pay_test123abc', order_id: 'order_test123abc', amount: 129900, currency: 'INR', status: 'captured', captured: true }), { status: 200 });
+      return new Response(JSON.stringify({ id: 'pay_test123abc', order_id: 'order_test123abc', amount: 149900, currency: 'INR', status: 'captured', captured: true }), { status: 200 });
     }
     if (String(url) === 'https://api.razorpay.com/v1/payments/pay_hook123abc') {
-      return new Response(JSON.stringify({ id: 'pay_hook123abc', order_id: 'order_hook123abc', amount: 129900, currency: 'INR', status: 'captured', captured: true }), { status: 200 });
+      return new Response(JSON.stringify({ id: 'pay_hook123abc', order_id: 'order_hook123abc', amount: 149900, currency: 'INR', status: 'captured', captured: true }), { status: 200 });
     }
     const racePayment = String(url).match(/\/payments\/(pay_race[AB]123)$/)?.[1];
     if (racePayment) {
@@ -121,7 +121,7 @@ async function run() {
         await racePaymentBarrier.promise;
       }
       const suffix = racePayment === 'pay_raceA123' ? 'A' : 'B';
-      return new Response(JSON.stringify({ id: racePayment, order_id: `order_race${suffix}123`, amount: 129900, currency: 'INR', status: 'captured', captured: true }), { status: 200 });
+      return new Response(JSON.stringify({ id: racePayment, order_id: `order_race${suffix}123`, amount: 149900, currency: 'INR', status: 'captured', captured: true }), { status: 200 });
     }
     throw new Error(`Unexpected provider request ${String(url)}`);
   }) as typeof fetch;
@@ -143,7 +143,7 @@ async function run() {
     const created = await handleCreateSaasSubscriptionOrder(jsonRequest({ plan_code: 'pro', billing_cycle: 'monthly' }, key), env, 'org-1', owner);
     assert.equal(created.status, 201);
     const createdData = await created.json() as any;
-    assert.equal(createdData.order.amount, 129900, 'Razorpay receives the server-side D1 plan price in minor units');
+    assert.equal(createdData.order.amount, 149900, 'Razorpay receives the server-side D1 plan price in minor units');
     assert.equal(createdData.order.currency, 'INR');
     assert.equal(createdData.order.key_id, env.RAZORPAY_KEY_ID);
     assert.equal(JSON.stringify(createdData).includes(env.RAZORPAY_KEY_SECRET), false, 'Provider secret is never returned');
@@ -172,7 +172,7 @@ async function run() {
     const verifiedData = await verified.json() as any;
     assert.equal(verifiedData.subscription.status, 'active');
     assert.equal(verifiedData.subscription.plan_code, 'pro');
-    assert.equal(verifiedData.subscription.amount_minor, 129900);
+    assert.equal(verifiedData.subscription.amount_minor, 149900);
     assert.equal(env.DB.orders[0].status, 'captured');
     assert.equal(env.DB.events.length, 1, 'Captured payment creates a subscription lifecycle event');
     assert.equal(calls.length, 2, 'Provider state is fetched independently after signature validation');
@@ -210,7 +210,7 @@ async function run() {
     assert.equal(webhookOrder.status, 201);
     const webhookBody = JSON.stringify({
       event: 'payment.captured',
-      payload: { payment: { entity: { id: 'pay_hook123abc', order_id: 'order_hook123abc', status: 'captured', captured: true, amount: 129900, currency: 'INR' } } },
+      payload: { payment: { entity: { id: 'pay_hook123abc', order_id: 'order_hook123abc', status: 'captured', captured: true, amount: 149900, currency: 'INR' } } },
     });
     const webhookHeaders = {
       'Content-Type': 'application/json',

@@ -25,13 +25,17 @@ const AUTH_STORAGE_KEY = "orderitup_auth_user";
 const DEMO_PREVIEW_KEY = "orderitup_demo_preview_user";
 const CLOUD_API_BASE = (
   process.env.NEXT_PUBLIC_OIU_CLOUD_API_URL ||
-  "https://orderitup-cloud-api.narayaaana11.workers.dev"
+  "http://127.0.0.1:8080"
 ).replace(/\/$/, "");
 
 export function getCloudApiBase(): string {
-  if (CLOUD_API_BASE) return CLOUD_API_BASE;
-  if (typeof window !== "undefined") return window.location.origin;
-  return "";
+  if (process.env.NEXT_PUBLIC_OIU_CLOUD_API_URL) {
+    return process.env.NEXT_PUBLIC_OIU_CLOUD_API_URL.replace(/\/$/, "");
+  }
+  if (typeof window !== "undefined" && window.location.port !== "3000" && window.location.port !== "3004") {
+    return window.location.origin;
+  }
+  return CLOUD_API_BASE;
 }
 
 export function getStoredUser(): AuthUser | null {

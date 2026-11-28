@@ -45,7 +45,12 @@ interface CartItem {
   specialInstructions: string;
 }
 
-const CLOUD_API_BASE = process.env.NEXT_PUBLIC_CLOUD_API_URL || 'https://orderitup-cloud-api.narayaaana11.workers.dev';
+const CLOUD_API_BASE =
+  process.env.NEXT_PUBLIC_OIU_CLOUD_API_URL ||
+  process.env.NEXT_PUBLIC_CLOUD_API_URL ||
+  (typeof window !== 'undefined' && window.location.port !== '3000' && window.location.port !== '3004'
+    ? window.location.origin
+    : 'http://127.0.0.1:8080');
 
 export default function RestaurantTableQrClient() {
   return (

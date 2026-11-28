@@ -23,6 +23,20 @@ const nextConfig: NextConfig = {
     unoptimized: isExport,
   },
 
+  // In `next dev`, proxy /api/* to the local Express backend (:3001).
+  ...(!isExport
+    ? {
+        async rewrites() {
+          return [
+            {
+              source: '/api/:path*',
+              destination: `${(process.env.OIU_DEV_API_URL || 'http://127.0.0.1:3001').replace(/\/$/, '')}/api/:path*`,
+            },
+          ];
+        },
+      }
+    : {}),
+
   // Silence the "multiple lockfiles / inferred workspace root" warning.
   // Allow imports from /main (countries derivation shared with backend) via alias;
   // root must encompass both frontend/ and main/, so it points at the repo root.

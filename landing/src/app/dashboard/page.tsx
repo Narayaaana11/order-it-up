@@ -30,6 +30,7 @@ import {
   Layers,
   X,
   Activity,
+  CreditCard,
 } from "lucide-react";
 import { BRAND } from "@/lib/constants";
 import ModalProvider from "@/components/ModalProvider";
@@ -455,6 +456,16 @@ function DashboardShell() {
 
             {/* Right: Hybrid Telemetry Pill, Quick Tools & Auth */}
             <div className="flex items-center gap-2.5">
+              {effectivePerspective === "merchant" && (
+                <Link
+                  href="/dashboard/billing"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-orange-50 text-orange-700 border border-orange-200 hover:bg-orange-100 transition-all shadow-xs"
+                  title="Manage Subscription & GST Invoices"
+                >
+                  <CreditCard className="w-3.5 h-3.5" />
+                  <span>Billing & Plan</span>
+                </Link>
+              )}
               {/* Hybrid Connection Status Pill */}
               <div className="relative">
                 <button

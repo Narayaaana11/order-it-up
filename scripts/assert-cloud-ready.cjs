@@ -1,4 +1,4 @@
-const url = process.env.CLOUD_READY_URL || 'https://orderitup-cloud-api.narayaaana11.workers.dev/ready';
+const url = process.env.CLOUD_READY_URL || 'http://127.0.0.1:8080/ready';
 
 async function main() {
   let response;

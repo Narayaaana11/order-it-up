@@ -1,6 +1,7 @@
 import { Request, Response, Router, NextFunction } from 'express';
 import { getDatabase, now, dayBoundsInTimezone, localDateInTimezone, getSettingValue } from '../db';
 import { requireRole } from '../middleware/security';
+import { requireSubscriptionFeature } from '../middleware/subscription-gate';
 import { ROLE_ACCESS } from '../../shared/role-permissions';
 import { isValidTableToken, isValidAnyActiveQrToken } from './qr-order';
 import { AiToolsService } from '../services/ai-tools';
@@ -185,7 +186,7 @@ router.post('/ai/test-connection', requireRole(...ROLE_ACCESS.ownerManagerCashie
 });
 
 // ── 1. Comprehensive AI Insights for Restaurant Owners ──────────────
-router.get('/ai/insights', requireRole(...ROLE_ACCESS.ownerManagerCashier), async (req: Request, res: Response) => {
+router.get('/ai/insights', requireRole(...ROLE_ACCESS.ownerManagerCashier), requireSubscriptionFeature('advancedReports'), async (req: Request, res: Response) => {
   try {
     const db = getDatabase();
     const tenantId = (req as any).user?.tenant_id || 'default';
@@ -353,7 +354,7 @@ router.get('/ai/insights', requireRole(...ROLE_ACCESS.ownerManagerCashier), asyn
 });
 
 // ── 2. "Ask OIU" Conversational Restaurant Copilot ──────────────────
-router.post('/ai/ask', requireRole(...ROLE_ACCESS.ownerManagerCashier), async (req: Request, res: Response) => {
+router.post('/ai/ask', requireRole(...ROLE_ACCESS.ownerManagerCashier), requireSubscriptionFeature('advancedReports'), async (req: Request, res: Response) => {
   try {
     const { question, tool, params } = req.body;
     if (!question || typeof question !== 'string') {

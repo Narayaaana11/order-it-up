@@ -310,7 +310,7 @@ export function withDatabaseMaintenanceLock<T>(operation: (signal: AbortSignal) 
   });
 }
 
-const DEFAULT_CLOUD_SERVER_URL = process.env.OIU_CLOUD_API_URL || 'https://orderitup-cloud-api.narayaaana11.workers.dev';
+const DEFAULT_CLOUD_SERVER_URL = process.env.OIU_CLOUD_API_URL || 'http://127.0.0.1:8080';
 
 function randomSecret(): string {
   return crypto.randomBytes(32).toString('base64')

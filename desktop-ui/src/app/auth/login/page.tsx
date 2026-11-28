@@ -26,6 +26,13 @@ import {
   KeyRound,
   ShieldCheck,
   Sparkles,
+  Shield,
+  Headphones,
+  Calculator,
+  Truck,
+  UserRound,
+  Landmark,
+  FileSearch,
 } from 'lucide-react';
 import { ROLE_LABEL_KEYS } from '@/lib/i18n-enums';
 import { isElectronEnvironment } from '@/lib/api';
@@ -49,10 +56,80 @@ interface TestAccount {
   landingRoute: string;
   landingLabel: string;
   description: string;
-  category: 'management' | 'operations' | 'branch';
+  category: 'platform' | 'management' | 'operations' | 'branch';
 }
 
 const TEST_ACCOUNTS: TestAccount[] = [
+  {
+    id: 'super-admin',
+    role: 'Super Admin',
+    roleKey: 'super_admin',
+    title: 'Super Administrator',
+    email: 'superadmin@orderitup.com',
+    pass: 'superadmin12345',
+    pin: '0001',
+    badge: 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20',
+    landingRoute: '/cloud-portal',
+    landingLabel: 'Cloud HQ (/cloud-portal)',
+    description: 'Global SaaS Platform Control, Tenant Lifecycle, Billing & Audit Logs',
+    category: 'platform',
+  },
+  {
+    id: 'central-admin',
+    role: 'Central Admin',
+    roleKey: 'admin',
+    title: 'Central Platform Admin',
+    email: 'centraladmin@orderitup.com',
+    pass: 'centraladmin12345',
+    pin: '0002',
+    badge: 'bg-orange-500/10 text-orange-600 dark:text-orange-400 border-orange-500/20',
+    landingRoute: '/cloud-portal',
+    landingLabel: 'Cloud HQ (/cloud-portal)',
+    description: 'SaaS Operations, Enterprise Support Escalation & Tenant Onboarding',
+    category: 'platform',
+  },
+  {
+    id: 'finance',
+    role: 'Finance',
+    roleKey: 'finance',
+    title: 'Finance Operator',
+    email: 'finance@orderitup.com',
+    pass: 'finance12345',
+    pin: '0003',
+    badge: 'bg-teal-500/10 text-teal-600 dark:text-teal-400 border-teal-500/20',
+    landingRoute: '/cloud-portal',
+    landingLabel: 'Cloud HQ (/cloud-portal)',
+    description: 'SaaS Subscription Billing, Payment Reconciliation & Royalty Audits',
+    category: 'platform',
+  },
+  {
+    id: 'support',
+    role: 'Support',
+    roleKey: 'support',
+    title: 'Support Operator',
+    email: 'support@orderitup.com',
+    pass: 'support12345',
+    pin: '0004',
+    badge: 'bg-sky-500/10 text-sky-600 dark:text-sky-400 border-sky-500/20',
+    landingRoute: '/cloud-portal',
+    landingLabel: 'Cloud HQ (/cloud-portal)',
+    description: 'Technical Troubleshooting, Pairing Token Reset & Device Diagnostics',
+    category: 'platform',
+  },
+  {
+    id: 'read-only',
+    role: 'Auditor',
+    roleKey: 'read_only',
+    title: 'Platform Auditor (Read-Only)',
+    email: 'auditor@orderitup.com',
+    pass: 'auditor12345',
+    pin: '0005',
+    badge: 'bg-slate-500/10 text-slate-600 dark:text-slate-400 border-slate-500/20',
+    landingRoute: '/cloud-portal',
+    landingLabel: 'Cloud HQ (/cloud-portal)',
+    description: 'Read-Only Inspection of Tenant Metrics, Compliance & Security Trails',
+    category: 'platform',
+  },
   {
     id: 'owner',
     role: 'Owner',
@@ -79,6 +156,34 @@ const TEST_ACCOUNTS: TestAccount[] = [
     landingRoute: '/dashboard',
     landingLabel: 'Dashboard (/dashboard)',
     description: 'Inventory Transfers, Daily Cash Closures, Voids & Staff Audits',
+    category: 'management',
+  },
+  {
+    id: 'branch-mgr',
+    role: 'Branch Manager',
+    roleKey: 'manager',
+    title: 'Whitefield Outlet Manager',
+    email: 'whitefield_wht349@orderitup.test',
+    pass: 'manager12345',
+    pin: '5678',
+    badge: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20',
+    landingRoute: '/dashboard',
+    landingLabel: 'Outlet Dashboard (/dashboard)',
+    description: 'Whitefield IT Park Franchise Outlet & Local Stock Inwarding',
+    category: 'branch',
+  },
+  {
+    id: 'accountant',
+    role: 'Accountant',
+    roleKey: 'accountant',
+    title: 'Head Accountant',
+    email: 'accountant@orderitup.com',
+    pass: 'accountant12345',
+    pin: '6789',
+    badge: 'bg-indigo-500/10 text-indigo-600 dark:text-indigo-400 border-indigo-500/20',
+    landingRoute: '/reports',
+    landingLabel: 'Reports (/reports)',
+    description: 'Financial Reports, GST/Tax Summaries, Ledger Auditing & Tally XML Export',
     category: 'management',
   },
   {
@@ -124,35 +229,65 @@ const TEST_ACCOUNTS: TestAccount[] = [
     category: 'operations',
   },
   {
-    id: 'branch-mgr',
-    role: 'Branch Manager',
-    roleKey: 'manager',
-    title: 'Whitefield Outlet Manager',
-    email: 'whitefield_wht349@orderitup.test',
-    pass: 'manager12345',
-    pin: '5678',
-    badge: 'bg-cyan-500/10 text-cyan-600 dark:text-cyan-400 border-cyan-500/20',
+    id: 'delivery',
+    role: 'Delivery',
+    roleKey: 'delivery',
+    title: 'Delivery Driver',
+    email: 'driver@orderitup.com',
+    pass: 'driver12345',
+    pin: '7890',
+    badge: 'bg-lime-500/10 text-lime-600 dark:text-lime-400 border-lime-500/20',
     landingRoute: '/dashboard',
-    landingLabel: 'Outlet Dashboard (/dashboard)',
-    description: 'Whitefield IT Park Franchise Outlet & Local Stock Inwarding',
-    category: 'branch',
+    landingLabel: 'Dispatch (/dashboard)',
+    description: 'Dispatch Routing, Delivery Status Updates & Cash-on-Delivery Collection',
+    category: 'operations',
+  },
+  {
+    id: 'customer',
+    role: 'Customer',
+    roleKey: 'customer',
+    title: 'Guest / QR Diner',
+    email: 'customer@orderitup.com',
+    pass: 'customer12345',
+    pin: '8901',
+    badge: 'bg-pink-500/10 text-pink-600 dark:text-pink-400 border-pink-500/20',
+    landingRoute: '/menu',
+    landingLabel: 'Digital Menu (/menu)',
+    description: 'Contactless QR Menu Browsing, Table Self-Ordering & UPI QR Checkout',
+    category: 'operations',
   },
 ];
 
 function getRoleIcon(id: string) {
   switch (id) {
+    case 'super-admin':
+      return <Shield size={16} className="text-red-600 dark:text-red-400" />;
+    case 'central-admin':
+      return <ShieldCheck size={16} className="text-orange-600 dark:text-orange-400" />;
+    case 'finance':
+      return <Landmark size={16} className="text-teal-600 dark:text-teal-400" />;
+    case 'support':
+      return <Headphones size={16} className="text-sky-600 dark:text-sky-400" />;
+    case 'read-only':
+      return <FileSearch size={16} className="text-slate-600 dark:text-slate-400" />;
     case 'owner':
       return <Crown size={16} className="text-purple-600 dark:text-purple-400" />;
     case 'manager':
       return <Briefcase size={16} className="text-blue-600 dark:text-blue-400" />;
+    case 'branch-mgr':
+      return <Building2 size={16} className="text-cyan-600 dark:text-cyan-400" />;
+    case 'accountant':
+      return <Calculator size={16} className="text-indigo-600 dark:text-indigo-400" />;
     case 'cashier':
       return <Receipt size={16} className="text-emerald-600 dark:text-emerald-400" />;
     case 'server':
       return <Utensils size={16} className="text-amber-600 dark:text-amber-400" />;
     case 'chef':
       return <ChefHat size={16} className="text-rose-600 dark:text-rose-400" />;
-    case 'branch-mgr':
-      return <Building2 size={16} className="text-cyan-600 dark:text-cyan-400" />;
+    case 'delivery':
+      return <Truck size={16} className="text-lime-600 dark:text-lime-400" />;
+    case 'customer':
+      return <UserRound size={16} className="text-pink-600 dark:text-pink-400" />;
     default:
       return <ShieldCheck size={16} className="text-muted-foreground" />;
   }
@@ -173,7 +308,7 @@ function LoginContent() {
   const [dbError, setDbError] = useState<string | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
-  const [activeCategory, setActiveCategory] = useState<'all' | 'management' | 'operations'>('all');
+  const [activeCategory, setActiveCategory] = useState<'all' | 'platform' | 'management' | 'operations'>('all');
   const [copiedKey, setCopiedKey] = useState<string | null>(null);
 
   const triggerDesktopDownload = () => {
@@ -293,6 +428,7 @@ function LoginContent() {
 
   const filteredAccounts = TEST_ACCOUNTS.filter((acc) => {
     if (activeCategory === 'all') return true;
+    if (activeCategory === 'platform') return acc.category === 'platform';
     if (activeCategory === 'management') return acc.category === 'management' || acc.category === 'branch';
     if (activeCategory === 'operations') return acc.category === 'operations';
     return true;
@@ -450,40 +586,28 @@ function LoginContent() {
                   </div>
 
                   {/* Filter Pills */}
-                  <div className="flex items-center gap-1 bg-muted/60 p-1 rounded-lg border border-border/50 text-xs">
-                    <button
-                      type="button"
-                      onClick={() => setActiveCategory('all')}
-                      className={`px-2.5 py-1 rounded-md transition-colors ${
-                        activeCategory === 'all'
-                          ? 'bg-background text-foreground shadow-sm font-medium'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      All ({TEST_ACCOUNTS.length})
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveCategory('management')}
-                      className={`px-2.5 py-1 rounded-md transition-colors ${
-                        activeCategory === 'management'
-                          ? 'bg-background text-foreground shadow-sm font-medium'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      Management
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setActiveCategory('operations')}
-                      className={`px-2.5 py-1 rounded-md transition-colors ${
-                        activeCategory === 'operations'
-                          ? 'bg-background text-foreground shadow-sm font-medium'
-                          : 'text-muted-foreground hover:text-foreground'
-                      }`}
-                    >
-                      Operations
-                    </button>
+                  <div className="flex items-center flex-wrap gap-1 bg-muted/60 p-1 rounded-lg border border-border/50 text-xs">
+                    {(
+                      [
+                        { key: 'all', label: `All (${TEST_ACCOUNTS.length})` },
+                        { key: 'platform', label: 'Platform' },
+                        { key: 'management', label: 'Management' },
+                        { key: 'operations', label: 'Operations' },
+                      ] as const
+                    ).map(({ key, label }) => (
+                      <button
+                        key={key}
+                        type="button"
+                        onClick={() => setActiveCategory(key)}
+                        className={`px-2.5 py-1 rounded-md transition-colors ${
+                          activeCategory === key
+                            ? 'bg-background text-foreground shadow-sm font-medium'
+                            : 'text-muted-foreground hover:text-foreground'
+                        }`}
+                      >
+                        {label}
+                      </button>
+                    ))}
                   </div>
                 </div>
 

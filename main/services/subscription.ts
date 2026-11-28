@@ -58,7 +58,7 @@ export const PLAN_DEFINITIONS: Record<SubscriptionPlan, PlanEntitlements> = {
     inventoryTracking: false,
   },
   pro: {
-    maxTerminals: 5,
+    maxTerminals: 3,
     multiTerminal: true,
     kdsStations: true,
     cloudSync: true,
@@ -68,7 +68,7 @@ export const PLAN_DEFINITIONS: Record<SubscriptionPlan, PlanEntitlements> = {
     inventoryTracking: true,
   },
   enterprise: {
-    maxTerminals: 50,
+    maxTerminals: 9999,
     multiTerminal: true,
     kdsStations: true,
     cloudSync: true,

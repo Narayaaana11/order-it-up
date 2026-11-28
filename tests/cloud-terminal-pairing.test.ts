@@ -168,7 +168,7 @@ async function run() {
     const storedTerminalToken = db.prepare("SELECT value FROM settings WHERE key='cloud_terminal_token'").get().value as string;
     assert(storedTerminalToken.startsWith('safe-storage:v1:'), 'terminal bearer token is OS-encrypted before local persistence');
     assert(!storedTerminalToken.includes('secret-terminal-token'), 'plaintext terminal bearer token is absent from settings');
-    assert(String(calls[0].url).startsWith('https://orderitup-cloud-api.narayaaana11.workers.dev/'), 'pair claim uses the deployed Worker API origin');
+    assert(String(calls[0].url).startsWith('http://127.0.0.1:8080/'), 'pair claim uses the unified backend API origin');
     assertEqual(JSON.parse(String(calls[0].init?.body)).code, '123456', 'pair claim sends normalized six-digit PIN');
 
     await (cloudSync as any).waitForBackgroundWork();

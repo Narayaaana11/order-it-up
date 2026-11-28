@@ -59,6 +59,7 @@ import { handleStaffRequest } from './routes/staff';
 import { handleMenuCsvRequest } from './routes/menu-csv';
 import { handleMobileCompatRequest, handleRefreshSession } from './routes/mobile-compat';
 import { handleGuestPaymentsRequest, handleGuestPaymentWebhook } from './routes/guest-payments';
+import { handleListInvoices, handleGetInvoice } from './routes/invoices';
 
 function corsHeaders(request?: Request, env?: Env): Record<string, string> {
   const requestOrigin = request?.headers.get('Origin');
@@ -128,6 +129,7 @@ const REQUIRED_READINESS_TABLES = [
   'reservations', 'ingredients', 'inventory_transactions', 'recipes', 'delivery_jobs',
   'customers', 'held_orders', 'payment_intents', 'payment_webhook_events',
   'purchase_orders', 'purchase_order_items', 'stock_counts', 'stock_count_items',
+  'subscription_invoices', 'invoice_sequence',
 ] as const;
 
 function hasRequiredAuthenticationConfiguration(env: Env): boolean {
@@ -507,7 +509,9 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
     path === '/api/subscription' ||
     path === '/api/subscription/plans' ||
     path === '/api/subscription/create-order' ||
-    path === '/api/subscription/verify-payment';
+    path === '/api/subscription/verify-payment' ||
+    path === '/api/subscription/invoices' ||
+    path.startsWith('/api/subscription/invoices/');
   if (!subscriptionAccess.allowed && !subscriptionManagementPath) {
     const statusCode = subscriptionAccess.organizationStatus !== 'active' ? 403 : 402;
     return Response.json({
@@ -686,6 +690,15 @@ async function routeRequest(request: Request, env: Env, url: URL, method: string
   }
   if (path === '/api/subscription/verify-payment' && method === 'POST') {
     return handleVerifySaasSubscriptionPayment(request, env, orgId, memberships);
+  }
+
+  // GST Invoice routes — also exempt from subscription block so expired owners can download invoices.
+  if (path === '/api/subscription/invoices' && method === 'GET') {
+    return handleListInvoices(request, env as any, orgId, memberships);
+  }
+  const invoiceMatch = path.match(/^\/api\/subscription\/invoices\/([^/]+)$/);
+  if (invoiceMatch && method === 'GET') {
+    return handleGetInvoice(request, env as any, orgId, memberships, invoiceMatch[1]);
   }
 
   // 6. Restaurants & Concepts

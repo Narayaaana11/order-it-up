@@ -13,8 +13,8 @@ import { importCloudQrOrder, type CloudQrOrder } from './cloud-qr-order-import';
 import { importCloudCatalog, type CloudCatalogSnapshot } from './cloud-catalog-import';
 import { subscriptionService } from './subscription';
 
-export const DEFAULT_CLOUD_SERVER_URL = process.env.OIU_CLOUD_API_URL || 'https://orderitup-cloud-api.narayaaana11.workers.dev';
-export const DEFAULT_TERMINAL_CLOUD_API_URL = process.env.OIU_TERMINAL_CLOUD_API_URL || 'https://orderitup-cloud-api.narayaaana11.workers.dev';
+export const DEFAULT_CLOUD_SERVER_URL = process.env.OIU_CLOUD_API_URL || 'http://127.0.0.1:8080';
+export const DEFAULT_TERMINAL_CLOUD_API_URL = process.env.OIU_TERMINAL_CLOUD_API_URL || 'http://127.0.0.1:8080';
 
 const HEARTBEAT_INTERVAL_MS = 5 * 60_000;
 const OUTBOX_INTERVAL_MS = 15_000;

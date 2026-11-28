@@ -3,9 +3,21 @@ import { Capacitor } from '@capacitor/core';
 
 let authRedirectInProgress = false;
 
-export const CLOUD_API_BASE =
-  process.env.NEXT_PUBLIC_OIU_CLOUD_API_URL ||
-  'https://orderitup-cloud-api.narayaaana11.workers.dev';
+function resolveCloudApiBase(): string {
+  if (process.env.NEXT_PUBLIC_OIU_CLOUD_API_URL) {
+    return process.env.NEXT_PUBLIC_OIU_CLOUD_API_URL.replace(/\/$/, '');
+  }
+  if (
+    typeof window !== 'undefined' &&
+    !isElectronEnvironment() &&
+    window.location.port !== '3000'
+  ) {
+    return window.location.origin;
+  }
+  return 'http://127.0.0.1:8080';
+}
+
+export const CLOUD_API_BASE = resolveCloudApiBase();
 
 /**
  * Derives the WebSocket URL for real-time KDS/POS updates on the unified Oracle backend.
