@@ -274,13 +274,13 @@ export default function AppSidebar() {
                 </DropdownMenuItem>
                 <DropdownMenuItem asChild className="cursor-pointer">
                   <a
-                    href="http://localhost:3004/"
+                    href={process.env.NEXT_PUBLIC_OIU_LANDING_URL || 'https://orderitup.pages.dev/'}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-2 text-orange-600 dark:text-orange-400 font-medium"
                   >
                     <Globe className="size-4 shrink-0" />
-                    <span>Cloud Portal (:3004)</span>
+                    <span>Cloud Portal</span>
                   </a>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />

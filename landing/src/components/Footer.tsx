@@ -1,9 +1,10 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { getCloudPortalUrl } from "@/lib/urls";
 
 const PRODUCT_LINKS = [
-  { label: "Cloud POS Terminal", href: "http://localhost:3001/auth/login/" },
+  { label: "Cloud POS Terminal", href: getCloudPortalUrl("/auth/login/") },
   { label: "Dashboard sandbox", href: "/dashboard" },
   { label: "Platform admin", href: "/dashboard?perspective=founder" },
   { label: "Request pilot access", href: "/request-access" },

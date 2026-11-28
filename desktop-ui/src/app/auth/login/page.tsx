@@ -558,7 +558,7 @@ function LoginContent() {
                     <p className="text-xs text-muted-foreground">
                       Don&apos;t have a store account?{' '}
                       <a
-                        href={process.env.NEXT_PUBLIC_OIU_PILOT_ACCESS_URL || 'http://localhost:3004/request-access/'}
+                        href={process.env.NEXT_PUBLIC_OIU_PILOT_ACCESS_URL || 'https://orderitup.pages.dev/request-access/'}
                         className="font-semibold text-primary hover:underline transition-colors"
                       >
                         Register here

@@ -6,8 +6,9 @@ import { ArrowRight, CheckCircle2, KeyRound, LoaderCircle } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Footer from "@/components/Footer";
 import { getCloudApiBase } from "@/lib/auth";
+import { getCloudPortalUrl } from "@/lib/urls";
 
-const PORTAL_LOGIN_URL = process.env.NEXT_PUBLIC_OIU_CLOUD_PORTAL_URL || "https://app.orderitup.in/auth/login";
+const PORTAL_LOGIN_URL = getCloudPortalUrl("/auth/login/");
 
 export default function PilotInvitationPage() {
   const [token, setToken] = useState("");

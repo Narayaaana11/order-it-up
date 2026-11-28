@@ -7,6 +7,9 @@ import { ArrowUpRight, Menu, X } from "lucide-react";
 import { NAV_LINKS } from "@/lib/constants";
 import { AuthUser, getStoredUser } from "@/lib/auth";
 import { triggerOpenAuthModal } from "@/lib/modalEvents";
+import { getCloudPortalUrl } from "@/lib/urls";
+
+const CLOUD_PORTAL_LOGIN_URL = getCloudPortalUrl("/auth/login/");
 
 function sectionHref(href: string) {
   return href.startsWith("#") ? `/${href}` : href;
@@ -151,8 +154,8 @@ export default function Navbar() {
 
           <div className="hidden shrink-0 items-center gap-2 xl:flex">
             <a
-              href="http://localhost:3001/auth/login/"
-              title="Launch Cloud POS terminal on port 3001"
+              href={CLOUD_PORTAL_LOGIN_URL}
+              title="Launch Order It Up Cloud POS"
               className="inline-flex min-h-10 items-center justify-center gap-1.5 whitespace-nowrap rounded-xl border border-orange-200 bg-orange-50/80 px-3.5 py-2 text-sm font-bold text-orange-700 shadow-sm transition hover:bg-orange-100 hover:text-orange-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
             >
               <span className="relative flex h-2 w-2">
@@ -212,7 +215,7 @@ export default function Navbar() {
                         <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                         <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
                       </span>
-                      {link.label} (localhost:3001)
+                      {link.label}
                     </span>
                     <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
                   </a>
@@ -234,7 +237,7 @@ export default function Navbar() {
               )}
               <Link href="/#ui-preview" onClick={() => setMobileMenuOpen(false)} className="rounded-xl px-3 py-3 text-sm font-semibold text-slate-700 transition hover:bg-orange-50 hover:text-orange-700 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500">Explore Demo</Link>
               <a
-                href="http://localhost:3001/auth/login/"
+                href={CLOUD_PORTAL_LOGIN_URL}
                 onClick={() => setMobileMenuOpen(false)}
                 className="flex items-center justify-between rounded-xl border border-orange-200 bg-orange-50 px-3 py-3 text-sm font-bold text-orange-700 transition hover:bg-orange-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-orange-500"
               >
@@ -243,7 +246,7 @@ export default function Navbar() {
                     <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75"></span>
                     <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500"></span>
                   </span>
-                  Cloud POS (localhost:3001)
+                  Cloud POS
                 </span>
                 <ArrowUpRight className="h-4 w-4" aria-hidden="true" />
               </a>

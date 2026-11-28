@@ -31,6 +31,10 @@ jobs:
       CF_PAGES_APP_PROJECT: ${{ vars.CF_PAGES_APP_PROJECT || 'orderitup-app' }}
       LANDING_PUBLIC_URL: ${{ vars.LANDING_PUBLIC_URL || 'https://orderitup.pages.dev' }}
       APP_PUBLIC_URL: ${{ vars.APP_PUBLIC_URL || 'https://orderitup-app.pages.dev' }}
+      NEXT_PUBLIC_OIU_LANDING_URL: ${{ vars.LANDING_PUBLIC_URL || 'https://orderitup.pages.dev' }}
+      NEXT_PUBLIC_OIU_APP_URL: ${{ vars.APP_PUBLIC_URL || 'https://orderitup-app.pages.dev' }}
+      NEXT_PUBLIC_OIU_CLOUD_PORTAL_URL: ${{ vars.APP_PUBLIC_URL || 'https://orderitup-app.pages.dev' }}
+      NEXT_PUBLIC_OIU_PILOT_ACCESS_URL: ${{ vars.LANDING_PUBLIC_URL || 'https://orderitup.pages.dev' }}/request-access/
       NEXT_PUBLIC_OIU_CLOUD_API_URL: ${{ vars.CLOUD_API_URL }}
       NEXT_PUBLIC_OIU_WS_URL: ${{ vars.CLOUD_WS_URL }}
     steps:

@@ -4568,7 +4568,8 @@ export default function CloudPortalPage() {
                 <div className="flex gap-2">
                   <button
                     onClick={() => {
-                      const text = `Branch: ${createdBranchCredentials.branch.name} (${createdBranchCredentials.branch.code})\nEmail: ${createdBranchCredentials.credentials.email}\nPassword: ${createdBranchCredentials.credentials.password}\nPIN: ${createdBranchCredentials.credentials.pin}\nURL: http://localhost:3001/auth/login/`;
+                      const portalBase = (process.env.NEXT_PUBLIC_OIU_APP_URL || 'https://orderitup-app.pages.dev').replace(/\/+$/, '');
+                      const text = `Branch: ${createdBranchCredentials.branch.name} (${createdBranchCredentials.branch.code})\nEmail: ${createdBranchCredentials.credentials.email}\nPassword: ${createdBranchCredentials.credentials.password}\nPIN: ${createdBranchCredentials.credentials.pin}\nURL: ${portalBase}/auth/login/`;
                       navigator.clipboard?.writeText(text);
                       alert('Branch credentials copied to clipboard!');
                     }}
